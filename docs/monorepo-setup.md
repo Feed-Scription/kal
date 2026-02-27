@@ -222,6 +222,16 @@ peer = true
         "types": "./dist/types/index.d.cts",
         "default": "./dist/cjs/index.cjs"
       }
+    },
+    "./flow": {
+      "import": {
+        "types": "./dist/types/flow/index.d.ts",
+        "default": "./dist/esm/flow/index.js"
+      },
+      "require": {
+        "types": "./dist/types/flow/index.d.cts",
+        "default": "./dist/cjs/flow/index.cjs"
+      }
     }
   },
   "sideEffects": false,
@@ -266,7 +276,7 @@ peer = true
 import { defineConfig } from 'tsup'
 
 export default defineConfig({
-  entry: ['src/index.ts'],
+  entry: ['src/index.ts', 'src/flow/index.ts'],
   format: ['esm', 'cjs'],
   dts: true,
   splitting: false,
