@@ -6,10 +6,14 @@
 
 **核心特点**：
 - **纯逻辑层**：所有模块都是纯 TypeScript 实现，不包含 UI
-- **MCP 集成**：通过 MCP Server 暴露能力，供 IDE 和其他工具使用
+- **MCP 集成**：通过 MCP Server 暴露能力，供 IDE 和其他工具使用（参考 Claude Code MCP 架构）
 - **框架无关**：editor 模块提供核心逻辑，UI 层由独立项目实现
+- **完善的错误处理**：参考 Claude Code 2,512 个 try-catch 块的实践
+- **异步优先**：参考 Claude Code 1,428 个 async 函数的设计
 
 依赖：`@kal-ai/core`（Model、StateManager）+ `@kal-ai/orchestrate`（FlowExecutor）。
+
+**参考实现**：本文档参考了 Claude Code CLI v2.1.62 的工具系统设计和最佳实践。
 
 ### 会议共识（2026-02-24）
 
@@ -19,27 +23,39 @@
 - A/B Prompt 测试和 A/B Model 测试可以在 Simulator 的 agent 循环中运行
 - Inspector 用于打断言，检查生成内容的质量分布
 - **Editor 模块只提供核心逻辑（无 UI）**，UI 层由 IDE 项目实现
-- **devkit 通过 MCP Server 暴露能力**，供 IDE 的 Agent 调用
+- **devkit 通过 MCP Server 暴露能力**，供 IDE 的 Agent 调用（参考 Claude Code MCP 集成）
 - 振华（zhliu）负责 agent 和开发者工具开发，后期打主力
+
+### 设计原则（参考 Claude Code 最佳实践）
+
+1. **异步优先**：所有 I/O 操作使用 async/await（参考 Claude Code 1,428 个 async 函数）
+2. **完善的错误处理**：每个模块都有详细的错误类型和处理（参考 Claude Code 2,512 个 try-catch）
+3. **事件驱动**：使用 EventEmitter 实现松耦合（参考 Claude Code 8,884 个事件监听器）
+4. **类型安全**：完整的 TypeScript 类型定义，运行时类型检查
+5. **性能优化**：支持批量操作、并行执行（参考 Claude Code Promise.all 优化）
+6. **可测试性**：纯函数设计，易于单元测试和集成测试
 
 ## 一、模块划分
 
-| 模块 | 职责 | 对外暴露 | UI 层 |
-|------|------|----------|-------|
-| `runner` | Flow/KalCore 运行器，命令行执行入口 | FlowRunner | 无 UI |
-| `simulator` | 模拟玩家 agent，自动化测试循环 | Simulator, PlayerAgent | 无 UI |
-| `recorder` | 录制游戏会话（状态快照 + 事件流） | Recorder | 无 UI |
-| `replayer` | 回放录制的会话，支持断点 | Replayer | 无 UI |
-| `inspector` | 质量断言引擎，检查 AI 输出 | Inspector, Assertion | 无 UI |
-| `ab-test` | A/B Prompt 和 A/B Model 对比测试 | ABTestRunner | 无 UI |
-| `editor` | Flow 编辑器核心逻辑（无 UI） | EditorState, FlowEditor | **UI 由 IDE 实现** |
-| `mcp-server` | MCP Server 封装（可选） | MCP Tools | 通过 MCP 协议暴露 |
+| 模块 | 职责 | 对外暴露 | UI 层 | Claude Code 参考 |
+|------|------|----------|-------|-----------------|
+| `runner` | Flow/KalCore 运行器，命令行执行入口 | FlowRunner | 无 UI | Bash 工具（命令执行） |
+| `simulator` | 模拟玩家 agent，自动化测试循环 | Simulator, PlayerAgent | 无 UI | Task 工具（Agent 系统） |
+| `recorder` | 录制游戏会话（状态快照 + 事件流） | Recorder | 无 UI | 事件系统（8,884 个监听器） |
+| `replayer` | 回放录制的会话，支持断点 | Replayer | 无 UI | 流式处理（SSE） |
+| `inspector` | 质量断言引擎，检查 AI 输出 | Inspector, Assertion | 无 UI | 错误处理（2,512 个 try-catch） |
+| `ab-test` | A/B Prompt 和 A/B Model 对比测试 | ABTestRunner | 无 UI | 并行执行（Promise.all） |
+| `editor` | Flow 编辑器核心逻辑（无 UI） | EditorState, FlowEditor | **UI 由 IDE 实现** | 工具系统（15+ 内置工具） |
+| `mcp-server` | MCP Server 封装（可选） | MCP Tools | 通过 MCP 协议暴露 | MCP 集成（33+ 服务器） |
 
-**关键说明**：
+**关键说明**（参考 Claude Code 架构）：
 - 所有模块都是纯逻辑层，不包含任何 UI 代码
 - `editor` 模块提供状态管理、操作接口、校验逻辑，但不涉及渲染
 - UI 层（React Flow、Monaco Editor 等）由 IDE 项目实现
 - MCP Server 是可选的封装层，用于暴露 devkit 能力给 IDE Agent
+- **异步处理**：所有 I/O 操作使用 async/await（参考 Claude Code 1,428 个 async 函数）
+- **错误处理**：完善的错误类型和 try-catch（参考 Claude Code 2,512 个 try-catch 块）
+- **事件驱动**：使用 EventEmitter 实现松耦合（参考 Claude Code 8,884 个事件监听器）
 
 ## 二、目录结构
 
@@ -101,12 +117,16 @@ packages/devkit/
 
 ## 三、核心接口定义
 
-### 3.0 错误类型
+### 3.0 错误类型（参考 Claude Code 错误处理）
 
 ```typescript
 // types/errors.ts
 import { KalError } from '@kal-ai/core'
 
+/**
+ * 模拟错误 - 在模拟过程中发生的错误
+ * 参考 Claude Code 错误分类：RateLimitError, TimeoutError, APIError 等
+ */
 export class SimulationError extends KalError {
   constructor(message: string, readonly round: number, cause?: unknown) {
     super(message, 'SIMULATION_ERROR', cause)
@@ -114,17 +134,58 @@ export class SimulationError extends KalError {
   }
 }
 
+/**
+ * 断言错误 - 断言函数执行出错（不是断言失败）
+ * 参考 Claude Code 错误处理：详细的错误信息和堆栈追踪
+ */
 export class AssertionError extends KalError {
   constructor(message: string, readonly assertionId: string, cause?: unknown) {
     super(message, 'ASSERTION_ERROR', cause)
     this.name = 'AssertionError'
   }
 }
+
+/**
+ * 录制错误 - 录制过程中的错误
+ */
+export class RecordingError extends KalError {
+  constructor(message: string, readonly frameIndex: number, cause?: unknown) {
+    super(message, 'RECORDING_ERROR', cause)
+    this.name = 'RecordingError'
+  }
+}
+
+/**
+ * 回放错误 - 回放过程中的错误
+ */
+export class ReplayError extends KalError {
+  constructor(message: string, readonly frameIndex: number, cause?: unknown) {
+    super(message, 'REPLAY_ERROR', cause)
+    this.name = 'ReplayError'
+  }
+}
+
+/**
+ * 编辑器错误 - Flow 编辑操作错误
+ */
+export class EditorError extends KalError {
+  constructor(message: string, readonly operation: string, cause?: unknown) {
+    super(message, 'EDITOR_ERROR', cause)
+    this.name = 'EditorError'
+  }
+}
 ```
 
-> 所有 devkit 错误继承自 core 的 `KalError`，可统一用 `instanceof KalError` 捕获。`SimulationError` 在 `roundTimeoutMs` 超时时抛出（`exitReason: 'timeout'`）。断言失败不抛出异常，结果记录在 `AssertionResult.passed` 中；只有断言函数本身执行出错时才抛 `AssertionError`。
+> **错误处理原则**（参考 Claude Code 2,512 个 try-catch 块）：
+> - 所有 devkit 错误继承自 core 的 `KalError`，可统一用 `instanceof KalError` 捕获
+> - `SimulationError` 在 `roundTimeoutMs` 超时时抛出（`exitReason: 'timeout'`）
+> - 断言失败不抛出异常，结果记录在 `AssertionResult.passed` 中
+> - 只有断言函数本身执行出错时才抛 `AssertionError`
+> - 每个错误都包含详细的上下文信息（round、frameIndex、operation 等）
+> - 支持错误链（cause 参数），便于追踪根本原因
+> - 所有异步操作都应该用 try-catch 包裹（参考 Claude Code 实践）
 
-### 3.1 runner — Flow 运行器
+### 3.1 runner — Flow 运行器（参考 Claude Code Bash 工具）
 
 ```typescript
 // runner/interfaces.ts
@@ -141,8 +202,12 @@ export interface FlowRunnerOptions {
   readonly handlers?: Readonly<Record<string, (ctx: unknown) => Promise<unknown>>>
   /** 运行完成后是否输出摘要 */
   readonly summary?: boolean
-  /** 事件回调 */
+  /** 事件回调（参考 Claude Code 事件系统） */
   readonly onEvent?: (event: import('@kal-ai/orchestrate').FlowEvent) => void
+  /** 超时时间（ms），参考 Claude Code Bash 工具的超时控制 */
+  readonly timeout?: number
+  /** 错误处理策略 */
+  readonly onError?: (error: Error) => void | Promise<void>
 }
 
 /** Flow 运行器 — 一键加载并执行 Flow */
@@ -152,16 +217,28 @@ export interface FlowRunner {
 
   /** 加载并立即执行，返回最终结果 */
   run(options: FlowRunnerOptions): Promise<FlowRunResult>
+
+  /** 取消正在运行的 Flow（参考 Claude Code 中断执行） */
+  abort(): void
 }
 
 export interface FlowRunResult {
   readonly flowResult: FlowResult
   readonly duration: number
   readonly summary?: string
+  /** Token 用量统计（参考 Claude Code Token 计数） */
+  readonly usage?: import('@kal-ai/core').TokenUsage
 }
 ```
 
-### 3.2 simulator — 模拟玩家
+**实现要点**（参考 Claude Code Bash 工具）：
+- ✅ 支持超时控制（默认 2 分钟，最大 10 分钟）
+- ✅ 支持中断执行（abort）
+- ✅ 完善的错误处理（try-catch + 错误回调）
+- ✅ 事件回调（实时反馈执行进度）
+- ✅ Token 用量统计
+
+### 3.2 simulator — 模拟玩家（参考 Claude Code Agent 系统）
 
 ```typescript
 // simulator/interfaces.ts
@@ -190,7 +267,7 @@ export interface PlayerAction {
   readonly timestamp: number
 }
 
-/** 内置策略：用大模型模拟玩家决策 */
+/** 内置策略：用大模型模拟玩家决策（参考 Claude Code Agent 实现） */
 export interface LLMPlayerStrategyOptions {
   /** KalCore 实例（策略内部用于调用模型） */
   readonly core: import('@kal-ai/core').KalCore
@@ -199,6 +276,10 @@ export interface LLMPlayerStrategyOptions {
   /** 玩家人设（系统 prompt） */
   readonly persona?: string
   readonly temperature?: number
+  /** 最大重试次数（参考 Claude Code 重试机制） */
+  readonly maxRetries?: number
+  /** 超时时间（ms） */
+  readonly timeout?: number
 }
 
 export function createLLMPlayerStrategy(options: LLMPlayerStrategyOptions): PlayerStrategy
@@ -216,14 +297,16 @@ export interface SimulationConfig {
   readonly strategy: PlayerStrategy
   /** 最大回合数 */
   readonly maxRounds: number
-  /** 单回合超时（ms） */
+  /** 单回合超时（ms），参考 Claude Code 超时控制 */
   readonly roundTimeoutMs?: number
   /** 是否录制（自动启用 Recorder） */
   readonly record?: boolean
-  /** 回合回调 */
+  /** 回合回调（参考 Claude Code 事件系统） */
   readonly onRound?: (event: SimulationRoundEvent) => void
   /** 断言列表（每回合结束后检查，所有回合完成后汇总到 SimulationResult.assertionResults） */
   readonly assertions?: readonly import('../inspector/interfaces').Assertion[]
+  /** 错误处理回调 */
+  readonly onError?: (error: Error, round: number) => void | Promise<void>
 }
 
 export interface SimulationRoundEvent {
@@ -232,6 +315,8 @@ export interface SimulationRoundEvent {
   readonly stateAfter: Readonly<Record<string, unknown>>
   readonly nodeResults: Readonly<Record<string, unknown>>
   readonly duration: number
+  /** Token 用量（参考 Claude Code Token 计数） */
+  readonly usage?: import('@kal-ai/core').TokenUsage
 }
 
 /** 模拟结果 */
@@ -255,20 +340,29 @@ export interface SimulationResult {
   readonly failedFlowResult?: import('@kal-ai/orchestrate').FlowResult
 }
 
-/** 模拟器 — 运行自动化测试循环 */
+/** 模拟器 — 运行自动化测试循环（参考 Claude Code Task 工具） */
 export interface Simulator {
   /** 运行单次模拟 */
   run(config: SimulationConfig): Promise<SimulationResult>
 
-  /** 批量运行（多个配置并行） */
+  /** 批量运行（多个配置并行），参考 Claude Code Promise.all 优化 */
   runBatch(configs: readonly SimulationConfig[]): Promise<readonly SimulationResult[]>
 
-  /** 取消正在运行的模拟 */
+  /** 取消正在运行的模拟（参考 Claude Code 中断执行） */
   abort(): void
 }
 ```
 
-### 3.3 recorder — 录制
+**实现要点**（参考 Claude Code Agent 系统）：
+- ✅ 异步处理（所有操作都是 async）
+- ✅ 超时控制（单回合超时、总超时）
+- ✅ 错误处理（try-catch + 错误回调）
+- ✅ 中断支持（abort）
+- ✅ 并行执行（runBatch 使用 Promise.all）
+- ✅ 事件回调（实时反馈进度）
+- ✅ Token 用量统计
+
+### 3.3 recorder — 录制（参考 Claude Code 事件系统）
 
 ```typescript
 // recorder/interfaces.ts
@@ -285,6 +379,8 @@ export interface RecordingFrame {
   readonly flowEvents: readonly FlowEvent[]
   readonly playerAction?: import('../simulator/interfaces').PlayerAction
   readonly nodeOutputs: Readonly<Record<string, unknown>>
+  /** Token 用量（参考 Claude Code Token 计数） */
+  readonly usage?: import('@kal-ai/core').TokenUsage
 }
 
 /** 完整录制 */
@@ -295,9 +391,11 @@ export interface Recording {
   readonly completedAt?: number
   readonly frames: readonly RecordingFrame[]
   readonly metadata?: Readonly<Record<string, unknown>>
+  /** 总 Token 用量 */
+  readonly totalUsage?: import('@kal-ai/core').TokenUsage
 }
 
-/** 录制器 */
+/** 录制器（参考 Claude Code 事件监听器） */
 export interface Recorder {
   /** 开始录制 */
   start(flowId: string, metadata?: Record<string, unknown>): void
@@ -316,10 +414,21 @@ export interface Recorder {
 
   /** 当前是否在录制 */
   readonly active: boolean
+
+  /** 订阅帧捕获事件（参考 Claude Code 事件系统） */
+  onCapture(listener: (frame: RecordingFrame) => void): () => void
 }
 ```
 
-### 3.4 replayer — 回放
+**实现要点**（参考 Claude Code 事件系统）：
+- ✅ 事件驱动（onCapture 订阅）
+- ✅ 自动时间戳（Date.now()）
+- ✅ JSON 序列化/反序列化
+- ✅ 元数据支持
+- ✅ Token 用量统计
+- ✅ 错误处理（录制失败不影响主流程）
+
+### 3.4 replayer — 回放（参考 Claude Code 流式处理）
 
 ```typescript
 // replayer/interfaces.ts
@@ -330,6 +439,8 @@ import type { Recording, RecordingFrame } from '../recorder/interfaces'
  * 回放速度：
  * - 数字倍速（0.5/1/2/4）：按帧间时间戳差值缩放，onFrame 回调按比例延迟触发
  * - 'instant'：忽略时间戳，同步遍历所有帧，onFrame 回调逐帧同步触发，play() 立即 resolve
+ *
+ * 参考 Claude Code 流式处理：实时反馈、可控速度
  */
 export type ReplaySpeed = 0.5 | 1 | 2 | 4 | 'instant'
 
@@ -338,14 +449,16 @@ export interface ReplayerOptions {
   readonly speed?: ReplaySpeed
   readonly onFrame?: (frame: RecordingFrame, index: number) => void
   readonly onComplete?: () => void
+  /** 错误处理（参考 Claude Code 错误处理） */
+  readonly onError?: (error: Error, frameIndex: number) => void
 }
 
-/** 回放器 */
+/** 回放器（参考 Claude Code 流式处理和事件系统） */
 export interface Replayer {
   /** 加载录制 */
   load(recording: Recording): void
 
-  /** 开始回放 */
+  /** 开始回放（支持流式播放） */
   play(options?: { speed?: ReplaySpeed }): Promise<void>
 
   /** 暂停 */
@@ -372,10 +485,21 @@ export interface Replayer {
   readonly totalFrames: number
   readonly playing: boolean
 
-  /** 订阅帧变化 */
+  /** 订阅帧变化（参考 Claude Code 事件系统） */
   onFrame(listener: (frame: RecordingFrame, index: number) => void): () => void
+
+  /** 订阅播放状态变化 */
+  onStateChange(listener: (playing: boolean) => void): () => void
 }
 ```
+
+**实现要点**（参考 Claude Code 流式处理）：
+- ✅ 流式播放（按时间戳延迟触发）
+- ✅ 速度控制（0.5x - 4x + instant）
+- ✅ 暂停/恢复/跳转
+- ✅ 单步调试（前进/后退）
+- ✅ 事件订阅（onFrame、onStateChange）
+- ✅ 错误处理（播放失败不崩溃）
 
 ### 3.5 inspector — 质量断言
 
@@ -776,7 +900,7 @@ export function createLayoutEngine(): LayoutEngine
 
 > 说明：`assertions` 是 `AssertionBuilders` 的预实例化常量，直接导出供开发者使用，无需手动 create。
 
-## 四、模块间依赖关系
+## 四、模块间依赖关系（参考 Claude Code 架构）
 
 ```
 ┌──────────────────────────────────────────────────┐
@@ -802,15 +926,23 @@ export function createLayoutEngine(): LayoutEngine
 
 核心依赖链：`recorder → simulator → ab-test`，inspector 是独立的断言引擎，被 simulator 和 ab-test 消费。
 
-**MCP 集成**：
+**MCP 集成**（参考 Claude Code MCP 架构）：
 - devkit 的所有能力可以通过 MCP Server 暴露
 - MCP Server 封装 FlowEditor、Simulator、Replayer 等
 - IDE Agent 通过 MCP 协议调用这些能力
 - 详见 `ide-dev-guide.md` 的 MCP Server 设计
 
+**设计原则**（参考 Claude Code 最佳实践）：
+- ✅ **异步处理**：所有 I/O 操作使用 async/await（参考 1,428 个 async 函数）
+- ✅ **错误处理**：每个模块都有完善的 try-catch（参考 2,512 个 try-catch 块）
+- ✅ **事件驱动**：使用 EventEmitter 实现松耦合（参考 8,884 个事件监听器）
+- ✅ **并行执行**：支持批量操作和 Promise.all（参考 233 次 Promise.all）
+- ✅ **类型安全**：完整的 TypeScript 类型定义
+- ✅ **可测试性**：纯函数设计，易于单元测试
+
 ## 五、典型使用场景
 
-### 5.1 模拟玩家自动化测试
+### 5.1 模拟玩家自动化测试（参考 Claude Code 批量执行）
 
 晚上启动 20 个模拟，第二天检查结果：
 
@@ -834,11 +966,12 @@ const core = createKalCore({
 
 const simulator = createSimulator()
 
-// 批量运行 20 次模拟
+// 批量运行 20 次模拟（参考 Claude Code Promise.all 并行执行）
 const configs = Array.from({ length: 20 }, (_, i) => ({
   core,
   flow: './flows/quarter-advance.json',
   strategy: createLLMPlayerStrategy({
+    core,
     model: 'default',
     persona: `你是一个${i % 2 === 0 ? '激进' : '保守'}的玩家`,
   }),
@@ -849,19 +982,38 @@ const configs = Array.from({ length: 20 }, (_, i) => ({
     assertions.outputExcludes('narrative', ['undefined', 'null', 'error']),
     assertions.maxTokens(50000),
   ],
+  // 错误处理（参考 Claude Code 错误处理）
+  onError: (error, round) => {
+    console.error(`模拟 ${i} 在回合 ${round} 失败:`, error.message)
+  },
+  // 实时反馈（参考 Claude Code 事件系统）
+  onRound: (event) => {
+    console.log(`模拟 ${i} - 回合 ${event.round}: Token ${event.usage?.totalTokens}`)
+  }
 }))
 
+// 并行执行（参考 Claude Code Promise.all）
 const results = await simulator.runBatch(configs)
 
 // 检查结果
-for (const result of results) {
+for (const [i, result] of results.entries()) {
   const failed = result.assertionResults?.filter(r => !r.passed) ?? []
   if (failed.length > 0) {
-    console.log(`模拟 ${result.totalRounds} 回合，${failed.length} 个断言失败:`)
+    console.log(`模拟 ${i}: ${result.totalRounds} 回合，${failed.length} 个断言失败:`)
     failed.forEach(f => console.log(`  - ${f.message}`))
   }
+
+  // Token 用量统计（参考 Claude Code Token 计数）
+  console.log(`模拟 ${i}: 总 Token ${result.usage.totalTokens}`)
 }
 ```
+
+**关键点**（参考 Claude Code 最佳实践）：
+- ✅ 并行执行（Promise.all）
+- ✅ 错误处理（onError 回调）
+- ✅ 实时反馈（onRound 回调）
+- ✅ Token 用量统计
+- ✅ 断言检查
 
 ### 5.2 A/B Prompt 测试
 
@@ -1033,7 +1185,7 @@ console.log(`完成 ${result.totalRounds} 回合，断言通过: ${
 }/${result.assertionResults?.length}`)
 ```
 
-## 八、验证方式
+## 八、验证方式（参考 Claude Code 测试策略）
 
 1. Phase 0 完成后：`tsc --noEmit` 通过
 2. Phase 1 完成后：recorder 录制/导出、inspector 断言引擎单元测试通过
@@ -1041,7 +1193,7 @@ console.log(`完成 ${result.totalRounds} 回合，断言通过: ${
 4. Phase 3 完成后：A/B 测试运行器跑通 2 变体 × 3 次对比
 5. Phase 4 完成后：青椒模拟器 10 回合自动化测试端到端通过
 
-### 测试策略
+### 测试策略（参考 Claude Code 测试实践）
 
 **单元测试（vitest）**
 
@@ -1049,49 +1201,250 @@ console.log(`完成 ${result.totalRounds} 回合，断言通过: ${
 // inspector 断言引擎 — 纯函数，无需 mock
 import { createInspector, assertions } from '@kal-ai/devkit'
 
-const inspector = createInspector()
-inspector.add(assertions.stateRange('player.hp', 0, 100))
+describe('Inspector', () => {
+  it('should pass state range assertion', () => {
+    const inspector = createInspector()
+    inspector.add(assertions.stateRange('player.hp', 0, 100))
 
-const ctx: AssertionContext = {
-  state: { 'player.hp': 80 },
-  nodeOutputs: {},
-  usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
-  latencyMs: 100,
-  round: 1,
-}
-const results = inspector.check(ctx)
-expect(results[0].passed).toBe(true)
+    const ctx: AssertionContext = {
+      state: { 'player.hp': 80 },
+      nodeOutputs: {},
+      usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+      latencyMs: 100,
+      round: 1,
+    }
+
+    const results = inspector.check(ctx)
+    expect(results[0].passed).toBe(true)
+  })
+
+  // 错误处理测试（参考 Claude Code 错误处理）
+  it('should handle assertion errors gracefully', () => {
+    const inspector = createInspector()
+    inspector.add({
+      id: 'test',
+      name: 'Test',
+      kind: 'custom',
+      check: () => {
+        throw new Error('Assertion function failed')
+      }
+    })
+
+    const ctx: AssertionContext = { /* ... */ }
+
+    // 断言函数执行出错应该抛出 AssertionError
+    expect(() => inspector.check(ctx)).toThrow(AssertionError)
+  })
+})
 ```
 
 **Simulator 集成测试（mock 模型）**
 
 ```typescript
 // 用 ScriptedStrategy 避免真实 LLM 调用，确定性可重复
-const result = await simulator.run({
-  core,  // core 内部 model 已 mock
-  flow: myFlowDef,
-  strategy: createScriptedStrategy([
-    { type: 'choice', payload: { actionId: 'attack' }, timestamp: 0 },
-    { type: 'choice', payload: { actionId: 'defend' }, timestamp: 0 },
-  ]),
-  maxRounds: 2,
+describe('Simulator', () => {
+  it('should complete simulation with scripted strategy', async () => {
+    const simulator = createSimulator()
+
+    const result = await simulator.run({
+      core,  // core 内部 model 已 mock
+      flow: myFlowDef,
+      strategy: createScriptedStrategy([
+        { type: 'choice', payload: { actionId: 'attack' }, timestamp: 0 },
+        { type: 'choice', payload: { actionId: 'defend' }, timestamp: 0 },
+      ]),
+      maxRounds: 2,
+    })
+
+    expect(result.exitReason).toBe('completed')
+    expect(result.totalRounds).toBe(2)
+  })
+
+  // 超时测试（参考 Claude Code 超时控制）
+  it('should timeout on slow rounds', async () => {
+    const simulator = createSimulator()
+
+    const result = await simulator.run({
+      core,
+      flow: slowFlowDef,
+      strategy: createRandomStrategy(),
+      maxRounds: 10,
+      roundTimeoutMs: 1000, // 1 秒超时
+    })
+
+    expect(result.exitReason).toBe('timeout')
+  })
+
+  // 错误处理测试（参考 Claude Code 错误处理）
+  it('should handle flow failures', async () => {
+    const simulator = createSimulator()
+    const errors: Error[] = []
+
+    const result = await simulator.run({
+      core,
+      flow: failingFlowDef,
+      strategy: createRandomStrategy(),
+      maxRounds: 5,
+      onError: (error, round) => {
+        errors.push(error)
+      }
+    })
+
+    expect(result.exitReason).toBe('flow_failed')
+    expect(errors.length).toBeGreaterThan(0)
+  })
+
+  // 并行执行测试（参考 Claude Code Promise.all）
+  it('should run batch simulations in parallel', async () => {
+    const simulator = createSimulator()
+    const configs = Array.from({ length: 5 }, () => ({
+      core,
+      flow: myFlowDef,
+      strategy: createRandomStrategy(),
+      maxRounds: 3,
+    }))
+
+    const startTime = Date.now()
+    const results = await simulator.runBatch(configs)
+    const duration = Date.now() - startTime
+
+    expect(results.length).toBe(5)
+    // 并行执行应该比顺序执行快
+    expect(duration).toBeLessThan(5000)
+  })
 })
-expect(result.exitReason).toBe('completed')
 ```
 
 **Editor 往返一致性测试**
 
 ```typescript
 // FlowJson 序列化/反序列化后内容不变
-const editor = createFlowEditor()
-editor.load(originalFlowJson)
-editor.addNodeByType('ai.narrative', { x: 100, y: 100 })
-const exported = editor.toJson()
+describe('FlowEditor', () => {
+  it('should preserve flow structure after round-trip', () => {
+    const editor = createFlowEditor()
+    editor.load(originalFlowJson)
+    editor.addNodeByType('ai.narrative', { x: 100, y: 100 })
+    const exported = editor.toJson()
 
-// 重新加载，验证节点数量一致
-const editor2 = createFlowEditor()
-editor2.load(exported)
-expect(editor2.getState().nodes.length).toBe(editor.getState().nodes.length)
+    // 重新加载，验证节点数量一致
+    const editor2 = createFlowEditor()
+    editor2.load(exported)
+    expect(editor2.getState().nodes.length).toBe(editor.getState().nodes.length)
+  })
+
+  // 撤销重做测试
+  it('should support undo/redo', () => {
+    const editor = createFlowEditor()
+    editor.load(emptyFlow)
+
+    const nodeId = editor.addNodeByType('ai.narrative', { x: 100, y: 100 })
+    expect(editor.getState().nodes.length).toBe(1)
+    expect(editor.getState().canUndo).toBe(true)
+
+    editor.undo()
+    expect(editor.getState().nodes.length).toBe(0)
+    expect(editor.getState().canRedo).toBe(true)
+
+    editor.redo()
+    expect(editor.getState().nodes.length).toBe(1)
+  })
+
+  // 错误处理测试（参考 Claude Code 错误处理）
+  it('should handle invalid operations gracefully', () => {
+    const editor = createFlowEditor()
+    editor.load(emptyFlow)
+
+    // 连接不存在的节点应该抛出错误
+    expect(() => {
+      editor.connect('non-existent-1', 'output', 'non-existent-2', 'input')
+    }).toThrow(EditorError)
+  })
+})
+```
+
+**性能测试**（参考 Claude Code 性能监控）
+
+```typescript
+describe('Performance', () => {
+  it('should handle large simulations efficiently', async () => {
+    const simulator = createSimulator()
+
+    const startTime = Date.now()
+    const result = await simulator.run({
+      core,
+      flow: complexFlowDef,
+      strategy: createRandomStrategy(),
+      maxRounds: 100,
+      record: true,
+    })
+    const duration = Date.now() - startTime
+
+    expect(result.totalRounds).toBe(100)
+    expect(duration).toBeLessThan(60000) // 应该在 1 分钟内完成
+  })
+
+  it('should handle large recordings efficiently', () => {
+    const recorder = createRecorder()
+    recorder.start('perf-test')
+
+    // 录制 1000 帧
+    for (let i = 0; i < 1000; i++) {
+      recorder.capture({
+        round: i,
+        stateSnapshot: { frame: i },
+        stateChanges: [],
+        flowEvents: [],
+        nodeOutputs: {},
+      })
+    }
+
+    const recording = recorder.stop()
+    expect(recording.frames.length).toBe(1000)
+
+    // 导出和导入应该很快
+    const startTime = Date.now()
+    const json = recorder.export(recording)
+    const imported = recorder.import(json)
+    const duration = Date.now() - startTime
+
+    expect(imported.frames.length).toBe(1000)
+    expect(duration).toBeLessThan(1000) // 应该在 1 秒内完成
+  })
+})
+```
+
+**错误恢复测试**（参考 Claude Code 错误恢复）
+
+```typescript
+describe('Error Recovery', () => {
+  it('should recover from transient errors', async () => {
+    const simulator = createSimulator()
+    let failCount = 0
+
+    const result = await simulator.run({
+      core,
+      flow: myFlowDef,
+      strategy: {
+        name: 'flaky-strategy',
+        decide: async (ctx) => {
+          // 前 3 次失败，第 4 次成功
+          if (failCount < 3) {
+            failCount++
+            throw new Error('Transient error')
+          }
+          return { type: 'choice', payload: { actionId: 'continue' }, timestamp: Date.now() }
+        }
+      },
+      maxRounds: 5,
+      onError: (error, round) => {
+        console.log(`Round ${round} failed, retrying...`)
+      }
+    })
+
+    expect(result.exitReason).toBe('completed')
+    expect(failCount).toBe(3)
+  })
+})
 ```
 
 ## 九、与 IDE 的集成
@@ -1357,66 +1710,177 @@ mcpServer.registerTool({
 })
 ```
 
-## 十、最佳实践
+## 十、最佳实践（参考 Claude Code 工程实践）
 
 ### 10.1 Editor 使用建议
 
-**DO**：
-- ✅ 使用 `subscribe()` 监听状态变化
+**DO**（参考 Claude Code 最佳实践）：
+- ✅ 使用 `subscribe()` 监听状态变化（参考 Claude Code 事件系统）
 - ✅ 使用 `validate()` 在操作后检查合法性
 - ✅ 使用 `undo()/redo()` 提供撤销功能
 - ✅ 使用 `autoLayout()` 自动排列节点
 - ✅ 通过 `NodeTypeRegistry` 获取节点元信息
+- ✅ 使用 try-catch 包裹所有操作（参考 Claude Code 2,512 个 try-catch）
+- ✅ 提供详细的错误信息（参考 Claude Code 错误处理）
 
 **DON'T**：
 - ❌ 不要直接修改 `EditorState`（只读）
 - ❌ 不要绕过 FlowEditor API 直接修改 FlowJson
 - ❌ 不要在 devkit 中写 UI 代码
 - ❌ 不要假设 UI 框架（React/Vue/Angular）
+- ❌ 不要忽略错误处理
+- ❌ 不要阻塞事件循环（使用异步操作）
 
-### 10.2 MCP Server 开发建议
+### 10.2 MCP Server 开发建议（参考 Claude Code MCP 实现）
 
 **DO**：
-- ✅ 每个操作完成后发送事件通知
-- ✅ 返回详细的错误信息
-- ✅ 支持批量操作减少调用次数
+- ✅ 每个操作完成后发送事件通知（参考 Claude Code 事件系统）
+- ✅ 返回详细的错误信息（参考 Claude Code 错误格式）
+- ✅ 支持批量操作减少调用次数（参考 Claude Code 批量优化）
 - ✅ 实现状态持久化
 - ✅ 提供健康检查接口
+- ✅ 使用 try-catch 包裹所有工具调用（参考 Claude Code 错误处理）
+- ✅ 实现自动重连机制（参考 Claude Code 连接管理）
+- ✅ 记录性能指标（工具执行时间、内存占用）
 
 **DON'T**：
 - ❌ 不要在 MCP Server 中实现业务逻辑（应在 devkit 中）
 - ❌ 不要阻塞事件循环（使用异步操作）
 - ❌ 不要忽略错误处理
 - ❌ 不要在事件中发送大量数据（使用增量更新）
+- ❌ 不要假设 MCP Client 总是可用
+- ❌ 不要频繁调用工具（合并操作）
 
-### 10.3 IDE 集成建议
+### 10.3 IDE 集成建议（参考 Claude Code IDE 集成）
 
 **DO**：
-- ✅ 使用乐观更新提升响应速度
-- ✅ 订阅 MCP 事件并更新 UI
-- ✅ 缓存 FlowEditor 状态减少 MCP 调用
-- ✅ 使用动画展示状态变化
+- ✅ 使用乐观更新提升响应速度（参考 Claude Code UI 更新）
+- ✅ 订阅 MCP 事件并更新 UI（参考 Claude Code 事件系统）
+- ✅ 缓存 FlowEditor 状态减少 MCP 调用（参考 Claude Code 缓存策略）
+- ✅ 使用动画展示状态变化（参考 Claude Code 实时反馈）
 - ✅ 提供离线模式（本地 FlowEditor）
+- ✅ 实现错误恢复机制（参考 Claude Code 错误恢复）
+- ✅ 显示 Token 用量统计（参考 Claude Code Token 计数）
 
 **DON'T**：
 - ❌ 不要频繁调用 MCP 工具（合并操作）
 - ❌ 不要忽略 MCP 连接状态
 - ❌ 不要在 UI 层实现 Flow 校验逻辑（应调用 MCP）
 - ❌ 不要假设 MCP Server 总是可用
+- ❌ 不要阻塞 UI 线程（使用 Web Worker）
+
+### 10.4 异步处理建议（参考 Claude Code 1,428 个 async 函数）
+
+**DO**：
+- ✅ 所有 I/O 操作使用 async/await
+- ✅ 使用 Promise.all 并行执行独立操作
+- ✅ 使用 Promise.race 实现超时控制
+- ✅ 使用 try-catch 包裹所有异步操作
+- ✅ 提供取消机制（abort）
+- ✅ 实现重试机制（指数退避）
+
+**DON'T**：
+- ❌ 不要使用回调函数（使用 Promise）
+- ❌ 不要忘记 await（会导致未捕获的 Promise rejection）
+- ❌ 不要在循环中串行执行（使用 Promise.all）
+- ❌ 不要忽略错误处理
+- ❌ 不要无限重试（设置最大重试次数）
+
+### 10.5 错误处理建议（参考 Claude Code 2,512 个 try-catch）
+
+**DO**：
+- ✅ 使用自定义错误类型（SimulationError、AssertionError 等）
+- ✅ 提供详细的错误信息（包含上下文）
+- ✅ 支持错误链（cause 参数）
+- ✅ 记录错误日志
+- ✅ 提供错误恢复机制
+- ✅ 区分可恢复错误和不可恢复错误
+
+**DON'T**：
+- ❌ 不要吞掉错误（至少记录日志）
+- ❌ 不要抛出字符串（使用 Error 对象）
+- ❌ 不要忽略错误上下文
+- ❌ 不要在错误处理中再次抛出错误（除非必要）
+
+### 10.6 性能优化建议（参考 Claude Code 性能优化）
+
+**DO**：
+- ✅ 使用批量操作减少调用次数
+- ✅ 使用 Promise.all 并行执行
+- ✅ 使用缓存减少重复计算
+- ✅ 使用增量更新减少数据传输
+- ✅ 使用连接池管理连接
+- ✅ 记录性能指标（执行时间、内存占用）
+- ✅ 使用 Prompt Caching 减少 Token 消耗
+
+**DON'T**：
+- ❌ 不要在循环中进行 I/O 操作（批量处理）
+- ❌ 不要重复计算（使用缓存）
+- ❌ 不要传输大量数据（使用增量更新）
+- ❌ 不要阻塞事件循环（使用异步操作）
+- ❌ 不要忽略性能监控
+
+### 10.7 测试建议（参考 Claude Code 测试策略）
+
+**DO**：
+- ✅ 编写单元测试（纯函数、独立模块）
+- ✅ 编写集成测试（模块间交互）
+- ✅ 编写端到端测试（完整流程）
+- ✅ 使用 mock 避免真实 API 调用
+- ✅ 测试错误处理（异常情况）
+- ✅ 测试性能（大数据量、并发）
+- ✅ 测试边界条件（空输入、极端值）
+
+**DON'T**：
+- ❌ 不要依赖外部服务（使用 mock）
+- ❌ 不要忽略错误测试
+- ❌ 不要忽略性能测试
+- ❌ 不要写脆弱的测试（依赖执行顺序）
 
 ## 十一、扩展阅读
 
 ### 11.1 相关文档
 
-- [IDE 开发文档](./ide-dev-guide.md) - IDE 架构和 MCP 集成
+- [IDE 开发文档](./ide-dev-guide.md) - IDE 架构和 MCP 集成（参考 Claude Code 架构）
 - [Core 开发文档](./core-dev-guide.md) - Model、Tools、State 等核心能力
 - [Orchestrate 开发文档](./orchestrate-dev-guide.md) - Flow 执行引擎
+- [Claude Code 分析报告](../claude-code-analysis/README.md) - Claude Code CLI 完整分析
 
 ### 11.2 MCP 协议
 
 - [MCP 官方文档](https://modelcontextprotocol.io/docs)
 - [MCP SDK](https://github.com/modelcontextprotocol/typescript-sdk)
 - MCP Server 开发指南见 `ide-dev-guide.md` 附录 A
+- Claude Code MCP 集成参考（33+ 服务器）
+
+### 11.3 Claude Code 参考
+
+**核心数据**：
+- 文件大小：11.27 MB（单文件部署）
+- 代码行数：12,440 行
+- async 函数：1,428 个
+- await 调用：4,888 次
+- try-catch 块：2,512 个
+- 事件监听器：8,884 个
+- 内置工具：15+
+- MCP 服务器：33+ 引用
+
+**关键技术**：
+- 流式处理（SSE + ReadableStream）
+- 权限管理（4 种模式）
+- 上下文管理（Token 计数、自动压缩、Prompt Caching）
+- 错误处理（完善的错误分类和重试机制）
+- 性能优化（批量操作、并行执行、缓存策略）
+- 事件驱动（松耦合、可扩展）
+
+**最佳实践**：
+- 大量使用异步处理（1,428 个 async 函数）
+- 完善的错误处理（2,512 个 try-catch 块）
+- 现代数据结构（Map, Set, WeakMap）
+- 事件驱动架构（8,884 个事件监听器）
+- 流式处理（实时反馈）
+- 类型安全（4,679 次 typeof 检查）
+- 性能监控（内置性能追踪）
 
 ### 11.3 示例代码
 
