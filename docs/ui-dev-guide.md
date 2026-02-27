@@ -1,22 +1,21 @@
-# KAL-AI IDE 开发文档
+# KAL-AI UI 开发文档
 
 ## Context
 
-KAL-AI IDE 是面向 AI 游戏开发的集成开发环境，基于 Web 技术栈构建。核心特点是 **Agent First**：用户通过与 AI Agent 对话来驱动开发，IDE 的可视化界面主要用于展示 Agent 的工作成果。
+KAL-AI UI 是面向 AI 游戏开发的集成开发环境，基于 Web 技术栈构建。核心特点是 **Agent First**：用户通过与 AI Agent 对话来驱动开发，UI 的可视化界面主要用于展示 Agent 的工作成果。
 
 **核心理念**：
 - **Agent 驱动**：对话是主要交互方式，Agent 理解需求并自动操作
-- **实时可视化**：IDE 实时展示 Agent 创建的 Flow、代码、调试信息
-- **能力分离**：Kal 提供核心能力（通过 MCP），IDE 负责可视化和用户交互
+- **实时可视化**：UI 实时展示 Agent 创建的 Flow、代码、调试信息
+- **能力分离**：Kal 提供核心能力（通过 MCP），UI 负责可视化和用户交互
 
-**IDE 与 Kal 的关系**：
-- **IDE 的 Agent 模块用 Kal 实现**：Agent 本身是一个 Kal 应用，使用 `@kal-ai/core` 的 Model、Tools 等能力
+**UI 与 Kal 的关系**：
+- **UI 的 Agent 模块用 Kal 实现**：Agent 本身是一个 Kal 应用，使用 `@kal-ai/core` 的 Model、Tools 等能力
 - **Kal devkit 通过 MCP 提供能力**：FlowEditor、Simulator、Replayer 等作为 MCP Server 暴露给 Agent
 - **Agent 通过 MCP 调用 Kal 能力**：Agent 的工具（如 add_node、run_simulation）实际是 MCP 工具调用
 
 技术栈：React + TypeScript + Monaco Editor + React Flow + Vite + Kal (MCP Server)
 
-**参考实现**：本文档参考了 Claude Code CLI v2.1.62 的架构设计和最佳实践。
 
 ## 一、架构设计
 
@@ -24,7 +23,7 @@ KAL-AI IDE 是面向 AI 游戏开发的集成开发环境，基于 Web 技术栈
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                      KAL-AI IDE (Web)                        │
+│                      KAL-AI UI (Web)                        │
 ├─────────────────────────────────────────────────────────────┤
 │  UI Layer (React)                                            │
 │  ├── Chat Interface (主交互界面 - Agent 对话)                │
@@ -42,7 +41,7 @@ KAL-AI IDE 是面向 AI 游戏开发的集成开发环境，基于 Web 技术栈
 │  ├── State Inspector (状态检查器)                            │
 │  └── Context Panel (项目上下文、文件树)                       │
 ├─────────────────────────────────────────────────────────────┤
-│  Agent Layer (基于 Kal 实现 - 参考 Claude Code)              │
+│  Agent Layer (基于 Kal 实现 -
 │  ├── Kal Agent Core (@kal-ai/core)                          │
 │  │   ├── Model (Claude API + Streaming)                     │
 │  │   ├── Tools (MCP Client)                                 │
@@ -84,21 +83,21 @@ KAL-AI IDE 是面向 AI 游戏开发的集成开发环境，基于 Web 技术栈
 └─────────────────────────────────────────────────────────────┘
 ```
 
-**关键设计点**（参考 Claude Code 架构）：
+**关键设计点**：
 
 1. **Agent 基于 Kal 实现**：
    - 使用 `@kal-ai/core` 的 Model 调用 Claude API（支持流式响应）
    - 使用 `@kal-ai/core` 的 Tools 注册和调用 MCP 工具
    - Agent 本质是一个 Kal 应用
-   - 实现类似 Claude Code 的异步处理架构（大量 async/await）
+   - 实现（大量 async/await）
 
 2. **MCP 协议连接**：
    - Kal devkit 作为 MCP Server 运行（stdio 或 SSE 传输）
-   - IDE 的 Agent 作为 MCP Client 连接
+   - UI 的 Agent 作为 MCP Client 连接
    - 所有 Flow 编辑、调试、测试能力通过 MCP 暴露
    - 支持工具注册、事件通知、状态同步
 
-3. **流式架构**（参考 Claude Code SSE 实现）：
+3. **流式架构**：
    - 使用 Server-Sent Events (SSE) 实现实时响应
    - 支持 message_start、content_block_delta、tool_use 等事件
    - 实时显示 Agent 输出，提升用户体验
@@ -109,12 +108,12 @@ KAL-AI IDE 是面向 AI 游戏开发的集成开发环境，基于 Web 技术栈
    - MCP Server → Agent：返回结果、触发事件（通过 MCP notifications）
    - Agent → UI：通过 Event Bus 触发 UI 更新
 
-5. **权限管理**（参考 Claude Code 权限系统）：
+5. **权限管理**：
    - 支持多级权限模式（auto、prompt、allowed-prompts、custom）
    - 工具调用前进行权限检查
    - 用户可配置允许的工具和操作
 
-6. **上下文管理**（参考 Claude Code 优化策略）：
+6. **上下文管理**：
    - Token 计数和监控
    - 自动上下文压缩（接近限制时触发）
    - Prompt Caching 支持（节省成本）
@@ -134,7 +133,7 @@ KAL-AI IDE 是面向 AI 游戏开发的集成开发环境，基于 Web 技术栈
 | `agent-core` | AI Agent 引擎 | @kal-ai/core + MCP Client | Kal Agent 实现 |
 | `mcp-server` | Kal 能力服务 | @kal-ai/devkit (MCP Server) | 提供所有 Flow 操作能力 |
 
-### 1.3 数据流（参考 Claude Code 工作流程）
+### 1.3 数据流
 
 ```
 用户输入
@@ -191,7 +190,7 @@ Flow Canvas / Code Editor / Debugger 更新显示
 
 **功能清单**：
 - 对话历史展示（用户消息、Agent 响应、工具调用）
-- 流式响应（实时显示 Agent 输出，参考 Claude Code SSE 实现）
+- 流式响应（实时显示 Agent 输出，）
   - 支持 text_delta 增量显示
   - 支持 tool_use 事件可视化
   - 支持中断执行
@@ -201,7 +200,7 @@ Flow Canvas / Code Editor / Debugger 更新显示
 - 上下文提示（当前 Flow、选中节点）
 - Token 用量显示（input/output/cached tokens）
 
-**流式响应实现**（参考 Claude Code）：
+**流式响应实现**：
 ```typescript
 // SSE 事件处理
 async function handleStreamResponse(stream: ReadableStream) {
@@ -355,7 +354,7 @@ async function handleStreamResponse(stream: ReadableStream) {
 
 ## 四、Agent 设计
 
-### 4.1 Agent 工作流程（参考 Claude Code 实现）
+### 4.1 Agent 工作流程
 
 ```
 用户输入 ("帮我创建一个叙事生成的 Flow")
@@ -409,7 +408,7 @@ Agent 返回响应 ("已创建 Flow，包含 1 个叙事节点")
 用户确认/继续对话 ("再添加一个分支节点")
 ```
 
-**关键点**（参考 Claude Code 最佳实践）：
+**关键点**：
 - Agent 使用 `@kal-ai/core` 的 Model 进行对话（支持流式响应）
 - Agent 使用 `@kal-ai/core` 的 Tools 注册 MCP 工具
 - 所有 Flow 操作通过 MCP 协议调用 Kal devkit
@@ -494,10 +493,10 @@ Kal devkit MCP Server
 | `get_node_types` | 获取节点类型列表 | category | NodeTypeRegistry.list() |
 | `export_flow` | 导出 Flow JSON | flowId | FlowEditor.toJson() |
 
-### 4.3 Agent 系统提示词（参考 Claude Code 提示词设计）
+### 4.3 Agent 系统提示词
 
 ```
-你是 KAL-AI IDE 的 AI 助手，专门帮助开发者创建和调试 AI 游戏的 Flow。
+你是 KAL-AI UI 的 AI 助手，专门帮助开发者创建和调试 AI 游戏的 Flow。
 
 ## 你的能力
 
@@ -506,11 +505,11 @@ Kal devkit MCP Server
 3. **调试测试**：运行模拟、回放录制、性能分析
 4. **项目管理**：文件操作、Flow 管理、节点搜索
 
-## 工作原则（参考 Claude Code 最佳实践）
+## 工作原则
 
 1. **理解优先**：先理解用户需求，再规划操作
 2. **渐进式**：一次做一个主要操作，避免过于复杂
-3. **可视化**：操作会实时显示在 IDE 界面上
+3. **可视化**：操作会实时显示在 UI 界面上
 4. **并行执行**：独立操作使用并行工具调用（Promise.all）
 5. **错误处理**：
    - 工具调用失败时，分析原因并调整策略
@@ -524,7 +523,7 @@ Kal devkit MCP Server
 7. **主动建议**：发现问题主动提出优化方案
 8. **权限意识**：理解用户可能拒绝某些操作，尊重用户决定
 
-## 工具使用规范（参考 Claude Code 工具系统）
+## 工具使用规范
 
 ### 文件操作
 - 读取文件前使用 list_flows 或 search_nodes 确认文件存在
@@ -587,7 +586,7 @@ Kal devkit MCP Server
    - 优化 Flow 结构
 5. 修改节点配置并测试
 
-## 上下文管理（参考 Claude Code）
+## 上下文管理
 
 - 保持对话简洁，避免冗长的解释
 - 工具调用结果只保留关键信息
@@ -595,7 +594,7 @@ Kal devkit MCP Server
 - 接近 Token 限制时主动压缩上下文
 ```
 
-### 4.4 上下文管理（参考 Claude Code 优化策略）
+### 4.4 上下文管理
 
 **上下文内容**：
 - 当前项目（名称、Flow 列表、文件树）
@@ -610,7 +609,7 @@ Kal devkit MCP Server
 - **按需上下文**（Agent 主动获取）：通过工具读取文件、检查状态
 - **Prompt Caching**：标记可缓存内容（system prompt、项目上下文）
 
-**上下文压缩**（参考 Claude Code 实现）：
+**上下文压缩**：
 ```typescript
 // Token 监控和自动压缩
 function updateTokenCount(usage: Usage) {
@@ -653,7 +652,7 @@ function compressContext() {
 }
 ```
 
-**Prompt Caching 策略**（参考 Claude Code）：
+**Prompt Caching 策略**：
 ```typescript
 // 标记可缓存内容
 const request = {
@@ -690,11 +689,11 @@ const request = {
 
 使用 Zustand 管理全局状态。
 
-### 5.1 状态结构（参考 Claude Code 状态管理）
+### 5.1 状态结构
 
 ```typescript
-interface IDEStore {
-  // Agent 状态（参考 Claude Code Agent 系统）
+interface UIStore {
+  // Agent 状态
   agent: {
     conversationHistory: Message[]
     isProcessing: boolean
@@ -751,7 +750,7 @@ interface IDEStore {
 }
 ```
 
-### 5.2 关键操作（参考 Claude Code 实现）
+### 5.2 关键操作
 
 **Agent 操作**：
 - `sendMessage(message: string)` - 发送消息给 Kal Agent
@@ -766,7 +765,7 @@ interface IDEStore {
 - `interruptExecution()` - 中断当前执行
 - `retryLastMessage()` - 重试最后一条消息
 
-**MCP 工具调用**（参考 Claude Code 工具系统）：
+**MCP 工具调用**：
 ```typescript
 // 工具调用流程
 async function callMCPTool(toolName: string, args: any) {
@@ -799,7 +798,7 @@ async function callMCPToolsParallel(calls: ToolCall[]) {
 }
 ```
 
-**权限检查**（参考 Claude Code 权限系统）：
+**权限检查**：
 ```typescript
 async function checkPermission(toolName: string, args: any): Promise<boolean> {
   const mode = store.agent.permissionMode
@@ -834,9 +833,9 @@ async function checkPermission(toolName: string, args: any): Promise<boolean> {
 - `togglePanel(panelId)` - 切换面板可见性
 - `saveLayout()` - 保存布局配置
 
-### 5.3 状态同步（参考 Claude Code 事件系统）
+### 5.3 状态同步
 
-**MCP Server → IDE**（通过 MCP notifications）：
+**MCP Server → UI**（通过 MCP notifications）：
 ```typescript
 // MCP Server 发送事件
 mcpServer.sendNotification({
@@ -852,7 +851,7 @@ mcpServer.sendNotification({
   }
 })
 
-// IDE 接收事件
+// UI 接收事件
 mcpClient.onNotification('notifications/event', (params) => {
   const { type, data } = params
 
@@ -870,7 +869,7 @@ eventBus.on('flow:node:added', (data) => {
 })
 ```
 
-**IDE → MCP Server**（用户手动操作）：
+**UI → MCP Server**（用户手动操作）：
 ```typescript
 // 用户在 Canvas 上拖拽节点
 function onNodeDragEnd(nodeId: string, position: Position) {
@@ -886,7 +885,7 @@ function onNodeDragEnd(nodeId: string, position: Position) {
 }
 ```
 
-**事件类型**（参考 Claude Code 事件系统）：
+**事件类型**：
 - `flow:created` - Flow 已创建
 - `flow:node:added` - 节点已添加
 - `flow:node:updated` - 节点已更新
@@ -941,7 +940,7 @@ packages/ide/
 │   │   ├── ContextManager.ts    # 上下文管理
 │   │   └── EventBus.ts          # Agent → UI 事件总线
 │   ├── store/
-│   │   ├── useIDEStore.ts
+│   │   ├── useUIStore.ts
 │   │   └── types.ts
 │   ├── hooks/
 │   │   ├── useKalAgent.ts       # Kal Agent Hook
@@ -974,7 +973,7 @@ packages/devkit-mcp-server/  # Kal devkit MCP Server
 
 **关键说明**：
 
-1. **IDE 项目**（`packages/ide/`）：
+1. **UI 项目**（`packages/ide/`）：
    - 前端 Web 应用
    - Agent 基于 `@kal-ai/core` 实现
    - 通过 MCP Client 连接 devkit MCP Server
@@ -994,8 +993,6 @@ packages/devkit-mcp-server/  # Kal devkit MCP Server
 
 ### Phase 2：MCP Server 开发（7 天）
 
-**参考 Claude Code MCP 实现**：
-- Claude Code 支持 33+ MCP 服务器
 - 使用 stdio 和 SSE 两种传输方式
 - 完善的工具注册和事件通知机制
 - 支持批量操作和性能优化
@@ -1003,14 +1000,14 @@ packages/devkit-mcp-server/  # Kal devkit MCP Server
 - **MCP Server 基础**（2 天）
   - MCP 协议实现（参考 @modelcontextprotocol/sdk）
   - Server 启动和连接管理（stdio/SSE 传输）
-  - 工具注册机制（类似 Claude Code 15+ 工具）
-  - 事件通知系统（参考 Claude Code 8,884 个监听器）
-  - 错误处理（参考 Claude Code 2,512 个 try-catch）
+  - 工具注册机制
+  - 事件通知系统
+  - 错误处理
 
 - **FlowEditor Service**（2 天）
   - 封装 @kal-ai/devkit FlowEditor
   - 实现 Flow 编辑工具（create_flow、add_node 等）
-  - 状态管理和缓存（参考 Claude Code 缓存策略）
+  - 状态管理和缓存
   - 批量操作支持（add_nodes_batch）
   - 事件发射（flow:node:added 等）
 
@@ -1018,7 +1015,7 @@ packages/devkit-mcp-server/  # Kal devkit MCP Server
   - 封装 Simulator 和 Replayer
   - 实现调试工具（run_simulation、replay_recording 等）
   - 录制管理和回放控制
-  - 性能监控（参考 Claude Code 性能追踪）
+  - 性能监控
 
 - **Project Service**（1 天）
   - 文件系统操作（read_file、write_file）
@@ -1027,7 +1024,6 @@ packages/devkit-mcp-server/  # Kal devkit MCP Server
 
 ### Phase 3：Agent 核心（5 天）
 
-**参考 Claude Code Agent 架构**：
 - 1,428 个 async 函数，4,888 次 await
 - 完善的流式处理（SSE + ReadableStream）
 - 多级权限管理（auto/prompt/allowed-prompts/custom）
@@ -1036,32 +1032,31 @@ packages/devkit-mcp-server/  # Kal devkit MCP Server
 - **Kal Agent 实现**（3 天）
   - 基于 @kal-ai/core 创建 Agent
   - Model 配置（Claude API + 流式响应）
-  - 对话历史管理（参考 Claude Code 对话管理）
+  - 对话历史管理
   - 流式响应处理（SSE 事件循环）
     - message_start/stop
     - content_block_delta
     - tool_use 事件
-  - 权限系统实现（参考 Claude Code 权限管理）
+  - 权限系统实现
     - auto 模式（自动批准）
     - prompt 模式（每次询问）
     - allowed-prompts 模式（语义匹配）
     - custom 模式（自定义规则）
-  - 上下文管理（参考 Claude Code 优化策略）
+  - 上下文管理
     - Token 计数和监控
     - 自动压缩（80% 阈值）
     - Prompt Caching 支持
 
 - **MCP Client 集成**（2 天）
   - MCP Client 封装（@modelcontextprotocol/sdk）
-  - 工具注册和调用（参考 Claude Code 工具系统）
-  - 事件订阅和处理（参考 Claude Code 事件系统）
+  - 工具注册和调用
+  - 事件订阅和处理
   - 连接管理和自动重连
-  - 错误处理和重试机制（参考 Claude Code 错误处理）
+  - 错误处理和重试机制
   - 并行工具调用支持（Promise.all）
 
 ### Phase 4：可视化面板（7 天）
 
-**参考 Claude Code UI 设计**：
 - 丰富的终端 UI（Spinner、进度条、ANSI 颜色）
 - 实时流式显示（SSE 流式响应）
 - 工具调用可视化
@@ -1069,8 +1064,8 @@ packages/devkit-mcp-server/  # Kal devkit MCP Server
 
 - **Flow Canvas**（3 天）
   - React Flow 集成
-  - 自定义节点组件（参考 Claude Code 节点类型）
-  - 实时更新和动画（参考 Claude Code 实时反馈）
+  - 自定义节点组件
+  - 实时更新和动画
     - 节点出现动画
     - 连线动画
     - 高亮效果
@@ -1081,7 +1076,7 @@ packages/devkit-mcp-server/  # Kal devkit MCP Server
 - **Code Editor**（2 天）
   - Monaco Editor 集成
   - TypeScript 支持（语法高亮、类型检查）
-  - Diff 显示（参考 Claude Code diff 功能）
+  - Diff 显示
   - 多文件 Tab 切换
   - 智能补全（基于 @kal-ai 类型定义）
   - 格式化（Prettier）
@@ -1090,13 +1085,12 @@ packages/devkit-mcp-server/  # Kal devkit MCP Server
   - 调试控制器（运行、暂停、停止、单步）
   - 状态检查器（实时查看 State）
   - 节点输出查看
-  - Token 用量统计（参考 Claude Code Token 计数）
+  - Token 用量统计
   - 回放控制（时间轴、速度控制）
-  - 性能分析（参考 Claude Code 性能监控）
+  - 性能分析
 
 ### Phase 5：UI 集成与联动（5 天）
 
-**参考 Claude Code UI 集成**：
 - 事件驱动架构（8,884 个事件监听器）
 - 实时 UI 更新
 - 流式响应显示
@@ -1104,11 +1098,11 @@ packages/devkit-mcp-server/  # Kal devkit MCP Server
 
 - **Chat Interface**（2 天）
   - 对话界面布局
-  - 流式响应显示（参考 Claude Code SSE 处理）
+  - 流式响应显示
     - 实时文本增量显示
     - 打字机效果
     - 中断执行支持
-  - 工具调用可视化（参考 Claude Code 工具卡片）
+  - 工具调用可视化
     - 工具名称和参数显示
     - 执行状态指示
     - 结果展示
@@ -1117,15 +1111,15 @@ packages/devkit-mcp-server/  # Kal devkit MCP Server
   - 上下文提示（当前 Flow、选中节点）
 
 - **面板联动**（2 天）
-  - MCP 事件 → UI 更新（参考 Claude Code 事件系统）
+  - MCP 事件 → UI 更新
     - flow:node:added → Canvas 显示新节点
     - tool:create_handler → Editor 打开文件
     - simulation:started → Debugger 显示执行
-  - 动画效果（参考 Claude Code 实时反馈）
+  - 动画效果
     - 节点出现动画
     - 连线绘制动画
     - 高亮闪烁效果
-  - 状态同步（参考 Claude Code 状态管理）
+  - 状态同步
     - Agent 状态 → UI 状态
     - MCP Server 状态 → Editor 状态
     - 双向同步（用户操作 → MCP Server）
@@ -1139,14 +1133,13 @@ packages/devkit-mcp-server/  # Kal devkit MCP Server
 
 ### Phase 6：优化与测试（3 天）
 
-**参考 Claude Code 优化策略**：
 - Prompt Caching（90% 成本节省）
 - 并行执行（Promise.all）
 - 错误处理（2,512 个 try-catch）
 - 性能监控
 
 - **性能优化**（1 天）
-  - 上下文管理优化（参考 Claude Code）
+  - 上下文管理优化
     - Token 计数和监控
     - 自动压缩（80% 阈值）
     - Prompt Caching 实现
@@ -1160,7 +1153,7 @@ packages/devkit-mcp-server/  # Kal devkit MCP Server
     - React.memo 优化
 
 - **错误处理和重试**（1 天）
-  - 完善的错误处理（参考 Claude Code 2,512 个 try-catch）
+  - 完善的错误处理
     - API 错误（RateLimitError、AuthenticationError）
     - 网络错误（TimeoutError、NetworkError）
     - MCP 错误（ToolExecutionError、ConnectionError）
@@ -1174,7 +1167,7 @@ packages/devkit-mcp-server/  # Kal devkit MCP Server
     - 错误日志
 
 - **MCP 连接稳定性**（0.5 天）
-  - 自动重连（参考 Claude Code 连接管理）
+  - 自动重连
   - 连接状态监控
   - 心跳检测
   - 断线恢复
@@ -1187,67 +1180,50 @@ packages/devkit-mcp-server/  # Kal devkit MCP Server
 
 **总计：30 天**
 
-**并行开发建议**（参考 Claude Code 开发模式）：
+**并行开发建议**：
 - Phase 2（MCP Server）和 Phase 3（Agent）可以部分并行
 - Phase 4（可视化面板）可以在 Phase 3 完成后立即开始
 - 建议 2-3 人团队：
-  - 1 人负责 MCP Server（参考 Claude Code 工具系统）
-  - 1 人负责 Agent（参考 Claude Code Agent 架构）
-  - 1 人负责 UI（参考 Claude Code UI 设计）
+  - 1 人负责 MCP Server
+  - 1 人负责 Agent
+  - 1 人负责 UI
 
-## 八、技术选型（参考 Claude Code 技术栈）
+## 八、技术选型
 
-| 功能 | 技术方案 | 理由 | Claude Code 参考 |
-|------|---------|------|-----------------|
-| UI 框架 | React 18 | 生态成熟、组件丰富 | Claude Code 使用 React |
-| 状态管理 | Zustand | 轻量、简单、TypeScript 友好 | 类似 Claude Code 的状态管理 |
-| 构建工具 | Vite | 快速、现代、开箱即用 | Claude Code 使用现代构建工具 |
-| Flow 渲染 | React Flow | 专业的流程图库、可定制性强 | - |
-| 代码编辑器 | Monaco Editor | VS Code 同款、功能完整 | Claude Code 集成代码编辑 |
-| 布局系统 | react-mosaic-component | 可拖拽面板、灵活布局 | - |
-| 文件系统 | File System Access API | 浏览器原生、无需后端 | Claude Code 使用 fs 模块 |
-| Git | isomorphic-git | 纯 JS 实现、浏览器可用 | Claude Code 深度集成 Git |
-| 样式 | Tailwind CSS | 快速开发、一致性好 | - |
+| 功能 | 技术方案 | 理由 ||------|---------|------|-----------------|
+| UI 框架 | React 18 | 生态成熟、组件丰富 || 状态管理 | Zustand | 轻量、简单、TypeScript 友好 | |
+| 构建工具 | Vite | 快速、现代、开箱即用 || Flow 渲染 | React Flow | 专业的流程图库、可定制性强 | - |
+| 代码编辑器 | Monaco Editor | VS Code 同款、功能完整 || 布局系统 | react-mosaic-component | 可拖拽面板、灵活布局 | - |
+| 文件系统 | File System Access API | 浏览器原生、无需后端 || Git | isomorphic-git | 纯 JS 实现、浏览器可用 || 样式 | Tailwind CSS | 快速开发、一致性好 | - |
 | 组件库 | shadcn/ui | 现代、可定制、TypeScript | - |
-| **Agent 实现** | **@kal-ai/core** | **Kal 框架，Model + Tools 能力** | **Claude Code Agent 架构** |
-| **流式处理** | **SSE (Server-Sent Events)** | **实时响应、降低 TTFB** | **Claude Code 核心技术** |
-| **能力提供** | **MCP Server** | **标准协议，解耦 IDE 和 Kal** | **Claude Code MCP 集成** |
-| **MCP 协议** | **@modelcontextprotocol/sdk** | **官方 SDK，稳定可靠** | **Claude Code 使用** |
-| **异步处理** | **async/await + Promise.all** | **现代 JS 异步模式** | **Claude Code 大量使用** |
-| **错误处理** | **try-catch + 重试机制** | **完善的错误恢复** | **Claude Code 2500+ try-catch** |
-| **事件系统** | **EventEmitter** | **松耦合、可扩展** | **Claude Code 8800+ 监听器** |
+| **Agent 实现** | **@kal-ai/core** | **Kal 框架，Model + Tools 能力** || **流式处理** | **SSE (Server-Sent Events)** | **实时响应、降低 TTFB** || **能力提供** | **MCP Server** | **标准协议，解耦 UI 和 Kal** || **MCP 协议** | **@modelcontextprotocol/sdk** | **官方 SDK，稳定可靠** || **异步处理** | **async/await + Promise.all** | **现代 JS 异步模式** || **错误处理** | **try-catch + 重试机制** | **完善的错误恢复** || **事件系统** | **EventEmitter** | **松耦合、可扩展** |
+### 8.1 为什么使用 MCP
 
-### 8.1 为什么使用 MCP（参考 Claude Code MCP 集成）
-
-**优势**（参考 Claude Code 设计理念）：
-1. **解耦**：IDE 和 Kal devkit 独立开发、独立部署
-   - Claude Code 通过 MCP 集成外部工具（filesystem、github、postgres 等）
+**优势**：
+1. **解耦**：UI 和 Kal devkit 独立开发、独立部署
    - 工具更新不影响主程序
 2. **标准化**：MCP 是标准协议，未来可以接入其他工具
-   - Claude Code 支持 33+ MCP 服务器引用
    - 社区可以贡献新的 MCP 服务器
 3. **灵活性**：MCP Server 可以本地运行或远程部署
-   - stdio 传输：本地进程通信（Claude Code 主要方式）
-   - SSE 传输：远程 HTTP 通信（Claude Code 支持）
-4. **可扩展**：容易添加新工具，不需要修改 IDE 代码
-   - Claude Code 通过配置文件添加 MCP 服务器
+   - stdio 传输：本地进程通信
+   - SSE 传输：远程 HTTP 通信
+4. **可扩展**：容易添加新工具，不需要修改 UI 代码
    - 无需重新编译或部署
 5. **安全性**：MCP Server 可以做权限控制和沙箱隔离
-   - Claude Code 实现多级权限管理
    - 用户可以控制工具访问范围
 
 **架构对比**：
 
 ```
 传统方式（直接调用）：
-IDE → @kal-ai/devkit (直接 import)
+UI → @kal-ai/devkit (直接 import)
 - 紧耦合
 - 难以独立部署
 - 版本升级困难
 - 浏览器环境限制
 
-MCP 方式（协议调用 - Claude Code 方式）：
-IDE → MCP Client → MCP Server → @kal-ai/devkit
+MCP 方式（协议调用）：
+UI → MCP Client → MCP Server → @kal-ai/devkit
 - 松耦合
 - 独立部署
 - 版本独立升级
@@ -1255,9 +1231,8 @@ IDE → MCP Client → MCP Server → @kal-ai/devkit
 - 跨平台兼容
 ```
 
-**Claude Code MCP 实现参考**：
 ```typescript
-// MCP 服务器配置（参考 Claude Code settings.json）
+// MCP 服务器配置
 {
   "mcpServers": {
     "kal-devkit": {
@@ -1270,7 +1245,7 @@ IDE → MCP Client → MCP Server → @kal-ai/devkit
   }
 }
 
-// MCP Client 连接（参考 Claude Code 实现）
+// MCP Client 连接
 const mcpClient = createMcpClient({
   transport: {
     type: 'stdio',
@@ -1331,30 +1306,30 @@ bun run preview
 ### 10.1 核心理念
 
 **Agent First, Visual Second**：
-- IDE 的主要交互方式是与 AI Agent 对话
+- UI 的主要交互方式是与 AI Agent 对话
 - 可视化界面用于展示 Agent 的工作成果
 - 用户可以手动操作，但 Agent 是推荐方式
 
-### 10.2 Agent 基于 Kal 实现（参考 Claude Code Agent 架构）
+### 10.2 Agent 基于 Kal 实现
 
 **Kal Agent 架构**：
 ```typescript
-// 使用 @kal-ai/core 创建 Agent（参考 Claude Code 实现）
+// 使用 @kal-ai/core 创建 Agent
 import { createKalCore } from '@kal-ai/core'
 import { createMcpClient } from '@modelcontextprotocol/sdk'
 
 const core = createKalCore({
   models: {
     default: {
-      modelId: 'claude-sonnet-4-6', // 参考 Claude Code 默认模型
+      modelId: 'claude-sonnet-4-6',
       apiKey: process.env.CLAUDE_API_KEY,
-      maxTokens: 32000, // 参考 Claude Code 配置
+      maxTokens: 32000,
       stream: true, // 启用流式响应
     }
   }
 })
 
-// 连接 MCP Server（参考 Claude Code MCP 集成）
+// 连接 MCP Server
 const mcpClient = createMcpClient({
   transport: {
     type: 'stdio',
@@ -1364,11 +1339,11 @@ const mcpClient = createMcpClient({
 
 await mcpClient.connect()
 
-// 注册 MCP 工具到 Kal（参考 Claude Code 工具注册）
+// 注册 MCP 工具到 Kal
 const mcpTools = await mcpClient.listTools()
 mcpTools.forEach(tool => {
   core.tools.register(tool, async (args) => {
-    // 权限检查（参考 Claude Code 权限系统）
+    // 权限检查
     const permitted = await checkPermission(tool.name, args)
     if (!permitted) {
       throw new PermissionDeniedError()
@@ -1379,12 +1354,12 @@ mcpTools.forEach(tool => {
   })
 })
 
-// Agent 对话（参考 Claude Code 流式处理）
+// Agent 对话
 const stream = await core.runWithTools({
   messages: [{ role: 'user', content: '创建一个叙事 Flow' }],
   maxRounds: 10,
   stream: true, // 启用流式响应
-  // Prompt Caching（参考 Claude Code 优化）
+  // Prompt Caching
   system: [
     {
       type: 'text',
@@ -1394,7 +1369,7 @@ const stream = await core.runWithTools({
   ]
 })
 
-// 处理流式响应（参考 Claude Code SSE 处理）
+// 处理流式响应
 for await (const event of stream) {
   switch (event.type) {
     case 'message_start':
@@ -1417,7 +1392,7 @@ for await (const event of stream) {
 }
 ```
 
-**关键点**（参考 Claude Code 最佳实践）：
+**关键点**：
 - Agent 使用 `@kal-ai/core` 的 Model 能力（支持流式响应）
 - Agent 使用 `@kal-ai/core` 的 Tools 能力（MCP 工具注册）
 - MCP 工具通过 `core.tools.register()` 注册
@@ -1427,9 +1402,9 @@ for await (const event of stream) {
 - 支持 Prompt Caching（节省成本）
 - 实现权限检查（多级权限模式）
 
-### 10.3 实时同步机制（参考 Claude Code 事件系统）
+### 10.3 实时同步机制
 
-**MCP Server → IDE 事件流**：
+**MCP Server → UI 事件流**：
 ```
 MCP Server 执行操作
   ↓
@@ -1442,7 +1417,7 @@ Event Bus 分发事件
 UI 组件订阅事件并更新
 ```
 
-**事件类型**（参考 Claude Code 事件系统）：
+**事件类型**：
 - `flow:node:added` - 节点已添加
 - `flow:node:updated` - 节点已更新
 - `flow:edge:added` - 连线已添加
@@ -1452,7 +1427,7 @@ UI 组件订阅事件并更新
 - `tool:success` - 工具调用成功
 - `tool:error` - 工具调用失败
 
-**实现示例**（参考 Claude Code 实现）：
+**实现示例**：
 ```typescript
 // MCP Server 端（发送事件）
 class FlowEditorService {
@@ -1461,7 +1436,7 @@ class FlowEditorService {
   async addNode(args: AddNodeArgs) {
     const nodeId = this.editor.addNodeByType(args.nodeType, args.position)
 
-    // 发射事件（参考 Claude Code 事件发射）
+    // 发射事件
     this.eventEmitter.emit('flow:node:added', {
       flowId: args.flowId,
       nodeId,
@@ -1482,15 +1457,15 @@ mcpServer.sendNotification({
   }
 })
 
-// IDE 端（接收事件）
+// UI 端（接收事件）
 mcpClient.onNotification('notifications/event', (params) => {
   const { type, data } = params
 
-  // 分发到 Event Bus（参考 Claude Code 事件分发）
+  // 分发到 Event Bus
   eventBus.emit(type, data)
 })
 
-// UI 组件订阅事件（参考 Claude Code UI 更新）
+// UI 组件订阅事件
 useEffect(() => {
   const handler = (data: NodeAddedEvent) => {
     // 添加节点到 Canvas（带动画）
@@ -1539,9 +1514,9 @@ useEffect(() => {
 - 从本地状态读取（用户选择、UI 状态）
 - 注入到 Agent 的 System Prompt
 
-### 10.6 错误处理（参考 Claude Code 错误处理机制）
+### 10.6 错误处理
 
-**MCP 工具调用失败**（参考 Claude Code 2500+ try-catch 块）：
+**MCP 工具调用失败**：
 ```typescript
 // 完善的错误处理
 async function executeMCPTool(toolName: string, args: any) {
@@ -1555,7 +1530,7 @@ async function executeMCPTool(toolName: string, args: any) {
       content: result
     }
   } catch (error) {
-    // 错误分类处理（参考 Claude Code 错误类型）
+    // 错误分类处理
     if (error instanceof RateLimitError) {
       // 速率限制 - 等待重试
       await sleep(error.retryAfter)
@@ -1590,7 +1565,7 @@ async function executeMCPTool(toolName: string, args: any) {
   }
 }
 
-// 错误信息格式化（参考 Claude Code）
+// 错误信息格式化
 function formatError(error: Error): string {
   return JSON.stringify({
     code: error.name,
@@ -1600,7 +1575,7 @@ function formatError(error: Error): string {
 }
 ```
 
-**MCP Server 断线**（参考 Claude Code 连接管理）：
+**MCP Server 断线**：
 ```typescript
 // 自动重连机制
 class MCPConnectionManager {
@@ -1641,7 +1616,7 @@ class MCPConnectionManager {
 }
 ```
 
-**Agent 响应错误**（参考 Claude Code Agent 错误处理）：
+**Agent 响应错误**：
 ```typescript
 // Agent 对话错误处理
 async function sendMessageToAgent(message: string) {
@@ -1667,7 +1642,7 @@ async function sendMessageToAgent(message: string) {
 }
 ```
 
-**用户撤销操作**（参考 Claude Code undo/redo）：
+**用户撤销操作**：
 ```typescript
 // 基于 FlowEditor 的 undo/redo
 async function undoLastAction() {
@@ -1690,7 +1665,7 @@ async function undoLastAction() {
 ### 11.1 典型工作流
 
 **新手用户**：
-1. 打开 IDE，看到欢迎界面
+1. 打开 UI，看到欢迎界面
 2. 在 Chat 中输入："我想做一个文字冒险游戏"
 3. Agent 询问细节（主题、玩法）
 4. Agent 创建项目结构和初始 Flow
@@ -1722,9 +1697,9 @@ async function undoLastAction() {
 - 提供修复建议或替代方案
 - 用户可以撤销或重试
 
-## 十二、与 Cursor/Claude Code 的对比
+## 十二、与 Cursor 的对比
 
-| 特性 | Cursor/Claude Code | KAL-AI IDE |
+| 特性 | Cursor | KAL-AI UI |
 |------|-------------------|-----------|
 | 主要用途 | 通用代码编辑 | AI 游戏 Flow 开发 |
 | 核心交互 | 对话 + 代码编辑 | 对话 + 可视化 Flow |
@@ -1733,16 +1708,15 @@ async function undoLastAction() {
 | 领域知识 | 通用编程 | AI 游戏开发（prompt、状态管理、Flow 设计）|
 | 独特能力 | - | 模拟测试、录制回放、性能分析 |
 
-## 十三、未来扩展（参考 Claude Code 特殊功能）
+## 十三、未来扩展
 
-### 13.1 协作功能（参考 Claude Code Remote Mode）
+### 13.1 协作功能
 
-**Claude Code Remote Mode 参考**：
 - 远程协作支持
 - WebSocket 连接（155 次引用）
 - 实时状态同步
 
-**KAL-AI IDE 协作功能**：
+**KAL-AI UI 协作功能**：
 - 多人同时编辑 Flow
   - 实时同步节点和连线
   - 冲突检测和解决
@@ -1752,19 +1726,18 @@ async function undoLastAction() {
   - 协作式问题解决
   - 团队知识库
 - 操作历史和版本控制
-  - Git 集成（参考 Claude Code Git 深度集成）
+  - Git 集成
   - 变更追踪
   - 回滚支持
 
-### 13.2 学习能力（参考 Claude Code Auto Memory）
+### 13.2 学习能力
 
-**Claude Code Auto Memory 参考**：
 - 跨会话记忆系统
 - MEMORY.md 自动加载（前 200 行）
 - 语义化组织（architecture.md、debugging.md、patterns.md）
 - 用户偏好记录
 
-**KAL-AI IDE 学习能力**：
+**KAL-AI UI 学习能力**：
 - Agent 学习用户习惯
   - 记住常用节点类型
   - 记住代码风格偏好
@@ -1778,7 +1751,7 @@ async function undoLastAction() {
   - 基于项目上下文
   - 基于用户反馈
 
-**实现方式**（参考 Claude Code）：
+**实现方式**：
 ```typescript
 // 记忆目录结构
 ~/.kal-ai/projects/<project-hash>/memory/
@@ -1810,9 +1783,8 @@ class MemoryManager {
 }
 ```
 
-### 13.3 插件系统（参考 Claude Code Skills 和 MCP）
+### 13.3 插件系统
 
-**Claude Code 扩展机制参考**：
 - Skills 系统（7 个内置技能）
   - keybindings-help
   - claude-developer-platform
@@ -1825,7 +1797,7 @@ class MemoryManager {
   - puppeteer、brave-search
   - 社区贡献的服务器
 
-**KAL-AI IDE 插件系统**：
+**KAL-AI UI 插件系统**：
 - 自定义 Agent 工具
   - 扩展 MCP 工具集
   - 自定义工具定义
@@ -1839,7 +1811,7 @@ class MemoryManager {
   - 支持 stdio 和 SSE 传输
   - 社区插件市场
 
-**插件配置**（参考 Claude Code settings.json）：
+**插件配置**：
 ```json
 {
   "plugins": {
@@ -1860,14 +1832,13 @@ class MemoryManager {
 }
 ```
 
-### 13.4 移动端（参考 Claude Code 跨平台支持）
+### 13.4 移动端
 
-**Claude Code 跨平台参考**：
 - 支持多平台（darwin、linux、win32）
 - 单文件部署（11.27 MB）
 - 终端 UI 适配
 
-**KAL-AI IDE 移动端**：
+**KAL-AI UI 移动端**：
 - 移动浏览器访问
   - 响应式布局
   - 触摸手势支持
@@ -1881,63 +1852,13 @@ class MemoryManager {
   - 快速审批
   - 远程监控
 
-### 13.5 多模态输入（参考 Claude Code 多模态支持）
+### 13.5 高级调试功能
 
-**Claude Code 多模态参考**：
-- 图像文件支持（PNG、JPG）
-- PDF 文件支持（最多 20 页）
-- Sharp 图像处理（2.48 MB WASM）
-
-**KAL-AI IDE 多模态输入**：
-- 用户上传截图 → Agent 理解 UI 设计
-  - 图像识别
-  - UI 元素提取
-  - 自动生成 Flow
-- 用户上传文档 → Agent 提取游戏规则
-  - PDF 解析
-  - 文本提取
-  - 规则转换为 Flow
-- 语音输入 → 语音转文字
-  - 实时语音识别
-  - 多语言支持
-  - 语音命令
-
-**实现示例**（参考 Claude Code Read 工具）：
-```typescript
-// 图像上传和处理
-async function handleImageUpload(file: File) {
-  // 读取图像
-  const imageData = await readImageFile(file)
-
-  // 发送给 Agent（参考 Claude Code 图像支持）
-  const response = await agent.sendMessage({
-    role: 'user',
-    content: [
-      {
-        type: 'image',
-        source: {
-          type: 'base64',
-          media_type: file.type,
-          data: imageData
-        }
-      },
-      {
-        type: 'text',
-        text: '请根据这个 UI 设计创建对应的 Flow'
-      }
-    ]
-  })
-}
-```
-
-### 13.6 高级调试功能（参考 Claude Code 调试能力）
-
-**Claude Code 调试参考**：
 - 完善的错误处理（2,512 个 try-catch）
 - 性能监控
 - 日志系统
 
-**KAL-AI IDE 高级调试**：
+**KAL-AI UI 高级调试**：
 - AI 辅助调试
   - 智能断点（基于条件）
   - 变量监控（自动识别关键变量）
@@ -1947,19 +1868,18 @@ async function handleImageUpload(file: File) {
   - 状态对比
   - 变更追踪
 - 性能分析
-  - Token 用量分析（参考 Claude Code Token 计数）
+  - Token 用量分析
   - 节点耗时分析
   - 缓存命中率
   - 瓶颈识别
 
-### 13.7 代码生成优化（参考 Claude Code 工具系统）
+### 13.6 代码生成优化
 
-**Claude Code 代码生成参考**：
 - 精确的 Edit 工具（字符串替换）
 - Diff 显示
 - 类型检查（4,679 次 typeof 检查）
 
-**KAL-AI IDE 代码生成优化**：
+**KAL-AI UI 代码生成优化**：
 - 更准确的代码生成
   - 基于项目上下文
   - 基于用户风格
@@ -1973,13 +1893,12 @@ async function handleImageUpload(file: File) {
   - 提取函数
   - 优化结构
 
-### 13.8 多语言支持（参考 Claude Code 国际化）
+### 13.7 多语言支持
 
-**Claude Code 多语言参考**：
 - 支持多种编程语言（TypeScript、Python、Go 等）
 - Tree-sitter 代码解析（205 KB WASM）
 
-**KAL-AI IDE 多语言支持**：
+**KAL-AI UI 多语言支持**：
 - UI 多语言
   - 中文、英文、日文等
   - 动态切换
@@ -1993,14 +1912,13 @@ async function handleImageUpload(file: File) {
   - 多语言文档
   - 多语言提示词
 
-### 13.9 企业功能（参考 Claude Code 企业特性）
+### 13.8 企业功能
 
-**Claude Code 企业参考**：
 - OAuth 2.0 认证（544 次引用）
 - API Key 管理
 - 权限控制（1,486 次引用）
 
-**KAL-AI IDE 企业功能**：
+**KAL-AI UI 企业功能**：
 - 团队管理
   - 用户权限
   - 角色管理
@@ -2014,15 +1932,14 @@ async function handleImageUpload(file: File) {
   - 访问控制
   - 合规审计
 
-### 13.10 性能优化（参考 Claude Code 优化策略）
+### 13.9 性能优化
 
-**Claude Code 性能优化参考**：
 - Prompt Caching（90% 成本节省）
 - 并行执行（Promise.all，233 次引用）
 - 连接池管理
 - 缓存策略（5 分钟有效期）
 
-**KAL-AI IDE 持续优化**：
+**KAL-AI UI 持续优化**：
 - 更快的响应速度
   - 预加载常用资源
   - 智能预测用户操作
@@ -2036,12 +1953,12 @@ async function handleImageUpload(file: File) {
   - 更快的加载
   - 更智能的提示
 
-## 附录 A：MCP Server 开发指南（参考 Claude Code MCP 实现）
+## 附录 A：MCP Server 开发指南
 
 ### A.1 MCP Server 架构
 
 ```
-Kal devkit MCP Server（参考 Claude Code MCP 服务器）
+Kal devkit MCP Server
 ├── Server Core
 │   ├── MCP Protocol Handler (处理 MCP 协议消息)
 │   ├── Tool Registry (工具注册表)
@@ -2059,7 +1976,7 @@ Kal devkit MCP Server（参考 Claude Code MCP 服务器）
     └── Project Tools (list_flows, etc.)
 ```
 
-### A.2 Service 设计模式（参考 Claude Code 服务架构）
+### A.2 Service 设计模式
 
 每个 Service 封装一个 Kal devkit 模块，提供：
 - **初始化**：创建 devkit 实例
@@ -2068,7 +1985,7 @@ Kal devkit MCP Server（参考 Claude Code MCP 服务器）
 - **状态管理**：维护 Service 内部状态
 - **错误处理**：完善的 try-catch 和错误恢复
 
-**示例：FlowEditorService**（参考 Claude Code 实现模式）
+**示例：FlowEditorService**
 ```typescript
 class FlowEditorService {
   private editor: FlowEditor
@@ -2088,12 +2005,12 @@ class FlowEditorService {
       // 缓存状态
       this.stateCache.set(flow.id, flow)
 
-      // 发射事件（参考 Claude Code 事件发射）
+      // 发射事件
       this.eventEmitter.emit('flow:created', { flowId: flow.id })
 
       return { success: true, flowId: flow.id }
     } catch (error) {
-      // 错误处理（参考 Claude Code 错误处理）
+      // 错误处理
       return {
         success: false,
         error: {
@@ -2118,7 +2035,7 @@ class FlowEditorService {
       const flow = this.stateCache.get(args.flowId)!
       flow.nodes.push({ id: nodeId, type: args.nodeType, name: args.name })
 
-      // 发射事件（参考 Claude Code 事件系统）
+      // 发射事件
       this.eventEmitter.emit('flow:node:added', {
         flowId: args.flowId,
         nodeId,
@@ -2139,7 +2056,7 @@ class FlowEditorService {
     }
   }
 
-  // 批量操作（参考 Claude Code 并行优化）
+  // 批量操作
   async addNodesBatch(args: { flowId: string; nodes: NodeConfig[] }) {
     try {
       const results = await Promise.all(
@@ -2166,15 +2083,15 @@ class FlowEditorService {
 }
 ```
 
-### A.3 MCP 工具定义（参考 Claude Code 工具系统）
+### A.3 MCP 工具定义
 
-每个工具需要定义（参考 Claude Code 15+ 内置工具）：
+每个工具需要定义：
 - **name**：工具名称（唯一标识）
 - **description**：工具功能描述（清晰、具体）
 - **inputSchema**：参数 JSON Schema（完整的类型定义）
 - **handler**：工具实现函数（包含错误处理）
 
-**示例：add_node 工具**（参考 Claude Code Bash/Read/Write 工具设计）
+**示例：add_node 工具**
 ```typescript
 {
   name: 'add_node',
@@ -2226,7 +2143,7 @@ class FlowEditorService {
     required: ['flowId', 'nodeType', 'name']
   },
   handler: async (args) => {
-    // 参考 Claude Code 工具实现模式
+
     try {
       // 1. 参数验证
       if (!args.flowId || !args.nodeType || !args.name) {
@@ -2239,7 +2156,7 @@ class FlowEditorService {
       // 3. 返回结果
       return result
     } catch (error) {
-      // 4. 错误处理（参考 Claude Code 错误格式）
+      // 4. 错误处理
       return {
         success: false,
         error: {
@@ -2256,9 +2173,9 @@ class FlowEditorService {
 }
 ```
 
-**工具分类**（参考 Claude Code 工具分类）：
+**工具分类**：
 
-1. **Flow 编辑工具**（类似 Claude Code 的 Read/Write/Edit）
+1. **Flow 编辑工具**
    - `create_flow` - 创建新 Flow
    - `add_node` - 添加节点
    - `connect_nodes` - 连接端口
@@ -2267,32 +2184,32 @@ class FlowEditorService {
    - `auto_layout` - 自动排列节点
    - `validate_flow` - 校验 Flow
 
-2. **代码编辑工具**（类似 Claude Code 的文件操作）
+2. **代码编辑工具**
    - `create_handler` - 创建节点 handler
    - `update_handler` - 修改 handler
    - `create_prompt_template` - 创建 prompt 模板
    - `read_file` - 读取文件
    - `write_file` - 写入文件
 
-3. **调试与测试工具**（类似 Claude Code 的 Bash 工具）
+3. **调试与测试工具**
    - `run_simulation` - 运行模拟测试
    - `replay_recording` - 回放录制
    - `inspect_state` - 检查游戏状态
    - `add_assertion` - 添加断言
    - `analyze_performance` - 性能分析
 
-4. **项目管理工具**（类似 Claude Code 的 Glob/Grep）
+4. **项目管理工具**
    - `list_flows` - 列出所有 Flow
    - `search_nodes` - 搜索节点
    - `get_node_types` - 获取节点类型列表
    - `export_flow` - 导出 Flow JSON
 
-### A.4 事件通知机制（参考 Claude Code 8800+ 事件监听器）
+### A.4 事件通知机制
 
 MCP Server 通过 MCP notifications 向 Client 发送事件：
 
 ```typescript
-// Server 端发送事件（参考 Claude Code 事件发射）
+// Server 端发送事件
 class MCPServer {
   private connections: Map<string, Connection> = new Map()
 
@@ -2340,7 +2257,7 @@ class FlowEditorService {
   async addNode(args: AddNodeArgs) {
     const nodeId = this.editor.addNodeByType(args.nodeType, args.position)
 
-    // 发送事件通知（参考 Claude Code 事件系统）
+    // 发送事件通知
     this.mcpServer.sendNotification({
       type: 'flow:node:added',
       data: {
@@ -2356,7 +2273,7 @@ class FlowEditorService {
   }
 }
 
-// Client 端接收事件（参考 Claude Code 事件处理）
+// Client 端接收事件
 mcpClient.onNotification('notifications/event', (params) => {
   const { type, data } = params
 
@@ -2367,7 +2284,7 @@ mcpClient.onNotification('notifications/event', (params) => {
   console.log(`[MCP Event] ${type}:`, data)
 })
 
-// UI 组件订阅事件（参考 Claude Code UI 更新）
+// UI 组件订阅事件
 function FlowCanvas() {
   useEffect(() => {
     // 订阅节点添加事件
@@ -2397,7 +2314,7 @@ function FlowCanvas() {
 }
 ```
 
-**事件命名规范**（参考 Claude Code 事件命名）：
+**事件命名规范**：
 - 使用 `domain:action:status` 格式
 - 例如：`flow:node:added`、`simulation:round:completed`、`tool:create_flow:success`
 - 保持一致性和可预测性
@@ -2438,9 +2355,9 @@ MCP 工具调用可能失败的情况：
 }
 ```
 
-### A.7 性能优化（参考 Claude Code 性能优化策略）
+### A.7 性能优化
 
-**批量操作**（参考 Claude Code 并行执行）：
+**批量操作**：
 ```typescript
 // 提供批量工具（减少 MCP 调用次数）
 {
@@ -2465,7 +2382,7 @@ MCP 工具调用可能失败的情况：
     }
   },
   handler: async (args) => {
-    // 并行添加节点（参考 Claude Code Promise.all）
+    // 并行添加节点
     const results = await Promise.all(
       args.nodes.map(node =>
         flowEditorService.addNode({ flowId: args.flowId, ...node })
@@ -2487,7 +2404,7 @@ MCP 工具调用可能失败的情况：
 }
 ```
 
-**增量更新**（参考 Claude Code 流式响应）：
+**增量更新**：
 ```typescript
 // 只返回变化的部分
 class FlowEditorService {
@@ -2503,7 +2420,7 @@ class FlowEditorService {
       return { type: 'full', data: currentState }
     }
 
-    // 计算 diff（参考 Claude Code 增量更新）
+    // 计算 diff
     const diff = {
       type: 'incremental',
       addedNodes: currentState.nodes.filter(n =>
@@ -2524,12 +2441,12 @@ class FlowEditorService {
 }
 ```
 
-**缓存策略**（参考 Claude Code Prompt Caching）：
+**缓存策略**：
 ```typescript
 // 缓存 Flow JSON
 class FlowCache {
   private cache: Map<string, CacheEntry> = new Map()
-  private ttl = 5 * 60 * 1000 // 5 分钟（参考 Claude Code 缓存有效期）
+  private ttl = 5 * 60 * 1000 // 5 分钟
 
   async get(flowId: string): Promise<Flow | null> {
     const entry = this.cache.get(flowId)
@@ -2589,7 +2506,7 @@ class FlowEditorService {
 }
 ```
 
-**连接池**（参考 Claude Code 连接管理）：
+**连接池**：
 ```typescript
 // MCP 连接池（支持多个并发连接）
 class MCPConnectionPool {
@@ -2627,7 +2544,7 @@ class MCPConnectionPool {
 }
 ```
 
-**性能监控**（参考 Claude Code 性能追踪）：
+**性能监控**：
 ```typescript
 // 工具执行性能监控
 class PerformanceMonitor {
@@ -2709,14 +2626,14 @@ async function executeToolWithMonitoring(toolName: string, args: any) {
 cd packages/devkit-mcp-server
 bun run dev
 
-# 启动 IDE
+# 启动 UI
 cd packages/ide
 bun run dev
 ```
 
 **配置 MCP 连接**：
 ```typescript
-// IDE 配置
+// UI 配置
 const mcpClient = createMcpClient({
   transport: {
     type: 'stdio',
@@ -2729,7 +2646,7 @@ const mcpClient = createMcpClient({
 ### B.2 生产部署
 
 **方案 1：本地 MCP Server**
-- MCP Server 随 IDE 一起打包
+- MCP Server 随 UI 一起打包
 - 作为子进程启动
 - 适合桌面应用（Electron）
 
@@ -2770,7 +2687,7 @@ docker run -p 3000:3000 kal-devkit-mcp-server
 ### B.4 安全考虑
 
 **API Key 管理**：
-- IDE 不存储 API Key
+- UI 不存储 API Key
 - 通过环境变量或配置文件
 - 支持 API Key 代理服务
 
@@ -2793,7 +2710,7 @@ docker run -p 3000:3000 kal-devkit-mcp-server
 - 工具定义测试
 - 事件发射测试
 
-**IDE 测试**：
+**UI 测试**：
 - Agent 对话测试（mock MCP）
 - UI 组件测试
 - 状态管理测试
@@ -2817,7 +2734,7 @@ docker run -p 3000:3000 kal-devkit-mcp-server
 - 并发处理能力
 - 内存占用
 
-**IDE 性能**：
+**UI 性能**：
 - 首屏加载时间
 - Agent 响应时间
 - UI 渲染性能
@@ -2838,7 +2755,7 @@ docker run -p 3000:3000 kal-devkit-mcp-server
 
 ### D.1 MCP Server 连接失败
 
-**问题**：IDE 无法连接 MCP Server
+**问题**：UI 无法连接 MCP Server
 
 **排查**：
 1. 检查 MCP Server 是否启动
@@ -2883,7 +2800,7 @@ docker run -p 3000:3000 kal-devkit-mcp-server
 
 ### D.4 性能问题
 
-**问题**：IDE 响应缓慢
+**问题**：UI 响应缓慢
 
 **排查**：
 1. 检查 MCP 调用延迟
@@ -2905,7 +2822,6 @@ docker run -p 3000:3000 kal-devkit-mcp-server
 - [@kal-ai/core 文档](./core-dev-guide.md)
 - [@kal-ai/devkit 文档](./devkit-dev-guide.md)
 - [@kal-ai/core/flow 文档](./flow-dev-guide.md)
-- [Claude Code CLI 分析报告](../claude-code-analysis/README.md)
 
 ### E.2 技术栈文档
 
@@ -2918,7 +2834,6 @@ docker run -p 3000:3000 kal-devkit-mcp-server
 
 ### E.3 示例项目（参考实现）
 
-- **Claude Code CLI**（参考 Agent 交互、工具系统、流式处理）
   - 11.27 MB 单文件部署
   - 1,428 个 async 函数
   - 2,512 个 try-catch 块
@@ -2927,7 +2842,7 @@ docker run -p 3000:3000 kal-devkit-mcp-server
   - 完善的权限管理
   - SSE 流式响应
   - MCP 协议集成
-- Cursor IDE（参考 Agent 交互）
+- Cursor UI（参考 Agent 交互）
 - VS Code（参考 UI 布局）
 - Flowise（参考 Flow 编辑器）
 
@@ -2939,7 +2854,6 @@ docker run -p 3000:3000 kal-devkit-mcp-server
 - Playwright（E2E 测试）
 - React DevTools（调试工具）
 
-### E.5 Claude Code 核心技术参考
 
 **架构设计**：
 - 事件驱动架构（8,884 个事件监听器）
@@ -2982,14 +2896,12 @@ docker run -p 3000:3000 kal-devkit-mcp-server
 1. 学习 React 18 基础
 2. 学习 Zustand 状态管理
 3. 学习 MCP 协议基础
-4. 阅读 Claude Code 分析报告（核心部分）
 
 **深入学习**（2-3 周）：
 1. 学习 SSE 流式处理
 2. 学习 @kal-ai/core 使用
 3. 学习 React Flow 使用
 4. 学习 Monaco Editor 集成
-5. 阅读 Claude Code 完整分析报告
 
 **实战开发**（4-6 周）：
 1. 搭建基础框架
@@ -2998,7 +2910,7 @@ docker run -p 3000:3000 kal-devkit-mcp-server
 4. 实现 UI 组件
 5. 集成和测试
 
-### E.7 最佳实践总结（来自 Claude Code）
+### E.7 最佳实践总结
 
 **代码质量**：
 - 大量使用 TypeScript 类型检查（4,679 次 typeof 检查）
@@ -3027,6 +2939,4 @@ docker run -p 3000:3000 kal-devkit-mcp-server
 ---
 
 **分析完成日期**: 2026-02-27
-**参考版本**: Claude Code CLI v2.1.62
 **分析工具**: Claude Sonnet 4.6
-**文档版本**: v2.0（基于 Claude Code 分析优化）
