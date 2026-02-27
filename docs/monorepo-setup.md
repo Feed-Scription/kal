@@ -2,7 +2,7 @@
 
 ## Context
 
-KAL-AI 采用 bun workspace monorepo 管理三个包：`@kal-ai/core`、`@kal-ai/orchestrate`、`@kal-ai/devkit`。本文档定义仓库结构、依赖关系、构建配置和开发流程，确保团队成员能快速搭建开发环境并行开发。
+KAL-AI 采用 bun workspace monorepo 管理两个包：`@kal-ai/core`（包含 flow 模块）、`@kal-ai/devkit`。本文档定义仓库结构、依赖关系、构建配置和开发流程，确保团队成员能快速搭建开发环境并行开发。
 
 技术选型：bun workspace、TypeScript 5.x 严格模式、tsup 构建（ESM + CJS 双格式）、vitest 测试、changesets 版本管理。
 
@@ -39,8 +39,7 @@ kal-ai/
 ├── .changeset/                 # changesets 版本管理
 │   └── config.json
 ├── packages/
-│   ├── core/                   # @kal-ai/core
-│   ├── orchestrate/            # @kal-ai/orchestrate
+│   ├── core/                   # @kal-ai/core (包含 flow 模块)
 │   └── devkit/                 # @kal-ai/devkit
 ├── examples/                   # 示例项目（独立 repo 规划，暂放此处）
 │   └── simple-text-rpg/
@@ -50,20 +49,19 @@ kal-ai/
 ## 二、包间依赖关系
 
 ```
-@kal-ai/core          ← 无内部依赖（基础层）
-@kal-ai/orchestrate   ← 依赖 @kal-ai/core
-@kal-ai/devkit        ← 依赖 @kal-ai/core + @kal-ai/orchestrate
+@kal-ai/core          ← 无内部依赖（基础层，包含 flow 模块）
+@kal-ai/devkit        ← 依赖 @kal-ai/core
 ```
 
 依赖方向严格单向，不允许反向或循环依赖。
 
 ### 典型集成模式
 
-**Module 模式（core + orchestrate）**
+**Module 模式（core + flow）**
 
 ```typescript
 import { createKalCore } from '@kal-ai/core'
-import { createFlowExecutor } from '@kal-ai/orchestrate'
+import { createFlowExecutor } from '@kal-ai/core/flow'
 import { base, field, compose, formatXML } from '@kal-ai/core'
 
 const core = createKalCore({
@@ -82,7 +80,7 @@ const result = await executor.wait()
 console.log(core.state.get('scene.narrative'))
 ```
 
-**开发测试模式（core + orchestrate + devkit）**
+**开发测试模式（core + devkit）**
 
 ```typescript
 import { createKalCore } from '@kal-ai/core'
@@ -135,11 +133,9 @@ packages = ["packages/*", "examples/*"]
   "scripts": {
     "build": "bun --filter './packages/*' run build",
     "build:core": "bun --filter @kal-ai/core run build",
-    "build:orchestrate": "bun --filter @kal-ai/orchestrate run build",
     "build:devkit": "bun --filter @kal-ai/devkit run build",
     "test": "bun --filter './packages/*' run test",
     "test:core": "bun --filter @kal-ai/core run test",
-    "test:orchestrate": "bun --filter @kal-ai/orchestrate run test",
     "test:devkit": "bun --filter @kal-ai/devkit run test",
     "lint": "bun --filter './packages/*' run lint",
     "typecheck": "bun --filter './packages/*' run typecheck",
@@ -197,7 +193,6 @@ peer = true
   "files": [],
   "references": [
     { "path": "packages/core" },
-    { "path": "packages/orchestrate" },
     { "path": "packages/devkit" }
   ]
 }
@@ -286,11 +281,11 @@ export default defineConfig({
 })
 ```
 
-### 4.4 packages/orchestrate/package.json（依赖差异部分）
+### 4.4 packages/devkit/package.json（依赖差异部分）
 
 ```json
 {
-  "name": "@kal-ai/orchestrate",
+  "name": "@kal-ai/devkit",
   "version": "0.1.0",
   "dependencies": {
     "@kal-ai/core": "workspace:*"
@@ -298,9 +293,7 @@ export default defineConfig({
 }
 ```
 
-其余字段（exports、scripts、devDependencies）与 core 相同。
-
-### 4.5 packages/orchestrate/tsconfig.json
+### 4.5 packages/devkit/tsconfig.json
 
 ```json
 {
@@ -314,38 +307,6 @@ export default defineConfig({
   "exclude": ["**/__tests__/**", "dist"],
   "references": [
     { "path": "../core" }
-  ]
-}
-```
-
-### 4.6 packages/devkit/package.json（依赖差异部分）
-
-```json
-{
-  "name": "@kal-ai/devkit",
-  "version": "0.1.0",
-  "dependencies": {
-    "@kal-ai/core": "workspace:*",
-    "@kal-ai/orchestrate": "workspace:*"
-  }
-}
-```
-
-### 4.7 packages/devkit/tsconfig.json
-
-```json
-{
-  "extends": "../../tsconfig.base.json",
-  "compilerOptions": {
-    "outDir": "./dist/types",
-    "rootDir": "./src",
-    "composite": true
-  },
-  "include": ["src/**/*.ts"],
-  "exclude": ["**/__tests__/**", "dist"],
-  "references": [
-    { "path": "../core" },
-    { "path": "../orchestrate" }
   ]
 }
 ```
@@ -374,7 +335,7 @@ git clone <repo-url> && cd kal-ai
 # 安装依赖（bun 自动 link workspace 包）
 bun install
 
-# 全量构建（按依赖顺序：core → orchestrate → devkit）
+# 全量构建（按依赖顺序：core → devkit）
 bun run build
 
 # 类型检查
@@ -391,8 +352,8 @@ bun run test
 bun run build:core
 bun run test:core
 
-# 开发 orchestrate（需先构建 core）
-bun run build:core && bun run build:orchestrate
+# 开发 devkit（需先构建 core）
+bun run build:core && bun run build:devkit
 
 # watch 模式（单包内）
 cd packages/core && bun run dev
@@ -428,7 +389,7 @@ bun run release
 bun workspace 的 `--filter` 命令会自动按依赖拓扑排序执行，构建顺序为：
 
 ```
-core → orchestrate → devkit
+core → devkit
 ```
 
 ### CI 流水线（GitHub Actions 示例）
@@ -472,10 +433,9 @@ coverage/
 
 - [ ] bunfig.toml 创建
 - [ ] 根 package.json + tsconfig.base.json + tsconfig.json 创建
-- [ ] packages/core 骨架（package.json + tsconfig.json + tsup.config.ts + src/index.ts）
-- [ ] packages/orchestrate 骨架（同上 + 依赖 core）
-- [ ] packages/devkit 骨架（同上 + 依赖 core + orchestrate）
+- [ ] packages/core 骨架（package.json + tsconfig.json + tsup.config.ts + src/index.ts + src/flow/）
+- [ ] packages/devkit 骨架（同上 + 依赖 core）
 - [ ] `bun install` 成功
 - [ ] `bun run typecheck` 通过（空 index.ts 即可）
-- [ ] `bun run build` 三个包均输出 dist/
+- [ ] `bun run build` 两个包均输出 dist/
 - [ ] `bun run test` 通过（空测试文件即可）

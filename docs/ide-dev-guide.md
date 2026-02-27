@@ -74,7 +74,7 @@ KAL-AI IDE 是面向 AI 游戏开发的集成开发环境，基于 Web 技术栈
 ├─────────────────────────────────────────────────────────────┤
 │  Kal Core Libraries (能力层 - 无 UI)                         │
 │  ├── @kal-ai/devkit (FlowEditor, Simulator, Replayer)       │
-│  ├── @kal-ai/orchestrate (FlowExecutor, NodeTypeRegistry)   │
+│  ├── @kal-ai/core (Model, State, Flow)                     │
 │  └── @kal-ai/core (KalCore, StateManager, Model)            │
 ├─────────────────────────────────────────────────────────────┤
 │  Backend Services (Optional)                                 │
@@ -2904,7 +2904,7 @@ docker run -p 3000:3000 kal-devkit-mcp-server
 - [MCP 协议规范](https://modelcontextprotocol.io/docs)
 - [@kal-ai/core 文档](./core-dev-guide.md)
 - [@kal-ai/devkit 文档](./devkit-dev-guide.md)
-- [@kal-ai/orchestrate 文档](./orchestrate-dev-guide.md)
+- [@kal-ai/core/flow 文档](./flow-dev-guide.md)
 - [Claude Code CLI 分析报告](../claude-code-analysis/README.md)
 
 ### E.2 技术栈文档

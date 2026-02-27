@@ -1,10 +1,10 @@
-# @kal-ai/orchestrate 开发文档
+# @kal-ai/core/flow 开发文档
 
 ## Context
 
-`@kal-ai/orchestrate` 负责 AI 调用的异步编排，核心抽象是 Flow（DAG 节点图）。它解决游戏开发中 AI 调用的并发管理、异步预生成、状态一致性等痛点，让开发者只需声明节点间的依赖关系，框架自动完成拓扑排序、并行执行和写冲突检测。
+`@kal-ai/core/flow` 负责 AI 调用的异步编排，核心抽象是 Flow（DAG 节点图）。它解决游戏开发中 AI 调用的并发管理、异步预生成、状态一致性等痛点，让开发者只需声明节点间的依赖关系，框架自动完成拓扑排序、并行执行和写冲突检测。
 
-依赖：`@kal-ai/core`（Model、StateManager、CacheManager 等）。
+作为 `@kal-ai/core` 的一部分，flow 模块与 Model、StateManager、CacheManager 等核心组件紧密集成。
 
 ### 会议共识（2026-02-24）
 
@@ -27,7 +27,7 @@ KAL 支持两种集成模式，开发者根据游戏类型选择：
 游戏引擎 Main Loop
   ├── 渲染系统
   ├── 物理系统
-  ├── AI 系统 ← KAL（core + orchestrate）
+  ├── AI 系统 ← KAL（core + flow）
   │     ├── 叙事生成 Flow
   │     ├── NPC 对话 Flow
   │     └── 数值模拟 Flow
@@ -67,7 +67,7 @@ KAL 支持两种集成模式，开发者根据游戏类型选择：
 ## 二、目录结构
 
 ```
-packages/orchestrate/
+packages/core/src/flow/
 ├── package.json
 ├── tsconfig.json
 ├── tsup.config.ts
@@ -859,7 +859,7 @@ export interface NodeTypeRegistry {
 **NodeTypeRegistry 初始化流程：**
 
 ```typescript
-import { createNodeTypeRegistry, getBuiltinNodeTypes } from '@kal-ai/orchestrate'
+import { createNodeTypeRegistry, getBuiltinNodeTypes } from '@kal-ai/core/flow'
 
 // 1. 创建 registry
 const registry = createNodeTypeRegistry()
@@ -923,7 +923,7 @@ export function createFlowToolBridge(options: { readonly core: KalCore }): FlowT
 
 ```
 ┌──────────────────────────────────────────────────┐
-│              @kal-ai/orchestrate                  │
+│              @kal-ai/core/flow                     │
 │                                                  │
 │  types(含 port) ◄── 所有模块都依赖               │
 │    ▲                                             │
@@ -939,7 +939,7 @@ export function createFlowToolBridge(options: { readonly core: KalCore }): FlowT
 └──────────────────────────────────────────────────┘
 ```
 
-关键设计：executor 通过 `KalCore` 获取 Model、StateManager 等能力，orchestrate 本身不直接调用大模型，而是委托给 core。registry 模块为编辑器提供节点元信息，serialization 在反序列化时可通过 registry 校验端口连接合法性。
+关键设计：executor 通过 `KalCore` 获取 Model、StateManager 等能力，flow 模块本身不直接调用大模型，而是委托给 core。registry 模块为编辑器提供节点元信息，serialization 在反序列化时可通过 registry 校验端口连接合法性。
 
 ## 五、执行模型详解
 
@@ -1290,7 +1290,7 @@ start() → narrative(预生成) → 缓存结果
 
 ## 5.7 Flow as Tool 桥接
 
-在 Native 模式下，大模型通过 function calling 调用 Flow。orchestrate 提供桥接机制，将 FlowDefinition 注册为 core 的 ToolDefinition。
+在 Native 模式下，大模型通过 function calling 调用 Flow。flow 模块提供桥接机制，将 FlowDefinition 注册为 core 的 ToolDefinition。
 
 ```typescript
 // 桥接接口 — 将 Flow 注册为 Tool
@@ -1333,7 +1333,7 @@ export interface FlowToolBridge {
 
 ```typescript
 import { createKalCore } from '@kal-ai/core'
-import { createFlowExecutor, createFlowToolBridge } from '@kal-ai/orchestrate'
+import { createFlowExecutor, createFlowToolBridge } from '@kal-ai/core/flow'
 
 const core = createKalCore({
   models: {
@@ -1695,7 +1695,7 @@ render-result（提取叙事文本，写入 scene.narrative）
 
 ```typescript
 import { createKalCore } from '@kal-ai/core'
-import { createFlowExecutor } from '@kal-ai/orchestrate'
+import { createFlowExecutor } from '@kal-ai/core/flow'
 
 const core = createKalCore({
   models: {

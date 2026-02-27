@@ -980,11 +980,11 @@ export function createKalCore(options: KalCoreOptions): KalCore
 
 关键设计：model 通过 `ModelMiddleware` 定义中间件链，infra/safety/observe 通过 `asMiddleware()` 注入，运行时可选，编译时不硬依赖。
 
-**与 @kal-ai/orchestrate 的集成点：**
+**与 @kal-ai/core/flow 的集成点：**
 
-orchestrate 通过 `KalCore` 获取 core 的能力，不直接依赖 core 的内部模块：
+flow 模块通过 `KalCore` 获取 core 的能力，不直接依赖 core 的内部模块：
 
-| orchestrate 需要 | 通过 core 的哪个接口 |
+| flow 需要 | 通过 core 的哪个接口 |
 |-----------------|-------------------|
 | 调用大模型 | `KalCore.model`（或 `modelFactory.get(name)`） |
 | 读写游戏状态 | `KalCore.state` |
