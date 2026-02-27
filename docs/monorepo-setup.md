@@ -62,7 +62,6 @@ kal-ai/
 ```typescript
 import { createKalCore } from '@kal-ai/core'
 import { createFlowExecutor } from '@kal-ai/core/flow'
-import { base, field, compose, formatXML } from '@kal-ai/core'
 
 const core = createKalCore({
   models: { default: { modelId: 'deepseek-chat', baseUrl: '...', apiKey: '...' } },
@@ -443,7 +442,7 @@ coverage/
 
 - [ ] bunfig.toml 创建
 - [ ] 根 package.json + tsconfig.base.json + tsconfig.json 创建
-- [ ] packages/core 骨架（package.json + tsconfig.json + tsup.config.ts + src/index.ts + src/flow/）
+- [ ] packages/core 骨架（package.json + tsconfig.json + tsup.config.ts + src/index.ts + src/flow/index.ts + src/flow/interfaces.ts）
 - [ ] packages/devkit 骨架（同上 + 依赖 core）
 - [ ] `bun install` 成功
 - [ ] `bun run typecheck` 通过（空 index.ts 即可）
