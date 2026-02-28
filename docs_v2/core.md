@@ -120,24 +120,108 @@ Handler 支持内置类型和用户自定义类型：
 - 输出：
   - `success`: boolean - 是否成功
 
-#### 文本类
+#### Prompt 构建类
 
-**UseTemplate（使用文本模板）**
+Prompt 采用**片段组合**模式：用 JSON 定义各种 Prompt 片段 → 引擎自动 `compose` 组装 → `resolve(data)` 解析为消息列表。
+
+**设计原则：** Prompt 模块是纯数据变换，不直接读取 State。State 数据由上游节点（如 ReadState）传入。
+
+**片段类型（Fragment）：**
+
+`base` — 静态文本片段：
+
+```json
+{ "type": "base", "id": "intro", "content": "你是一个中世纪叙事 AI", "role": "system" }
+```
+
+`field` — 从传入数据中提取动态内容：
+
+```json
+{
+  "type": "field", "id": "history", "role": "user",
+  "source": "events",
+  "template": "历史事件:\n{{items}}",
+  "window": 20,
+  "sample": 5,
+  "sort": "importance",
+  "dedup": ["eventId"]
+}
+```
+
+- `source`: 数据路径（如 `"events"` → `data.events`）
+- `template`: 渲染模板（`{{items}}` 为序列化后的内容）
+- `window`/`sample`/`sort`/`dedup`: 可选的窗口、采样、排序、去重
+
+`when` — 条件包含：
+
+```json
+{
+  "type": "when", "id": "combat-check",
+  "condition": "inCombat",
+  "fragments": [ { "type": "base", "id": "combat-rules", "content": "战斗规则：..." } ],
+  "else": [ { "type": "base", "id": "explore-rules", "content": "探索规则：..." } ]
+}
+```
+
+- `condition`: 数据路径，按 truthiness 判断（如 `"inCombat"` → `data.inCombat`）
+
+`randomSlot` — 从候选片段中随机选一个：
+
+```json
+{
+  "type": "randomSlot", "id": "flavor",
+  "candidates": [
+    { "type": "base", "id": "f1", "content": "风格A：..." },
+    { "type": "base", "id": "f2", "content": "风格B：..." }
+  ],
+  "seed": "random"
+}
+```
+
+- `seed`: `"random"`（默认，真随机）或固定数字（可复现）
+
+`budget` — Token 预算控制，超出时自动裁剪：
+
+```json
+{
+  "type": "budget",
+  "maxTokens": 2000,
+  "strategy": "tail",
+  "fragments": [ ... ]
+}
+```
+
+- `strategy`: `"tail"`（从末尾丢弃，默认）或 `"weighted"`（按权重裁剪）
+- `weights`: 各片段权重（`strategy` 为 `"weighted"` 时，key 为片段 id）
+
+**PromptBuild（Prompt 构建节点）**
+- 作用：将片段定义解析、组装为一段完整的 prompt 文本
 - 配置：
-  - `template`: string - 模板字符串（支持变量插值）
+  - `fragments`: Fragment[] - 片段定义列表（JSON 数组）
 - 输入：
-  - 动态输入（根据模板中的变量）
+  - `data`: object - 传入数据（通常来自 ReadState 节点输出）
 - 输出：
-  - `text`: string - 渲染后的文本
+  - `text`: string - 解析组装后的 prompt 文本
+  - `estimatedTokens`: number - 估算 token 数
 
-**Prompt（组装 Prompt）**
-- 作用：将数据组装为 ChatMessage[]
+片段也支持通过 TypeScript API（`base()`/`field()`/`when()`/`randomSlot()`/`budget()`/`compose()`）以编程方式构建，详见 core-dev-guide。
+
+#### 消息组装类
+
+**Message（组装 Message）**
+- 作用：将 prompt 文本和历史对话组装为 ChatMessage[]，供 LLM 消费
+- 配置：
+  - `format?`: `"xml"` | `"markdown"` - prompt 文本的格式化风格（默认 `"xml"`）
 - 输入：
-  - `system`: string - 系统消息
-  - `user`: string - 用户消息
-  - `history`: ChatMessage[] - 历史消息
+  - `system`: string - 系统消息（通常来自 PromptBuild 输出）
+  - `user`: string - 用户消息（通常来自 PromptBuild 输出或上游数据）
+  - `history?`: ChatMessage[] - 历史对话消息
 - 输出：
   - `messages`: ChatMessage[] - 组装后的消息数组
+
+典型管线：`ReadState → PromptBuild（构建 prompt 文本）→ Message（组装对话结构）→ GenerateText`
+
+#### 文本类
 
 **GenerateText（生成文本）**
 - 作用：调用 LLM 生成文本
@@ -175,13 +259,28 @@ Handler 支持内置类型和用户自定义类型：
 #### 数据处理类
 
 **JSONParse（JSON 解析与修复）**
-- 作用：解析 JSON，处理截断、注释、尾逗号等问题
+- 作用：基于 JsonRepair 能力解析 LLM 输出的 JSON，容错处理各种常见问题
+- 配置：
+  - `extractFromCodeBlock?`: boolean - 从 markdown 代码块中提取 JSON（默认 true）
+  - `fixCommonErrors?`: boolean - 修复常见错误（如尾逗号、单引号、注释）（默认 true）
+  - `fixTruncated?`: boolean - 修复被截断的 JSON（自动补全括号）（默认 true）
 - 输入：
   - `text`: string - 待解析的 JSON 字符串
 - 输出：
   - `data`: object - 解析后的数据
   - `success`: boolean - 是否成功
   - `error`: string - 错误信息（如果失败）
+
+**PostProcess（后处理管道）**
+- 作用：对文本执行自定义后处理链，支持串联多个处理器
+- 配置：
+  - `processors`: PostProcessorDef[] - 处理器定义列表，按顺序执行
+- 输入：
+  - `text`: string - 待处理文本
+- 输出：
+  - `text`: string - 处理后的文本
+
+后处理也作为 Model 中间件自动生效（在模型调用链末端执行 JSON repair 等），无需手动串节点。详见 core-dev-guide 中间件链说明。
 
 ### 自定义 Node
 
