@@ -1,0 +1,30 @@
+{
+  "name": "simple-text-rpg",
+  "version": "1.0.0",
+  "engine": {
+    "logLevel": "info",
+    "maxConcurrentFlows": 10,
+    "timeout": 30000
+  },
+  "llm": {
+    "provider": "openai",
+    "apiKey": "${OPENAI_API_KEY}",
+    "defaultModel": "gpt-4",
+    "retry": {
+      "maxRetries": 3,
+      "initialDelayMs": 1000,
+      "maxDelayMs": 30000,
+      "backoffMultiplier": 2,
+      "jitter": true
+    },
+    "cache": {
+      "enabled": true,
+      "ttl": 3600000,
+      "maxEntries": 1000
+    }
+  },
+  "image": {
+    "provider": "openai",
+    "apiKey": "${OPENAI_API_KEY}"
+  }
+}

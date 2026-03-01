@@ -384,14 +384,19 @@ interface CustomNode {
 interface NodeContext {
   // 访问 State
   state: {
-    get(key: string): any;
-    set(key: string, value: any): void;
+    get(key: string): StateValue | undefined;
+    set(key: string, value: StateValue): void;
     delete(key: string): void;
   };
 
   // 访问 LLM（带基础设施能力）
   llm: {
     invoke(messages: ChatMessage[], options?: LLMOptions): Promise<LLMResponse>;
+  };
+
+  // Flow 执行（用于 SubFlow 节点）
+  flow?: {
+    execute(flowRef: string, inputs: Record<string, any>): Promise<Record<string, any>>;
   };
 
   // 日志

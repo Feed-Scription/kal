@@ -1,0 +1,27 @@
+{
+  "name": "kal-ai",
+  "version": "0.1.0",
+  "private": true,
+  "description": "KAL-AI: AI-driven game development engine",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "bun run --filter='@kal-ai/*' build",
+    "test": "bun run --filter='@kal-ai/*' test",
+    "test:coverage": "bun run --filter='@kal-ai/*' test:coverage",
+    "typecheck": "bun run --filter='@kal-ai/*' typecheck",
+    "clean": "bun run --filter='@kal-ai/*' clean",
+    "changeset": "changeset",
+    "version": "changeset version",
+    "release": "bun run build && changeset publish"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.27.1",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "bun": ">=1.0.0"
+  }
+}
