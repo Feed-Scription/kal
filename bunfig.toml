@@ -1,0 +1,7 @@
+[install]
+# Enable workspace support
+peer = true
+
+[install.scopes]
+# Workspace packages
+"@kal-ai" = { }

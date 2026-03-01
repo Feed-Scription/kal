@@ -1,0 +1,18 @@
+{
+  "playerName": {
+    "type": "string",
+    "value": "Adventurer"
+  },
+  "currentLocation": {
+    "type": "string",
+    "value": "village"
+  },
+  "inventory": {
+    "type": "array",
+    "value": ["sword", "potion"]
+  },
+  "health": {
+    "type": "number",
+    "value": 100
+  }
+}

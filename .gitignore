@@ -1,1 +1,35 @@
 claude-code-analysis/
+
+# Dependencies
+node_modules/
+.bun/
+
+# Build output
+dist/
+*.tsbuildinfo
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Coverage
+coverage/
+
+# Changeset
+.changeset/*.md
+!.changeset/config.json

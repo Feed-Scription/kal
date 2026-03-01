@@ -101,9 +101,9 @@ my-game/
     }
   ],
   "edges": [
-    { "source": "input", "sourcePort": "text", "target": "message", "targetPort": "user" },
-    { "source": "message", "sourcePort": "messages", "target": "llm", "targetPort": "messages" },
-    { "source": "llm", "sourcePort": "text", "target": "output", "targetPort": "text" }
+    { "source": "input", "sourceHandle": "text", "target": "message", "targetHandle": "user" },
+    { "source": "message", "sourceHandle": "messages", "target": "llm", "targetHandle": "messages" },
+    { "source": "llm", "sourceHandle": "text", "target": "output", "targetHandle": "text" }
   ]
 }
 ```
