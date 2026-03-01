@@ -115,6 +115,7 @@ export class ConfigLoader {
         provider: config.llm.provider,
         apiKey: config.llm.apiKey,
         defaultModel: config.llm.defaultModel,
+        baseUrl: config.llm.baseUrl,
         retry: { ...DEFAULT_RETRY_CONFIG, ...config.llm.retry },
         cache: { ...DEFAULT_CACHE_CONFIG, ...config.llm.cache },
       },
