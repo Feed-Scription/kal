@@ -5,6 +5,8 @@ KAL-AI 是面向 AI 驱动游戏开发的引擎，用 TypeScript 编写，作为
 ## 文档导航
 
 - **[core.md](./core.md)** - Core 模块详细设计（Node、Flow、State、LLM 基础设施）
+- **[engine.md](./engine.md)** - Engine 模块详细设计（CLI 命令、HTTP API、项目加载、配置管理）
+- **[editor.md](./editor.md)** - Editor-UI 模块详细设计（可视化编辑器、Flow 画布、State 管理）
 - **[evolution.md](./evolution.md)** - 设计演进历程（V1 → V2 → V3 → V4）和适用场景
 
 ## 核心概念速览
