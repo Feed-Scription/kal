@@ -18,7 +18,7 @@
 
 在 V3 基础上，V4 做了三件事：
 
-1. **模块化与命名统一**：给出明确的模块名（`node` / `flow` / `state` / `llm`），统一术语（Handler → Port，可观测性 → Telemetry，钩子 → Hook），建立层间关系说明。
+1. **模块化与命名统一**：给出明确的模块名（`node` / `flow` / `state` / `llm`），统一术语（Handler → Handle，可观测性 → Telemetry，钩子 → Hook），建立层间关系说明。
 2. **JSON-first 与 Web UI 友好性**：新增 JSON 化约束章节，强调前后端共享 JSON 契约，建议引入 `schemaVersion`，节点注册表可导出为 JSON Manifest。
 3. **子 Flow Node 化**：子 Flow 采用顶层 `inputs`/`outputs` 的 Node 化契约，使其可被前端当作固定节点渲染与连线。
 
@@ -41,8 +41,8 @@
 
 | V3 | V4 | 说明 |
 |---|---|---|
-| `Handler` / `HandlerDefinition` | `Port` / `PortDefinition` | 降低与事件处理器语义冲突，更贴近端口概念 |
-| `sourceHandler` / `targetHandler` | `sourcePort` / `targetPort` | Edge 字段命名与 Port 保持一致 |
+| `Handler` / `HandlerDefinition` | `Handle` / `HandleDefinition` | 降低与事件处理器语义冲突，更贴近参数句柄概念 |
+| `sourceHandler` / `targetHandler` | `sourceHandle` / `targetHandle` | Edge 字段命名与 Handle 保持一致 |
 | 可观测性 / observability | `Telemetry`（遥测） | 名称更短，聚焦运行遥测 |
 | 钩子 | `Hook` | 中英命名统一 |
 | `/api/observability/...` | `/api/telemetry/...` | API 路径同步更新 |
@@ -87,9 +87,9 @@
 ## 迁移清单（从 V3 升级到 V4）
 
 1. **术语替换**
-   - `Handler` → `Port`
-   - `HandlerDefinition` → `PortDefinition`
-   - `sourceHandler` / `targetHandler` → `sourcePort` / `targetPort`
+   - `Handler` → `Handle`
+   - `HandlerDefinition` → `HandleDefinition`
+   - `sourceHandler` / `targetHandler` → `sourceHandle` / `targetHandle`
 
 2. **接口与配置**
    - Flow 文件补充 `schemaVersion`（建议）
