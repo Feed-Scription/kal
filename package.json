@@ -4,7 +4,8 @@
   "private": true,
   "description": "KAL-AI: AI-driven game development engine",
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "examples/*"
   ],
   "scripts": {
     "build": "bun run --filter='@kal-ai/*' build",

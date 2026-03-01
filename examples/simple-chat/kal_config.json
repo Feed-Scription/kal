@@ -1,10 +1,10 @@
 {
-  "name": "simple-text-rpg",
+  "name": "simple-chat",
   "version": "1.0.0",
   "engine": {
-    "logLevel": "warn",
+    "logLevel": "info",
     "maxConcurrentFlows": 1,
-    "timeout": 60000
+    "timeout": 30000
   },
   "llm": {
     "provider": "openai",

@@ -1,0 +1,12 @@
+{
+  "name": "simple-text-rpg",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@kal-ai/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^25.3.3"
+  }
+}
