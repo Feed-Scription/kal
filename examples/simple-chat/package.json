@@ -1,0 +1,9 @@
+{
+  "name": "simple-chat",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@kal-ai/core": "workspace:*"
+  }
+}
