@@ -1,5 +1,5 @@
 import { memo } from "react";
-import { Position } from "@xyflow/react";
+import { Position, type NodeProps } from "@xyflow/react";
 import {
   BaseNode,
   BaseNodeContent,
@@ -8,10 +8,13 @@ import {
 } from "@/components/base-node";
 import { LabeledHandle } from "@/components/labeled-handle";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { useNodeConfig } from "@/hooks/use-node-config";
 import { Image } from "lucide-react";
 
-export const GenerateImageNode = memo(() => {
+export const GenerateImageNode = memo(({ id, data }: NodeProps) => {
+  const config = (data as any).config || {};
+  const { updateConfig } = useNodeConfig(id);
+
   return (
     <BaseNode className="w-96">
       <BaseNodeHeader className="border-b">
@@ -19,19 +22,14 @@ export const GenerateImageNode = memo(() => {
         <BaseNodeHeaderTitle>生成图像</BaseNodeHeaderTitle>
       </BaseNodeHeader>
       <BaseNodeContent>
-        <div className="space-y-2">
-          <div>
-            <label className="text-xs text-muted-foreground">Prompt</label>
-            <Textarea
-              placeholder="图像描述..."
-              className="mt-1"
-              rows={3}
-            />
-          </div>
-          <div>
-            <label className="text-xs text-muted-foreground">Model</label>
-            <Input placeholder="dall-e-3" className="mt-1" />
-          </div>
+        <div>
+          <label className="text-xs text-muted-foreground">Model</label>
+          <Input
+            placeholder="dall-e-3"
+            className="mt-1"
+            value={config.model || ""}
+            onChange={(e) => updateConfig({ model: e.target.value })}
+          />
         </div>
       </BaseNodeContent>
       <LabeledHandle

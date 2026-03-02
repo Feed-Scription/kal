@@ -1,5 +1,5 @@
-import { memo } from "react";
-import { Position } from "@xyflow/react";
+import { memo, useState, useCallback } from "react";
+import { Position, type NodeProps } from "@xyflow/react";
 import {
   BaseNode,
   BaseNodeContent,
@@ -8,9 +8,31 @@ import {
 } from "@/components/base-node";
 import { LabeledHandle } from "@/components/labeled-handle";
 import { Textarea } from "@/components/ui/textarea";
+import { useNodeConfig } from "@/hooks/use-node-config";
 import { FileText } from "lucide-react";
 
-export const PromptBuildNode = memo(() => {
+export const PromptBuildNode = memo(({ id, data }: NodeProps) => {
+  const config = (data as any).config || {};
+  const { updateConfig } = useNodeConfig(id);
+  const [jsonText, setJsonText] = useState(() =>
+    JSON.stringify(config.fragments || [], null, 2)
+  );
+  const [parseError, setParseError] = useState<string | null>(null);
+
+  const handleBlur = useCallback(() => {
+    try {
+      const parsed = JSON.parse(jsonText);
+      if (!Array.isArray(parsed)) {
+        setParseError("必须是数组");
+        return;
+      }
+      setParseError(null);
+      updateConfig({ fragments: parsed });
+    } catch {
+      setParseError("JSON 格式错误");
+    }
+  }, [jsonText, updateConfig]);
+
   return (
     <BaseNode className="w-96">
       <BaseNodeHeader className="border-b">
@@ -19,12 +41,23 @@ export const PromptBuildNode = memo(() => {
       </BaseNodeHeader>
       <BaseNodeContent>
         <div>
-          <label className="text-xs text-muted-foreground">Data (JSON)</label>
+          <label className="text-xs text-muted-foreground">
+            Fragments (JSON)
+          </label>
           <Textarea
-            placeholder='{"key": "value"}'
+            placeholder='[{"type":"base","text":"..."}]'
             className="mt-1 font-mono text-xs"
-            rows={4}
+            rows={6}
+            value={jsonText}
+            onChange={(e) => {
+              setJsonText(e.target.value);
+              setParseError(null);
+            }}
+            onBlur={handleBlur}
           />
+          {parseError && (
+            <p className="mt-1 text-xs text-destructive">{parseError}</p>
+          )}
         </div>
       </BaseNodeContent>
       <LabeledHandle

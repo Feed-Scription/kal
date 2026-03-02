@@ -1,5 +1,5 @@
 import { memo } from "react";
-import { Position } from "@xyflow/react";
+import { Position, type NodeProps } from "@xyflow/react";
 import {
   BaseNode,
   BaseNodeContent,
@@ -8,10 +8,13 @@ import {
 } from "@/components/base-node";
 import { LabeledHandle } from "@/components/labeled-handle";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { useNodeConfig } from "@/hooks/use-node-config";
 import { Search } from "lucide-react";
 
-export const RegexNode = memo(() => {
+export const RegexNode = memo(({ id, data }: NodeProps) => {
+  const config = (data as any).config || {};
+  const { updateConfig } = useNodeConfig(id);
+
   return (
     <BaseNode className="w-96">
       <BaseNodeHeader className="border-b">
@@ -21,20 +24,22 @@ export const RegexNode = memo(() => {
       <BaseNodeContent>
         <div className="space-y-2">
           <div>
-            <label className="text-xs text-muted-foreground">Text</label>
-            <Textarea
-              placeholder="待匹配文本..."
-              className="mt-1"
-              rows={3}
+            <label className="text-xs text-muted-foreground">Pattern</label>
+            <Input
+              placeholder="正则表达式"
+              className="mt-1 font-mono"
+              value={config.pattern || ""}
+              onChange={(e) => updateConfig({ pattern: e.target.value })}
             />
           </div>
           <div>
-            <label className="text-xs text-muted-foreground">Pattern</label>
-            <Input placeholder="正则表达式" className="mt-1 font-mono" />
-          </div>
-          <div>
             <label className="text-xs text-muted-foreground">Flags</label>
-            <Input placeholder="g, i, m..." className="mt-1" />
+            <Input
+              placeholder="g, i, m..."
+              className="mt-1"
+              value={config.flags || ""}
+              onChange={(e) => updateConfig({ flags: e.target.value })}
+            />
           </div>
         </div>
       </BaseNodeContent>
