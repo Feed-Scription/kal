@@ -16,11 +16,47 @@ import {
 } from '@xyflow/react';
 
 import { BaseNodeFullDemo } from "./nodes/node-example";
+import {
+  AddStateNode,
+  RemoveStateNode,
+  ReadStateNode,
+  ModifyStateNode,
+  PromptBuildNode,
+  MessageNode,
+  GenerateTextNode,
+  GenerateImageNode,
+  SignalInNode,
+  SignalOutNode,
+  TimerNode,
+  RegexNode,
+  JSONParseNode,
+  PostProcessNode,
+  SubFlowNode,
+} from "./nodes";
 import { PaneContextMenu, type ContextMenuState } from "./PaneContextMenu";
 
 
 const nodeTypes = {
   baseNodeFull: BaseNodeFullDemo,
+  // State nodes
+  AddState: AddStateNode,
+  RemoveState: RemoveStateNode,
+  ReadState: ReadStateNode,
+  ModifyState: ModifyStateNode,
+  // LLM nodes
+  PromptBuild: PromptBuildNode,
+  Message: MessageNode,
+  GenerateText: GenerateTextNode,
+  GenerateImage: GenerateImageNode,
+  // Signal nodes
+  SignalIn: SignalInNode,
+  SignalOut: SignalOutNode,
+  Timer: TimerNode,
+  // Transform nodes
+  Regex: RegexNode,
+  JSONParse: JSONParseNode,
+  PostProcess: PostProcessNode,
+  SubFlow: SubFlowNode,
 };
 
 
@@ -71,14 +107,14 @@ export default function Flow() {
   );
 
   const addNodeAtPosition = useCallback(
-    (position: { x: number; y: number }) => {
+    (position: { x: number; y: number }, nodeType: string) => {
       setNodes((nds) => [
         ...nds,
         {
-          id: `baseNodeFull-${Date.now()}`,
+          id: `${nodeType}-${Date.now()}`,
           position,
           data: {},
-          type: "baseNodeFull",
+          type: nodeType,
         },
       ]);
     },
