@@ -3,10 +3,6 @@
   "version": "0.1.0",
   "private": true,
   "description": "KAL-AI: AI-driven game development engine",
-  "workspaces": [
-    "packages/*",
-    "examples/*"
-  ],
   "scripts": {
     "build": "bun run --filter='@kal-ai/*' build",
     "test": "bun run --filter='@kal-ai/*' test",
