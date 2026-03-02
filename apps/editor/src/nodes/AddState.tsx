@@ -7,7 +7,6 @@ import {
   BaseNodeHeaderTitle,
 } from "@/components/base-node";
 import { LabeledHandle } from "@/components/labeled-handle";
-import { Input } from "@/components/ui/input";
 import { Database } from "lucide-react";
 
 export const AddStateNode = memo(() => {
@@ -18,19 +17,8 @@ export const AddStateNode = memo(() => {
         <BaseNodeHeaderTitle>添加状态</BaseNodeHeaderTitle>
       </BaseNodeHeader>
       <BaseNodeContent>
-        <div className="space-y-2">
-          <div>
-            <label className="text-xs text-muted-foreground">Key</label>
-            <Input placeholder="状态键名" className="mt-1" />
-          </div>
-          <div>
-            <label className="text-xs text-muted-foreground">Type</label>
-            <Input placeholder="类型" className="mt-1" />
-          </div>
-          <div>
-            <label className="text-xs text-muted-foreground">Value</label>
-            <Input placeholder="值" className="mt-1" />
-          </div>
+        <div className="text-xs text-muted-foreground">
+          通过输入端口接收 key、type 和 value
         </div>
       </BaseNodeContent>
       <LabeledHandle

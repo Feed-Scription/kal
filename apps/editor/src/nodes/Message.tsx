@@ -1,5 +1,5 @@
 import { memo } from "react";
-import { Position } from "@xyflow/react";
+import { Position, type NodeProps } from "@xyflow/react";
 import {
   BaseNode,
   BaseNodeContent,
@@ -8,11 +8,22 @@ import {
 } from "@/components/base-node";
 import { LabeledHandle } from "@/components/labeled-handle";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useNodeConfig } from "@/hooks/use-node-config";
 import { MessageSquare } from "lucide-react";
 
-export const MessageNode = memo(() => {
+export const MessageNode = memo(({ id, data, selected }: NodeProps) => {
+  const config = (data as any).config || {};
+  const { updateConfig } = useNodeConfig(id);
+
   return (
-    <BaseNode className="w-96">
+    <BaseNode className={`w-96 ${selected ? 'ring-2 ring-primary' : ''}`}>
       <BaseNodeHeader className="border-b">
         <MessageSquare className="size-4" />
         <BaseNodeHeaderTitle>消息组装</BaseNodeHeaderTitle>
@@ -25,6 +36,8 @@ export const MessageNode = memo(() => {
               placeholder="系统提示词..."
               className="mt-1"
               rows={2}
+              value={config.system || ""}
+              onChange={(e) => updateConfig({ system: e.target.value })}
             />
           </div>
           <div>
@@ -33,7 +46,24 @@ export const MessageNode = memo(() => {
               placeholder="用户消息..."
               className="mt-1"
               rows={2}
+              value={config.user || ""}
+              onChange={(e) => updateConfig({ user: e.target.value })}
             />
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground">Format</label>
+            <Select
+              value={config.format || "xml"}
+              onValueChange={(val) => updateConfig({ format: val })}
+            >
+              <SelectTrigger className="mt-1">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="xml">XML</SelectItem>
+                <SelectItem value="markdown">Markdown</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
       </BaseNodeContent>
