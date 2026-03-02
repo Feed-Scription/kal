@@ -12,13 +12,13 @@ import { ArrowDownToLine } from "lucide-react";
 export const SignalInNode = memo(() => {
   return (
     <BaseNode className="w-64">
-      <BaseNodeHeader className="border-b">
-        <ArrowDownToLine className="size-4" />
+      <BaseNodeHeader className="border-b bg-green-500/10">
+        <ArrowDownToLine className="size-4 text-green-600" />
         <BaseNodeHeaderTitle>信号输入</BaseNodeHeaderTitle>
       </BaseNodeHeader>
       <BaseNodeContent>
         <p className="text-xs text-muted-foreground">
-          接收外部输入数据
+          接收外部输入数据，作为 Flow 的入口点
         </p>
       </BaseNodeContent>
       <LabeledHandle

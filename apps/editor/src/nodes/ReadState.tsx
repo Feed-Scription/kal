@@ -7,7 +7,6 @@ import {
   BaseNodeHeaderTitle,
 } from "@/components/base-node";
 import { LabeledHandle } from "@/components/labeled-handle";
-import { Input } from "@/components/ui/input";
 import { Eye } from "lucide-react";
 
 export const ReadStateNode = memo(() => {
@@ -18,9 +17,8 @@ export const ReadStateNode = memo(() => {
         <BaseNodeHeaderTitle>读取状态</BaseNodeHeaderTitle>
       </BaseNodeHeader>
       <BaseNodeContent>
-        <div>
-          <label className="text-xs text-muted-foreground">Key</label>
-          <Input placeholder="状态键名" className="mt-1" />
+        <div className="text-xs text-muted-foreground">
+          通过输入端口接收要读取的 key
         </div>
       </BaseNodeContent>
       <LabeledHandle

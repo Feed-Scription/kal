@@ -5,41 +5,86 @@
       "id": "signal-in",
       "type": "SignalIn",
       "label": "用户输入",
-      "position": { "x": 100, "y": 100 },
+      "position": {
+        "x": -110.44656544440167,
+        "y": 279.42155742698486
+      },
       "inputs": [],
       "outputs": [
-        { "name": "userMessage", "type": "string" },
-        { "name": "history", "type": "ChatMessage[]" }
-      ]
+        {
+          "name": "userMessage",
+          "type": "string"
+        },
+        {
+          "name": "history",
+          "type": "ChatMessage[]"
+        }
+      ],
+      "config": {}
     },
     {
       "id": "message",
       "type": "Message",
       "label": "组装消息",
-      "position": { "x": 300, "y": 100 },
+      "position": {
+        "x": 262.778710068214,
+        "y": 70.82655653995151
+      },
       "inputs": [
-        { "name": "system", "type": "string", "defaultValue": "你是一个友好的 AI 助手，请用中文回答。" },
-        { "name": "user", "type": "string", "required": true },
-        { "name": "history", "type": "ChatMessage[]" }
+        {
+          "name": "system",
+          "type": "string",
+          "defaultValue": "你是一个友好的 AI 助手，请用中文回答。"
+        },
+        {
+          "name": "user",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "history",
+          "type": "ChatMessage[]"
+        }
       ],
       "outputs": [
-        { "name": "messages", "type": "ChatMessage[]" }
+        {
+          "name": "messages",
+          "type": "ChatMessage[]"
+        }
       ],
-      "config": {}
+      "config": {
+        "system": "",
+        "user": "",
+        "format": "markdown"
+      }
     },
     {
       "id": "generate-text",
       "type": "GenerateText",
       "label": "生成回复",
-      "position": { "x": 500, "y": 100 },
+      "position": {
+        "x": 704.2141042203392,
+        "y": 217.69975464916106
+      },
       "inputs": [
-        { "name": "messages", "type": "ChatMessage[]", "required": true }
+        {
+          "name": "messages",
+          "type": "ChatMessage[]",
+          "required": true
+        }
       ],
       "outputs": [
-        { "name": "text", "type": "string" },
-        { "name": "usage", "type": "object" }
+        {
+          "name": "text",
+          "type": "string"
+        },
+        {
+          "name": "usage",
+          "type": "object"
+        }
       ],
       "config": {
+        "model": "",
         "temperature": 0.7,
         "maxTokens": 500
       }
@@ -48,13 +93,23 @@
       "id": "signal-out",
       "type": "SignalOut",
       "label": "输出结果",
-      "position": { "x": 700, "y": 100 },
+      "position": {
+        "x": 1155.258342921393,
+        "y": 272.13493313753474
+      },
       "inputs": [
-        { "name": "data", "type": "object" }
+        {
+          "name": "data",
+          "type": "object"
+        }
       ],
       "outputs": [
-        { "name": "data", "type": "object" }
-      ]
+        {
+          "name": "data",
+          "type": "object"
+        }
+      ],
+      "config": {}
     }
   ],
   "edges": [
@@ -81,6 +136,12 @@
       "sourceHandle": "text",
       "target": "signal-out",
       "targetHandle": "data"
+    },
+    {
+      "source": "signal-in",
+      "sourceHandle": "data",
+      "target": "message",
+      "targetHandle": "user"
     }
   ]
 }

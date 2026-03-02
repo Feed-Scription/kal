@@ -5,25 +5,50 @@
       "id": "signal-in",
       "type": "SignalIn",
       "label": "玩家输入",
-      "position": { "x": 100, "y": 200 },
+      "position": {
+        "x": -242.29119101849764,
+        "y": 213.39786991508703
+      },
       "inputs": [],
       "outputs": [
-        { "name": "playerInput", "type": "string" },
-        { "name": "gameState", "type": "object" },
-        { "name": "history", "type": "ChatMessage[]" }
-      ]
+        {
+          "name": "playerInput",
+          "type": "string"
+        },
+        {
+          "name": "gameState",
+          "type": "object"
+        },
+        {
+          "name": "history",
+          "type": "ChatMessage[]"
+        }
+      ],
+      "config": {}
     },
     {
       "id": "prompt-build",
       "type": "PromptBuild",
       "label": "构建系统提示",
-      "position": { "x": 350, "y": 150 },
+      "position": {
+        "x": 62.94849239795937,
+        "y": 122.09221453869048
+      },
       "inputs": [
-        { "name": "data", "type": "object" }
+        {
+          "name": "data",
+          "type": "object"
+        }
       ],
       "outputs": [
-        { "name": "text", "type": "string" },
-        { "name": "estimatedTokens", "type": "number" }
+        {
+          "name": "text",
+          "type": "string"
+        },
+        {
+          "name": "estimatedTokens",
+          "type": "number"
+        }
       ],
       "config": {
         "fragments": [
@@ -69,14 +94,30 @@
       "id": "message",
       "type": "Message",
       "label": "组装消息",
-      "position": { "x": 600, "y": 200 },
+      "position": {
+        "x": 501.6582798030047,
+        "y": 190.69740484623014
+      },
       "inputs": [
-        { "name": "system", "type": "string" },
-        { "name": "user", "type": "string", "required": true },
-        { "name": "history", "type": "ChatMessage[]" }
+        {
+          "name": "system",
+          "type": "string"
+        },
+        {
+          "name": "user",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "history",
+          "type": "ChatMessage[]"
+        }
       ],
       "outputs": [
-        { "name": "messages", "type": "ChatMessage[]" }
+        {
+          "name": "messages",
+          "type": "ChatMessage[]"
+        }
       ],
       "config": {}
     },
@@ -84,13 +125,26 @@
       "id": "generate-text",
       "type": "GenerateText",
       "label": "生成回复",
-      "position": { "x": 850, "y": 200 },
+      "position": {
+        "x": 927.9044180481051,
+        "y": 198.60884967771244
+      },
       "inputs": [
-        { "name": "messages", "type": "ChatMessage[]", "required": true }
+        {
+          "name": "messages",
+          "type": "ChatMessage[]",
+          "required": true
+        }
       ],
       "outputs": [
-        { "name": "text", "type": "string" },
-        { "name": "usage", "type": "object" }
+        {
+          "name": "text",
+          "type": "string"
+        },
+        {
+          "name": "usage",
+          "type": "object"
+        }
       ],
       "config": {
         "temperature": 0.8,
@@ -101,14 +155,30 @@
       "id": "json-parse",
       "type": "JSONParse",
       "label": "解析JSON",
-      "position": { "x": 1100, "y": 200 },
+      "position": {
+        "x": 1306.7270290205008,
+        "y": 183.55502876240226
+      },
       "inputs": [
-        { "name": "text", "type": "string", "required": true }
+        {
+          "name": "text",
+          "type": "string",
+          "required": true
+        }
       ],
       "outputs": [
-        { "name": "data", "type": "object" },
-        { "name": "success", "type": "boolean" },
-        { "name": "error", "type": "string" }
+        {
+          "name": "data",
+          "type": "object"
+        },
+        {
+          "name": "success",
+          "type": "boolean"
+        },
+        {
+          "name": "error",
+          "type": "string"
+        }
       ],
       "config": {
         "extractFromCodeBlock": true,
@@ -120,13 +190,23 @@
       "id": "signal-out",
       "type": "SignalOut",
       "label": "输出结果",
-      "position": { "x": 1350, "y": 200 },
+      "position": {
+        "x": 1771.846101690916,
+        "y": 267.73090868984866
+      },
       "inputs": [
-        { "name": "data", "type": "object" }
+        {
+          "name": "data",
+          "type": "object"
+        }
       ],
       "outputs": [
-        { "name": "data", "type": "object" }
-      ]
+        {
+          "name": "data",
+          "type": "object"
+        }
+      ],
+      "config": {}
     }
   ],
   "edges": [

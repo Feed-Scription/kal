@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm add:*)",
+      "Bash(pnpm dev:server:*)",
+      "Bash(pnpm dev:*)",
+      "Bash(pnpm build:*)",
+      "Bash(/Users/wumengsong/Code/GitHub/kal/apps/editor/IMPLEMENTATION.md:*)",
+      "Bash(apps/editor/CHANGELOG.md:*)",
+      "Bash(pnpm remove:*)",
+      "Bash(/Users/wumengsong/Code/GitHub/kal/apps/editor/.gitignore:*)",
+      "Bash(ls:*)",
+      "Bash(echo:*)",
+      "Bash(sort -k2)",
+      "Bash(find src:*)",
+      "Bash(npm run:*)",
+      "Bash(wc:*)",
+      "Bash(npx shadcn@latest:*)",
+      "Bash(pnpm run:*)"
+    ]
+  }
+}
