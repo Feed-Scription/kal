@@ -7,6 +7,7 @@ import { LLMClient } from './llm/llm-client';
 import { HookManager } from './hook-manager';
 import { NodeRegistry } from './node/node-registry';
 import { BUILTIN_NODES } from './node/builtin';
+import { CustomNodeLoader } from './node/custom-node-loader';
 import { FlowExecutor } from './flow/flow-executor';
 import { FlowLoader } from './flow/flow-loader';
 import type { KalConfig, FlowDefinition } from './types/types';
@@ -21,6 +22,7 @@ export interface KalCore {
   state: StateStore;
   registry: NodeRegistry;
   hooks: HookManager;
+  ready: Promise<void>;
   executeFlow(flowDef: FlowDefinition, flowId: string, inputData?: Record<string, any>, resolver?: (id: string) => string): Promise<any>;
   loadFlow(flowId: string, resolver: (id: string) => string): FlowDefinition;
 }
@@ -32,8 +34,10 @@ export function createKalCore(params: {
   config: KalConfig;
   initialState?: Record<string, any>;
   hooks?: Partial<EngineHooks>;
+  customNodes?: Record<string, any>;
+  customNodeProjectRoot?: string;
 }): KalCore {
-  const { config, initialState, hooks: userHooks } = params;
+  const { config, initialState, hooks: userHooks, customNodes, customNodeProjectRoot } = params;
 
   // Initialize state
   const state = new StateStore();
@@ -68,6 +72,18 @@ export function createKalCore(params: {
       },
       delete: (key: string) => {
         const result = state.remove(key);
+        if (!result.success) {
+          throw result.error;
+        }
+      },
+      append: (key: string, value: any) => {
+        const result = state.append(key, value);
+        if (!result.success) {
+          throw result.error;
+        }
+      },
+      appendMany: (key: string, values: any[]) => {
+        const result = state.appendMany(key, values);
         if (!result.success) {
           throw result.error;
         }
@@ -174,13 +190,24 @@ export function createKalCore(params: {
     contextFactory: createContextFactory(),
   });
 
+  const ready = (async () => {
+    if (customNodes) {
+      await CustomNodeLoader.loadFromModules(customNodes, registry);
+    }
+    if (customNodeProjectRoot) {
+      await CustomNodeLoader.loadFromProject(customNodeProjectRoot, registry);
+    }
+  })();
+
   return {
     config,
     state,
     registry,
     hooks: hookManager,
+    ready,
 
     async executeFlow(flowDef: FlowDefinition, flowId: string, inputData?: Record<string, any>, resolver?: (id: string) => string) {
+      await ready;
       if (resolver) {
         // Create a dedicated executor with this resolver's context factory
         const scopedExecutor = new FlowExecutor({

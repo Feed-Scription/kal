@@ -35,6 +35,7 @@ export interface FieldFragment {
 export interface WhenFragment {
   type: 'when';
   id: string;
+  role?: ChatMessageRole;
   condition: string;
   fragments: Fragment[];
   else?: Fragment[];
@@ -46,6 +47,7 @@ export interface WhenFragment {
 export interface RandomSlotFragment {
   type: 'randomSlot';
   id: string;
+  role?: ChatMessageRole;
   candidates: Fragment[];
   seed?: 'random' | number;
 }
@@ -56,6 +58,7 @@ export interface RandomSlotFragment {
 export interface BudgetFragment {
   type: 'budget';
   id?: string;
+  role?: ChatMessageRole;
   maxTokens: number;
   strategy: 'tail' | 'weighted';
   weights?: Record<string, number>;
@@ -98,9 +101,10 @@ export function when(
   id: string,
   condition: string,
   fragments: Fragment[],
-  elseFragments?: Fragment[]
+  elseFragments?: Fragment[],
+  options?: { role?: ChatMessageRole }
 ): WhenFragment {
-  return { type: 'when', id, condition, fragments, else: elseFragments };
+  return { type: 'when', id, condition, fragments, else: elseFragments, ...options };
 }
 
 /**
@@ -109,9 +113,10 @@ export function when(
 export function randomSlot(
   id: string,
   candidates: Fragment[],
-  seed?: 'random' | number
+  seed?: 'random' | number,
+  options?: { role?: ChatMessageRole }
 ): RandomSlotFragment {
-  return { type: 'randomSlot', id, candidates, seed };
+  return { type: 'randomSlot', id, candidates, seed, ...options };
 }
 
 /**
@@ -121,7 +126,8 @@ export function budget(
   maxTokens: number,
   strategy: 'tail' | 'weighted',
   fragments: Fragment[],
-  weights?: Record<string, number>
+  weights?: Record<string, number>,
+  options?: { role?: ChatMessageRole }
 ): BudgetFragment {
-  return { type: 'budget', maxTokens, strategy, fragments, weights };
+  return { type: 'budget', maxTokens, strategy, fragments, weights, ...options };
 }

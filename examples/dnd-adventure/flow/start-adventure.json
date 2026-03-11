@@ -1,0 +1,91 @@
+{
+  "meta": {
+    "schemaVersion": "1.0.0",
+    "name": "start-adventure",
+    "description": "冒险开始旁白",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "result",
+        "type": "string"
+      }
+    ]
+  },
+  "data": {
+    "nodes": [
+      {
+        "id": "prompt-build",
+        "type": "PromptBuild",
+        "label": "文本构建",
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "inputs": [
+          {
+            "name": "data",
+            "type": "object",
+            "defaultValue": {}
+          }
+        ],
+        "outputs": [
+          {
+            "name": "messages",
+            "type": "ChatMessage[]"
+          },
+          {
+            "name": "text",
+            "type": "string"
+          },
+          {
+            "name": "estimatedTokens",
+            "type": "number"
+          }
+        ],
+        "config": {
+          "defaultRole": "system",
+          "fragments": [
+            {
+              "type": "base",
+              "id": "opening-scene",
+              "content": "你是一名初出茅庐的冒险者，风尘仆仆地来到这座边境小镇。灰色石墙环绕的镇子里，空气中弥漫着松木和铁锈的气味。你站在镇中广场，脚下是磨得发亮的石板路，广场中央那座乌鸦雕像喷泉早已干涸，告示板上贴满了悬赏令和失踪启事。\n\n远处，「醉鸦亭」酒馆里传来嘈杂的人声；铁匠铺「锻魂坊」的炉火映红了半边天空；镇长府邸的卫兵正警惕地注视着每一个过路人。\n\n镇上的人们面带忧色——据说废弃矿井深处传来了不祥的低语，亡灵在夜间游荡，牲畜莫名死亡。也许，这正是你要寻找的冒险。\n\n你的冒险从这里开始。四处看看吧，冒险者。",
+              "role": "system"
+            }
+          ]
+        }
+      },
+      {
+        "id": "signal-out",
+        "type": "SignalOut",
+        "label": "输出结果",
+        "position": {
+          "x": 360,
+          "y": 0
+        },
+        "inputs": [
+          {
+            "name": "data",
+            "type": "string"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "data",
+            "type": "string"
+          }
+        ],
+        "config": {
+          "channel": "result"
+        }
+      }
+    ],
+    "edges": [
+      {
+        "source": "prompt-build",
+        "sourceHandle": "text",
+        "target": "signal-out",
+        "targetHandle": "data"
+      }
+    ]
+  }
+}

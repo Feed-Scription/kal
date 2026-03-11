@@ -1,0 +1,185 @@
+{
+  "schemaVersion": "1.0.0",
+  "name": "DND 冒险",
+  "description": "一个简单的 DND 风格文字冒险，展示 Session Flow 的生命周期编排",
+  "steps": [
+    {
+      "id": "intro",
+      "type": "RunFlow",
+      "flowRef": "intro",
+      "next": "choose-mode"
+    },
+    {
+      "id": "choose-mode",
+      "type": "Choice",
+      "promptText": "选择你的角色：",
+      "options": [
+        {
+          "label": "亚瑟 — 人类战士，被逐出骑士团的流浪剑客",
+          "value": "knight"
+        },
+        {
+          "label": "希尔薇 — 精灵盗贼，月影森林的流亡者",
+          "value": "shadow"
+        },
+        {
+          "label": "铁须·石锤 — 矮人战士，最后的锻造大师",
+          "value": "ironbeard"
+        },
+        {
+          "label": "艾尔文 — 精灵法师，星辉学院最年轻的毕业生",
+          "value": "mystic"
+        },
+        {
+          "label": "自定义创建 — 自己设定名字、种族、职业和背景",
+          "value": "custom"
+        }
+      ],
+      "flowRef": "apply-preset",
+      "inputChannel": "choice",
+      "next": "check-mode"
+    },
+    {
+      "id": "check-mode",
+      "type": "Branch",
+      "conditions": [
+        {
+          "when": "state.createMode == 'custom'",
+          "next": "input-name"
+        }
+      ],
+      "default": "generate-character"
+    },
+    {
+      "id": "input-name",
+      "type": "Prompt",
+      "stateKey": "playerName",
+      "promptText": "为你的角色取一个名字：",
+      "next": "choose-race"
+    },
+    {
+      "id": "choose-race",
+      "type": "Choice",
+      "promptText": "选择你的种族：",
+      "options": [
+        {
+          "label": "人类 — 适应力强，全能型",
+          "value": "human"
+        },
+        {
+          "label": "精灵 — 敏捷灵巧，擅长弓箭和魔法",
+          "value": "elf"
+        },
+        {
+          "label": "矮人 — 强壮耐打，擅长近战和锻造",
+          "value": "dwarf"
+        }
+      ],
+      "stateKey": "race",
+      "next": "choose-class"
+    },
+    {
+      "id": "choose-class",
+      "type": "Choice",
+      "promptText": "选择你的职业：",
+      "options": [
+        {
+          "label": "战士 — 近战专家，高生命值",
+          "value": "warrior"
+        },
+        {
+          "label": "法师 — 魔法大师，远程输出",
+          "value": "mage"
+        },
+        {
+          "label": "盗贼 — 敏捷刺客，擅长潜行和暴击",
+          "value": "rogue"
+        }
+      ],
+      "stateKey": "class",
+      "next": "input-background"
+    },
+    {
+      "id": "input-background",
+      "type": "Prompt",
+      "flowRef": "enrich-background",
+      "inputChannel": "userBackground",
+      "promptText": "简述你的背景故事（一两句话即可）：",
+      "next": "generate-character"
+    },
+    {
+      "id": "generate-character",
+      "type": "RunFlow",
+      "flowRef": "character-creation",
+      "next": "show-character"
+    },
+    {
+      "id": "show-character",
+      "type": "RunFlow",
+      "flowRef": "display-character",
+      "next": "start-adventure"
+    },
+    {
+      "id": "start-adventure",
+      "type": "RunFlow",
+      "flowRef": "start-adventure",
+      "next": "turn"
+    },
+    {
+      "id": "turn",
+      "type": "Prompt",
+      "flowRef": "main",
+      "inputChannel": "playerInput",
+      "promptText": "你的行动？",
+      "next": "check"
+    },
+    {
+      "id": "check",
+      "type": "Branch",
+      "conditions": [
+        {
+          "when": "state.health <= 0",
+          "next": "death"
+        },
+        {
+          "when": "state.questStage == 'completed'",
+          "next": "victory"
+        }
+      ],
+      "default": "compact-check"
+    },
+    {
+      "id": "compact-check",
+      "type": "Branch",
+      "conditions": [
+        {
+          "when": "state.history.length >= 10",
+          "next": "do-compact"
+        }
+      ],
+      "default": "turn"
+    },
+    {
+      "id": "do-compact",
+      "type": "RunFlow",
+      "flowRef": "compact-history",
+      "next": "turn"
+    },
+    {
+      "id": "death",
+      "type": "RunFlow",
+      "flowRef": "outro-death",
+      "next": "end"
+    },
+    {
+      "id": "victory",
+      "type": "RunFlow",
+      "flowRef": "outro-win",
+      "next": "end"
+    },
+    {
+      "id": "end",
+      "type": "End"
+    }
+  ]
+}

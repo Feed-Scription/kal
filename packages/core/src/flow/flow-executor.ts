@@ -17,7 +17,7 @@ import type { HookManager } from '../hook-manager';
 export interface FlowExecutionResult {
   executionId: string;
   flowId: string;
-  outputs: Record<string, Record<string, any>>;
+  outputs: Record<string, any>;
   errors: NodeExecutionError[];
   durationMs: number;
 }
@@ -40,29 +40,30 @@ export class FlowExecutor {
     this.contextFactory = params.contextFactory;
   }
 
-  /**
-   * Execute a function with timeout
-   */
   private async executeWithTimeout<T>(
     fn: () => Promise<T>,
     timeoutMs: number,
     timeoutMessage: string
   ): Promise<T> {
-    return Promise.race([
-      fn(),
-      new Promise<T>((_, reject) => {
-        setTimeout(() => {
-          const error: any = new Error(timeoutMessage);
-          error.isTimeout = true;
-          reject(error);
-        }, timeoutMs);
-      }),
-    ]);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      return await Promise.race([
+        fn(),
+        new Promise<T>((_, reject) => {
+          timer = setTimeout(() => {
+            const error: any = new Error(timeoutMessage);
+            error.isTimeout = true;
+            reject(error);
+          }, timeoutMs);
+        }),
+      ]);
+    } finally {
+      if (timer !== undefined) {
+        clearTimeout(timer);
+      }
+    }
   }
 
-  /**
-   * Execute a flow
-   */
   async execute(
     flow: FlowDefinition,
     flowId: string,
@@ -73,43 +74,18 @@ export class FlowExecutor {
     const startTime = Date.now();
     const errors: NodeExecutionError[] = [];
 
-    // Build graph
     const graph = new FlowGraph(flow);
     const scheduler = new Scheduler(graph, maxConcurrency);
-
-    // Store node outputs: nodeId -> { handleName: value }
     const nodeOutputs: Record<string, Record<string, any>> = {};
+    const outputChannels = new Map<string, any>();
+    const inputContracts = new Map((flow.meta.inputs ?? []).map((handle) => [handle.name, handle]));
 
-    // Emit flow start
     await this.hookManager.emit('onFlowStart', {
       executionId,
       flowId,
       timestamp: Date.now(),
     });
 
-    // Inject input data into SignalIn nodes
-    if (inputData) {
-      for (const node of graph.getEntryNodes()) {
-        if (node.definition.type === 'SignalIn') {
-          // Only map declared outputs
-          const outputs: Record<string, any> = {};
-          for (const output of node.definition.outputs) {
-            if (output.name in inputData) {
-              outputs[output.name] = inputData[output.name];
-            }
-          }
-          // Warn about undeclared fields
-          for (const key in inputData) {
-            if (!node.definition.outputs.some(o => o.name === key)) {
-              console.warn(`SignalIn node "${node.id}" received undeclared field "${key}", ignoring`);
-            }
-          }
-          nodeOutputs[node.id] = outputs;
-        }
-      }
-    }
-
-    // Execute loop
     while (!scheduler.isFinished()) {
       const readyNodes = scheduler.getReadyNodes();
 
@@ -117,13 +93,11 @@ export class FlowExecutor {
         break;
       }
 
-      // Execute ready nodes in parallel
       const promises = readyNodes.map(async (nodeId) => {
         scheduler.markRunning(nodeId);
         const graphNode = graph.getNode(nodeId)!;
         const nodeDef = graphNode.definition;
 
-        // Resolve connected input values from upstream outputs
         const connectedValues: Record<string, any> = {};
         for (const edge of graphNode.inEdges) {
           const sourceOutputs = nodeOutputs[edge.source];
@@ -132,7 +106,6 @@ export class FlowExecutor {
           }
         }
 
-        // Emit node start
         await this.hookManager.emit('onNodeStart', {
           executionId,
           nodeId,
@@ -146,9 +119,19 @@ export class FlowExecutor {
         try {
           const context = this.contextFactory(executionId, nodeId);
 
-          // For SignalIn with pre-injected data, use that
-          if (nodeDef.type === 'SignalIn' && nodeOutputs[nodeId]) {
+          if (nodeDef.type === 'SignalIn') {
+            const channel = nodeDef.config?.channel as string;
+            const contract = inputContracts.get(channel);
+            const hasInput = inputData ? Object.prototype.hasOwnProperty.call(inputData, channel) : false;
+            const value = hasInput ? inputData?.[channel] : contract?.defaultValue;
+
+            if (!hasInput && contract?.required && contract.defaultValue === undefined) {
+              throw new Error(`Missing required flow input channel "${channel}"`);
+            }
+
+            nodeOutputs[nodeId] = { data: value };
             scheduler.markCompleted(nodeId);
+
             await this.hookManager.emit('onNodeEnd', {
               executionId,
               nodeId,
@@ -160,8 +143,7 @@ export class FlowExecutor {
             return;
           }
 
-          // Execute node with timeout
-          const nodeTimeout = nodeDef.config?.timeout ?? 30000; // Default 30s
+          const nodeTimeout = nodeDef.config?.timeout ?? 30000;
           const outputs = await this.executeWithTimeout(
             () => executeNode(nodeDef, connectedValues, this.registry, context),
             nodeTimeout,
@@ -170,6 +152,11 @@ export class FlowExecutor {
 
           nodeOutputs[nodeId] = outputs;
           scheduler.markCompleted(nodeId);
+
+          if (nodeDef.type === 'SignalOut') {
+            const channel = nodeDef.config?.channel as string;
+            outputChannels.set(channel, outputs.data);
+          }
 
           await this.hookManager.emit('onNodeEnd', {
             executionId,
@@ -207,7 +194,6 @@ export class FlowExecutor {
 
     const durationMs = Date.now() - startTime;
 
-    // Emit flow end or error
     if (errors.length > 0) {
       await this.hookManager.emit('onFlowError', {
         executionId,
@@ -224,6 +210,12 @@ export class FlowExecutor {
       durationMs,
     });
 
-    return { executionId, flowId, outputs: nodeOutputs, errors, durationMs };
+    return {
+      executionId,
+      flowId,
+      outputs: Object.fromEntries(outputChannels),
+      errors,
+      durationMs,
+    };
   }
 }
