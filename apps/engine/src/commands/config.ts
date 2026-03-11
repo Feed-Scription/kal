@@ -81,53 +81,21 @@ export class ConfigCommand {
 
     const answer = await this.promptForInput();
     if (answer.toLowerCase() === 'y' || answer.toLowerCase() === 'yes') {
-      this.io.stdout('\n请选择你要使用的 LLM 提供商:\n');
-      this.io.stdout('1. OpenAI (官方或兼容服务)\n');
-      this.io.stdout('2. DeepSeek\n');
-      this.io.stdout('3. Moonshot (月之暗面)\n');
-      this.io.stdout('4. 通义千问 (Qwen)\n');
-      this.io.stdout('5. 其他 (手动输入)\n');
-      this.io.stdout('请选择 (1-5): ');
+      this.io.stdout('\n请输入你要使用的 LLM 提供商名称 (如 openai, deepseek, moonshot 等): ');
+      const provider = await this.promptForInput();
 
-      const choice = await this.promptForInput();
-      let provider = '';
+      if (provider && provider.trim()) {
+        await this.setApiKey([provider.trim()]);
 
-      switch (choice) {
-        case '1':
-          provider = 'openai';
-          break;
-        case '2':
-          provider = 'deepseek';
-          break;
-        case '3':
-          provider = 'moonshot';
-          break;
-        case '4':
-          provider = 'qwen';
-          break;
-        case '5':
-          this.io.stdout('请输入提供商名称: ');
-          provider = await this.promptForInput();
-          break;
-        default:
-          this.io.stdout('❌ 无效选择，跳过 API 密钥设置\n');
-          return 0;
-      }
+        // 询问是否需要设置自定义 Base URL
+        this.io.stdout('\n是否需要设置自定义 API 端点？(y/n): ');
+        const useCustomUrl = await this.promptForInput();
 
-      if (provider) {
-        await this.setApiKey([provider]);
-
-        // 如果是 OpenAI，询问是否需要设置自定义 Base URL
-        if (provider === 'openai') {
-          this.io.stdout('\n是否使用自定义 API 端点？(y/n): ');
-          const useCustomUrl = await this.promptForInput();
-
-          if (useCustomUrl.toLowerCase() === 'y' || useCustomUrl.toLowerCase() === 'yes') {
-            this.io.stdout('请输入 API 端点 URL (如 https://api.deepseek.com/v1): ');
-            const baseUrl = await this.promptForInput();
-            if (baseUrl) {
-              await this.setConfig(['openai.baseUrl', baseUrl]);
-            }
+        if (useCustomUrl.toLowerCase() === 'y' || useCustomUrl.toLowerCase() === 'yes') {
+          this.io.stdout('请输入 API 端点 URL: ');
+          const baseUrl = await this.promptForInput();
+          if (baseUrl && baseUrl.trim()) {
+            await this.setConfig([`${provider}.baseUrl`, baseUrl.trim()]);
           }
         }
       }
@@ -140,7 +108,6 @@ export class ConfigCommand {
   }
 
   private async promptForInput(): Promise<string> {
-    const readline = require('readline');
     const rl = readline.createInterface({
       input: process.stdin,
       output: process.stdout,
