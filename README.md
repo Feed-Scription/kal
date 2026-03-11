@@ -95,14 +95,15 @@ cd kal
 # 2. 运行安装脚本
 ./scripts/install.sh
 
-# 3. 一键配置（会引导你设置 API 密钥）
+# 3. 一键配置
 kal config init
+# 会询问：是否设置 API 密钥？输入提供商名称（如 openai, deepseek 等）
 
 # 4. 开始游戏
 kal play examples/dnd-adventure
 ```
 
-就这么简单！`kal config init` 会交互式地引导你完成所有配置。
+就这么简单！`kal config init` 会引导你完成配置，支持任意 LLM 提供商。
 
 ### 手动安装（可选）
 如果你想手动控制每个步骤：
