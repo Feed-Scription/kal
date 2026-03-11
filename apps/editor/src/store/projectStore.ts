@@ -1,266 +1,189 @@
 import { create } from 'zustand';
-import type { ProjectData, FlowDefinition, ProjectState, KalConfig } from '@/types/project';
+import type { ProjectData, FlowDefinition, ProjectState, KalConfig, SessionDefinition } from '@/types/project';
+import { engineApi } from '@/api/engine-client';
 
 type ProjectStore = {
   project: ProjectData | null;
   currentFlow: string | null;
-  directoryHandle: FileSystemDirectoryHandle | null;
+  engineConnected: boolean;
+  connecting: boolean;
+  connectionError: string | null;
 
   // Actions
-  loadProject: (dirHandle: FileSystemDirectoryHandle) => Promise<void>;
+  connect: () => Promise<void>;
+  disconnect: () => void;
   saveFlow: (flowName: string, flow: FlowDefinition) => Promise<void>;
-  saveState: (state: ProjectState) => Promise<void>;
-  saveConfig: (config: KalConfig) => Promise<void>;
   setCurrentFlow: (flowName: string) => void;
-  closeProject: () => void;
   createFlow: (flowName: string) => Promise<void>;
-  renameFlow: (oldName: string, newName: string) => Promise<void>;
-  deleteFlow: (flowName: string) => Promise<void>;
+  executeFlow: (flowId: string, input?: Record<string, any>) => Promise<any>;
+  reloadProject: () => Promise<void>;
+  saveSession: (session: SessionDefinition) => Promise<void>;
+  deleteSession: () => Promise<void>;
 };
 
 export const useProjectStore = create<ProjectStore>((set, get) => ({
   project: null,
   currentFlow: null,
-  directoryHandle: null,
+  engineConnected: false,
+  connecting: false,
+  connectionError: null,
 
-  loadProject: async (dirHandle: FileSystemDirectoryHandle) => {
+  connect: async () => {
+    set({ connecting: true, connectionError: null });
     try {
-      // Load config
-      const configFile = await dirHandle.getFileHandle('kal_config.json');
-      const configData = await configFile.getFile();
-      const config: KalConfig = JSON.parse(await configData.text());
+      const projectInfo = await engineApi.getProject();
+      const flowList = await engineApi.listFlows();
+      const nodeManifests = await engineApi.getNodes();
 
-      // Load flows
-      const flowDir = await dirHandle.getDirectoryHandle('flow');
       const flows: Record<string, FlowDefinition> = {};
-
-      for await (const entry of flowDir.values()) {
-        if (entry.kind === 'file' && entry.name.endsWith('.json')) {
-          const fileHandle = entry as FileSystemFileHandle;
-          const file = await fileHandle.getFile();
-          const flowName = entry.name.replace('.json', '');
-          flows[flowName] = JSON.parse(await file.text());
-        }
+      for (const item of flowList) {
+        flows[item.id] = await engineApi.getFlow(item.id);
       }
 
-      // Load state (optional)
-      let state: ProjectState = {};
+      const config: KalConfig = {
+        name: projectInfo.name,
+        version: projectInfo.version,
+        engine: { logLevel: 'info', maxConcurrentFlows: 1, timeout: 30000 },
+        llm: {
+          provider: '',
+          defaultModel: '',
+          retry: {
+            maxRetries: 3,
+            initialDelayMs: 1000,
+            maxDelayMs: 30000,
+            backoffMultiplier: 2,
+            jitter: true,
+          },
+          cache: { enabled: true },
+        },
+      };
+
+      const state: ProjectState = {};
+
+      let session: SessionDefinition | null = null;
       try {
-        const stateFile = await dirHandle.getFileHandle('initial_state.json');
-        const stateData = await stateFile.getFile();
-        state = JSON.parse(await stateData.text());
-      } catch (err) {
-        // State file is optional
+        session = await engineApi.getSession();
+      } catch {
+        // session API may not exist yet, ignore
       }
 
       const projectData: ProjectData = {
-        path: dirHandle.name,
+        name: projectInfo.name,
         config,
         flows,
         state,
+        session,
+        nodeManifests,
       };
 
       set({
         project: projectData,
-        directoryHandle: dirHandle,
-        currentFlow: Object.keys(flows)[0] || null,
+        engineConnected: true,
+        connecting: false,
+        currentFlow: flowList.length > 0 ? flowList[0].id : null,
       });
     } catch (error) {
-      console.error('Failed to load project:', error);
+      set({
+        connecting: false,
+        connectionError: (error as Error).message,
+        engineConnected: false,
+      });
       throw error;
     }
+  },
+
+  disconnect: () => {
+    set({
+      project: null,
+      currentFlow: null,
+      engineConnected: false,
+      connecting: false,
+      connectionError: null,
+    });
   },
 
   saveFlow: async (flowName: string, flow: FlowDefinition) => {
-    const { project, directoryHandle } = get();
-    if (!project || !directoryHandle) return;
+    const { project } = get();
+    if (!project) return;
 
-    try {
-      const flowDir = await directoryHandle.getDirectoryHandle('flow');
-      const flowFile = await flowDir.getFileHandle(`${flowName}.json`, { create: true });
-      const writable = await flowFile.createWritable();
-      await writable.write(JSON.stringify(flow, null, 2));
-      await writable.close();
+    await engineApi.saveFlow(flowName, flow);
 
-      set({
-        project: {
-          ...project,
-          flows: {
-            ...project.flows,
-            [flowName]: flow,
-          },
+    set({
+      project: {
+        ...project,
+        flows: {
+          ...project.flows,
+          [flowName]: flow,
         },
-      });
-    } catch (error) {
-      console.error('Failed to save flow:', error);
-      throw error;
-    }
-  },
-
-  saveState: async (state: ProjectState) => {
-    const { project, directoryHandle } = get();
-    if (!project || !directoryHandle) return;
-
-    try {
-      const stateFile = await directoryHandle.getFileHandle('initial_state.json', { create: true });
-      const writable = await stateFile.createWritable();
-      await writable.write(JSON.stringify(state, null, 2));
-      await writable.close();
-
-      set({
-        project: {
-          ...project,
-          state,
-        },
-      });
-    } catch (error) {
-      console.error('Failed to save state:', error);
-      throw error;
-    }
-  },
-
-  saveConfig: async (config: KalConfig) => {
-    const { project, directoryHandle } = get();
-    if (!project || !directoryHandle) return;
-
-    try {
-      const configFile = await directoryHandle.getFileHandle('kal_config.json', { create: true });
-      const writable = await configFile.createWritable();
-      await writable.write(JSON.stringify(config, null, 2));
-      await writable.close();
-
-      set({
-        project: {
-          ...project,
-          config,
-        },
-      });
-    } catch (error) {
-      console.error('Failed to save config:', error);
-      throw error;
-    }
+      },
+    });
   },
 
   setCurrentFlow: (flowName: string) => {
     set({ currentFlow: flowName });
   },
 
-  closeProject: () => {
-    set({ project: null, currentFlow: null, directoryHandle: null });
-  },
-
   createFlow: async (flowName: string) => {
-    const { project, directoryHandle } = get();
-    if (!project || !directoryHandle) return;
+    const { project } = get();
+    if (!project) return;
 
-    // Check if flow already exists
     if (project.flows[flowName]) {
       throw new Error(`Flow "${flowName}" already exists`);
     }
 
     const newFlow: FlowDefinition = {
-      schemaVersion: '1.0.0',
-      nodes: [],
-      edges: [],
+      meta: { schemaVersion: '1.0' },
+      data: { nodes: [], edges: [] },
     };
 
-    try {
-      const flowDir = await directoryHandle.getDirectoryHandle('flow');
-      const flowFile = await flowDir.getFileHandle(`${flowName}.json`, { create: true });
-      const writable = await flowFile.createWritable();
-      await writable.write(JSON.stringify(newFlow, null, 2));
-      await writable.close();
+    await engineApi.saveFlow(flowName, newFlow);
 
-      set({
-        project: {
-          ...project,
-          flows: {
-            ...project.flows,
-            [flowName]: newFlow,
-          },
+    set({
+      project: {
+        ...project,
+        flows: {
+          ...project.flows,
+          [flowName]: newFlow,
         },
-        currentFlow: flowName,
-      });
-    } catch (error) {
-      console.error('Failed to create flow:', error);
-      throw error;
-    }
+      },
+      currentFlow: flowName,
+    });
   },
 
-  renameFlow: async (oldName: string, newName: string) => {
-    const { project, directoryHandle, currentFlow } = get();
-    if (!project || !directoryHandle) return;
-
-    if (!project.flows[oldName]) {
-      throw new Error(`Flow "${oldName}" does not exist`);
-    }
-
-    if (project.flows[newName]) {
-      throw new Error(`Flow "${newName}" already exists`);
-    }
-
-    try {
-      const flowDir = await directoryHandle.getDirectoryHandle('flow');
-      const flow = project.flows[oldName];
-
-      // Create new file
-      const newFlowFile = await flowDir.getFileHandle(`${newName}.json`, { create: true });
-      const writable = await newFlowFile.createWritable();
-      await writable.write(JSON.stringify(flow, null, 2));
-      await writable.close();
-
-      // Delete old file
-      await flowDir.removeEntry(`${oldName}.json`);
-
-      const { [oldName]: removed, ...remainingFlows } = project.flows;
-
-      set({
-        project: {
-          ...project,
-          flows: {
-            ...remainingFlows,
-            [newName]: flow,
-          },
-        },
-        currentFlow: currentFlow === oldName ? newName : currentFlow,
-      });
-    } catch (error) {
-      console.error('Failed to rename flow:', error);
-      throw error;
-    }
+  executeFlow: async (flowId: string, input: Record<string, any> = {}) => {
+    return engineApi.executeFlow(flowId, input);
   },
 
-  deleteFlow: async (flowName: string) => {
-    const { project, directoryHandle, currentFlow } = get();
-    if (!project || !directoryHandle) return;
+  reloadProject: async () => {
+    await engineApi.reloadProject();
+    await get().connect();
+  },
 
-    if (!project.flows[flowName]) {
-      throw new Error(`Flow "${flowName}" does not exist`);
-    }
+  saveSession: async (session: SessionDefinition) => {
+    const { project } = get();
+    if (!project) return;
 
-    if (Object.keys(project.flows).length === 1) {
-      throw new Error('Cannot delete the last flow');
-    }
+    await engineApi.saveSession(session);
 
-    try {
-      const flowDir = await directoryHandle.getDirectoryHandle('flow');
-      await flowDir.removeEntry(`${flowName}.json`);
+    set({
+      project: {
+        ...project,
+        session,
+      },
+    });
+  },
 
-      const { [flowName]: removed, ...remainingFlows } = project.flows;
-      const newCurrentFlow = currentFlow === flowName
-        ? Object.keys(remainingFlows)[0]
-        : currentFlow;
+  deleteSession: async () => {
+    const { project } = get();
+    if (!project) return;
 
-      set({
-        project: {
-          ...project,
-          flows: remainingFlows,
-        },
-        currentFlow: newCurrentFlow,
-      });
-    } catch (error) {
-      console.error('Failed to delete flow:', error);
-      throw error;
-    }
+    await engineApi.deleteSession();
+
+    set({
+      project: {
+        ...project,
+        session: null,
+      },
+    });
   },
 }));

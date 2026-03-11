@@ -1,36 +1,21 @@
 import { useState } from "react";
-import { FolderOpen, Loader2, AlertCircle } from "lucide-react";
+import { Loader2, AlertCircle, Wifi } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useProjectStore } from "@/store/projectStore";
 
 export function ProjectLoader() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const loadProject = useProjectStore((state) => state.loadProject);
+  const connect = useProjectStore((state) => state.connect);
 
-  const handleOpenDirectory = async () => {
+  const handleConnect = async () => {
     setLoading(true);
     setError("");
 
     try {
-      // Check if File System Access API is supported
-      if (!('showDirectoryPicker' in window)) {
-        throw new Error('您的浏览器不支持 File System Access API。请使用 Chrome、Edge 或其他支持的浏览器。');
-      }
-
-      // @ts-ignore - showDirectoryPicker is not in TypeScript types yet
-      const dirHandle = await window.showDirectoryPicker({
-        mode: 'readwrite',
-      });
-
-      await loadProject(dirHandle);
+      await connect();
     } catch (err: any) {
-      if (err.name === 'AbortError') {
-        // User cancelled, do nothing
-        setError("");
-      } else {
-        setError(err.message || "加载项目失败");
-      }
+      setError(err.message || "连接 Engine 失败");
     } finally {
       setLoading(false);
     }
@@ -40,29 +25,33 @@ export function ProjectLoader() {
     <div className="flex h-full w-full items-center justify-center bg-background">
       <div className="w-full max-w-md space-y-6 rounded-lg border border-border bg-card p-8 shadow-lg">
         <div className="space-y-2 text-center">
-          <FolderOpen className="mx-auto size-12 text-muted-foreground" />
-          <h1 className="text-2xl font-bold">打开项目</h1>
+          <Wifi className="mx-auto size-12 text-muted-foreground" />
+          <h1 className="text-2xl font-bold">连接 Engine</h1>
           <p className="text-sm text-muted-foreground">
-            选择一个 KAL 项目文件夹开始编辑
+            连接到 Kal Engine 服务开始编辑
           </p>
         </div>
 
         <div className="space-y-4">
+          <div className="rounded-lg border bg-muted/50 p-4 text-center">
+            <p className="font-mono text-sm">http://localhost:3000</p>
+          </div>
+
           <Button
             className="w-full"
             size="lg"
-            onClick={handleOpenDirectory}
+            onClick={handleConnect}
             disabled={loading}
           >
             {loading ? (
               <>
                 <Loader2 className="mr-2 size-4 animate-spin" />
-                加载中...
+                连接中...
               </>
             ) : (
               <>
-                <FolderOpen className="mr-2 size-4" />
-                选择项目文件夹
+                <Wifi className="mr-2 size-4" />
+                连接
               </>
             )}
           </Button>
@@ -74,25 +63,14 @@ export function ProjectLoader() {
             </div>
           )}
 
-          <div className="space-y-2 rounded-lg border bg-muted/50 p-4 text-sm">
-            <h3 className="font-semibold">项目结构要求：</h3>
-            <ul className="space-y-1 text-muted-foreground">
-              <li>• kal_config.json（必需）</li>
-              <li>• flow/ 文件夹（必需）</li>
-              <li>• initial_state.json（可选）</li>
-            </ul>
-          </div>
-
           <div className="space-y-2 rounded-lg border bg-blue-500/10 p-4 text-sm">
-            <h3 className="font-semibold text-blue-600">浏览器要求：</h3>
+            <h3 className="font-semibold text-blue-600">使用说明</h3>
             <p className="text-muted-foreground">
-              需要支持 File System Access API 的浏览器：
+              请先启动 Engine 服务：
             </p>
-            <ul className="space-y-1 text-muted-foreground">
-              <li>• Chrome 86+</li>
-              <li>• Edge 86+</li>
-              <li>• Opera 72+</li>
-            </ul>
+            <pre className="mt-2 rounded bg-muted p-2 text-xs font-mono overflow-x-auto">
+              kal serve &lt;project-path&gt;
+            </pre>
           </div>
         </div>
       </div>

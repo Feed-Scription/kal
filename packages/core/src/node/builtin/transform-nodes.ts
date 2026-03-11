@@ -8,6 +8,7 @@ import { repairJson } from '../../llm/json-repair';
 export const Regex: CustomNode = {
   type: 'Regex',
   label: '正则匹配',
+  category: 'transform',
   inputs: [
     { name: 'text', type: 'string', required: true },
   ],
@@ -15,6 +16,19 @@ export const Regex: CustomNode = {
     { name: 'matches', type: 'array' },
     { name: 'groups', type: 'object' },
   ],
+  configSchema: {
+    type: 'object',
+    required: ['pattern'],
+    properties: {
+      pattern: { type: 'string' },
+      flags: { type: 'string' },
+    },
+    additionalProperties: false,
+  },
+  defaultConfig: {
+    pattern: '',
+    flags: 'g',
+  },
   async execute(inputs, config) {
     const pattern = new RegExp(config.pattern, config.flags ?? '');
     const allMatches: string[] = [];
@@ -45,6 +59,7 @@ export const Regex: CustomNode = {
 export const JSONParse: CustomNode = {
   type: 'JSONParse',
   label: 'JSON 解析',
+  category: 'transform',
   inputs: [
     { name: 'text', type: 'string', required: true },
   ],
@@ -53,6 +68,20 @@ export const JSONParse: CustomNode = {
     { name: 'success', type: 'boolean' },
     { name: 'error', type: 'string' },
   ],
+  configSchema: {
+    type: 'object',
+    properties: {
+      extractFromCodeBlock: { type: 'boolean' },
+      fixCommonErrors: { type: 'boolean' },
+      fixTruncated: { type: 'boolean' },
+    },
+    additionalProperties: false,
+  },
+  defaultConfig: {
+    extractFromCodeBlock: true,
+    fixCommonErrors: true,
+    fixTruncated: true,
+  },
   async execute(inputs, config) {
     try {
       const data = repairJson(inputs.text, {
@@ -61,8 +90,8 @@ export const JSONParse: CustomNode = {
         fixTruncated: config.fixTruncated ?? true,
       });
       return { data, success: true, error: '' };
-    } catch (e) {
-      return { data: null, success: false, error: (e as Error).message };
+    } catch (error) {
+      return { data: null, success: false, error: (error as Error).message };
     }
   },
 };
@@ -75,12 +104,23 @@ type ProcessorDef = {
 export const PostProcess: CustomNode = {
   type: 'PostProcess',
   label: '后处理',
+  category: 'transform',
   inputs: [
     { name: 'text', type: 'string', required: true },
   ],
   outputs: [
     { name: 'text', type: 'string' },
   ],
+  configSchema: {
+    type: 'object',
+    properties: {
+      processors: { type: 'array' },
+    },
+    additionalProperties: false,
+  },
+  defaultConfig: {
+    processors: [],
+  },
   async execute(inputs, config) {
     let text: string = inputs.text;
     const processors: ProcessorDef[] = config.processors ?? [];
@@ -112,12 +152,20 @@ export const PostProcess: CustomNode = {
 export const SubFlow: CustomNode = {
   type: 'SubFlow',
   label: '子流程',
-  inputs: [
-    { name: 'input', type: 'object' },
-  ],
-  outputs: [
-    { name: 'output', type: 'object' },
-  ],
+  category: 'transform',
+  inputs: [],
+  outputs: [],
+  configSchema: {
+    type: 'object',
+    required: ['ref'],
+    properties: {
+      ref: { type: 'string' },
+    },
+    additionalProperties: false,
+  },
+  defaultConfig: {
+    ref: '',
+  },
   async execute(inputs, config, context) {
     const flowRef = config.ref;
 

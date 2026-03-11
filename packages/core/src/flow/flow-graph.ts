@@ -24,7 +24,7 @@ export class FlowGraph {
   private edges: Edge[];
 
   constructor(flow: FlowDefinition) {
-    this.edges = flow.edges;
+    this.edges = flow.data.edges;
     this.buildGraph(flow);
     this.detectCycles();
   }
@@ -34,7 +34,7 @@ export class FlowGraph {
    */
   private buildGraph(flow: FlowDefinition): void {
     // Register all nodes
-    for (const nodeDef of flow.nodes) {
+    for (const nodeDef of flow.data.nodes) {
       this.nodes.set(nodeDef.id, {
         id: nodeDef.id,
         definition: nodeDef,
@@ -45,7 +45,7 @@ export class FlowGraph {
     }
 
     // Register edges
-    for (const edge of flow.edges) {
+    for (const edge of flow.data.edges) {
       const source = this.nodes.get(edge.source);
       const target = this.nodes.get(edge.target);
 

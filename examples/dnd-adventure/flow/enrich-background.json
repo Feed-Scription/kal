@@ -1,0 +1,251 @@
+{
+  "meta": {
+    "schemaVersion": "1.0.0",
+    "name": "enrich-background",
+    "description": "LLM 完善玩家背景故事",
+    "inputs": [
+      {
+        "name": "userBackground",
+        "type": "string",
+        "required": true
+      }
+    ],
+    "outputs": [
+      {
+        "name": "result",
+        "type": "string"
+      }
+    ]
+  },
+  "data": {
+    "nodes": [
+      {
+        "id": "signal-in",
+        "type": "SignalIn",
+        "label": "信号输入",
+        "position": {
+          "x": 0,
+          "y": -220
+        },
+        "inputs": [],
+        "outputs": [
+          {
+            "name": "data",
+            "type": "string"
+          }
+        ],
+        "config": {
+          "channel": "userBackground"
+        }
+      },
+      {
+        "id": "prompt-build",
+        "type": "PromptBuild",
+        "label": "Prompt 构建",
+        "position": {
+          "x": 0,
+          "y": 20
+        },
+        "inputs": [
+          {
+            "name": "data",
+            "type": "object",
+            "defaultValue": {}
+          }
+        ],
+        "outputs": [
+          {
+            "name": "messages",
+            "type": "ChatMessage[]"
+          },
+          {
+            "name": "text",
+            "type": "string"
+          },
+          {
+            "name": "estimatedTokens",
+            "type": "number"
+          }
+        ],
+        "config": {
+          "fragments": [
+            {
+              "type": "base",
+              "id": "instruction",
+              "content": "你是一位经验丰富的 DND 地下城主。玩家提供了一个简短的背景故事，请将其扩展为 100-200 字的完整背景，包含：\n- 角色的出身和成长经历\n- 为何成为冒险者\n- 性格特点和动机\n\n保持第二人称叙事（\"你\"），风格生动具体。只输出背景文本，不要输出其他内容。",
+              "role": "system"
+            },
+            {
+              "type": "field",
+              "id": "race-info",
+              "source": "state.race",
+              "template": "种族: {{items}}",
+              "role": "system"
+            },
+            {
+              "type": "field",
+              "id": "class-info",
+              "source": "state.class",
+              "template": "职业: {{items}}",
+              "role": "system"
+            }
+          ],
+          "defaultRole": "system"
+        }
+      },
+      {
+        "id": "message",
+        "type": "Message",
+        "label": "消息组装",
+        "position": {
+          "x": 400,
+          "y": -100
+        },
+        "inputs": [
+          {
+            "name": "system",
+            "type": "string"
+          },
+          {
+            "name": "context",
+            "type": "string"
+          },
+          {
+            "name": "user",
+            "type": "string",
+            "required": true
+          }
+        ],
+        "outputs": [
+          {
+            "name": "messages",
+            "type": "ChatMessage[]"
+          }
+        ],
+        "config": {
+          "system": "",
+          "user": "",
+          "format": "xml",
+          "historyKey": ""
+        }
+      },
+      {
+        "id": "generate-text",
+        "type": "GenerateText",
+        "label": "生成文本",
+        "position": {
+          "x": 800,
+          "y": -100
+        },
+        "inputs": [
+          {
+            "name": "messages",
+            "type": "ChatMessage[]",
+            "required": true
+          }
+        ],
+        "outputs": [
+          {
+            "name": "text",
+            "type": "string"
+          },
+          {
+            "name": "usage",
+            "type": "object"
+          }
+        ],
+        "config": {
+          "model": "",
+          "temperature": 0.7,
+          "maxTokens": 400,
+          "historyKey": "",
+          "assistantPath": ""
+        }
+      },
+      {
+        "id": "save-background",
+        "type": "ModifyState",
+        "label": "修改状态",
+        "position": {
+          "x": 1200,
+          "y": -220
+        },
+        "inputs": [
+          {
+            "name": "key",
+            "type": "string",
+            "defaultValue": "background"
+          },
+          {
+            "name": "value",
+            "type": "any",
+            "required": true
+          }
+        ],
+        "outputs": [
+          {
+            "name": "success",
+            "type": "boolean"
+          }
+        ],
+        "config": {}
+      },
+      {
+        "id": "signal-out",
+        "type": "SignalOut",
+        "label": "信号输出",
+        "position": {
+          "x": 1200,
+          "y": 20
+        },
+        "inputs": [
+          {
+            "name": "data",
+            "type": "string"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "data",
+            "type": "string"
+          }
+        ],
+        "config": {
+          "channel": "result"
+        }
+      }
+    ],
+    "edges": [
+      {
+        "source": "prompt-build",
+        "sourceHandle": "text",
+        "target": "message",
+        "targetHandle": "system"
+      },
+      {
+        "source": "signal-in",
+        "sourceHandle": "data",
+        "target": "message",
+        "targetHandle": "user"
+      },
+      {
+        "source": "message",
+        "sourceHandle": "messages",
+        "target": "generate-text",
+        "targetHandle": "messages"
+      },
+      {
+        "source": "generate-text",
+        "sourceHandle": "text",
+        "target": "save-background",
+        "targetHandle": "value"
+      },
+      {
+        "source": "generate-text",
+        "sourceHandle": "text",
+        "target": "signal-out",
+        "targetHandle": "data"
+      }
+    ]
+  }
+}
