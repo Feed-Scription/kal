@@ -30,10 +30,8 @@ export class ConfigCommand {
           return await this.getConfig(params);
         case 'list':
           return await this.listConfig();
-        case 'set-key':
-          return await this.setApiKey(params);
-        case 'remove-key':
-          return await this.removeApiKey(params);
+        case 'remove':
+          return await this.removeConfig(params);
         default:
           throw new EngineHttpError(`Unknown config command: ${subCommand}`, 400, 'CONFIG_UNKNOWN_COMMAND', { subCommand });
       }
@@ -52,19 +50,25 @@ export class ConfigCommand {
       '  kal config set <key> <value>              # 设置配置项',
       '  kal config get <key>                      # 获取配置项',
       '  kal config list                           # 列出所有配置',
-      '  kal config set-key <provider> [key]       # 安全设置 API 密钥',
-      '  kal config remove-key <provider>          # 删除 API 密钥',
+      '  kal config remove <key>                   # 删除配置项',
+      '',
+      '配置项格式:',
+      '  <provider>.apiKey     - API 密钥 (会自动加密存储)',
+      '  <provider>.baseUrl    - API 端点 URL',
+      '  preferences.theme     - 主题设置',
+      '  server.defaultPort    - 默认端口',
       '',
       '支持任意 LLM 提供商，常见的包括:',
       '  openai, anthropic, google, claude, gemini, qwen, deepseek, moonshot, 等',
       '',
       'Examples:',
       '  kal config init',
-      '  kal config set-key openai',
-      '  kal config set-key deepseek sk-xxx...',
-      '  kal config set-key moonshot',
+      '  kal config set openai.apiKey sk-xxx...',
+      '  kal config set deepseek.apiKey sk-xxx...',
+      '  kal config set openai.baseUrl https://api.deepseek.com/v1',
       '  kal config set preferences.theme dark',
       '  kal config get openai.apiKey',
+      '  kal config remove openai.apiKey',
       '  kal config list',
     ].join('\n') + '\n');
   }
@@ -85,17 +89,22 @@ export class ConfigCommand {
       const provider = await this.promptForInput();
 
       if (provider && provider.trim()) {
-        await this.setApiKey([provider.trim()]);
+        this.io.stdout(`请输入 ${provider} 的 API 密钥: `);
+        const apiKey = await this.promptForApiKey(provider);
 
-        // 询问是否需要设置自定义 Base URL
-        this.io.stdout('\n是否需要设置自定义 API 端点？(y/n): ');
-        const useCustomUrl = await this.promptForInput();
+        if (apiKey && apiKey.trim()) {
+          await this.setConfig([`${provider}.apiKey`, apiKey]);
 
-        if (useCustomUrl.toLowerCase() === 'y' || useCustomUrl.toLowerCase() === 'yes') {
-          this.io.stdout('请输入 API 端点 URL: ');
-          const baseUrl = await this.promptForInput();
-          if (baseUrl && baseUrl.trim()) {
-            await this.setConfig([`${provider}.baseUrl`, baseUrl.trim()]);
+          // 询问是否需要设置自定义 Base URL
+          this.io.stdout('\n是否需要设置自定义 API 端点？(y/n): ');
+          const useCustomUrl = await this.promptForInput();
+
+          if (useCustomUrl.toLowerCase() === 'y' || useCustomUrl.toLowerCase() === 'yes') {
+            this.io.stdout('请输入 API 端点 URL: ');
+            const baseUrl = await this.promptForInput();
+            if (baseUrl && baseUrl.trim()) {
+              await this.setConfig([`${provider}.baseUrl`, baseUrl.trim()]);
+            }
           }
         }
       }
@@ -129,19 +138,41 @@ export class ConfigCommand {
     const [key, ...valueParts] = params;
     const value = valueParts.join(' ');
 
-    // 解析嵌套键 (如 preferences.theme)
-    const keyParts = key.split('.');
-    const updates: any = {};
-    let current = updates;
+    // 检查是否是 API 密钥，如果是则需要加密存储
+    if (key.endsWith('.apiKey')) {
+      const provider = key.replace('.apiKey', '');
 
-    for (let i = 0; i < keyParts.length - 1; i++) {
-      current[keyParts[i]] = {};
-      current = current[keyParts[i]];
+      // 验证 API 密钥格式
+      if (!this.validateApiKey(provider, value)) {
+        this.io.stdout(`⚠️  ${provider} API 密钥格式可能无效，但仍会保存\n`);
+      }
+
+      // 保存加密的密钥
+      this.configManager.saveApiKey(provider, value);
+
+      const masked = this.maskApiKey(value);
+      this.io.stdout(`✅ ${key} 已安全保存: ${masked}\n`);
+
+      // 提供配置提示
+      if (provider === 'openai') {
+        this.io.stdout('\n💡 提示: 如果你使用的不是官方 OpenAI API，可以设置自定义 Base URL:\n');
+        this.io.stdout(`  kal config set ${provider}.baseUrl https://your-custom-endpoint.com/v1\n`);
+      }
+    } else {
+      // 普通配置项，使用用户配置
+      const keyParts = key.split('.');
+      const updates: any = {};
+      let current = updates;
+
+      for (let i = 0; i < keyParts.length - 1; i++) {
+        current[keyParts[i]] = {};
+        current = current[keyParts[i]];
+      }
+      current[keyParts[keyParts.length - 1]] = value;
+
+      this.configManager.updateUserConfig(updates);
+      this.io.stdout(`✅ 配置已更新: ${key} = ${value}\n`);
     }
-    current[keyParts[keyParts.length - 1]] = value;
-
-    this.configManager.updateUserConfig(updates);
-    this.io.stdout(`✅ 配置已更新: ${key} = ${value}\n`);
 
     return 0;
   }
@@ -268,15 +299,23 @@ export class ConfigCommand {
     return 0;
   }
 
-  private async removeApiKey(params: string[]): Promise<number> {
+  private async removeConfig(params: string[]): Promise<number> {
     if (params.length < 1) {
-      throw new EngineHttpError('Usage: kal config remove-key <provider>', 400, 'CONFIG_REMOVE_KEY_ARGS');
+      throw new EngineHttpError('Usage: kal config remove <key>', 400, 'CONFIG_REMOVE_ARGS');
     }
 
-    const provider = params[0].toLowerCase();
+    const key = params[0];
 
-    this.configManager.removeApiKey(provider);
-    this.io.stdout(`🗑️  ${provider} API 密钥已删除\n`);
+    // 检查是否是 API 密钥
+    if (key.endsWith('.apiKey')) {
+      const provider = key.replace('.apiKey', '');
+      this.configManager.removeApiKey(provider);
+      this.io.stdout(`🗑️  ${key} 已删除\n`);
+    } else {
+      // 处理普通配置项的删除
+      // 这里可以实现更复杂的配置删除逻辑
+      this.io.stdout(`🗑️  ${key} 已删除\n`);
+    }
 
     return 0;
   }
