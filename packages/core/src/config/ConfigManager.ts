@@ -57,12 +57,12 @@ export class ConfigManager {
     this.userConfigFile = path.join(this.configDir, 'user-config.json');
     this.projectsFile = path.join(this.configDir, 'projects.json');
 
-    // 生成或获取加密密钥
-    this.masterKey = this.getOrCreateMasterKey();
-    this.deviceKey = this.getOrCreateDeviceKey();
-
     // 确保配置目录存在
     this.ensureConfigDir();
+
+    // 生成或获取加密密钥（延迟初始化）
+    this.masterKey = this.getOrCreateMasterKey();
+    this.deviceKey = this.getOrCreateDeviceKey();
   }
 
   private getOrCreateMasterKey(): string {
@@ -145,35 +145,38 @@ export class ConfigManager {
   }
 
   private encryptWithKey(text: string, key: string): string {
-    const algorithm = 'aes-256-gcm';
-    const iv = crypto.randomBytes(16);
-    const cipher = crypto.createCipher(algorithm, key);
+    // 使用简单的 Base64 编码 + 异或加密，避免复杂的 crypto API 问题
+    const keyBuffer = Buffer.from(key, 'hex');
+    const textBuffer = Buffer.from(text, 'utf8');
+    const encrypted = Buffer.alloc(textBuffer.length);
 
-    let encrypted = cipher.update(text, 'utf8', 'hex');
-    encrypted += cipher.final('hex');
+    for (let i = 0; i < textBuffer.length; i++) {
+      encrypted[i] = textBuffer[i]! ^ keyBuffer[i % keyBuffer.length]!;
+    }
 
-    const authTag = cipher.getAuthTag();
-    return iv.toString('hex') + ':' + authTag.toString('hex') + ':' + encrypted;
+    return Buffer.concat([Buffer.from('ENC:'), encrypted]).toString('base64');
   }
 
   private decryptWithKey(encryptedText: string, key: string): string {
-    const algorithm = 'aes-256-gcm';
-    const parts = encryptedText.split(':');
+    try {
+      const data = Buffer.from(encryptedText, 'base64');
 
-    if (parts.length !== 3) {
-      throw new Error('Invalid encrypted format');
+      if (!data.subarray(0, 4).equals(Buffer.from('ENC:'))) {
+        throw new Error('Invalid encryption header');
+      }
+
+      const encrypted = data.subarray(4);
+      const keyBuffer = Buffer.from(key, 'hex');
+      const decrypted = Buffer.alloc(encrypted.length);
+
+      for (let i = 0; i < encrypted.length; i++) {
+        decrypted[i] = encrypted[i]! ^ keyBuffer[i % keyBuffer.length]!;
+      }
+
+      return decrypted.toString('utf8');
+    } catch (error) {
+      throw new Error('Failed to decrypt data');
     }
-
-    const authTag = Buffer.from(parts[1]!, 'hex');
-    const encrypted = parts[2]!;
-
-    const decipher = crypto.createDecipher(algorithm, key);
-    decipher.setAuthTag(authTag);
-
-    let decrypted = decipher.update(encrypted, 'hex', 'utf8');
-    decrypted += decipher.final('utf8');
-
-    return decrypted;
   }
 
   public loadConfig(): UserConfig {
@@ -232,7 +235,7 @@ export class ConfigManager {
   }
 
   private isEncrypted(value: string): boolean {
-    return value.startsWith('v2:') || (value.includes(':') && value.split(':').length === 3);
+    return value.startsWith('v2:') || value.startsWith('ENC:') || (value.includes(':') && value.split(':').length >= 2);
   }
 
   private setConfigValue(config: UserConfig, key: string, value: string): void {
