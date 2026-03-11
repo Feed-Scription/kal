@@ -1,0 +1,182 @@
+{
+  "meta": {
+    "schemaVersion": "1.0.0",
+    "name": "confrontation",
+    "description": "Confrontation scene — card-based sentence combination system for interrogating NPCs",
+    "inputs": [],
+    "outputs": [{ "name": "result", "type": "object" }]
+  },
+  "data": {
+    "nodes": [
+      {
+        "id": "prompt-build",
+        "type": "PromptBuild",
+        "label": "Confrontation prompt",
+        "position": { "x": 0, "y": 0 },
+        "inputs": [{ "name": "data", "type": "object", "defaultValue": {} }],
+        "outputs": [
+          { "name": "messages", "type": "ChatMessage[]" },
+          { "name": "text", "type": "string" },
+          { "name": "estimatedTokens", "type": "number" }
+        ],
+        "config": {
+          "defaultRole": "system",
+          "fragments": [
+            {
+              "type": "base", "id": "role",
+              "content": "你是 Westbrook High 的对质场景管理器。冷峻写实风格。\n\n对质流程：\n1. 首先展示当前对质对象的状态和玩家手中的卡牌\n2. 等待玩家选择卡牌组合（话题+态度+证据可选）\n3. 计算说服力并生成NPC反应\n\n说服力公式：\npersuasion = topic_relevance × attitude_power × (1 + evidence_bonus) × (1 + trust/200) × (1 - defense)\n\n其中：\n- topic_relevance: 话题与NPC的相关度 (0.3-1.0)\n- attitude_power: 态度基础力量 (0.5-1.5)，命中弱点+0.25，遇到抗性-0.15\n- evidence_bonus: 证据强度/100 (0/0.3/0.6)\n- trust: 玩家与该NPC的信任值\n- defense: 0.2 如果NPC对该话题有防备\n\n结果阈值：\n- <30: 拒绝（NPC关闭对话，trust-10, suspicion+5）\n- 30-59: 模糊（获得碎片信息）\n- 60-79: 松口（获得关键信息，trust+5）\n- 80+: 坦白（完全坦白，可能触发弧线转折）\n\n特殊规则：\n- 空证据+共情态度+trust>50 → 30%概率直接坦白\n- 连续2次施压 → NPC进入防御模式\n- 话题和证据同一调查线 → +15%说服力\n\nNPC弱点：\n- Lily: 共情\n- Marcus: 理性分析\n- Coach: 施压+证据\n- Zoe: 共情+信息交换\n- Tyler: 欺骗\n- Holloway: 理性分析+耐心\n\n第一步：展示对质场景设置。输出JSON：\n{\n  \"narrative\": \"对质场景开场叙事（设置氛围，2-3句）\",\n  \"confrontationSetup\": {\n    \"targetNpc\": \"对质对象\",\n    \"npcState\": { \"trust\": 值, \"fear\": 值, \"mood\": 值, \"arc\": 阶段 },\n    \"availableTopics\": [\"玩家拥有的相关话题卡\"],\n    \"availableAttitudes\": [\"玩家拥有的态度卡\"],\n    \"availableEvidence\": [\"玩家拥有的证据卡（标注是否一次性）\"],\n    \"npcWeakness\": \"该NPC的弱点态度\",\n    \"npcDefenses\": [\"该NPC防备的话题\"]\n  },\n  \"stateChanges\": {}\n}",
+              "role": "system"
+            },
+            {
+              "type": "field", "id": "target",
+              "source": "state.pendingConfrontation", "label": "对质对象"
+            },
+            {
+              "type": "field", "id": "topics",
+              "source": "state.topicCards", "label": "话题卡"
+            },
+            {
+              "type": "field", "id": "attitudes",
+              "source": "state.attitudeCards", "label": "态度卡"
+            },
+            {
+              "type": "field", "id": "evidence",
+              "source": "state.evidenceCards", "label": "证据卡"
+            },
+            {
+              "type": "field", "id": "trust-lily",
+              "source": "state.trust_lily", "label": "Lily信任"
+            },
+            {
+              "type": "field", "id": "trust-marcus",
+              "source": "state.trust_marcus", "label": "Marcus信任"
+            },
+            {
+              "type": "field", "id": "trust-coach",
+              "source": "state.trust_coach", "label": "Coach信任"
+            },
+            {
+              "type": "field", "id": "trust-zoe",
+              "source": "state.trust_zoe", "label": "Zoe信任"
+            },
+            {
+              "type": "field", "id": "trust-tyler",
+              "source": "state.trust_tyler", "label": "Tyler信任"
+            },
+            {
+              "type": "field", "id": "trust-holloway",
+              "source": "state.trust_holloway", "label": "Holloway信任"
+            },
+            {
+              "type": "field", "id": "fear-target",
+              "source": "state.fear_lily", "label": "Lily恐惧"
+            },
+            {
+              "type": "field", "id": "mood-target",
+              "source": "state.mood_lily", "label": "Lily情绪"
+            },
+            {
+              "type": "field", "id": "arc-lily",
+              "source": "state.arc_lily", "label": "Lily弧线"
+            },
+            {
+              "type": "field", "id": "arc-marcus",
+              "source": "state.arc_marcus", "label": "Marcus弧线"
+            },
+            {
+              "type": "field", "id": "arc-tyler",
+              "source": "state.arc_tyler", "label": "Tyler弧线"
+            },
+            {
+              "type": "field", "id": "lineA",
+              "source": "state.lineA_depth", "label": "Line A深度"
+            },
+            {
+              "type": "field", "id": "lineB",
+              "source": "state.lineB_depth", "label": "Line B深度"
+            },
+            {
+              "type": "field", "id": "lineC",
+              "source": "state.lineC_depth", "label": "Line C深度"
+            },
+            {
+              "type": "field", "id": "keyDecisions",
+              "source": "state.keyDecisions", "label": "关键决策",
+              "window": 3
+            },
+            {
+              "type": "field", "id": "playstyle",
+              "source": "state.playstyle", "label": "玩家风格"
+            }
+          ]
+        }
+      },
+      {
+        "id": "message",
+        "type": "Message",
+        "label": "Assemble",
+        "position": { "x": 300, "y": 0 },
+        "inputs": [
+          { "name": "system", "type": "ChatMessage[]" },
+          { "name": "user", "type": "string" }
+        ],
+        "outputs": [{ "name": "messages", "type": "ChatMessage[]" }],
+        "config": { "historyKey": "history", "maxHistoryMessages": 6, "summaryKey": "summary" }
+      },
+      {
+        "id": "generate",
+        "type": "GenerateText",
+        "label": "Generate confrontation",
+        "position": { "x": 500, "y": 0 },
+        "inputs": [{ "name": "messages", "type": "ChatMessage[]" }],
+        "outputs": [
+          { "name": "text", "type": "string" },
+          { "name": "usage", "type": "object" }
+        ],
+        "config": {
+          "responseFormat": "json",
+          "historyKey": "history",
+          "assistantPath": "narrative",
+          "temperature": 0.8
+        }
+      },
+      {
+        "id": "json-parse",
+        "type": "JSONParse",
+        "label": "Parse",
+        "position": { "x": 700, "y": 0 },
+        "inputs": [{ "name": "text", "type": "string", "required": true }],
+        "outputs": [
+          { "name": "data", "type": "object" },
+          { "name": "success", "type": "boolean" },
+          { "name": "error", "type": "string" }
+        ],
+        "config": { "extractFromCodeBlock": true, "fixCommonErrors": true, "fixTruncated": true }
+      },
+      {
+        "id": "clear-pending",
+        "type": "ModifyState",
+        "label": "Clear pending confrontation",
+        "position": { "x": 900, "y": 120 },
+        "inputs": [{ "name": "value", "type": "string", "defaultValue": "" }],
+        "outputs": [{ "name": "success", "type": "boolean" }],
+        "config": { "key": "pendingConfrontation", "operation": "set" }
+      },
+      {
+        "id": "signal-out",
+        "type": "SignalOut",
+        "label": "Output",
+        "position": { "x": 900, "y": -80 },
+        "inputs": [{ "name": "data", "type": "object" }],
+        "outputs": [{ "name": "data", "type": "object" }],
+        "config": { "channel": "result" }
+      }
+    ],
+    "edges": [
+      { "source": "prompt-build", "sourceHandle": "messages", "target": "message", "targetHandle": "system" },
+      { "source": "message", "sourceHandle": "messages", "target": "generate", "targetHandle": "messages" },
+      { "source": "generate", "sourceHandle": "text", "target": "json-parse", "targetHandle": "text" },
+      { "source": "json-parse", "sourceHandle": "data", "target": "signal-out", "targetHandle": "data" }
+    ]
+  }
+}
