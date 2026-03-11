@@ -104,13 +104,13 @@ export OPENAI_API_KEY=your_api_key
 export OPENAI_BASE_URL=https://your-openai-compatible-endpoint
 
 # 5. 运行示例游戏
-node apps/engine/dist/bin.js play examples/dnd-adventure
+kal play examples/dnd-adventure
 ```
 
 ### 启动开发环境
 ```bash
 # 启动 Engine 服务
-node apps/engine/dist/bin.js serve examples/dnd-adventure
+kal serve examples/dnd-adventure
 
 # 启动可视化编辑器
 cd apps/editor && pnpm dev
@@ -124,7 +124,7 @@ cd apps/editor && pnpm dev
 完整的单人 DND 风格冒险游戏，展示了 KAL-AI 的核心能力：
 
 ```bash
-node apps/engine/dist/bin.js play examples/dnd-adventure
+kal play examples/dnd-adventure
 ```
 
 **游戏特性：**
@@ -147,18 +147,18 @@ node apps/engine/dist/bin.js play examples/dnd-adventure
 <details>
 <summary>点击查看游戏运行截图</summary>
 
-> 💡 **提示**：你可以运行 `node apps/engine/dist/bin.js play examples/dnd-adventure` 来体验完整的游戏流程
+> 💡 **提示**：你可以运行 `kal play examples/dnd-adventure` 来体验完整的游戏流程
 
 **角色创建界面：**
 ```
-🎲 欢迎来到 DND 冒险世界！
+欢迎来到 DND 冒险世界！
 
 请创建你的角色：
 姓名: 艾莉亚
 职业: [1] 战士 [2] 法师 [3] 盗贼
 选择: 1
 
-🗡️ 战士艾莉亚已创建！
+战士艾莉亚已创建！
 属性分配 (总计20点)：
 力量: 8, 敏捷: 6, 智力: 3, 体力: 3
 生命值: 30/30
@@ -166,12 +166,12 @@ node apps/engine/dist/bin.js play examples/dnd-adventure
 
 **AI 叙事生成：**
 ```
-📖 你走进了一座古老的地下城...
+你走进了一座古老的地下城...
 
 昏暗的走廊中传来奇怪的声音，石壁上刻着古老的符文。
 突然，一只哥布林从阴影中跳出来！
 
-🎯 你想要做什么？
+你想要做什么？
 [1] 攻击哥布林
 [2] 尝试交流
 [3] 寻找其他路径
@@ -179,7 +179,7 @@ node apps/engine/dist/bin.js play examples/dnd-adventure
 
 **战斗系统：**
 ```
-⚔️ 战斗开始！
+战斗开始！
 
 艾莉亚 (HP: 30/30) vs 哥布林 (HP: 15/15)
 
@@ -187,8 +187,8 @@ node apps/engine/dist/bin.js play examples/dnd-adventure
 [1] 普通攻击 [2] 技能攻击 [3] 防御
 
 > 选择攻击...
-🎲 投掷结果: 15 (成功！)
-💥 你对哥布林造成了 8 点伤害！
+投掷结果: 15 (成功！)
+你对哥布林造成了 8 点伤害！
 ```
 
 </details>
@@ -244,8 +244,8 @@ export default {
       total,
       success,
       message: success
-        ? `🎲 ${roll} + ${playerStats[ability]} = ${total} (成功！)`
-        : `🎲 ${roll} + ${playerStats[ability]} = ${total} (失败...)`
+        ? `投掷结果: ${roll} + ${playerStats[ability]} = ${total} (成功！)`
+        : `投掷结果: ${roll} + ${playerStats[ability]} = ${total} (失败...)`
     };
   }
 };
@@ -256,7 +256,7 @@ Engine 提供 HTTP API 用于集成其他应用：
 
 ```bash
 # 启动 API 服务
-node apps/engine/dist/bin.js serve examples/dnd-adventure
+kal serve examples/dnd-adventure
 
 # API 端点
 POST /api/session/start    # 开始新会话
@@ -295,17 +295,17 @@ const gameState = await stateResponse.json();
 
 ```bash
 # 启动 Engine 服务
-node apps/engine/dist/bin.js serve examples/dnd-adventure
+kal serve examples/dnd-adventure
 
 # 启动 Editor（新终端窗口）
 cd apps/editor && pnpm dev
 ```
 
 **Editor 功能：**
-- 📊 Flow 图形化展示和编辑
-- 🔍 实时状态监控和调试
-- 📝 Node 配置和参数调整
-- 🎮 游戏流程可视化预览
+- Flow 图形化展示和编辑
+- 实时状态监控和调试
+- Node 配置和参数调整
+- 游戏流程可视化预览
 
 ## 文档
 
@@ -358,10 +358,10 @@ cd apps/editor && pnpm dev
 - 🚧 实时交互（规划中）
 
 **性能指标**：
-- 🚀 Flow 执行延迟: < 50ms
-- 💾 内存占用: < 100MB (典型游戏)
-- 🔄 并发会话: 支持 100+ 同时在线
-- 📦 打包大小: < 10MB (核心运行时)
+- Flow 执行延迟: < 50ms
+- 内存占用: < 100MB (典型游戏)
+- 并发会话: 支持 100+ 同时在线
+- 打包大小: < 10MB (核心运行时)
 
 ## 常见问题 (FAQ)
 
@@ -482,21 +482,8 @@ KAL-AI 针对文字游戏进行了优化：
 
 ## 社区与生态
 
-### 相关项目
-- **[KAL-Templates](https://github.com/Feed-Scription/kal-templates)** - 官方游戏模板集合
-- **[KAL-Nodes](https://github.com/Feed-Scription/kal-nodes)** - 社区贡献的自定义节点库
-- **[KAL-Examples](https://github.com/Feed-Scription/kal-examples)** - 更多游戏示例和教程
-
 ### 学习资源
 - 📚 [官方文档](./docs/docs_v5/) - 完整的技术文档
-- 🎥 [视频教程](https://www.youtube.com/playlist?list=PLxxx) - 从入门到进阶
-- 📝 [博客文章](https://blog.kal-ai.com) - 设计思路和最佳实践
-- 💬 [Discord 社区](https://discord.gg/kal-ai) - 实时交流和答疑
-
-### 成功案例
-- **《AI 侦探》** - 基于 KAL-AI 的推理解谜游戏，月活用户 10K+
-- **《魔法学院》** - 教育类 RPG，被多所学校采用
-- **《商业模拟器》** - 企业培训游戏，服务 50+ 公司
 
 ### 贡献者
 感谢所有为 KAL-AI 做出贡献的开发者：
@@ -511,11 +498,14 @@ KAL-AI 针对文字游戏进行了优化：
 - ⭐ 给项目点个 Star
 - 🐛 报告 Bug 和提出改进建议
 - 📝 贡献代码或文档
-- 💰 [成为赞助者](https://github.com/sponsors/Feed-Scription)
 
 ## 许可证
 
 本项目采用 [MIT License](LICENSE) 开源协议。
+
+## 致谢
+
+感谢所有为 KAL-AI 做出贡献的开发者和社区成员。
 
 ---
 
@@ -524,7 +514,5 @@ KAL-AI 针对文字游戏进行了优化：
 **[⭐ 给个 Star](https://github.com/Feed-Scription/kal) • [📖 查看文档](./docs/docs_v5/) • [🐛 报告问题](https://github.com/Feed-Scription/kal/issues) • [💬 加入讨论](https://github.com/Feed-Scription/kal/discussions)**
 
 Made with ❤️ for AI-native game developers
-
-*"让每个人都能创造属于自己的 AI 游戏世界"*
 
 </div>
