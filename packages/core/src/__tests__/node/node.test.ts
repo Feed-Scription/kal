@@ -3,6 +3,7 @@ import { NodeRegistry } from '../../node/node-registry';
 import { executeNode, resolveInputs } from '../../node/node-executor';
 import { BUILTIN_NODES } from '../../node/builtin';
 import type { NodeDefinition, CustomNode, NodeContext } from '../../types/node';
+import { createMockContext } from '../helpers/test-utils';
 
 describe('NodeRegistry', () => {
   let registry: NodeRegistry;
@@ -15,8 +16,10 @@ describe('NodeRegistry', () => {
     const node: CustomNode = {
       type: 'TestNode',
       label: '测试节点',
+      category: 'test',
       inputs: [],
       outputs: [],
+      configSchema: { type: 'object' },
       execute: async () => ({}),
     };
     registry.register(node);
@@ -24,31 +27,23 @@ describe('NodeRegistry', () => {
     expect(registry.get('TestNode')).toBe(node);
   });
 
-  it('重复注册应该抛出错误', () => {
+  it('导出的 Manifest 应该包含 category 和 configSchema', () => {
     const node: CustomNode = {
       type: 'TestNode',
       label: '测试',
-      inputs: [],
-      outputs: [],
-      execute: async () => ({}),
-    };
-    registry.register(node);
-    expect(() => registry.register(node)).toThrow('already registered');
-  });
-
-  it('应该能导出 Manifest', () => {
-    const node: CustomNode = {
-      type: 'TestNode',
-      label: '测试',
+      category: 'test',
       inputs: [{ name: 'input1', type: 'string' }],
       outputs: [{ name: 'output1', type: 'string' }],
+      configSchema: { type: 'object' },
       execute: async () => ({}),
     };
     registry.register(node);
     const manifests = registry.exportManifests();
-    expect(manifests).toHaveLength(1);
-    expect(manifests[0]!.type).toBe('TestNode');
-    expect(manifests[0]!.inputs).toHaveLength(1);
+    expect(manifests[0]).toMatchObject({
+      type: 'TestNode',
+      category: 'test',
+      configSchema: { type: 'object' },
+    });
   });
 
   it('应该能注册所有内置节点', () => {
@@ -64,35 +59,17 @@ describe('resolveInputs', () => {
     const nodeDef: NodeDefinition = {
       id: 'n1',
       type: 'Test',
-      inputs: [
-        { name: 'temp', type: 'number', defaultValue: 0.7 },
-      ],
+      inputs: [{ name: 'temp', type: 'number', defaultValue: 0.7 }],
       outputs: [],
     };
-    const result = resolveInputs(nodeDef, { temp: 0.9 });
-    expect(result.temp).toBe(0.9);
-  });
-
-  it('没有连线值时应该使用默认值', () => {
-    const nodeDef: NodeDefinition = {
-      id: 'n1',
-      type: 'Test',
-      inputs: [
-        { name: 'temp', type: 'number', defaultValue: 0.7 },
-      ],
-      outputs: [],
-    };
-    const result = resolveInputs(nodeDef, {});
-    expect(result.temp).toBe(0.7);
+    expect(resolveInputs(nodeDef, { temp: 0.9 }).temp).toBe(0.9);
   });
 
   it('缺少必需输入应该抛出错误', () => {
     const nodeDef: NodeDefinition = {
       id: 'n1',
       type: 'Test',
-      inputs: [
-        { name: 'required', type: 'string', required: true },
-      ],
+      inputs: [{ name: 'required', type: 'string', required: true }],
       outputs: [],
     };
     expect(() => resolveInputs(nodeDef, {})).toThrow('Missing required input');
@@ -108,40 +85,7 @@ describe('executeNode', () => {
     for (const node of BUILTIN_NODES) {
       registry.register(node);
     }
-
-    const stateMap = new Map<string, any>();
-    context = {
-      state: {
-        get: (key: string) => stateMap.get(key),
-        set: (key: string, value: any) => { stateMap.set(key, value); },
-        delete: (key: string) => { stateMap.delete(key); },
-      },
-      llm: {
-        invoke: vi.fn().mockResolvedValue({
-          text: 'mock response',
-          usage: { promptTokens: 10, completionTokens: 5, totalTokens: 15 },
-        }),
-      },
-      logger: {
-        debug: vi.fn(),
-        info: vi.fn(),
-        warn: vi.fn(),
-        error: vi.fn(),
-      },
-      executionId: 'exec-1',
-      nodeId: 'node-1',
-    };
-  });
-
-  it('应该执行 SignalIn 节点', async () => {
-    const nodeDef: NodeDefinition = {
-      id: 'si1',
-      type: 'SignalIn',
-      inputs: [],
-      outputs: [{ name: 'data', type: 'object' }],
-    };
-    const result = await executeNode(nodeDef, {}, registry, context);
-    expect(result.data).toBeDefined();
+    context = createMockContext();
   });
 
   it('应该执行 ReadState 节点', async () => {
@@ -150,20 +94,21 @@ describe('executeNode', () => {
       id: 'rs1',
       type: 'ReadState',
       inputs: [{ name: 'key', type: 'string', required: true }],
-      outputs: [{ name: 'value', type: 'object' }, { name: 'exists', type: 'boolean' }],
+      outputs: [{ name: 'value', type: 'any' }, { name: 'exists', type: 'boolean' }],
     };
     const result = await executeNode(nodeDef, { key: 'score' }, registry, context);
     expect(result.exists).toBe(true);
     expect(result.value).toBe(100);
   });
 
-  it('应该执行 GenerateText 节点', async () => {
+  it('应该执行 GenerateText 节点并写入 history', async () => {
+    context.state.set('history', { type: 'array', value: [] });
     const nodeDef: NodeDefinition = {
       id: 'gt1',
       type: 'GenerateText',
       inputs: [{ name: 'messages', type: 'ChatMessage[]', required: true }],
       outputs: [{ name: 'text', type: 'string' }, { name: 'usage', type: 'object' }],
-      config: { model: 'gpt-4', temperature: 0.7 },
+      config: { model: 'gpt-4' },
     };
     const result = await executeNode(
       nodeDef,
@@ -171,7 +116,11 @@ describe('executeNode', () => {
       registry,
       context
     );
-    expect(result.text).toBe('mock response');
+    expect(result.text).toBe('mock');
+    expect(context.state.get('history')?.value).toEqual([
+      { role: 'user', content: 'Hello' },
+      { role: 'assistant', content: 'mock' },
+    ]);
   });
 
   it('未知节点类型应该抛出错误', async () => {

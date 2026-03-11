@@ -1,0 +1,169 @@
+{
+  "meta": {
+    "schemaVersion": "1.0.0",
+    "name": "compact-history",
+    "description": "历史压缩子流程 — 将对话历史压缩为简洁摘要并清空历史",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "result",
+        "type": "string"
+      }
+    ]
+  },
+  "data": {
+    "nodes": [
+      {
+        "id": "prompt-build",
+        "type": "PromptBuild",
+        "label": "摘要指令",
+        "position": {
+          "x": -400,
+          "y": 200
+        },
+        "inputs": [
+          {
+            "name": "data",
+            "type": "object",
+            "defaultValue": {}
+          }
+        ],
+        "outputs": [
+          {
+            "name": "messages",
+            "type": "ChatMessage[]"
+          },
+          {
+            "name": "text",
+            "type": "string"
+          },
+          {
+            "name": "estimatedTokens",
+            "type": "number"
+          }
+        ],
+        "config": {
+          "defaultRole": "system",
+          "fragments": [
+            {
+              "type": "base",
+              "id": "summary-instruction",
+              "content": "你是一个冒险故事摘要助手。请将下面的对话历史压缩为一段简洁的冒险摘要（200-300字）。\n\n要求：\n- 保留关键事件（重要战斗、NPC 互动、物品获取/消耗、位置变化）\n- 保留剧情进展和任务状态变化\n- 使用第二人称叙事（\"你\"）\n- 按时间顺序组织\n- 只输出摘要文本，不要输出其他内容",
+              "role": "system"
+            },
+            {
+              "type": "field",
+              "id": "history-content",
+              "source": "state.history",
+              "template": "以下是需要压缩的对话历史：\n\n{{items}}",
+              "role": "user"
+            }
+          ]
+        }
+      },
+      {
+        "id": "generate-text",
+        "type": "GenerateText",
+        "label": "生成摘要",
+        "position": {
+          "x": 100,
+          "y": 200
+        },
+        "inputs": [
+          {
+            "name": "messages",
+            "type": "ChatMessage[]",
+            "required": true
+          }
+        ],
+        "outputs": [
+          {
+            "name": "text",
+            "type": "string"
+          },
+          {
+            "name": "usage",
+            "type": "object"
+          }
+        ],
+        "config": {
+          "model": "",
+          "temperature": 0.3,
+          "maxTokens": 500,
+          "historyKey": "",
+          "assistantPath": ""
+        }
+      },
+      {
+        "id": "compact",
+        "type": "CompactHistory",
+        "label": "压缩历史",
+        "position": {
+          "x": 500,
+          "y": 200
+        },
+        "inputs": [
+          {
+            "name": "summary",
+            "type": "string",
+            "required": true
+          }
+        ],
+        "outputs": [
+          {
+            "name": "success",
+            "type": "boolean"
+          }
+        ],
+        "config": {
+          "historyKey": "history",
+          "summaryKey": "summary"
+        }
+      },
+      {
+        "id": "signal-out",
+        "type": "SignalOut",
+        "label": "输出结果",
+        "position": {
+          "x": 800,
+          "y": 200
+        },
+        "inputs": [
+          {
+            "name": "data",
+            "type": "string"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "data",
+            "type": "string"
+          }
+        ],
+        "config": {
+          "channel": "result"
+        }
+      }
+    ],
+    "edges": [
+      {
+        "source": "prompt-build",
+        "sourceHandle": "messages",
+        "target": "generate-text",
+        "targetHandle": "messages"
+      },
+      {
+        "source": "generate-text",
+        "sourceHandle": "text",
+        "target": "compact",
+        "targetHandle": "summary"
+      },
+      {
+        "source": "generate-text",
+        "sourceHandle": "text",
+        "target": "signal-out",
+        "targetHandle": "data"
+      }
+    ]
+  }
+}

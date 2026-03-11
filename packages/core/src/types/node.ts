@@ -16,6 +16,7 @@ export interface NodeManifest {
   inputs: HandleDefinition[];
   outputs: HandleDefinition[];
   configSchema?: Record<string, any>; // JSON Schema
+  defaultConfig?: Record<string, any>;
 }
 
 /**
@@ -27,6 +28,8 @@ export interface NodeContext {
     get(key: string): StateValue | undefined;
     set(key: string, value: StateValue): void;
     delete(key: string): void;
+    append(key: string, value: any): void;
+    appendMany(key: string, values: any[]): void;
   };
 
   // LLM access
@@ -81,8 +84,11 @@ export interface LLMResponse {
 export interface CustomNode {
   type: string;
   label: string;
+  category?: string;
   inputs: HandleDefinition[];
   outputs: HandleDefinition[];
+  configSchema?: Record<string, any>;
+  defaultConfig?: Record<string, any>;
   execute(
     inputs: Record<string, any>,
     config: Record<string, any>,

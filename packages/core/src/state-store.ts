@@ -65,6 +65,27 @@ export class StateStore {
     return { success: true, data: undefined };
   }
 
+  append(key: string, value: any): Result<void> {
+    return this.appendMany(key, [value]);
+  }
+
+  appendMany(key: string, values: any[]): Result<void> {
+    const existing = this.store.get(key);
+    if (!existing) {
+      return { success: false, error: new Error(`State key "${key}" does not exist`) };
+    }
+    if (existing.type !== 'array') {
+      return { success: false, error: new Error(`State key "${key}" is not an array`) };
+    }
+    if (!this.isJsonSerializable(values)) {
+      return { success: false, error: new Error(`Appended values for key "${key}" are not JSON serializable`) };
+    }
+
+    const nextValue = [...(existing.value as any[]), ...this.deepCopy(values)];
+    this.store.set(key, { type: 'array', value: nextValue });
+    return { success: true, data: undefined };
+  }
+
   has(key: string): boolean {
     return this.store.has(key);
   }
