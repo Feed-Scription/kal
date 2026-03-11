@@ -1,0 +1,152 @@
+{
+  "schemaVersion": "1.0.0",
+  "name": "Westbrook High",
+  "description": "你是转学生，在看似正常的高中里调查三起相互关联的谜团。",
+  "steps": [
+    {
+      "id": "intro",
+      "type": "RunFlow",
+      "flowRef": "intro",
+      "next": "day-start"
+    },
+    {
+      "id": "day-start",
+      "type": "RunFlow",
+      "flowRef": "day-start",
+      "next": "check-key-day"
+    },
+    {
+      "id": "check-key-day",
+      "type": "Branch",
+      "conditions": [
+        { "when": "state.isKeyDay == true", "next": "key-day-event" }
+      ],
+      "default": "day-action"
+    },
+    {
+      "id": "key-day-event",
+      "type": "RunFlow",
+      "flowRef": "day-event",
+      "next": "check-confrontation"
+    },
+    {
+      "id": "day-action",
+      "type": "Choice",
+      "promptText": "今天做什么？（剩余行动点：查看状态栏）",
+      "options": [
+        { "label": "前往某个地点", "value": "explore" },
+        { "label": "使用手机", "value": "phone" },
+        { "label": "潜入禁区", "value": "infiltrate" },
+        { "label": "窃听", "value": "eavesdrop" },
+        { "label": "参加社团活动", "value": "club" },
+        { "label": "结束日间", "value": "end_day" }
+      ],
+      "flowRef": "day-action",
+      "inputChannel": "actionChoice",
+      "next": "check-ap"
+    },
+    {
+      "id": "check-ap",
+      "type": "Branch",
+      "conditions": [
+        { "when": "state.ap <= 0", "next": "check-confrontation" },
+        { "when": "state.pendingConfrontation != ''", "next": "confrontation" }
+      ],
+      "default": "day-action"
+    },
+    {
+      "id": "check-confrontation",
+      "type": "Branch",
+      "conditions": [
+        { "when": "state.pendingConfrontation != ''", "next": "confrontation" }
+      ],
+      "default": "world-tick"
+    },
+    {
+      "id": "confrontation",
+      "type": "RunFlow",
+      "flowRef": "confrontation",
+      "next": "world-tick"
+    },
+    {
+      "id": "world-tick",
+      "type": "RunFlow",
+      "flowRef": "world-tick",
+      "next": "night-start"
+    },
+    {
+      "id": "night-start",
+      "type": "RunFlow",
+      "flowRef": "night-start",
+      "next": "night-action"
+    },
+    {
+      "id": "night-action",
+      "type": "Choice",
+      "promptText": "夜间活动：",
+      "options": [
+        { "label": "浏览社交媒体", "value": "social_media" },
+        { "label": "整理证据和线索", "value": "review_evidence" },
+        { "label": "匿名行动", "value": "anon_action" },
+        { "label": "休息，结束今天", "value": "sleep" }
+      ],
+      "flowRef": "night-action",
+      "inputChannel": "nightChoice",
+      "next": "check-night-end"
+    },
+    {
+      "id": "check-night-end",
+      "type": "Branch",
+      "conditions": [
+        { "when": "state.phase == 'night_done'", "next": "day-end" }
+      ],
+      "default": "night-action"
+    },
+    {
+      "id": "day-end",
+      "type": "RunFlow",
+      "flowRef": "day-end",
+      "next": "check-game-over"
+    },
+    {
+      "id": "check-game-over",
+      "type": "Branch",
+      "conditions": [
+        { "when": "state.gameOver == true", "next": "outro" },
+        { "when": "state.suspicion >= 100", "next": "outro-dark" },
+        { "when": "state.day > 36", "next": "outro" }
+      ],
+      "default": "compact-check"
+    },
+    {
+      "id": "compact-check",
+      "type": "Branch",
+      "conditions": [
+        { "when": "state.history.length >= 16", "next": "do-compact" }
+      ],
+      "default": "day-start"
+    },
+    {
+      "id": "do-compact",
+      "type": "RunFlow",
+      "flowRef": "compact-history",
+      "next": "day-start"
+    },
+    {
+      "id": "outro",
+      "type": "RunFlow",
+      "flowRef": "outro",
+      "next": "end"
+    },
+    {
+      "id": "outro-dark",
+      "type": "RunFlow",
+      "flowRef": "outro-dark",
+      "next": "end"
+    },
+    {
+      "id": "end",
+      "type": "End"
+    }
+  ]
+}

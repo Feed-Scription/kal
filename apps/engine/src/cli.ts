@@ -3,6 +3,7 @@ import { EngineHttpError, formatEngineError } from './errors';
 import { EngineRuntime } from './runtime';
 import { startEngineServer } from './server';
 import { runTui } from './tui/tui';
+import { ConfigCommand } from './commands/config';
 import type { EngineCliIO, StartedEngineServer } from './types';
 
 export interface CliDependencies {
@@ -60,6 +61,14 @@ function printUsage(io: EngineCliIO): void {
     'Usage:',
     '  kal serve [project-path] [--host <host>] [--port <port>]',
     '  kal play  [project-path]',
+    '  kal config [command] [options]',
+    '',
+    'Config commands:',
+    '  kal config init                    # 初始化配置文件',
+    '  kal config set <key> <value>       # 设置配置项',
+    '  kal config get <key>               # 获取配置项',
+    '  kal config list                    # 列出所有配置',
+    '  kal config set-key <provider> <key> # 安全设置 API 密钥',
   ].join('\n') + '\n');
 }
 
@@ -129,6 +138,14 @@ async function playCommand(
   return 0;
 }
 
+async function configCommand(
+  tokens: string[],
+  dependencies: CliDependencies
+): Promise<number> {
+  const configCmd = new ConfigCommand(dependencies.io);
+  return await configCmd.execute(tokens);
+}
+
 export async function runCli(argv: string[], deps: Partial<CliDependencies> = {}): Promise<number> {
   const dependencies: CliDependencies = {
     ...defaultDependencies,
@@ -148,6 +165,9 @@ export async function runCli(argv: string[], deps: Partial<CliDependencies> = {}
     }
     if (command === 'play') {
       return await playCommand(tokens, dependencies);
+    }
+    if (command === 'config') {
+      return await configCommand(tokens, dependencies);
     }
 
     throw new EngineHttpError(`Unknown command: ${command}`, 400, 'CLI_UNKNOWN_COMMAND', { command });

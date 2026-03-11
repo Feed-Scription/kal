@@ -17,6 +17,8 @@ export { StateStore } from './state-store';
 
 // Config
 export { ConfigLoader } from './config-loader';
+export { ConfigManager } from './config';
+export type { UserConfig } from './config';
 
 // LLM
 export { LLMClient } from './llm/llm-client';

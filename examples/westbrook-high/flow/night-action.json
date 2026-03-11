@@ -1,0 +1,80 @@
+{
+  "meta": {
+    "schemaVersion": "1.0.0",
+    "name": "night-action",
+    "description": "Process player's night action — social media, review evidence, anonymous action, or sleep",
+    "inputs": [{ "name": "nightChoice", "type": "string", "required": true }],
+    "outputs": [{ "name": "result", "type": "object" }]
+  },
+  "data": {
+    "nodes": [
+      {
+        "id": "signal-in",
+        "type": "SignalIn",
+        "label": "Night choice",
+        "position": { "x": 0, "y": 0 },
+        "inputs": [],
+        "outputs": [{ "name": "data", "type": "string" }],
+        "config": { "channel": "nightChoice" }
+      },
+      {
+        "id": "narrate",
+        "type": "SubFlow",
+        "label": "Narrate night action",
+        "position": { "x": 200, "y": 0 },
+        "inputs": [{ "name": "playerInput", "type": "string", "required": true }],
+        "outputs": [{ "name": "response", "type": "string" }],
+        "config": { "ref": "narrate" }
+      },
+      {
+        "id": "json-parse",
+        "type": "JSONParse",
+        "label": "Parse response",
+        "position": { "x": 400, "y": 0 },
+        "inputs": [{ "name": "text", "type": "string", "required": true }],
+        "outputs": [
+          { "name": "data", "type": "object" },
+          { "name": "success", "type": "boolean" },
+          { "name": "error", "type": "string" }
+        ],
+        "config": { "extractFromCodeBlock": true, "fixCommonErrors": true, "fixTruncated": true }
+      },
+      {
+        "id": "apply-state",
+        "type": "ApplyState",
+        "label": "Apply changes",
+        "position": { "x": 600, "y": 80 },
+        "inputs": [{ "name": "changes", "type": "object", "required": true }],
+        "outputs": [
+          { "name": "applied", "type": "array" },
+          { "name": "success", "type": "boolean" }
+        ],
+        "config": {
+          "path": "stateChanges",
+          "allowedKeys": [
+            "suspicion", "lastEvent", "dayLog", "phase",
+            "trust_lily", "trust_marcus", "trust_coach", "trust_zoe", "trust_tyler", "trust_holloway",
+            "mood_lily", "mood_marcus", "mood_coach", "mood_zoe", "mood_tyler", "mood_holloway",
+            "fear_lily", "fear_marcus", "fear_coach", "fear_zoe", "fear_tyler", "fear_holloway",
+            "lineA_evidence", "lineB_evidence", "lineC_evidence"
+          ]
+        }
+      },
+      {
+        "id": "signal-out",
+        "type": "SignalOut",
+        "label": "Output",
+        "position": { "x": 600, "y": -80 },
+        "inputs": [{ "name": "data", "type": "object" }],
+        "outputs": [{ "name": "data", "type": "object" }],
+        "config": { "channel": "result" }
+      }
+    ],
+    "edges": [
+      { "source": "signal-in", "sourceHandle": "data", "target": "narrate", "targetHandle": "playerInput" },
+      { "source": "narrate", "sourceHandle": "response", "target": "json-parse", "targetHandle": "text" },
+      { "source": "json-parse", "sourceHandle": "data", "target": "apply-state", "targetHandle": "changes" },
+      { "source": "json-parse", "sourceHandle": "data", "target": "signal-out", "targetHandle": "data" }
+    ]
+  }
+}

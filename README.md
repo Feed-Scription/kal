@@ -96,9 +96,9 @@ cd kal
 # 2. 运行安装脚本
 ./scripts/install.sh
 
-# 3. 配置 LLM 环境变量
-export OPENAI_API_KEY=your_api_key
-export OPENAI_BASE_URL=https://your-openai-compatible-endpoint
+# 3. 初始化配置并设置 API 密钥
+kal config init
+kal config set-key openai
 
 # 4. 运行示例游戏
 kal play examples/dnd-adventure
@@ -119,13 +119,46 @@ pnpm --filter @kal-ai/engine build
 # 4. 全局链接 kal 命令
 cd apps/engine && pnpm link --global && cd ../..
 
-# 5. 配置 LLM 环境变量
-export OPENAI_API_KEY=your_api_key
-export OPENAI_BASE_URL=https://your-openai-compatible-endpoint
+# 5. 初始化配置并设置 API 密钥
+kal config init
+kal config set-key openai
 
 # 6. 运行示例游戏
 kal play examples/dnd-adventure
 ```
+
+### 配置管理
+
+KAL-AI 提供了安全的配置管理系统，支持加密存储 API 密钥：
+
+```bash
+# 初始化配置文件
+kal config init
+
+# 安全设置 API 密钥（支持任意 LLM 提供商）
+kal config set-key openai          # OpenAI
+kal config set-key deepseek        # DeepSeek
+kal config set-key moonshot        # Moonshot
+kal config set-key qwen            # 通义千问
+kal config set-key anthropic       # Anthropic Claude
+
+# 设置其他配置项
+kal config set preferences.theme dark
+kal config set server.defaultPort 8080
+
+# 查看配置
+kal config list
+kal config get openai.apiKey
+
+# 删除 API 密钥
+kal config remove-key openai
+```
+
+**安全特性：**
+- 🔐 **二次加密**：API 密钥使用主密钥 + 设备密钥双重加密
+- 🔒 **本地存储**：配置文件仅存储在本地 `.kal/` 目录
+- 🚫 **自动忽略**：敏感配置文件已添加到 `.gitignore`
+- 🎭 **隐藏输入**：设置密钥时输入内容不会显示在终端
 
 ### 启动开发环境
 ```bash

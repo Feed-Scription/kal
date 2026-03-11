@@ -1,0 +1,178 @@
+{
+  "meta": {
+    "schemaVersion": "1.0.0",
+    "name": "narrate",
+    "description": "Core LLM narration sub-flow. Builds prompt with game state, injects history, calls LLM, returns structured JSON.",
+    "inputs": [{ "name": "playerInput", "type": "string", "required": true }],
+    "outputs": [{ "name": "response", "type": "string" }]
+  },
+  "data": {
+    "nodes": [
+      {
+        "id": "signal-in",
+        "type": "SignalIn",
+        "label": "Player input",
+        "position": { "x": 0, "y": 0 },
+        "inputs": [],
+        "outputs": [{ "name": "data", "type": "string" }],
+        "config": { "channel": "playerInput" }
+      },
+      {
+        "id": "prompt-build",
+        "type": "PromptBuild",
+        "label": "System prompt",
+        "position": { "x": 200, "y": -100 },
+        "inputs": [{ "name": "data", "type": "object", "defaultValue": {} }],
+        "outputs": [
+          { "name": "messages", "type": "ChatMessage[]" },
+          { "name": "text", "type": "string" },
+          { "name": "estimatedTokens", "type": "number" }
+        ],
+        "config": {
+          "defaultRole": "system",
+          "fragments": [
+            {
+              "type": "base", "id": "role",
+              "content": "你是 Westbrook High 的叙事者。风格：冷峻写实。\n\n规则：\n- 用精准的观察代替夸张的描写\n- 紧张感来自\"没说出口的东西\"\n- 绝不用感叹号\n- 用短句。用沉默。用细节\n- 描写行为而非情绪（\"她把三明治推到一边\"而非\"她看起来很难过\"）\n- NPC对话口语化、有时不完整、有时词不达意\n- 禁止：说教、煽情、过度解释、使用\"突然\"\n\n叙事结构（三层）：\n1. 回响：一句话提及上回合的关键事件余波\n2. 当下：本次场景和互动（2-4句）\n3. 暗流：一个暗示下一步可能发生什么的细节\n\n你必须引用至少1个历史决策或之前的互动。",
+              "role": "system"
+            },
+            {
+              "type": "field", "id": "day",
+              "source": "state.day", "label": "当前天数"
+            },
+            {
+              "type": "field", "id": "phase",
+              "source": "state.phase", "label": "当前阶段"
+            },
+            {
+              "type": "field", "id": "location",
+              "source": "state.currentLocation", "label": "当前位置"
+            },
+            {
+              "type": "field", "id": "suspicion",
+              "source": "state.suspicion", "label": "怀疑值"
+            },
+            {
+              "type": "field", "id": "lineA",
+              "source": "state.lineA_depth", "label": "Line A调查深度"
+            },
+            {
+              "type": "field", "id": "lineB",
+              "source": "state.lineB_depth", "label": "Line B调查深度"
+            },
+            {
+              "type": "field", "id": "lineC",
+              "source": "state.lineC_depth", "label": "Line C调查深度"
+            },
+            {
+              "type": "field", "id": "ap",
+              "source": "state.ap", "label": "剩余行动点"
+            },
+            {
+              "type": "field", "id": "lastEvent",
+              "source": "state.lastEvent", "label": "上一个关键事件"
+            },
+            {
+              "type": "field", "id": "keyDecisions",
+              "source": "state.keyDecisions", "label": "关键历史决策",
+              "window": 5
+            },
+            {
+              "type": "field", "id": "playstyle",
+              "source": "state.playstyle", "label": "玩家风格标签"
+            },
+            {
+              "type": "base", "id": "npc-profiles",
+              "content": "核心NPC简档：\n- Lily Chen：Maya的闺蜜，安静内向，弱点态度=共情。当前保护着Maya留下的秘密。\n- Marcus Webb：Ethan的好友，愤怒正义，弱点态度=理性分析。持有Ethan的调查笔记。\n- Coach Rivera：体育教练，权威人物，弱点态度=施压+证据。知道学校在掩盖什么。\n- Zoe Park：校报记者，好奇心强，弱点态度=共情+信息交换。碎片化的各线线索。\n- Tyler Brooks：学生会主席，表面完美，弱点态度=欺骗。连接学生和校方。\n- Ms. Holloway：心理辅导员，弱点态度=理性分析+耐心。知道比她说的更多。",
+              "role": "system"
+            },
+            {
+              "type": "field", "id": "trust-lily",
+              "source": "state.trust_lily", "label": "Lily信任值"
+            },
+            {
+              "type": "field", "id": "trust-marcus",
+              "source": "state.trust_marcus", "label": "Marcus信任值"
+            },
+            {
+              "type": "field", "id": "trust-zoe",
+              "source": "state.trust_zoe", "label": "Zoe信任值"
+            },
+            {
+              "type": "field", "id": "trust-tyler",
+              "source": "state.trust_tyler", "label": "Tyler信任值"
+            },
+            {
+              "type": "field", "id": "mood-lily",
+              "source": "state.mood_lily", "label": "Lily情绪"
+            },
+            {
+              "type": "field", "id": "mood-marcus",
+              "source": "state.mood_marcus", "label": "Marcus情绪"
+            },
+            {
+              "type": "field", "id": "topics",
+              "source": "state.topicCards", "label": "已有话题卡"
+            },
+            {
+              "type": "field", "id": "evidence",
+              "source": "state.evidenceCards", "label": "已有证据卡"
+            },
+            {
+              "type": "base", "id": "format",
+              "content": "输出必须是合法JSON，格式如下：\n{\n  \"narrative\": \"叙事文本（含回响、当下、暗流三层）\",\n  \"stateChanges\": {\n    \"suspicion\": 数值（当前值±变化，范围0-100）,\n    \"currentLocation\": \"新位置（如果移动了）\",\n    \"lastEvent\": \"本次关键事件一句话摘要\",\n    \"dayLog\": \"今日事件摘要追加\"\n  },\n  \"newCards\": {\n    \"topics\": [{ \"id\": \"唯一ID\", \"name\": \"显示名\", \"line\": \"A/B/C/cross/none\", \"related_npcs\": [\"npc名\"] }],\n    \"evidence\": [{ \"id\": \"唯一ID\", \"name\": \"显示名\", \"line\": \"A/B/C\", \"power\": 30或60, \"source\": \"获取途径\" }]\n  },\n  \"npcChanges\": {\n    \"trust_xxx\": 数值变化（±3到±15）,\n    \"mood_xxx\": 数值变化（±5到±15）,\n    \"fear_xxx\": 数值变化（±5到±20）\n  }\n}\n\n数值约束：\n- suspicion单次变化不超过±15\n- trust单次变化不超过±15\n- mood单次变化不超过±15\n- fear单次变化不超过±20\n- 新卡牌只在有意义的发现时才给出，不要每次都给",
+              "role": "system"
+            }
+          ]
+        }
+      },
+      {
+        "id": "message",
+        "type": "Message",
+        "label": "Assemble messages",
+        "position": { "x": 400, "y": 0 },
+        "inputs": [
+          { "name": "system", "type": "ChatMessage[]" },
+          { "name": "user", "type": "string" }
+        ],
+        "outputs": [{ "name": "messages", "type": "ChatMessage[]" }],
+        "config": {
+          "historyKey": "history",
+          "maxHistoryMessages": 12,
+          "summaryKey": "summary"
+        }
+      },
+      {
+        "id": "generate",
+        "type": "GenerateText",
+        "label": "Call LLM",
+        "position": { "x": 600, "y": 0 },
+        "inputs": [{ "name": "messages", "type": "ChatMessage[]" }],
+        "outputs": [
+          { "name": "text", "type": "string" },
+          { "name": "usage", "type": "object" }
+        ],
+        "config": {
+          "responseFormat": "json",
+          "historyKey": "history",
+          "assistantPath": "narrative"
+        }
+      },
+      {
+        "id": "signal-out",
+        "type": "SignalOut",
+        "label": "Output",
+        "position": { "x": 800, "y": 0 },
+        "inputs": [{ "name": "data", "type": "string" }],
+        "outputs": [{ "name": "data", "type": "string" }],
+        "config": { "channel": "response" }
+      }
+    ],
+    "edges": [
+      { "source": "signal-in", "sourceHandle": "data", "target": "message", "targetHandle": "user" },
+      { "source": "prompt-build", "sourceHandle": "messages", "target": "message", "targetHandle": "system" },
+      { "source": "message", "sourceHandle": "messages", "target": "generate", "targetHandle": "messages" },
+      { "source": "generate", "sourceHandle": "text", "target": "signal-out", "targetHandle": "data" }
+    ]
+  }
+}
