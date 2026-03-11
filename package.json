@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "description": "KAL-AI: AI-driven game development engine",
+  "bin": {
+    "kal": "./apps/engine/dist/bin.js"
+  },
   "scripts": {
     "build": "bun run --filter='@kal-ai/*' build",
     "test": "bun run --filter='@kal-ai/*' test",
@@ -11,7 +14,8 @@
     "clean": "bun run --filter='@kal-ai/*' clean",
     "changeset": "changeset",
     "version": "changeset version",
-    "release": "bun run build && changeset publish"
+    "release": "bun run build && changeset publish",
+    "postinstall": "pnpm --filter @kal-ai/engine build"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.1",
