@@ -104,13 +104,13 @@ export OPENAI_API_KEY=your_api_key
 export OPENAI_BASE_URL=https://your-openai-compatible-endpoint
 
 # 5. 运行示例游戏
-kal play examples/dnd-adventure
+node apps/engine/dist/bin.js play examples/dnd-adventure
 ```
 
 ### 启动开发环境
 ```bash
 # 启动 Engine 服务
-kal serve examples/dnd-adventure
+node apps/engine/dist/bin.js serve examples/dnd-adventure
 
 # 启动可视化编辑器
 cd apps/editor && pnpm dev
@@ -124,7 +124,7 @@ cd apps/editor && pnpm dev
 完整的单人 DND 风格冒险游戏，展示了 KAL-AI 的核心能力：
 
 ```bash
-kal play examples/dnd-adventure
+node apps/engine/dist/bin.js play examples/dnd-adventure
 ```
 
 **游戏特性：**
@@ -147,7 +147,7 @@ kal play examples/dnd-adventure
 <details>
 <summary>点击查看游戏运行截图</summary>
 
-> 💡 **提示**：你可以运行 `kal play examples/dnd-adventure` 来体验完整的游戏流程
+> 💡 **提示**：你可以运行 `node apps/engine/dist/bin.js play examples/dnd-adventure` 来体验完整的游戏流程
 
 **角色创建界面：**
 ```
@@ -256,7 +256,7 @@ Engine 提供 HTTP API 用于集成其他应用：
 
 ```bash
 # 启动 API 服务
-kal serve examples/dnd-adventure
+node apps/engine/dist/bin.js serve examples/dnd-adventure
 
 # API 端点
 POST /api/session/start    # 开始新会话
@@ -295,7 +295,7 @@ const gameState = await stateResponse.json();
 
 ```bash
 # 启动 Engine 服务
-kal serve examples/dnd-adventure
+node apps/engine/dist/bin.js serve examples/dnd-adventure
 
 # 启动 Editor（新终端窗口）
 cd apps/editor && pnpm dev
