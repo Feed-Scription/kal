@@ -32,6 +32,8 @@ export class ConfigCommand {
           return await this.listConfig();
         case 'remove':
           return await this.removeConfig(params);
+        case 'set-key':
+          return await this.setApiKey(params);
         default:
           throw new EngineHttpError(`Unknown config command: ${subCommand}`, 400, 'CONFIG_UNKNOWN_COMMAND', { subCommand });
       }

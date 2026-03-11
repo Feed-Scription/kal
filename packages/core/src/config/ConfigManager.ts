@@ -40,6 +40,8 @@ export interface UserConfig {
     maxRetries?: number;
     temperature?: number;
   };
+  // 支持任意提供商
+  [provider: string]: any;
 }
 
 export class ConfigManager {
@@ -211,7 +213,8 @@ export class ConfigManager {
     if (fs.existsSync(this.userConfigFile)) {
       try {
         const userConfig = JSON.parse(fs.readFileSync(this.userConfigFile, 'utf8'));
-        Object.assign(config, userConfig);
+        // 使用深度合并而不是浅合并，避免覆盖已有的配置
+        this.deepMergeConfig(config, userConfig);
       } catch (error) {
         console.warn('Failed to load user config:', error);
       }
@@ -245,13 +248,13 @@ export class ConfigManager {
       const provider = upperKey.replace('_API_KEY', '').toLowerCase();
 
       switch (provider) {
-        case 'OPENAI':
+        case 'openai':
           config.openai = { ...config.openai, apiKey: value };
           break;
-        case 'ANTHROPIC':
+        case 'anthropic':
           config.anthropic = { ...config.anthropic, apiKey: value };
           break;
-        case 'GOOGLE':
+        case 'google':
           config.google = { ...config.google, apiKey: value };
           break;
         default:
@@ -263,7 +266,7 @@ export class ConfigManager {
       const provider = upperKey.replace('_BASE_URL', '').toLowerCase();
 
       switch (provider) {
-        case 'OPENAI':
+        case 'openai':
           config.openai = { ...config.openai, baseUrl: value };
           break;
         default:
@@ -331,6 +334,22 @@ export class ConfigManager {
 
     const newConfig = this.deepMerge(currentConfig, updates);
     fs.writeFileSync(this.userConfigFile, JSON.stringify(newConfig, null, 2));
+  }
+
+  private deepMergeConfig(target: any, source: any): void {
+    for (const key in source) {
+      if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
+        // 如果目标对象中不存在这个键，创建一个空对象
+        if (!target[key] || typeof target[key] !== 'object') {
+          target[key] = {};
+        }
+        // 递归合并
+        this.deepMergeConfig(target[key], source[key]);
+      } else {
+        // 直接赋值（包括数组和基本类型）
+        target[key] = source[key];
+      }
+    }
   }
 
   private deepMerge(target: any, source: any): any {
