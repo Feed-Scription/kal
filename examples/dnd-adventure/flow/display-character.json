@@ -43,6 +43,7 @@
           }
         ],
         "config": {
+          "defaultRole": "system",
           "fragments": [
             {
               "type": "base",
@@ -119,8 +120,7 @@
               "content": "═══════════════════════════════",
               "role": "system"
             }
-          ],
-          "defaultRole": "system"
+          ]
         }
       },
       {

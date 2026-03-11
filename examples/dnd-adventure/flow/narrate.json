@@ -68,6 +68,7 @@
           }
         ],
         "config": {
+          "defaultRole": "system",
           "fragments": [
             {
               "type": "base",
@@ -81,8 +82,7 @@
               "content": "你必须严格以下面的 JSON 格式回复，不要输出任何其他内容：\n```json\n{\n  \"narrative\": \"场景描述文本...\",\n  \"stateChanges\": {\n    \"health\": 100,\n    \"currentLocation\": \"鸦巢镇广场\",\n    \"inventory\": [\"铁剑\", \"皮甲\", \"火把x3\", \"面包x2\"],\n    \"gold\": 50,\n    \"questStage\": \"arrived\"\n  }\n}\n```\nnarrative 是你对场景的描述（100-300字），要求生动具体，包含环境细节、NPC 表情动作、声音气味等感官描写。stateChanges 包含变化后的完整状态值。如果某个状态没有变化，也要包含当前值。",
               "role": "system"
             }
-          ],
-          "defaultRole": "system"
+          ]
         }
       },
       {
@@ -115,6 +115,7 @@
           }
         ],
         "config": {
+          "defaultRole": "system",
           "fragments": [
             {
               "type": "field",
@@ -207,8 +208,7 @@
               "template": "任务阶段: {{items}}",
               "role": "system"
             }
-          ],
-          "defaultRole": "system"
+          ]
         }
       },
       {
