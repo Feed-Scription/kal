@@ -28,7 +28,8 @@
       "Bash(source:*)",
       "Bash(do python3:*)",
       "Bash(chmod +x:*)",
-      "Bash(do echo:*)"
+      "Bash(do echo:*)",
+      "Bash(printf y\\\\nopenai\\\\nsk-test123456789\\\\nn\\\\n:*)"
     ]
   }
 }
