@@ -1,0 +1,160 @@
+{
+  "meta": {
+    "schemaVersion": "1.0.0",
+    "name": "display-character",
+    "description": "从 state 读取角色信息，组装角色卡片文本输出",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "result",
+        "type": "string"
+      }
+    ]
+  },
+  "data": {
+    "nodes": [
+      {
+        "id": "prompt-build",
+        "type": "PromptBuild",
+        "label": "Prompt 构建",
+        "position": {
+          "x": 0,
+          "y": -100
+        },
+        "inputs": [
+          {
+            "name": "data",
+            "type": "object",
+            "defaultValue": {}
+          }
+        ],
+        "outputs": [
+          {
+            "name": "messages",
+            "type": "ChatMessage[]"
+          },
+          {
+            "name": "text",
+            "type": "string"
+          },
+          {
+            "name": "estimatedTokens",
+            "type": "number"
+          }
+        ],
+        "config": {
+          "fragments": [
+            {
+              "type": "base",
+              "id": "header",
+              "content": "═══════════ 角色卡片 ═══════════",
+              "role": "system"
+            },
+            {
+              "type": "field",
+              "id": "name",
+              "source": "state.playerName",
+              "template": "姓名: {{items}}",
+              "role": "system"
+            },
+            {
+              "type": "field",
+              "id": "race",
+              "source": "state.race",
+              "template": "种族: {{items}}",
+              "role": "system"
+            },
+            {
+              "type": "field",
+              "id": "class",
+              "source": "state.class",
+              "template": "职业: {{items}}",
+              "role": "system"
+            },
+            {
+              "type": "field",
+              "id": "strength",
+              "source": "state.strength",
+              "template": "力量: {{items}}",
+              "role": "system"
+            },
+            {
+              "type": "field",
+              "id": "dexterity",
+              "source": "state.dexterity",
+              "template": "敏捷: {{items}}",
+              "role": "system"
+            },
+            {
+              "type": "field",
+              "id": "intelligence",
+              "source": "state.intelligence",
+              "template": "智力: {{items}}",
+              "role": "system"
+            },
+            {
+              "type": "field",
+              "id": "health",
+              "source": "state.maxHealth",
+              "template": "生命值: {{items}}",
+              "role": "system"
+            },
+            {
+              "type": "field",
+              "id": "skills",
+              "source": "state.skills",
+              "template": "技能: {{items}}",
+              "role": "system"
+            },
+            {
+              "type": "field",
+              "id": "background",
+              "source": "state.background",
+              "template": "\n背景故事:\n{{items}}",
+              "role": "system"
+            },
+            {
+              "type": "base",
+              "id": "footer",
+              "content": "═══════════════════════════════",
+              "role": "system"
+            }
+          ],
+          "defaultRole": "system"
+        }
+      },
+      {
+        "id": "signal-out",
+        "type": "SignalOut",
+        "label": "信号输出",
+        "position": {
+          "x": 400,
+          "y": -100
+        },
+        "inputs": [
+          {
+            "name": "data",
+            "type": "string"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "data",
+            "type": "string"
+          }
+        ],
+        "config": {
+          "channel": "result"
+        }
+      }
+    ],
+    "edges": [
+      {
+        "source": "prompt-build",
+        "sourceHandle": "text",
+        "target": "signal-out",
+        "targetHandle": "data"
+      }
+    ]
+  }
+}

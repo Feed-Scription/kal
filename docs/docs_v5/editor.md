@@ -1,196 +1,162 @@
 # Editor 模块
 
-**状态：部分完成**
+**状态：已接入 Engine API，并支持 Session 编辑**
 
-Editor 当前不是一个通过 Engine API 驱动的前端，而是一个**纯前端本地文件编辑器**。它通过浏览器的 File System Access API 直接读写本地 KAL 项目目录。
+Editor 是 KAL 项目的可视化审查工具。它的核心价值是把 agent 生成的 Flow / Session JSON 渲染成图，让人快速查看逻辑是否合理。
 
-这和 V4 中“Editor 通过 Engine 的 HTTP API 工作”的描述不同。V5 以当前代码实现为准。
+Editor 不是主要创作工具。在 agent 是第一公民的架构下，Flow 主要由 agent 生成 JSON，Editor 用于审查和轻量调整（改参数、调 prompt、改 session 跳转）。
 
-## 当前已实现能力
+## 架构
 
-### 1. 本地项目打开
+```text
+浏览器 UI -> Engine HTTP API (http://localhost:3000) -> Core
+```
 
-当前 Editor 可以：
+Editor 不再直接读写本地文件，所有数据操作都通过 Engine 服务完成。用户需要先启动 Engine 服务，然后在 Editor 中点击"连接"。
 
-- 让用户选择本地项目目录
-- 读取 `kal_config.json`
-- 读取 `flow/*.json`
-- 读取可选的 `initial_state.json`
+## 使用方式
 
-项目结构要求已经体现在界面中，浏览器要求也已明确。
+1. 启动 Engine：`kal serve <project-path>`
+2. 启动 Editor：`cd apps/editor && pnpm dev`
+3. 在浏览器中打开 Editor，点击"连接"按钮
+
+## 已实现能力
+
+### 1. Engine 连接
+
+- 连接到 `http://localhost:3000` 的 Engine 服务
+- 自动加载项目信息、Flow 列表、Flow 详情、Session、Node manifest
+- 连接状态指示（状态栏绿点/红点）
+- 断开连接 / 重载项目
 
 ### 2. Flow 列表管理
 
-当前已支持：
-
-- 查看 Flow 列表
-- 创建 Flow
-- 重命名 Flow
-- 删除 Flow
+- 查看 Flow 列表（数据来自 `GET /api/flows`）
+- 创建 Flow（通过 `PUT /api/flows/:id` 保存新 Flow）
 - 切换当前 Flow
 
-这些操作都是直接修改本地 `flow/*.json` 文件，而不是通过服务端 API。
+重命名和删除 Flow 当前 Engine API 不支持，需要在文件系统中操作后点击"重载项目"。
 
-### 3. Flow 画布编辑
-
-当前已支持：
+### 3. Flow 画布
 
 - React Flow 画布渲染
-- 内置节点展示
-- 拖拽节点
-- 连线
+- 基于 Node manifest 的通用节点渲染
+- 节点右键菜单直接来自 Engine 返回的 manifest，而不是 editor 本地硬编码列表
+- 拖拽节点、连线
 - 右键菜单添加节点
 - 小地图与控制面板
 
-当前画布主要目标是编辑和保存，而不是执行和调试。
+这意味着 editor 已和“内建节点列表”解耦：
 
-### 4. 保存与导出
+- Core / 项目中的自定义节点只要能被 Engine 注册，就会自动出现在 editor 中
+- `defaultConfig`、`inputs`、`outputs`、`configSchema` 都以 runtime manifest 为准
 
-当前已支持：
+### 4. Session 画布
 
-- 自动保存
-- 手动保存
-- `Ctrl/Cmd + S`
-- 导出当前 Flow 为 JSON
+- 独立的 Session 视图
+- 支持 `RunFlow` / `Prompt` / `Choice` / `Branch` / `End`
+- 支持创建、保存、删除 `session.json`
+- Session 定位为轻量交互壳，不承载复杂叙事内容
+
+### 5. 保存
+
+- 自动保存（1 秒防抖，调用 `PUT /api/flows/:id`）
+- 手动保存（`Ctrl/Cmd + S`）
+- 导出当前 Flow 为 JSON 文件
 - 保存状态栏反馈
 
-保存目标是本地项目目录中的对应 JSON 文件。
+Engine 会对保存的 Flow 做完整校验；Session 保存则走单独的 Session 校验链路。
 
-### 5. State 编辑
+### 6. 单次调试执行
 
-当前已支持：
+- 点击"运行"按钮弹出执行对话框
+- 根据 `flow.meta.inputs` 动态生成输入字段
+- 调用 `POST /api/executions` 执行 Flow
+- 显示执行结果（JSON 格式化）或错误信息
 
-- 查看当前 `initial_state.json`
-- 添加 State
-- 编辑 State 值
-- 删除 State
-- 保存回本地文件
+注意：这是单次 Flow 执行，不支持直接在 editor 中跑多轮 Session。多轮交互式运行应使用 `kal play`。
 
-当前 State 页编辑的是项目初始状态文件，不是运行时在线状态。
+### 7. State 查看
 
-### 6. Config 编辑
+- 只读展示项目 State 数据
+- Engine 当前无 State 保存 API，修改需编辑 `initial_state.json` 后重载
 
-当前已支持：
+### 8. Config 查看
 
-- 编辑项目名和版本
-- 编辑 engine 配置
-- 编辑 llm 配置
-- 编辑部分 retry 配置
-- 保存回 `kal_config.json`
+- 只读展示项目配置
+- Engine 当前无 Config 保存 API，修改需编辑 `kal_config.json` 后重载
 
-当前是手写表单，不是 schema 驱动表单。
+## FlowDefinition 格式
 
-## 部分完成的能力
+Editor 的 `FlowDefinition` 类型已与 Core 对齐，采用 `{ meta, data }` 嵌套结构：
 
-### 1. 节点编辑体验
+```typescript
+type FlowDefinition = {
+  meta: FlowMeta;    // { schemaVersion, name?, description?, inputs?, outputs? }
+  data: FlowData;    // { nodes: NodeDefinition[], edges: EdgeDefinition[] }
+};
+```
 
-**状态：部分完成**
+## Engine API 依赖
 
-已实现：
+| 方法 | 路径 | Editor 用途 |
+|------|------|-------------|
+| GET | `/api/project` | 连接时加载项目信息 |
+| GET | `/api/flows` | 加载 Flow 列表 |
+| GET | `/api/flows/:id` | 加载单个 Flow 详情 |
+| PUT | `/api/flows/:id` | 保存 Flow（含校验） |
+| POST | `/api/executions` | 运行 Flow |
+| GET | `/api/nodes` | 获取 Node manifest，驱动 Flow 节点目录与表单 |
+| GET | `/api/session` | 加载 Session |
+| PUT | `/api/session` | 保存 Session |
+| DELETE | `/api/session` | 删除 Session |
+| POST | `/api/project/reload` | 热重载项目 |
 
-- 节点渲染
-- 节点默认配置
-- 基础画布交互
+## 当前限制
 
-未实现：
+| 操作 | 状态 |
+|------|------|
+| 创建 Flow | 支持（通过 PUT 保存新 Flow） |
+| 重命名 Flow | 不支持，需文件系统操作后重载 |
+| 删除 Flow | 不支持，同上 |
+| 编辑 State | 不支持（只读），需编辑文件后重载 |
+| 编辑 Config | 不支持（只读），同上 |
+| 直接在 editor 中运行多轮 Session | 不支持，应使用 `kal play` |
 
-- 更完整的节点级配置体验
-- 类型感知的连线校验
-- 基于 manifest 的动态节点面板
+以下能力不计划在 Editor 中实现（不属于审查工具的职责）：
 
-### 2. SubFlow 编辑体验
-
-**状态：部分完成**
-
-已实现：
-
-- `SubFlow` 节点已在编辑器中注册
-- 可以像其他内置节点一样被添加到画布、连线和保存
-
-未实现：
-
-- 双击进入子 Flow
-- 面包屑导航
-- 父子 Flow 接口同步
-
-### 3. 项目编辑器整体框架
-
-**状态：部分完成**
-
-当前已经具备一个可用的本地编辑器壳，但还没有形成“完整作者工具”的闭环，因为运行、调试、校验这条链没有接上。
-
-## 当前未完成能力
-
-以下能力在 V4 文档中描述较多，但当前代码并未实现：
-
-- 运行 Flow
-- 执行高亮
-- 节点级调试详情
-- SSE 执行事件流
+- 执行高亮 / SSE 事件流
 - 运行时 State 同步
-- 通过 Engine API 加载和保存项目
-- 动态 `configSchema` 表单
-- JSON 源码视图
-- Flow 保存前远程校验
 - Telemetry 面板
+- 多轮对话界面
 
-其中最关键的一点是：
+## 定位说明
 
-**当前 Editor 不能执行 Flow。**
-
-当前点击“运行”只会弹出“功能待实现”的提示，还没有真正执行 Flow 的能力。
-
-## 当前架构关系
-
-当前 Editor 的真实工作链路是：
+Editor 在整体架构中的角色：
 
 ```text
-浏览器 UI -> File System Access API -> 本地项目文件
+Engine API
+  ├── Editor（审查工具）— 查看 Flow / Session 拓扑、轻量调整参数
+  ├── 通用 TUI（已实现）— 交互式运行、多轮对话调试
+  └── 用户自定义前端 — 最终产品形态（游戏 UI、聊天界面等）
 ```
 
-而不是：
+Editor 不需要过多投入，当前功能已满足审查需求。
 
-```text
-浏览器 UI -> Engine HTTP API -> Core
-```
+## 关键文件
 
-这意味着：
-
-- 优点：无需后端即可编辑项目，离线可用
-- 限制：无法获得服务端执行、调试、校验、运行时状态等能力
-
-## 当前最准确的定位
-
-当前 Editor 更适合被描述为：
-
-- 一个 KAL 项目的本地可视化编辑器
-- 一个 Flow / State / Config 的 JSON 编辑前端
-- 一个未来可接入 Engine 的作者工具雏形
-
-而不是完整的在线调试工作台。
-
-## 后续与 Engine 的关系
-
-未来如果 Engine 落地，Editor 的理想演进方向是：
-
-```text
-Editor -> Engine API -> Core
-```
-
-到那时才适合恢复以下能力：
-
-- 运行 Flow
-- 执行监控
-- 节点级调试
-- 远程校验
-- 在线状态同步
-
-在此之前，V5 文档默认把 Editor 视为”本地模式”。
-
-## 下一阶段相关改进
-
-Core 侧规划了 Flow JSON meta/data 分离（详见 [core.md 改进 #5](./core.md#改进-5flow-json-meta--data-分离)），这会直接影响 Editor：
-
-- Editor 当前读写的 `flow/*.json` 结构会从扁平变为 `{ meta, data }` 两层
-- `projectStore.ts` 的 `loadProject` / `saveFlow` / `createFlow` 等方法需要适配新结构
-- Editor 关心的 `position` 等视觉信息仍保留在 `NodeDefinition` 中，不受影响
+| 文件 | 职责 |
+|------|------|
+| `src/api/engine-client.ts` | Engine HTTP API 客户端 |
+| `src/store/projectStore.ts` | 项目状态管理（通过 API） |
+| `src/types/project.ts` | 类型定义（与 Core 对齐） |
+| `src/components/ProjectLoader.tsx` | Engine 连接页面 |
+| `src/components/ExecutionDialog.tsx` | Flow 执行对话框 |
+| `src/Flow.tsx` | Flow 画布编辑器 |
+| `src/SessionEditor.tsx` | Session 画布编辑器 |
+| `src/nodes/ManifestNode.tsx` | 基于 Node manifest 的通用节点组件 |
+| `src/AppSidebar.tsx` | 侧边栏导航 |
+| `src/components/FlowToolbar.tsx` | Flow 工具栏 |
+| `src/components/StatusBar.tsx` | 状态栏（含连接状态） |
+| `src/components/StateManager.tsx` | State 只读展示 |
+| `src/components/ConfigEditor.tsx` | Config 只读展示 |

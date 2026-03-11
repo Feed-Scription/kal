@@ -1,0 +1,180 @@
+{
+  "meta": {
+    "schemaVersion": "1.0.0",
+    "name": "outro-win",
+    "description": "胜利结局叙事",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "result",
+        "type": "string"
+      }
+    ]
+  },
+  "data": {
+    "nodes": [
+      {
+        "id": "prompt-build",
+        "type": "PromptBuild",
+        "label": "胜利结局提示词",
+        "position": {
+          "x": -400,
+          "y": 200
+        },
+        "inputs": [
+          {
+            "name": "data",
+            "type": "object",
+            "defaultValue": {}
+          }
+        ],
+        "outputs": [
+          {
+            "name": "messages",
+            "type": "ChatMessage[]"
+          },
+          {
+            "name": "text",
+            "type": "string"
+          },
+          {
+            "name": "estimatedTokens",
+            "type": "number"
+          }
+        ],
+        "config": {
+          "defaultRole": "system",
+          "fragments": [
+            {
+              "type": "base",
+              "id": "win-prompt",
+              "content": "你是一位经验丰富的 DND 地下城主。冒险者成功完成了任务！\n\n世界背景：冒险者来到边境小镇「鸦巢镇」，受镇长老莫里斯之托，深入废弃矿井讨伐沉睡千年的巫妖「枯骨贤者」维萨里昂。冒险者穿越了上层矿道的骷髅兵、中层地下河的幽灵与亡灵骑士，最终在深层巢穴中摧毁了巫妖的命匣——那颗被黑铁笼罩的水晶球，终结了这场亡灵之祸。\n\n请用第二人称描述冒险者的胜利时刻：\n- 描述命匣碎裂、巫妖消散的辉煌场景，巢穴中幽绿符文逐渐熄灭\n- 描述冒险者走出矿井、重见天日的感受\n- 描述鸦巢镇的庆祝：镇长老莫里斯的感激、酒馆老板娘丽塔在醉鸦亭准备的庆功宴、铁匠格雷沉默的点头致意、牧师艾琳的祝福祈祷、老矿工汤姆终于释然的泪水\n- 以一段充满希望的结语收束，暗示更广阔的世界还有更多冒险等待\n\n风格要求：\n- 200-400字\n- 激昂振奋，带有温暖的人情味\n- 纯文本叙事，不要输出JSON",
+              "role": "system"
+            },
+            {
+              "type": "field",
+              "id": "location",
+              "source": "state.currentLocation",
+              "template": "冒险者所在地点: {{items}}",
+              "role": "system"
+            },
+            {
+              "type": "field",
+              "id": "gold",
+              "source": "state.gold",
+              "template": "冒险者的金币: {{items}}",
+              "role": "system"
+            }
+          ]
+        }
+      },
+      {
+        "id": "message",
+        "type": "Message",
+        "label": "组装消息",
+        "position": {
+          "x": 0,
+          "y": 300
+        },
+        "inputs": [
+          {
+            "name": "system",
+            "type": "string"
+          },
+          {
+            "name": "user",
+            "type": "string"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "messages",
+            "type": "ChatMessage[]"
+          }
+        ],
+        "config": {
+          "system": "",
+          "user": "描述冒险者的胜利结局。",
+          "format": "xml"
+        }
+      },
+      {
+        "id": "generate-text",
+        "type": "GenerateText",
+        "label": "生成胜利叙事",
+        "position": {
+          "x": 400,
+          "y": 400
+        },
+        "inputs": [
+          {
+            "name": "messages",
+            "type": "ChatMessage[]",
+            "required": true
+          }
+        ],
+        "outputs": [
+          {
+            "name": "text",
+            "type": "string"
+          },
+          {
+            "name": "usage",
+            "type": "object"
+          }
+        ],
+        "config": {
+          "model": "",
+          "temperature": 0.8,
+          "maxTokens": 800,
+          "historyKey": "history",
+          "assistantPath": ""
+        }
+      },
+      {
+        "id": "signal-out",
+        "type": "SignalOut",
+        "label": "输出结果",
+        "position": {
+          "x": 800,
+          "y": 500
+        },
+        "inputs": [
+          {
+            "name": "data",
+            "type": "string"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "data",
+            "type": "string"
+          }
+        ],
+        "config": {
+          "channel": "result"
+        }
+      }
+    ],
+    "edges": [
+      {
+        "source": "prompt-build",
+        "sourceHandle": "text",
+        "target": "message",
+        "targetHandle": "system"
+      },
+      {
+        "source": "message",
+        "sourceHandle": "messages",
+        "target": "generate-text",
+        "targetHandle": "messages"
+      },
+      {
+        "source": "generate-text",
+        "sourceHandle": "text",
+        "target": "signal-out",
+        "targetHandle": "data"
+      }
+    ]
+  }
+}

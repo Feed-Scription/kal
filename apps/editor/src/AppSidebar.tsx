@@ -13,7 +13,7 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { LayoutDashboard, Database, Settings, FolderOpen, X, Plus, Edit2, Trash2 } from "lucide-react";
+import { LayoutDashboard, Database, Settings, Wifi, X, Plus, RefreshCw, Route } from "lucide-react";
 import { useProjectStore } from "@/store/projectStore";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
@@ -27,45 +27,31 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+
+import type { ViewType } from "./App";
 
 type AppSidebarProps = {
   children: React.ReactNode;
-  currentView: "flow" | "state" | "config";
-  onViewChange: (view: "flow" | "state" | "config") => void;
+  currentView: ViewType;
+  onViewChange: (view: ViewType) => void;
 };
 
 export function AppSidebar({ children, currentView, onViewChange }: AppSidebarProps) {
   const project = useProjectStore((state) => state.project);
   const currentFlow = useProjectStore((state) => state.currentFlow);
   const setCurrentFlow = useProjectStore((state) => state.setCurrentFlow);
-  const closeProject = useProjectStore((state) => state.closeProject);
+  const disconnect = useProjectStore((state) => state.disconnect);
   const createFlow = useProjectStore((state) => state.createFlow);
-  const renameFlow = useProjectStore((state) => state.renameFlow);
-  const deleteFlow = useProjectStore((state) => state.deleteFlow);
+  const reloadProject = useProjectStore((state) => state.reloadProject);
+  const engineConnected = useProjectStore((state) => state.engineConnected);
 
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [dialogMode, setDialogMode] = useState<"create" | "rename">("create");
   const [flowNameInput, setFlowNameInput] = useState("");
-  const [renamingFlow, setRenamingFlow] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [reloading, setReloading] = useState(false);
 
   const openCreateDialog = () => {
-    setDialogMode("create");
     setFlowNameInput("");
-    setError("");
-    setDialogOpen(true);
-  };
-
-  const openRenameDialog = (flowName: string) => {
-    setDialogMode("rename");
-    setRenamingFlow(flowName);
-    setFlowNameInput(flowName);
     setError("");
     setDialogOpen(true);
   };
@@ -81,23 +67,21 @@ export function AppSidebar({ children, currentView, onViewChange }: AppSidebarPr
       return;
     }
     try {
-      if (dialogMode === "create") {
-        await createFlow(name);
-      } else if (renamingFlow) {
-        await renameFlow(renamingFlow, name);
-      }
+      await createFlow(name);
       setDialogOpen(false);
     } catch (e: any) {
       setError(e.message);
     }
   };
 
-  const handleDeleteFlow = async (flowName: string) => {
-    if (!confirm(`确定要删除 Flow "${flowName}" 吗？`)) return;
+  const handleReload = async () => {
+    setReloading(true);
     try {
-      await deleteFlow(flowName);
+      await reloadProject();
     } catch (e: any) {
-      alert(e.message);
+      alert("重载失败: " + e.message);
+    } finally {
+      setReloading(false);
     }
   };
 
@@ -161,11 +145,21 @@ export function AppSidebar({ children, currentView, onViewChange }: AppSidebarPr
                         <span>项目设置</span>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
+                    <SidebarMenuItem>
+                      <SidebarMenuButton
+                        tooltip="Session 编辑"
+                        isActive={currentView === "session"}
+                        onClick={() => onViewChange("session")}
+                      >
+                        <Route className="size-4" />
+                        <span>Session</span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
                   </SidebarMenu>
                 </SidebarGroupContent>
               </SidebarGroup>
 
-              {currentView === "flow" && (
+              {(currentView === "flow" || currentView === "session") && (
                 <SidebarGroup>
                   <div className="flex items-center justify-between px-2">
                     <SidebarGroupLabel>Flow 列表</SidebarGroupLabel>
@@ -182,44 +176,20 @@ export function AppSidebar({ children, currentView, onViewChange }: AppSidebarPr
                     <SidebarMenu>
                       {Object.keys(project.flows).map((flowName) => (
                         <SidebarMenuItem key={flowName}>
-                          <div className="flex items-center w-full group">
-                            <SidebarMenuButton
-                              tooltip={flowName}
-                              isActive={currentFlow === flowName}
-                              onClick={() => setCurrentFlow(flowName)}
-                              className="flex-1"
-                            >
-                              <LayoutDashboard className="size-4" />
-                              <span className="flex-1 truncate">{flowName}</span>
-                              <span className="text-xs text-muted-foreground">
-                                {project.flows[flowName]?.nodes.length || 0}
-                              </span>
-                            </SidebarMenuButton>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8 opacity-0 group-hover:opacity-100"
-                                >
-                                  <Settings className="size-3" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => openRenameDialog(flowName)}>
-                                  <Edit2 className="mr-2 size-4" />
-                                  重命名
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={() => handleDeleteFlow(flowName)}
-                                  className="text-destructive"
-                                >
-                                  <Trash2 className="mr-2 size-4" />
-                                  删除
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
+                          <SidebarMenuButton
+                            tooltip={flowName}
+                            isActive={currentFlow === flowName}
+                            onClick={() => {
+                              setCurrentFlow(flowName);
+                              onViewChange("flow");
+                            }}
+                          >
+                            <LayoutDashboard className="size-4" />
+                            <span className="flex-1 truncate">{flowName}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {project.flows[flowName]?.data.nodes.length || 0}
+                            </span>
+                          </SidebarMenuButton>
                         </SidebarMenuItem>
                       ))}
                     </SidebarMenu>
@@ -236,10 +206,22 @@ export function AppSidebar({ children, currentView, onViewChange }: AppSidebarPr
                         variant="ghost"
                         size="sm"
                         className="w-full justify-start"
-                        onClick={closeProject}
+                        onClick={handleReload}
+                        disabled={reloading}
+                      >
+                        <RefreshCw className={`mr-2 size-4 ${reloading ? "animate-spin" : ""}`} />
+                        {reloading ? "重载中..." : "重载项目"}
+                      </Button>
+                    </SidebarMenuItem>
+                    <SidebarMenuItem>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="w-full justify-start"
+                        onClick={disconnect}
                       >
                         <X className="mr-2 size-4" />
-                        关闭项目
+                        断开连接
                       </Button>
                     </SidebarMenuItem>
                   </SidebarMenu>
@@ -265,6 +247,12 @@ export function AppSidebar({ children, currentView, onViewChange }: AppSidebarPr
                   <span>Flow:</span>
                   <span className="font-medium text-foreground">{Object.keys(project.flows).length}</span>
                 </div>
+                <div className="flex items-center justify-between">
+                  <span>Session:</span>
+                  <span className={`font-medium ${project.session ? "text-green-500" : "text-muted-foreground"}`}>
+                    {project.session ? "已配置" : "无"}
+                  </span>
+                </div>
               </div>
             )}
           </div>
@@ -277,8 +265,8 @@ export function AppSidebar({ children, currentView, onViewChange }: AppSidebarPr
           <div className="flex-1" />
           {project && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <FolderOpen className="size-4" />
-              <span>{project.path}</span>
+              <Wifi className={`size-4 ${engineConnected ? "text-green-500" : "text-red-500"}`} />
+              <span>{project.name}</span>
             </div>
           )}
         </div>
@@ -290,14 +278,8 @@ export function AppSidebar({ children, currentView, onViewChange }: AppSidebarPr
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>
-              {dialogMode === "create" ? "创建新 Flow" : "重命名 Flow"}
-            </DialogTitle>
-            <DialogDescription>
-              {dialogMode === "create"
-                ? "输入新 Flow 的名称"
-                : `重命名 Flow "${renamingFlow}"`}
-            </DialogDescription>
+            <DialogTitle>创建新 Flow</DialogTitle>
+            <DialogDescription>输入新 Flow 的名称</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
@@ -319,9 +301,7 @@ export function AppSidebar({ children, currentView, onViewChange }: AppSidebarPr
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
               取消
             </Button>
-            <Button onClick={handleSubmit}>
-              {dialogMode === "create" ? "创建" : "重命名"}
-            </Button>
+            <Button onClick={handleSubmit}>创建</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

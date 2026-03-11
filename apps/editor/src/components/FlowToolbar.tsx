@@ -19,7 +19,7 @@ export function FlowToolbar({ onSave, onExport, onRun }: FlowToolbarProps) {
       <div className="flex items-center gap-2 border-r pr-2">
         <span className="text-sm font-medium">{currentFlow}</span>
         <span className="text-xs text-muted-foreground">
-          ({project.flows[currentFlow]?.nodes.length || 0} 节点)
+          ({project.flows[currentFlow]?.data.nodes.length || 0} 节点)
         </span>
       </div>
 
@@ -48,7 +48,6 @@ export function FlowToolbar({ onSave, onExport, onRun }: FlowToolbarProps) {
         size="sm"
         onClick={onRun}
         title="运行 Flow"
-        disabled
       >
         <Play className="mr-1.5 size-4" />
         运行

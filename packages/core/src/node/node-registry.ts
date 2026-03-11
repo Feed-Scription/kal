@@ -48,8 +48,11 @@ export class NodeRegistry {
     return this.getAll().map((node) => ({
       type: node.type,
       label: node.label,
+      category: node.category,
       inputs: node.inputs,
       outputs: node.outputs,
+      configSchema: node.configSchema,
+      defaultConfig: node.defaultConfig,
     }));
   }
 

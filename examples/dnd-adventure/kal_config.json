@@ -1,0 +1,25 @@
+{
+  "name": "dnd-adventure",
+  "version": "1.0.0",
+  "engine": {
+    "logLevel": "warn",
+    "maxConcurrentFlows": 1,
+    "timeout": 60000
+  },
+  "llm": {
+    "provider": "openai",
+    "apiKey": "${OPENAI_API_KEY}",
+    "baseUrl": "${OPENAI_BASE_URL}",
+    "defaultModel": "GLM-5",
+    "retry": {
+      "maxRetries": 2,
+      "initialDelayMs": 1000,
+      "maxDelayMs": 10000,
+      "backoffMultiplier": 2,
+      "jitter": true
+    },
+    "cache": {
+      "enabled": false
+    }
+  }
+}

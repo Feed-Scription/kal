@@ -1,0 +1,41 @@
+{
+  "name": "@kal-ai/engine",
+  "version": "0.1.0",
+  "description": "KAL-AI Engine Host Runtime",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "kal": "./dist/bin.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "pnpm --dir ../.. --filter @kal-ai/core build && tsup",
+    "test": "pnpm --dir ../.. --filter @kal-ai/core build && vitest run",
+    "test:watch": "vitest",
+    "typecheck": "pnpm --dir ../.. --filter @kal-ai/core build && tsc --noEmit",
+    "clean": "rm -rf dist *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@kal-ai/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "tsup": "^8.0.1",
+    "typescript": "^5.3.3",
+    "vitest": "^1.6.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
