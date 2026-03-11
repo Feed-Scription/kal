@@ -1,46 +1,85 @@
 /**
- * Prompt composition - resolve fragments into text
+ * Prompt composition - resolve fragments into text or chat messages
  * Includes formatting utilities from format.ts
  */
 
 import type { Fragment } from './fragments';
-import type { ChatMessage } from '../types/types';
+import type { ChatMessage, ChatMessageRole, StateValue } from '../types/types';
+
+export interface PromptScope {
+  data?: Record<string, any>;
+  state?: {
+    get(key: string): StateValue | undefined;
+  };
+}
+
+interface ResolvedSegment {
+  text: string;
+  role?: ChatMessageRole;
+}
 
 /**
  * Resolve a list of fragments into text segments
  */
-export function compose(fragments: Fragment[], data: Record<string, any> = {}): string[] {
-  const segments: string[] = [];
+export function composeSegments(fragments: Fragment[], scope: PromptScope = {}): string[] {
+  return fragments.flatMap((fragment) => resolveFragment(fragment, scope).map((segment) => segment.text));
+}
 
-  for (const fragment of fragments) {
-    const resolved = resolveFragment(fragment, data);
-    if (resolved.length > 0) {
-      segments.push(...resolved);
+export function compose(fragments: Fragment[], scope: PromptScope = {}): string {
+  return composeSegments(fragments, scope).join('\n\n');
+}
+
+export function composeMessages(
+  fragments: Fragment[],
+  scope: PromptScope = {},
+  options: { defaultRole?: ChatMessageRole } = {}
+): ChatMessage[] {
+  const defaultRole = options.defaultRole ?? 'system';
+  const messages: ChatMessage[] = [];
+
+  for (const segment of fragments.flatMap((fragment) => resolveFragment(fragment, scope))) {
+    if (!segment.text) {
+      continue;
     }
+
+    const role = segment.role ?? defaultRole;
+    const previous = messages[messages.length - 1];
+    if (previous && previous.role === role) {
+      previous.content = `${previous.content}\n\n${segment.text}`;
+      continue;
+    }
+
+    messages.push({ role, content: segment.text });
   }
 
-  return segments;
+  return messages;
 }
 
 /**
  * Resolve a single fragment into text segments
  */
-function resolveFragment(fragment: Fragment, data: Record<string, any>): string[] {
+function resolveFragment(
+  fragment: Fragment,
+  scope: PromptScope,
+  inheritedRole?: ChatMessageRole
+): ResolvedSegment[] {
+  const effectiveRole = ('role' in fragment ? fragment.role : undefined) ?? inheritedRole;
+
   switch (fragment.type) {
     case 'base':
-      return [fragment.content];
+      return [{ text: fragment.content, role: effectiveRole }];
 
     case 'field':
-      return resolveField(fragment, data);
+      return resolveField(fragment, scope, effectiveRole);
 
     case 'when':
-      return resolveWhen(fragment, data);
+      return resolveWhen(fragment, scope, effectiveRole);
 
     case 'randomSlot':
-      return resolveRandomSlot(fragment, data);
+      return resolveRandomSlot(fragment, scope, effectiveRole);
 
     case 'budget':
-      return resolveBudget(fragment, data);
+      return resolveBudget(fragment, scope, effectiveRole);
 
     default:
       return [];
@@ -52,25 +91,24 @@ function resolveFragment(fragment: Fragment, data: Record<string, any>): string[
  */
 function resolveField(
   fragment: Extract<Fragment, { type: 'field' }>,
-  data: Record<string, any>
-): string[] {
-  const value = getNestedValue(data, fragment.source);
+  scope: PromptScope,
+  inheritedRole?: ChatMessageRole
+): ResolvedSegment[] {
+  const value = getValue(fragment.source, scope);
   if (value === undefined || value === null) return [];
 
   let items: any[] = Array.isArray(value) ? [...value] : [value];
 
-  // Dedup
   if (fragment.dedup && Array.isArray(items)) {
     const seen = new Set<string>();
     items = items.filter((item) => {
-      const key = fragment.dedup!.map((k) => item?.[k]).join(':');
+      const key = fragment.dedup!.map((dedupKey) => item?.[dedupKey]).join(':');
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
     });
   }
 
-  // Sort
   if (fragment.sort && Array.isArray(items)) {
     items.sort((a, b) => {
       const aVal = a?.[fragment.sort!];
@@ -80,12 +118,10 @@ function resolveField(
     });
   }
 
-  // Window (take last N)
   if (fragment.window && items.length > fragment.window) {
     items = items.slice(-fragment.window);
   }
 
-  // Sample (random N)
   if (fragment.sample && items.length > fragment.sample) {
     const shuffled = [...items].sort(() => Math.random() - 0.5);
     items = shuffled.slice(0, fragment.sample);
@@ -95,8 +131,10 @@ function resolveField(
     .map((item) => (typeof item === 'string' ? item : JSON.stringify(item)))
     .join('\n');
 
-  const text = fragment.template.replace('{{items}}', serialized);
-  return [text];
+  return [{
+    text: fragment.template.replace('{{items}}', serialized),
+    role: fragment.role ?? inheritedRole,
+  }];
 }
 
 /**
@@ -104,16 +142,18 @@ function resolveField(
  */
 function resolveWhen(
   fragment: Extract<Fragment, { type: 'when' }>,
-  data: Record<string, any>
-): string[] {
-  const conditionValue = getNestedValue(data, fragment.condition);
+  scope: PromptScope,
+  inheritedRole?: ChatMessageRole
+): ResolvedSegment[] {
+  const nextRole = fragment.role ?? inheritedRole;
+  const conditionValue = getValue(fragment.condition, scope);
 
   if (conditionValue) {
-    return compose(fragment.fragments, data);
-  } else if (fragment.else) {
-    return compose(fragment.else, data);
+    return fragment.fragments.flatMap((child) => resolveFragment(child, scope, nextRole));
   }
-
+  if (fragment.else) {
+    return fragment.else.flatMap((child) => resolveFragment(child, scope, nextRole));
+  }
   return [];
 }
 
@@ -122,20 +162,20 @@ function resolveWhen(
  */
 function resolveRandomSlot(
   fragment: Extract<Fragment, { type: 'randomSlot' }>,
-  data: Record<string, any>
-): string[] {
+  scope: PromptScope,
+  inheritedRole?: ChatMessageRole
+): ResolvedSegment[] {
   if (fragment.candidates.length === 0) return [];
 
   let index: number;
   if (typeof fragment.seed === 'number') {
-    // Deterministic selection based on seed
     index = fragment.seed % fragment.candidates.length;
   } else {
     index = Math.floor(Math.random() * fragment.candidates.length);
   }
 
   const selected = fragment.candidates[index]!;
-  return resolveFragment(selected, data);
+  return resolveFragment(selected, scope, fragment.role ?? inheritedRole);
 }
 
 /**
@@ -143,14 +183,15 @@ function resolveRandomSlot(
  */
 function resolveBudget(
   fragment: Extract<Fragment, { type: 'budget' }>,
-  data: Record<string, any>
-): string[] {
-  const allSegments = compose(fragment.fragments, data);
+  scope: PromptScope,
+  inheritedRole?: ChatMessageRole
+): ResolvedSegment[] {
+  const nextRole = fragment.role ?? inheritedRole;
+  const allSegments = fragment.fragments.flatMap((child) => resolveFragment(child, scope, nextRole));
 
-  // Estimate tokens (rough: ~4 chars per token)
   let totalTokens = 0;
-  const segmentTokens = allSegments.map((s) => {
-    const tokens = estimateTokens(s);
+  const segmentTokens = allSegments.map((segment) => {
+    const tokens = estimateTokens(segment.text);
     totalTokens += tokens;
     return tokens;
   });
@@ -159,15 +200,13 @@ function resolveBudget(
     return allSegments;
   }
 
-  // Need to trim
   if (fragment.strategy === 'tail') {
-    // Remove from the end until within budget
-    const result: string[] = [];
+    const result: ResolvedSegment[] = [];
     let used = 0;
-    for (let i = 0; i < allSegments.length; i++) {
-      if (used + segmentTokens[i]! <= fragment.maxTokens) {
-        result.push(allSegments[i]!);
-        used += segmentTokens[i]!;
+    for (let index = 0; index < allSegments.length; index++) {
+      if (used + segmentTokens[index]! <= fragment.maxTokens) {
+        result.push(allSegments[index]!);
+        used += segmentTokens[index]!;
       } else {
         break;
       }
@@ -175,34 +214,52 @@ function resolveBudget(
     return result;
   }
 
-  // Weighted strategy: keep segments with higher weights
   if (fragment.strategy === 'weighted' && fragment.weights) {
-    const indexed = fragment.fragments.map((f, i) => ({
-      fragment: f,
-      segments: resolveFragment(f, data),
-      weight: ('id' in f && f.id) ? (fragment.weights![f.id] ?? 1) : 1,
-      index: i,
+    const indexed = fragment.fragments.map((child, index) => ({
+      segments: resolveFragment(child, scope, nextRole),
+      weight: ('id' in child && child.id) ? (fragment.weights![child.id] ?? 1) : 1,
+      index,
     }));
 
-    // Sort by weight descending
     indexed.sort((a, b) => b.weight - a.weight);
 
-    const result: { text: string[]; index: number }[] = [];
+    const result: { segments: ResolvedSegment[]; index: number }[] = [];
     let used = 0;
     for (const item of indexed) {
-      const tokens = item.segments.reduce((sum, s) => sum + estimateTokens(s), 0);
+      const tokens = item.segments.reduce((sum, segment) => sum + estimateTokens(segment.text), 0);
       if (used + tokens <= fragment.maxTokens) {
-        result.push({ text: item.segments, index: item.index });
+        result.push({ segments: item.segments, index: item.index });
         used += tokens;
       }
     }
 
-    // Restore original order
     result.sort((a, b) => a.index - b.index);
-    return result.flatMap((r) => r.text);
+    return result.flatMap((item) => item.segments);
   }
 
   return allSegments;
+}
+
+function getValue(path: string, scope: PromptScope): any {
+  if (path.startsWith('state.')) {
+    const statePath = path.slice('state.'.length);
+    const [stateKey, ...rest] = statePath.split('.');
+    if (!stateKey) {
+      return undefined;
+    }
+
+    const stateValue = scope.state?.get(stateKey);
+    if (!stateValue) {
+      return undefined;
+    }
+
+    if (rest.length === 0) {
+      return stateValue.value;
+    }
+    return getNestedValue(stateValue.value as Record<string, any>, rest.join('.'));
+  }
+
+  return getNestedValue(scope.data ?? {}, path);
 }
 
 /**

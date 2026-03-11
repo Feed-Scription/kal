@@ -24,7 +24,9 @@
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist *.tsbuildinfo"
   },
-  "dependencies": {},
+  "dependencies": {
+    "esbuild": "^0.27.3"
+  },
   "devDependencies": {
     "@types/node": "^20.11.0",
     "tsup": "^8.0.1",

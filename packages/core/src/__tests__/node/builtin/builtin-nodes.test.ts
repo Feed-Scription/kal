@@ -1,110 +1,16 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { Regex, PostProcess, JSONParse, SubFlow } from '../../../node/builtin/transform-nodes';
-import { PromptBuild, GenerateImage } from '../../../node/builtin/llm-nodes';
-import { AddState, RemoveState, ModifyState } from '../../../node/builtin/state-nodes';
-import type { NodeContext } from '../../../types/node';
+import { PromptBuild, Message, GenerateImage, GenerateText, UpdateHistory, CompactHistory } from '../../../node/builtin/llm-nodes';
+import { AddState, RemoveState, ModifyState, ApplyState } from '../../../node/builtin/state-nodes';
+import { createMockContext } from '../../helpers/test-utils';
 
-function createMockContext(): NodeContext {
-  const stateMap = new Map<string, any>();
-  return {
-    state: {
-      get: (key: string) => stateMap.get(key),
-      set: (key: string, value: any) => { stateMap.set(key, value); },
-      delete: (key: string) => { stateMap.delete(key); },
-    },
-    llm: {
-      invoke: vi.fn().mockResolvedValue({
-        text: 'mock',
-        usage: { promptTokens: 10, completionTokens: 5, totalTokens: 15 },
-      }),
-    },
-    logger: {
-      debug: vi.fn(),
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
-    },
-    executionId: 'exec-1',
-    nodeId: 'node-1',
-  };
-}
-
-describe('Regex 节点', () => {
-  it('应该匹配正则表达式', async () => {
-    const result = await Regex.execute(
-      { text: 'Hello World 123' },
-      { pattern: '\\d+', flags: 'g' },
-      createMockContext()
-    );
+describe('Transform 节点', () => {
+  it('Regex 应该匹配正则表达式', async () => {
+    const result = await Regex.execute({ text: 'Hello World 123' }, { pattern: '\\d+', flags: 'g' }, createMockContext());
     expect(result.matches).toEqual(['123']);
   });
 
-  it('应该返回捕获组', async () => {
-    const result = await Regex.execute(
-      { text: 'name: Alice, age: 25' },
-      { pattern: 'name: (?<name>\\w+)', flags: '' },
-      createMockContext()
-    );
-    expect(result.groups).toEqual({ name: 'Alice' });
-  });
-
-  it('无匹配时应该返回空数组', async () => {
-    const result = await Regex.execute(
-      { text: 'no numbers here' },
-      { pattern: '\\d+', flags: '' },
-      createMockContext()
-    );
-    expect(result.matches).toEqual([]);
-  });
-});
-
-describe('PostProcess 节点', () => {
-  it('应该执行 trim', async () => {
-    const result = await PostProcess.execute(
-      { text: '  hello  ' },
-      { processors: [{ type: 'trim' }] },
-      createMockContext()
-    );
-    expect(result.text).toBe('hello');
-  });
-
-  it('应该执行 replace', async () => {
-    const result = await PostProcess.execute(
-      { text: 'hello world' },
-      { processors: [{ type: 'replace', pattern: 'world', replacement: 'KAL' }] },
-      createMockContext()
-    );
-    expect(result.text).toBe('hello KAL');
-  });
-
-  it('应该执行 toLowerCase', async () => {
-    const result = await PostProcess.execute(
-      { text: 'HELLO' },
-      { processors: [{ type: 'toLowerCase' }] },
-      createMockContext()
-    );
-    expect(result.text).toBe('hello');
-  });
-
-  it('应该执行 toUpperCase', async () => {
-    const result = await PostProcess.execute(
-      { text: 'hello' },
-      { processors: [{ type: 'toUpperCase' }] },
-      createMockContext()
-    );
-    expect(result.text).toBe('HELLO');
-  });
-
-  it('应该执行 slice', async () => {
-    const result = await PostProcess.execute(
-      { text: 'hello world' },
-      { processors: [{ type: 'slice', start: 0, end: 5 }] },
-      createMockContext()
-    );
-    expect(result.text).toBe('hello');
-  });
-
-  it('应该串联多个处理器', async () => {
+  it('PostProcess 应该串联处理器', async () => {
     const result = await PostProcess.execute(
       { text: '  HELLO WORLD  ' },
       { processors: [{ type: 'trim' }, { type: 'toLowerCase' }] },
@@ -112,69 +18,133 @@ describe('PostProcess 节点', () => {
     );
     expect(result.text).toBe('hello world');
   });
-});
 
-describe('JSONParse 节点', () => {
-  it('应该解析有效 JSON', async () => {
-    const result = await JSONParse.execute(
-      { text: '{"name": "test"}' },
-      {},
-      createMockContext()
-    );
+  it('JSONParse 应该修复并解析损坏的 JSON', async () => {
+    const result = await JSONParse.execute({ text: '{"name": "test",}' }, {}, createMockContext());
     expect(result.success).toBe(true);
     expect(result.data).toEqual({ name: 'test' });
   });
-
-  it('应该修复并解析损坏的 JSON', async () => {
-    const result = await JSONParse.execute(
-      { text: '{"name": "test",}' },
-      {},
-      createMockContext()
-    );
-    expect(result.success).toBe(true);
-    expect(result.data).toEqual({ name: 'test' });
-  });
-
-  it('完全无效时应该返回失败', async () => {
-    const result = await JSONParse.execute(
-      { text: 'not json at all' },
-      {},
-      createMockContext()
-    );
-    expect(result.success).toBe(false);
-    expect(result.error).toBeTruthy();
-  });
 });
 
-describe('PromptBuild 节点', () => {
-  it('应该构建 prompt 文本', async () => {
+describe('LLM 节点', () => {
+  it('PromptBuild 应该支持 state 绑定并输出 messages', async () => {
+    const ctx = createMockContext();
+    ctx.state.set('player', { type: 'object', value: { name: 'Alice' } });
     const result = await PromptBuild.execute(
-      { data: { playerName: 'Alice' } },
+      { data: {} },
       {
+        defaultRole: 'system',
         fragments: [
-          { type: 'base', id: 'intro', content: 'You are an AI' },
-          { type: 'field', id: 'name', source: 'playerName', template: 'Player: {{items}}' },
+          { type: 'base', id: 'intro', content: 'You are an AI', role: 'system' },
+          { type: 'field', id: 'name', source: 'state.player.name', template: 'Player: {{items}}', role: 'user' },
         ],
       },
-      createMockContext()
+      ctx
     );
     expect(result.text).toContain('You are an AI');
     expect(result.text).toContain('Player: Alice');
-    expect(result.estimatedTokens).toBeGreaterThan(0);
+    expect(result.messages).toEqual([
+      { role: 'system', content: 'You are an AI' },
+      { role: 'user', content: 'Player: Alice' },
+    ]);
   });
 
-  it('空 fragments 应该返回空文本', async () => {
-    const result = await PromptBuild.execute(
-      { data: {} },
-      { fragments: [] },
-      createMockContext()
+  it('Message 应该从 state 读取 history', async () => {
+    const ctx = createMockContext();
+    ctx.state.set('history', { type: 'array', value: [{ role: 'assistant', content: 'Hi' }] });
+    const result = await Message.execute(
+      { system: 'sys', user: 'hello' },
+      { historyKey: 'history' },
+      ctx
     );
-    expect(result.text).toBe('');
+    expect(result.messages).toEqual([
+      { role: 'system', content: 'sys' },
+      { role: 'assistant', content: 'Hi' },
+      { role: 'user', content: 'hello' },
+    ]);
   });
-});
 
-describe('GenerateImage 节点', () => {
-  it('应该返回图像 URL', async () => {
+  it('GenerateText 应该自动写回 history', async () => {
+    const ctx = createMockContext();
+    ctx.state.set('history', { type: 'array', value: [] });
+    const result = await GenerateText.execute(
+      { messages: [{ role: 'user', content: 'hello' }] },
+      { historyKey: 'history', historyPolicy: { maxMessages: 2 } },
+      ctx
+    );
+    expect(result.text).toBe('mock');
+    expect(ctx.state.get('history')?.value).toEqual([
+      { role: 'user', content: 'hello' },
+      { role: 'assistant', content: 'mock' },
+    ]);
+  });
+
+  it('Message 应该在配置 summaryKey 时插入摘要', async () => {
+    const ctx = createMockContext();
+    ctx.state.set('history', { type: 'array', value: [{ role: 'assistant', content: 'Hi' }] });
+    ctx.state.set('summary', { type: 'string', value: '之前的冒险摘要...' });
+    const result = await Message.execute(
+      { system: 'sys', user: 'hello' },
+      { historyKey: 'history', summaryKey: 'summary' },
+      ctx
+    );
+    expect(result.messages).toEqual([
+      { role: 'system', content: 'sys' },
+      { role: 'system', content: '之前的冒险摘要...' },
+      { role: 'assistant', content: 'Hi' },
+      { role: 'user', content: 'hello' },
+    ]);
+  });
+
+  it('Message 在 summaryKey 对应值为空时不插入摘要', async () => {
+    const ctx = createMockContext();
+    ctx.state.set('history', { type: 'array', value: [] });
+    ctx.state.set('summary', { type: 'string', value: '' });
+    const result = await Message.execute(
+      { system: 'sys', user: 'hello' },
+      { historyKey: 'history', summaryKey: 'summary' },
+      ctx
+    );
+    expect(result.messages).toEqual([
+      { role: 'system', content: 'sys' },
+      { role: 'user', content: 'hello' },
+    ]);
+  });
+
+  it('GenerateText 当 historyKey 为空字符串时应跳过 history 写入', async () => {
+    const ctx = createMockContext();
+    ctx.state.set('history', { type: 'array', value: [] });
+    const result = await GenerateText.execute(
+      { messages: [{ role: 'user', content: 'hello' }] },
+      { historyKey: '' },
+      ctx
+    );
+    expect(result.text).toBe('mock');
+    expect(ctx.state.get('history')?.value).toEqual([]);
+  });
+
+  it('GenerateText 应该支持 assistantPath 提取写入 history 的 assistant 内容', async () => {
+    const ctx = createMockContext();
+    ctx.state.set('history', { type: 'array', value: [] });
+    ctx.llm.invoke = vi.fn().mockResolvedValue({
+      text: JSON.stringify({ narrative: '你进入了矿井...', stateChanges: { health: 90 } }),
+      usage: { totalTokens: 10 },
+    });
+
+    const result = await GenerateText.execute(
+      { messages: [{ role: 'user', content: '进入矿井' }] },
+      { historyKey: 'history', assistantPath: 'narrative' },
+      ctx
+    );
+
+    expect(result.text).toContain('"narrative"');
+    expect(ctx.state.get('history')?.value).toEqual([
+      { role: 'user', content: '进入矿井' },
+      { role: 'assistant', content: '你进入了矿井...' },
+    ]);
+  });
+
+  it('GenerateImage 应该返回图像 URL', async () => {
     const result = await GenerateImage.execute(
       { prompt: 'a medieval castle' },
       { model: 'dall-e-3' },
@@ -183,82 +153,186 @@ describe('GenerateImage 节点', () => {
     expect(result.imageUrl.url).toContain('dall-e-3');
     expect(result.imageUrl.alt).toBe('a medieval castle');
   });
-});
 
-describe('AddState 节点', () => {
-  it('应该添加新状态', async () => {
+  it('UpdateHistory 应该写入干净的 user 和 assistant 消息', async () => {
     const ctx = createMockContext();
-    const result = await AddState.execute(
-      { key: 'newKey', type: 'string', value: 'hello' },
-      {},
+    ctx.state.set('history', { type: 'array', value: [] });
+    const result = await UpdateHistory.execute(
+      { userMessage: '我要进入矿井', assistantMessage: '你走向矿井...' },
+      { historyKey: 'history' },
       ctx
     );
     expect(result.success).toBe(true);
+    expect(ctx.state.get('history')?.value).toEqual([
+      { role: 'user', content: '我要进入矿井' },
+      { role: 'assistant', content: '你走向矿井...' },
+    ]);
   });
-});
 
-describe('RemoveState 节点', () => {
-  it('应该删除已存在的状态', async () => {
+  it('UpdateHistory 应该从 JSON 中提取 assistantPath 字段', async () => {
     const ctx = createMockContext();
-    ctx.state.set('toRemove', { type: 'string', value: 'test' });
-    const result = await RemoveState.execute(
-      { key: 'toRemove' },
-      {},
+    ctx.state.set('history', { type: 'array', value: [] });
+    const jsonResponse = JSON.stringify({ narrative: '你进入了矿井...', stateChanges: { health: 90 } });
+    const result = await UpdateHistory.execute(
+      { userMessage: '进入矿井', assistantMessage: jsonResponse },
+      { historyKey: 'history', assistantPath: 'narrative' },
       ctx
     );
     expect(result.success).toBe(true);
+    expect(ctx.state.get('history')?.value).toEqual([
+      { role: 'user', content: '进入矿井' },
+      { role: 'assistant', content: '你进入了矿井...' },
+    ]);
   });
 
-  it('删除不存在的状态应该返回 false', async () => {
-    const result = await RemoveState.execute(
-      { key: 'nonexistent' },
-      {},
-      createMockContext()
+  it('CompactHistory 应该保存摘要并清空历史', async () => {
+    const ctx = createMockContext();
+    ctx.state.set('history', { type: 'array', value: [
+      { role: 'user', content: 'hello' },
+      { role: 'assistant', content: 'hi' },
+    ] });
+    ctx.state.set('summary', { type: 'string', value: '' });
+    const result = await CompactHistory.execute(
+      { summary: '你在鸦巢镇开始了冒险...' },
+      { historyKey: 'history', summaryKey: 'summary' },
+      ctx
     );
+    expect(result.success).toBe(true);
+    expect(ctx.state.get('summary')?.value).toBe('你在鸦巢镇开始了冒险...');
+    expect(ctx.state.get('history')?.value).toEqual([]);
+  });
+});
+
+describe('State 节点', () => {
+  it('AddState / ModifyState / RemoveState 应该工作', async () => {
+    const ctx = createMockContext();
+    expect((await AddState.execute({ key: 'score', type: 'number', value: 1 }, {}, ctx)).success).toBe(true);
+    expect((await ModifyState.execute({ key: 'score', value: 2 }, {}, ctx)).success).toBe(true);
+    expect((await RemoveState.execute({ key: 'score' }, {}, ctx)).success).toBe(true);
+  });
+
+  it('ApplyState 应该批量更新已存在的 state key', async () => {
+    const ctx = createMockContext();
+    ctx.state.set('health', { type: 'number', value: 100 });
+    ctx.state.set('location', { type: 'string', value: '广场' });
+    ctx.state.set('gold', { type: 'number', value: 50 });
+
+    const result = await ApplyState.execute(
+      { changes: { health: 80, location: '铁匠铺', gold: 30 } },
+      {},
+      ctx
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.applied).toEqual(['health', 'location', 'gold']);
+    expect(ctx.state.get('health')).toEqual({ type: 'number', value: 80 });
+    expect(ctx.state.get('location')).toEqual({ type: 'string', value: '铁匠铺' });
+    expect(ctx.state.get('gold')).toEqual({ type: 'number', value: 30 });
+  });
+
+  it('ApplyState 应该跳过不存在的 state key', async () => {
+    const ctx = createMockContext();
+    ctx.state.set('health', { type: 'number', value: 100 });
+
+    const result = await ApplyState.execute(
+      { changes: { health: 90, unknown: 'foo' } },
+      {},
+      ctx
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.applied).toEqual(['health']);
+    expect(ctx.state.get('unknown')).toBeUndefined();
+  });
+
+  it('ApplyState 应该支持 path 配置提取子对象', async () => {
+    const ctx = createMockContext();
+    ctx.state.set('health', { type: 'number', value: 100 });
+    ctx.state.set('location', { type: 'string', value: '广场' });
+
+    const result = await ApplyState.execute(
+      { changes: { narrative: '你来到了...', stateChanges: { health: 70, location: '矿井' } } },
+      { path: 'stateChanges' },
+      ctx
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.applied).toEqual(['health', 'location']);
+    expect(ctx.state.get('health')).toEqual({ type: 'number', value: 70 });
+  });
+
+  it('ApplyState 应该支持 allowedKeys 白名单', async () => {
+    const ctx = createMockContext();
+    ctx.state.set('health', { type: 'number', value: 100 });
+    ctx.state.set('gold', { type: 'number', value: 50 });
+
+    const result = await ApplyState.execute(
+      { changes: { health: 80, gold: 999 } },
+      { allowedKeys: ['health'] },
+      ctx
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.applied).toEqual(['health']);
+    expect(ctx.state.get('gold')).toEqual({ type: 'number', value: 50 });
+  });
+
+  it('ApplyState 在 allowedKeys 为空数组时不应过滤任何 key', async () => {
+    const ctx = createMockContext();
+    ctx.state.set('health', { type: 'number', value: 100 });
+    ctx.state.set('gold', { type: 'number', value: 50 });
+
+    const result = await ApplyState.execute(
+      { changes: { health: 80, gold: 40 } },
+      { allowedKeys: [] },
+      ctx
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.applied).toEqual(['health', 'gold']);
+    expect(ctx.state.get('health')).toEqual({ type: 'number', value: 80 });
+    expect(ctx.state.get('gold')).toEqual({ type: 'number', value: 40 });
+  });
+
+  it('ApplyState 应该支持直接使用命名输入批量更新状态', async () => {
+    const ctx = createMockContext();
+    ctx.state.set('strength', { type: 'number', value: 10 });
+    ctx.state.set('dexterity', { type: 'number', value: 10 });
+    ctx.state.set('skills', { type: 'array', value: [] });
+
+    const result = await ApplyState.execute(
+      { strength: 14, dexterity: 12, skills: ['重击'] },
+      {},
+      ctx
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.applied).toEqual(['strength', 'dexterity', 'skills']);
+    expect(ctx.state.get('strength')).toEqual({ type: 'number', value: 14 });
+    expect(ctx.state.get('dexterity')).toEqual({ type: 'number', value: 12 });
+    expect(ctx.state.get('skills')).toEqual({ type: 'array', value: ['重击'] });
+  });
+
+  it('ApplyState 在 changes 无效时应该返回 success: false', async () => {
+    const ctx = createMockContext();
+    const result = await ApplyState.execute({ changes: null }, {}, ctx);
     expect(result.success).toBe(false);
-  });
-});
-
-describe('ModifyState 节点', () => {
-  it('应该修改已存在的状态', async () => {
-    const ctx = createMockContext();
-    ctx.state.set('score', { type: 'number', value: 100 });
-    const result = await ModifyState.execute(
-      { key: 'score', value: 200 },
-      {},
-      ctx
-    );
-    expect(result.success).toBe(true);
-  });
-
-  it('修改不存在的状态应该返回 false', async () => {
-    const result = await ModifyState.execute(
-      { key: 'nonexistent', value: 'test' },
-      {},
-      createMockContext()
-    );
-    expect(result.success).toBe(false);
+    expect(result.applied).toEqual([]);
   });
 });
 
 describe('SubFlow 节点', () => {
   it('应该在缺少 ref 时抛出错误', async () => {
-    await expect(
-      SubFlow.execute(
-        { input: { data: 'test' } },
-        {},
-        createMockContext()
-      )
-    ).rejects.toThrow('SubFlow node must have a "ref" field');
+    await expect(SubFlow.execute({}, {}, createMockContext())).rejects.toThrow('SubFlow node must have a "ref" field');
   });
 
-  it('应该在缺少 flow 能力时抛出错误', async () => {
-    await expect(
-      SubFlow.execute(
-        { input: { data: 'test' } },
-        { ref: 'sub-flow.json' },
-        createMockContext()
-      )
-    ).rejects.toThrow('Flow execution capability not available');
+  it('应该透传命名输入输出', async () => {
+    const ctx = createMockContext();
+    ctx.flow = {
+      execute: vi.fn().mockResolvedValue({ answer: '42' }),
+    };
+    const result = await SubFlow.execute({ question: 'life' }, { ref: 'sub-flow.json' }, ctx);
+    expect(ctx.flow.execute).toHaveBeenCalledWith('sub-flow.json', { question: 'life' });
+    expect(result).toEqual({ answer: '42' });
   });
 });

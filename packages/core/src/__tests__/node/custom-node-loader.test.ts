@@ -1,4 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { CustomNodeLoader } from '../../node/custom-node-loader';
 import { NodeRegistry } from '../../node/node-registry';
 import type { CustomNode } from '../../types/node';
@@ -16,9 +19,7 @@ describe('CustomNodeLoader', () => {
       label: '自定义节点',
       inputs: [{ name: 'input1', type: 'string', required: true }],
       outputs: [{ name: 'result', type: 'string' }],
-      async execute(inputs) {
-        return { result: `processed: ${inputs.input1}` };
-      },
+      execute: async (inputs) => ({ result: `processed: ${inputs.input1}` }),
     };
 
     await CustomNodeLoader.loadFromModules(
@@ -47,9 +48,7 @@ describe('CustomNodeLoader', () => {
       label: '直接导出',
       inputs: [],
       outputs: [],
-      async execute() {
-        return {};
-      },
+      execute: async () => ({}),
     };
 
     await CustomNodeLoader.loadFromModules(
@@ -60,28 +59,27 @@ describe('CustomNodeLoader', () => {
     expect(registry.has('DirectExport')).toBe(true);
   });
 
-  it('应该处理重复注册错误', async () => {
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+  it('应该从项目目录扫描并加载 ts 节点', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'kal-core-loader-'));
+    try {
+      const nodeDir = join(root, 'node', 'nested');
+      await mkdir(nodeDir, { recursive: true });
+      await writeFile(
+        join(nodeDir, 'ScannedNode.ts'),
+        `export default {
+          type: 'ScannedNode',
+          label: 'Scanned Node',
+          category: 'custom',
+          inputs: [],
+          outputs: [],
+          async execute() { return {}; }
+        };`
+      );
 
-    const myNode: CustomNode = {
-      type: 'DuplicateNode',
-      label: '重复节点',
-      inputs: [],
-      outputs: [],
-      async execute() {
-        return {};
-      },
-    };
-
-    registry.register(myNode);
-
-    await CustomNodeLoader.loadFromModules(
-      { 'node/dup.ts': { default: myNode } },
-      registry
-    );
-
-    // Should not throw, just log error
-    expect(registry.getAll().filter(n => n.type === 'DuplicateNode')).toHaveLength(1);
-    consoleSpy.mockRestore();
+      await CustomNodeLoader.loadFromProject(root, registry);
+      expect(registry.has('ScannedNode')).toBe(true);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   });
 });

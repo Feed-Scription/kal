@@ -1,0 +1,187 @@
+{
+  "meta": {
+    "schemaVersion": "1.0.0",
+    "name": "apply-preset",
+    "description": "根据预设角色 ID 批量写入角色数据到 state",
+    "inputs": [
+      {
+        "name": "choice",
+        "type": "string",
+        "required": true
+      }
+    ],
+    "outputs": []
+  },
+  "data": {
+    "nodes": [
+      {
+        "id": "signal-in",
+        "type": "SignalIn",
+        "label": "信号输入",
+        "position": {
+          "x": 0,
+          "y": -80
+        },
+        "inputs": [],
+        "outputs": [
+          {
+            "name": "data",
+            "type": "string"
+          }
+        ],
+        "config": {
+          "channel": "choice"
+        }
+      },
+      {
+        "id": "preset",
+        "type": "PresetCharacter",
+        "label": "预设角色",
+        "position": {
+          "x": 360,
+          "y": -80
+        },
+        "inputs": [
+          {
+            "name": "presetId",
+            "type": "any",
+            "required": true
+          }
+        ],
+        "outputs": [
+          {
+            "name": "name",
+            "type": "string"
+          },
+          {
+            "name": "race",
+            "type": "string"
+          },
+          {
+            "name": "class",
+            "type": "string"
+          },
+          {
+            "name": "background",
+            "type": "string"
+          },
+          {
+            "name": "createMode",
+            "type": "string"
+          }
+        ],
+        "config": {
+          "presets": {
+            "knight": {
+              "name": "亚瑟",
+              "race": "human",
+              "class": "warrior",
+              "background": "你曾是王都骑士团的一员，因一场冤案被逐出骑士团。你带着破碎的荣誉和一柄旧剑，踏上了流浪之路。你坚信正义终将到来，而鸦巢镇的亡灵之祸，也许正是你重新证明自己的机会。"
+            },
+            "shadow": {
+              "name": "希尔薇",
+              "race": "elf",
+              "class": "rogue",
+              "background": "你是月影森林的流亡精灵，因偷窃长老的禁忌卷轴而被驱逐。你天生对黑暗有着超乎常人的亲和力，能在阴影中来去自如。你来到鸦巢镇，听说废弃矿井深处藏着远古的宝藏——也许还有比宝藏更有价值的秘密。"
+            },
+            "ironbeard": {
+              "name": "铁须·石锤",
+              "race": "dwarf",
+              "class": "warrior",
+              "background": "你是铁炉山脉最后的锻造大师之一，你的祖先曾在鸦巢镇的矿井中开采过最纯净的秘银矿石。当你听说矿井被亡灵占据时，矮人的血液在你体内沸腾——那是你族人的遗产，绝不能任由邪恶玷污。"
+            },
+            "mystic": {
+              "name": "艾尔文",
+              "race": "elf",
+              "class": "mage",
+              "background": "你是星辉学院最年轻的毕业生，精通元素魔法和古代符文。你的导师在临终前告诉你，鸦巢镇矿井深处封印着一位远古巫妖，而解除封印的钥匙就藏在你血脉之中。你必须在巫妖完全苏醒之前找到真相。"
+            }
+          }
+        }
+      },
+      {
+        "id": "apply-state",
+        "type": "ApplyState",
+        "label": "批量应用状态",
+        "position": {
+          "x": 720,
+          "y": -80
+        },
+        "inputs": [
+          {
+            "name": "playerName",
+            "type": "string"
+          },
+          {
+            "name": "race",
+            "type": "string"
+          },
+          {
+            "name": "class",
+            "type": "string"
+          },
+          {
+            "name": "background",
+            "type": "string"
+          },
+          {
+            "name": "createMode",
+            "type": "string"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "applied",
+            "type": "array"
+          },
+          {
+            "name": "success",
+            "type": "boolean"
+          }
+        ],
+        "config": {
+          "path": "",
+          "allowedKeys": []
+        }
+      }
+    ],
+    "edges": [
+      {
+        "source": "signal-in",
+        "sourceHandle": "data",
+        "target": "preset",
+        "targetHandle": "presetId"
+      },
+      {
+        "source": "preset",
+        "sourceHandle": "name",
+        "target": "apply-state",
+        "targetHandle": "playerName"
+      },
+      {
+        "source": "preset",
+        "sourceHandle": "race",
+        "target": "apply-state",
+        "targetHandle": "race"
+      },
+      {
+        "source": "preset",
+        "sourceHandle": "class",
+        "target": "apply-state",
+        "targetHandle": "class"
+      },
+      {
+        "source": "preset",
+        "sourceHandle": "background",
+        "target": "apply-state",
+        "targetHandle": "background"
+      },
+      {
+        "source": "preset",
+        "sourceHandle": "createMode",
+        "target": "apply-state",
+        "targetHandle": "createMode"
+      }
+    ]
+  }
+}

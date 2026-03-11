@@ -37,10 +37,9 @@ function validateOutputs(
   nodeDef: NodeDefinition,
   outputs: Record<string, any>
 ): void {
-  const declaredOutputs = new Set(nodeDef.outputs.map(o => o.name));
+  const declaredOutputs = new Set(nodeDef.outputs.map((output) => output.name));
   const actualOutputs = new Set(Object.keys(outputs));
 
-  // Check for missing outputs
   for (const declared of declaredOutputs) {
     if (!actualOutputs.has(declared)) {
       throw new ExecutionError(
@@ -49,7 +48,6 @@ function validateOutputs(
     }
   }
 
-  // Check for extra outputs
   for (const actual of actualOutputs) {
     if (!declaredOutputs.has(actual)) {
       throw new ExecutionError(
@@ -74,14 +72,14 @@ export async function executeNode(
   }
 
   const inputs = resolveInputs(nodeDef, connectedValues);
-  const config = nodeDef.config ?? {};
+  const config = {
+    ...(nodeDef.config ?? {}),
+    ...(nodeDef.ref ? { ref: nodeDef.ref } : {}),
+  };
 
   try {
     const outputs = await nodeImpl.execute(inputs, config, context);
-
-    // Validate outputs against declared outputs
     validateOutputs(nodeDef, outputs);
-
     return outputs;
   } catch (error) {
     if (error instanceof ExecutionError) throw error;

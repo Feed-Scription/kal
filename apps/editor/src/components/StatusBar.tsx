@@ -1,27 +1,21 @@
 import { useEffect, useState } from "react";
 import { useProjectStore } from "@/store/projectStore";
-import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { CheckCircle2, XCircle, Loader2, Wifi } from "lucide-react";
 
 export function StatusBar() {
   const project = useProjectStore((state) => state.project);
   const currentFlow = useProjectStore((state) => state.currentFlow);
+  const engineConnected = useProjectStore((state) => state.engineConnected);
   const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "error">("saved");
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
 
   useEffect(() => {
-    // Listen for save events
-    const handleSave = () => {
-      setSaveStatus("saving");
-    };
-
+    const handleSave = () => setSaveStatus("saving");
     const handleSaved = () => {
       setSaveStatus("saved");
       setLastSaved(new Date());
     };
-
-    const handleError = () => {
-      setSaveStatus("error");
-    };
+    const handleError = () => setSaveStatus("error");
 
     window.addEventListener("flow:saving", handleSave);
     window.addEventListener("flow:saved", handleSaved);
@@ -49,6 +43,12 @@ export function StatusBar() {
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-between border-t bg-background/95 px-4 py-2 text-xs backdrop-blur">
       <div className="flex items-center gap-4">
+        <div className="flex items-center gap-1.5">
+          <Wifi className={`size-3.5 ${engineConnected ? "text-green-600" : "text-red-600"}`} />
+          <span className={engineConnected ? "text-green-600" : "text-red-600"}>
+            {engineConnected ? "已连接" : "未连接"}
+          </span>
+        </div>
         <span className="text-muted-foreground">
           项目: <span className="font-medium text-foreground">{project.config.name}</span>
         </span>
@@ -63,10 +63,10 @@ export function StatusBar() {
         {currentFlowData && (
           <>
             <span className="text-muted-foreground">
-              节点: <span className="font-medium text-foreground">{currentFlowData.nodes.length}</span>
+              节点: <span className="font-medium text-foreground">{currentFlowData.data.nodes.length}</span>
             </span>
             <span className="text-muted-foreground">
-              连线: <span className="font-medium text-foreground">{currentFlowData.edges.length}</span>
+              连线: <span className="font-medium text-foreground">{currentFlowData.data.edges.length}</span>
             </span>
           </>
         )}
