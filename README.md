@@ -134,18 +134,32 @@ kal config set-key openai sk-your-api-key
 # 查看所有配置
 kal config list
 
-# 设置特定配置项
+# 设置 API 密钥（统一格式）
+kal config set openai.apiKey sk-xxx...
+kal config set deepseek.apiKey sk-xxx...
+kal config set moonshot.apiKey sk-xxx...
+
+# 设置 API 端点
+kal config set openai.baseUrl https://api.deepseek.com/v1
+kal config set deepseek.baseUrl https://api.deepseek.com/v1
+
+# 设置其他配置项
 kal config set preferences.theme dark
 kal config set server.defaultPort 8080
 
-# 单独管理 API 密钥
-kal config set-key deepseek        # DeepSeek
-kal config set-key moonshot        # Moonshot
-kal config set-key qwen            # 通义千问
+# 查看特定配置
+kal config get openai.apiKey
 
-# 删除 API 密钥
-kal config remove-key openai
+# 删除配置项
+kal config remove openai.apiKey
+kal config remove deepseek.baseUrl
 ```
+
+**统一的配置格式：**
+- 🔑 **API 密钥**：`<provider>.apiKey` - 自动加密存储
+- 🌐 **API 端点**：`<provider>.baseUrl` - 自定义服务端点
+- ⚙️ **用户偏好**：`preferences.*` - 主题、语言等设置
+- 🖥️ **服务器配置**：`server.*` - 端口、CORS 等设置
 
 **安全特性：**
 - 🔐 **加密存储**：API 密钥双重加密保护
