@@ -34,7 +34,8 @@ export { HookManager } from './hook-manager';
 // Prompt
 export { base, field, when, randomSlot, budget } from './prompt/fragments';
 export type { Fragment, BaseFragment, FieldFragment, WhenFragment, RandomSlotFragment, BudgetFragment } from './prompt/fragments';
-export { compose, estimateTokens, formatSection, buildMessages } from './prompt/compose';
+export { compose, composeSegments, composeMessages, estimateTokens, formatSection, buildMessages } from './prompt/compose';
+export type { PromptScope } from './prompt/compose';
 export type { FormatType } from './prompt/compose';
 
 // Node
@@ -46,10 +47,10 @@ export {
   SignalIn, SignalOut, Timer,
 } from './node/builtin/signal-nodes';
 export {
-  AddState, RemoveState, ReadState, ModifyState,
+  AddState, RemoveState, ReadState, ModifyState, ApplyState,
 } from './node/builtin/state-nodes';
 export {
-  PromptBuild, Message, GenerateText, GenerateImage,
+  PromptBuild, Message, GenerateText, GenerateImage, UpdateHistory, CompactHistory,
 } from './node/builtin/llm-nodes';
 export {
   Regex, JSONParse, PostProcess, SubFlow,
@@ -62,6 +63,10 @@ export { FlowExecutor } from './flow/flow-executor';
 export type { FlowExecutionResult } from './flow/flow-executor';
 export { FlowLoader } from './flow/flow-loader';
 export { Scheduler } from './flow/scheduler';
+
+// Session
+export * from './types/session';
+export * from './session';
 
 // Core
 export { createKalCore } from './core';

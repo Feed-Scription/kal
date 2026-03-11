@@ -1,0 +1,210 @@
+{
+  "meta": {
+    "schemaVersion": "1.0.0",
+    "name": "character-creation",
+    "description": "根据种族和职业生成角色属性和技能",
+    "inputs": [],
+    "outputs": []
+  },
+  "data": {
+    "nodes": [
+      {
+        "id": "read-race",
+        "type": "ReadState",
+        "label": "读取状态",
+        "position": {
+          "x": 0,
+          "y": -220
+        },
+        "inputs": [
+          {
+            "name": "key",
+            "type": "string",
+            "defaultValue": "race"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "value",
+            "type": "any"
+          },
+          {
+            "name": "exists",
+            "type": "boolean"
+          }
+        ],
+        "config": {}
+      },
+      {
+        "id": "read-class",
+        "type": "ReadState",
+        "label": "读取状态",
+        "position": {
+          "x": 0,
+          "y": 20
+        },
+        "inputs": [
+          {
+            "name": "key",
+            "type": "string",
+            "defaultValue": "class"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "value",
+            "type": "any"
+          },
+          {
+            "name": "exists",
+            "type": "boolean"
+          }
+        ],
+        "config": {}
+      },
+      {
+        "id": "char-gen",
+        "type": "CharacterGen",
+        "label": "角色生成",
+        "position": {
+          "x": 400,
+          "y": -100
+        },
+        "inputs": [
+          {
+            "name": "race",
+            "type": "any",
+            "required": true
+          },
+          {
+            "name": "class",
+            "type": "any",
+            "required": true
+          }
+        ],
+        "outputs": [
+          {
+            "name": "strength",
+            "type": "number"
+          },
+          {
+            "name": "dexterity",
+            "type": "number"
+          },
+          {
+            "name": "intelligence",
+            "type": "number"
+          },
+          {
+            "name": "maxHealth",
+            "type": "number"
+          },
+          {
+            "name": "skills",
+            "type": "array"
+          }
+        ],
+        "config": {}
+      },
+      {
+        "id": "apply-state",
+        "type": "ApplyState",
+        "label": "批量应用状态",
+        "position": {
+          "x": 800,
+          "y": -100
+        },
+        "inputs": [
+          {
+            "name": "strength",
+            "type": "number"
+          },
+          {
+            "name": "dexterity",
+            "type": "number"
+          },
+          {
+            "name": "intelligence",
+            "type": "number"
+          },
+          {
+            "name": "maxHealth",
+            "type": "number"
+          },
+          {
+            "name": "health",
+            "type": "number"
+          },
+          {
+            "name": "skills",
+            "type": "array"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "applied",
+            "type": "array"
+          },
+          {
+            "name": "success",
+            "type": "boolean"
+          }
+        ],
+        "config": {
+          "path": "",
+          "allowedKeys": []
+        }
+      }
+    ],
+    "edges": [
+      {
+        "source": "read-race",
+        "sourceHandle": "value",
+        "target": "char-gen",
+        "targetHandle": "race"
+      },
+      {
+        "source": "read-class",
+        "sourceHandle": "value",
+        "target": "char-gen",
+        "targetHandle": "class"
+      },
+      {
+        "source": "char-gen",
+        "sourceHandle": "strength",
+        "target": "apply-state",
+        "targetHandle": "strength"
+      },
+      {
+        "source": "char-gen",
+        "sourceHandle": "dexterity",
+        "target": "apply-state",
+        "targetHandle": "dexterity"
+      },
+      {
+        "source": "char-gen",
+        "sourceHandle": "intelligence",
+        "target": "apply-state",
+        "targetHandle": "intelligence"
+      },
+      {
+        "source": "char-gen",
+        "sourceHandle": "maxHealth",
+        "target": "apply-state",
+        "targetHandle": "maxHealth"
+      },
+      {
+        "source": "char-gen",
+        "sourceHandle": "maxHealth",
+        "target": "apply-state",
+        "targetHandle": "health"
+      },
+      {
+        "source": "char-gen",
+        "sourceHandle": "skills",
+        "target": "apply-state",
+        "targetHandle": "skills"
+      }
+    ]
+  }
+}

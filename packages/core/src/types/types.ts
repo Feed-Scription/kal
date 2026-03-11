@@ -70,12 +70,22 @@ export interface Edge {
   targetHandle: string;
 }
 
-export interface FlowDefinition {
-  schemaVersion?: string;
+export interface FlowMeta {
+  schemaVersion: string;
+  name?: string;
+  description?: string;
   inputs?: HandleDefinition[];
   outputs?: HandleDefinition[];
+}
+
+export interface FlowData {
   nodes: NodeDefinition[];
   edges: Edge[];
+}
+
+export interface FlowDefinition {
+  meta: FlowMeta;
+  data: FlowData;
 }
 
 // ── Config ──

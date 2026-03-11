@@ -1,0 +1,70 @@
+{
+  "playerName": {
+    "type": "string",
+    "value": "冒险者"
+  },
+  "race": {
+    "type": "string",
+    "value": ""
+  },
+  "class": {
+    "type": "string",
+    "value": ""
+  },
+  "background": {
+    "type": "string",
+    "value": ""
+  },
+  "strength": {
+    "type": "number",
+    "value": 10
+  },
+  "dexterity": {
+    "type": "number",
+    "value": 10
+  },
+  "intelligence": {
+    "type": "number",
+    "value": 10
+  },
+  "skills": {
+    "type": "array",
+    "value": []
+  },
+  "health": {
+    "type": "number",
+    "value": 100
+  },
+  "maxHealth": {
+    "type": "number",
+    "value": 100
+  },
+  "gold": {
+    "type": "number",
+    "value": 50
+  },
+  "currentLocation": {
+    "type": "string",
+    "value": "鸦巢镇广场"
+  },
+  "inventory": {
+    "type": "array",
+    "value": ["铁剑", "皮甲", "火把x3", "面包x2"]
+  },
+  "questStage": {
+    "type": "string",
+    "value": "arrived"
+  },
+  "history": {
+    "type": "array",
+    "value": []
+  },
+  "summary": {
+    "type": "string",
+    "value": ""
+  },
+  "createMode": {
+    "type": "string",
+    "value": ""
+  }
+}
