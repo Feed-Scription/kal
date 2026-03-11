@@ -85,9 +85,8 @@ KAL-AI 特别适合构建：
 ### 环境要求
 - Node.js >= 18
 - pnpm (推荐) 或 npm
-- OpenAI 兼容的 API 服务
 
-### 方式一：一键安装脚本
+### 一键开始
 ```bash
 # 1. 克隆项目
 git clone https://github.com/Feed-Scription/kal.git
@@ -96,71 +95,61 @@ cd kal
 # 2. 运行安装脚本
 ./scripts/install.sh
 
-# 3. 初始化配置并设置 API 密钥
+# 3. 一键配置（会引导你设置 API 密钥）
 kal config init
-kal config set-key openai
 
-# 4. 运行示例游戏
+# 4. 开始游戏
 kal play examples/dnd-adventure
 ```
 
-### 方式二：手动安装
+就这么简单！`kal config init` 会交互式地引导你完成所有配置。
+
+### 手动安装（可选）
+如果你想手动控制每个步骤：
+
 ```bash
 # 1. 克隆项目
 git clone https://github.com/Feed-Scription/kal.git
 cd kal
 
-# 2. 安装依赖
+# 2. 安装依赖并构建
 pnpm install
-
-# 3. 构建 Engine
 pnpm --filter @kal-ai/engine build
 
-# 4. 全局链接 kal 命令
+# 3. 全局链接 kal 命令
 cd apps/engine && pnpm link --global && cd ../..
 
-# 5. 初始化配置并设置 API 密钥
-kal config init
-kal config set-key openai
-
-# 6. 运行示例游戏
-kal play examples/dnd-adventure
+# 4. 配置 API 密钥
+kal config init  # 交互式配置
+# 或者直接设置
+kal config set-key openai sk-your-api-key
 ```
 
 ### 配置管理
 
-KAL-AI 提供了安全的配置管理系统，支持加密存储 API 密钥：
+如果你需要更详细的配置管理：
 
 ```bash
-# 初始化配置文件
-kal config init
+# 查看所有配置
+kal config list
 
-# 安全设置 API 密钥（支持任意 LLM 提供商）
-kal config set-key openai          # OpenAI
-kal config set-key deepseek        # DeepSeek
-kal config set-key moonshot        # Moonshot
-kal config set-key qwen            # 通义千问
-kal config set-key anthropic       # Anthropic Claude
-
-# 设置其他配置项
+# 设置特定配置项
 kal config set preferences.theme dark
 kal config set server.defaultPort 8080
 
-# 查看配置
-kal config list
-kal config get openai.apiKey
+# 单独管理 API 密钥
+kal config set-key deepseek        # DeepSeek
+kal config set-key moonshot        # Moonshot
+kal config set-key qwen            # 通义千问
 
 # 删除 API 密钥
 kal config remove-key openai
 ```
 
 **安全特性：**
-- 🔐 **二次加密**：API 密钥使用主密钥 + 设备密钥双重加密
-- 🔒 **本地存储**：配置文件仅存储在本地 `.kal/` 目录
-- 🚫 **自动忽略**：敏感配置文件已添加到 `.gitignore`
-- 🎭 **隐藏输入**：设置密钥时输入内容不会显示在终端
-
-### 启动开发环境
+- 🔐 **加密存储**：API 密钥双重加密保护
+- 🔒 **本地配置**：所有配置仅存储在本地
+- 🎭 **隐私保护**：密钥输入和显示都经过脱敏处理
 ```bash
 # 启动 Engine 服务
 kal serve examples/dnd-adventure
