@@ -13,11 +13,8 @@ dist/
 .env.local
 .env.*.local
 
-# KAL-AI 配置文件 (包含敏感信息)
-.kal/config.env
-.kal/user-sessions/
-.kal/cache/
-.kal/logs/
+# KAL-AI 本地配置 (包含敏感信息)
+.kal/
 
 # IDE
 .vscode/
