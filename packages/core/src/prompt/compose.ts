@@ -131,8 +131,10 @@ function resolveField(
     .map((item) => (typeof item === 'string' ? item : JSON.stringify(item)))
     .join('\n');
 
+  const template = fragment.template
+    ?? ((fragment as any).label ? `${(fragment as any).label}: {{items}}` : '{{items}}');
   return [{
-    text: fragment.template.replace('{{items}}', serialized),
+    text: template.replace('{{items}}', serialized),
     role: fragment.role ?? inheritedRole,
   }];
 }

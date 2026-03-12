@@ -372,6 +372,7 @@ cd apps/editor && pnpm dev
 |------|------|
 | [core.md](./docs/docs_v5/core.md) | 核心运行时：Flow、Session、Node 系统 |
 | [engine.md](./docs/docs_v5/engine.md) | Engine 宿主：CLI、API、TUI 使用指南 |
+| [agent-debug.md](./docs/docs_v5/agent-debug.md) | Agent 友好调试：`kal debug` CLI 设计方案 |
 | [editor.md](./docs/docs_v5/editor.md) | 可视化编辑器：Flow 设计和调试 |
 
 ## 贡献指南

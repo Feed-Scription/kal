@@ -67,7 +67,7 @@ export const ReadState: CustomNode = {
   label: '读取状态',
   category: 'state',
   inputs: [
-    { name: 'key', type: 'string', required: true },
+    { name: 'key', type: 'string' },
   ],
   outputs: [
     { name: 'value', type: 'any' },
@@ -75,10 +75,29 @@ export const ReadState: CustomNode = {
   ],
   configSchema: {
     type: 'object',
-    additionalProperties: false,
+    properties: {
+      keys: { type: 'array', items: { type: 'string' } },
+    },
+    additionalProperties: true,
   },
   defaultConfig: {},
-  async execute(inputs, _config, context) {
+  async execute(inputs, config, context) {
+    const keys = config.keys as string[] | undefined;
+
+    // 批量模式：config.keys 指定多个 key
+    if (Array.isArray(keys) && keys.length > 0) {
+      const result: Record<string, any> = {};
+      const all: Record<string, any> = {};
+      for (const k of keys) {
+        const sv = context.state.get(k);
+        result[k] = sv?.value ?? undefined;
+        all[k] = sv?.value ?? undefined;
+      }
+      result.all = all;
+      return result;
+    }
+
+    // 单 key 模式
     const stateValue = context.state.get(inputs.key);
     if (stateValue === undefined) {
       return { value: undefined, exists: false };

@@ -2,6 +2,8 @@
 
 **状态：已完成（最小落地范围）**
 
+相关后续设计：`kal debug` 的 Agent 友好调试方案见 [agent-debug.md](./agent-debug.md)。
+
 Engine 是把 Core 变成"可运行产品能力"的宿主层。当前 `apps/engine` 模块已经落地，覆盖了项目加载、CLI、HTTP API、Session 运行和统一错误模型。
 
 ## Engine 在架构中的职责
@@ -163,3 +165,5 @@ Editor -> Engine -> Core
 - 测试已覆盖 runtime、server、CLI 的核心路径
 
 下一步重点是 SSE 执行事件流和热重载能力。
+
+此外，针对 Claude Code、Cursor、Codex 等 Agent 无法使用 `kal play` 交互式 TUI 的问题，已补充一份 `kal debug` 设计方案，计划提供可恢复、结构化输出的 CLI 调试入口。
