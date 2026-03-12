@@ -73,9 +73,9 @@
   "phoneUnlocked_forum": { "type": "boolean", "value": false },
   "phoneUnlocked_anon": { "type": "boolean", "value": false },
 
-  "todaySocialPosts": { "type": "array", "value": [] },
-  "todayRumors": { "type": "array", "value": [] },
-  "todayWorldEvents": { "type": "array", "value": [] },
+  "todaySocialPosts": { "type": "string", "value": "" },
+  "todayRumors": { "type": "string", "value": "" },
+  "todayWorldEvents": { "type": "string", "value": "" },
 
   "playstyle": { "type": "object", "value": {
     "empathetic": 0,

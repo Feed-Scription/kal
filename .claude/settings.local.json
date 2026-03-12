@@ -29,7 +29,11 @@
       "Bash(do python3:*)",
       "Bash(chmod +x:*)",
       "Bash(do echo:*)",
-      "Bash(printf y\\\\nopenai\\\\nsk-test123456789\\\\nn\\\\n:*)"
+      "Bash(printf y\\\\nopenai\\\\nsk-test123456789\\\\nn\\\\n:*)",
+      "Bash(git remote:*)",
+      "Bash(env:*)",
+      "Bash(export:*)",
+      "Bash(grep:*)"
     ]
   }
 }

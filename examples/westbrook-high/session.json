@@ -142,6 +142,36 @@
       ],
       "flowRef": "night-action",
       "inputChannel": "nightChoice",
+      "next": "check-phone-unlock"
+    },
+    {
+      "id": "check-phone-unlock",
+      "type": "Branch",
+      "conditions": [
+        {
+          "when": "state.nightChoice == 'social_media' && state.phoneUnlocked_social == false",
+          "next": "phone-locked-message"
+        },
+        {
+          "when": "state.nightChoice == 'anon_action' && state.phoneUnlocked_anon == false",
+          "next": "phone-locked-message"
+        }
+      ],
+      "default": "process-night-action"
+    },
+    {
+      "id": "phone-locked-message",
+      "type": "RunFlow",
+      "flowRef": "narrate",
+      "inputs": {
+        "playerInput": "手机功能尚未解锁"
+      },
+      "next": "night-action"
+    },
+    {
+      "id": "process-night-action",
+      "type": "RunFlow",
+      "flowRef": "night-action",
       "next": "check-night-end"
     },
     {

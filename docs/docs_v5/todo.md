@@ -6,6 +6,10 @@
 
 **目的**：把会议中已经讨论出的方向、共识、行动项和待确认问题整理成可执行的开发清单，供后续接力开发使用。
 
+相关设计说明：
+
+- [first-principles-architecture.md](./first-principles-architecture.md)
+
 ## 当前共识
 
 1. KAL 当前已经不只是“AI 组件库”，而是在朝一个完整的 AI 原生游戏引擎演进。
