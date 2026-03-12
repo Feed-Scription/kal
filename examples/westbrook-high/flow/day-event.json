@@ -151,7 +151,7 @@
             {
               "type": "base",
               "id": "format",
-              "content": "输出JSON格式：\n{\n  \"narrative\": \"关键日事件叙事（5-10句话，含对话）\",\n  \"eventType\": \"事件类型标签\",\n  \"stateChanges\": {\n    \"suspicion\": 新值,\n    \"lastEvent\": \"事件一句话摘要\",\n    \"pendingConfrontation\": \"NPC名（如果触发对质）或空字符串\",\n    \"lineA_depth\": 新值（如果推进）,\n    \"lineB_depth\": 新值（如果推进）,\n    \"lineC_depth\": 新值（如果推进）\n  },\n  \"npcChanges\": {\n    \"trust_xxx\": 新值,\n    \"mood_xxx\": 新值,\n    \"arc_xxx\": 新值（如果弧线推进）\n  },\n  \"newCards\": {\n    \"topics\": [],\n    \"evidence\": []\n  },\n  \"keyDecision\": \"如果这是一个关键决策点，描述决策内容；否则为null\"\n}",
+              "content": "输出JSON格式：\n{\n  \"narrative\": \"关键日事件叙事（5-10句话，含对话）\",\n  \"eventType\": \"事件类型标签\",\n  \"stateChanges\": {\n    \"suspicion\": 新值,\n    \"lastEvent\": \"事件一句话摘要\",\n    \"pendingConfrontation\": \"NPC名（如果触发对质）或空字符串\",\n    \"lineA_depth\": 新值（如果推进）,\n    \"lineB_depth\": 新值（如果推进）,\n    \"lineC_depth\": 新值（如果推进）\n  },\n  \"npcChanges\": {\n    \"trust_xxx\": 新值,\n    \"mood_xxx\": 新值,\n    \"arc_xxx\": 新值（如果弧线推进）\n  },\n  \"newCards\": {\n    \"topics\": [],\n    \"evidence\": []\n  },\n  \"keyDecision\": \"如果这是一个关键决策点，描述决策内容；否则为null\"\n}\\n\\n极其重要：所有 JSON key 必须使用全小写。NPC名字必须小写：trust_lily、mood_marcus、fear_coach、arc_zoe、trust_tyler、mood_holloway 等。绝不能用大写如 trust_Lily 或 mood_Marcus，否则状态无法写入。",
               "role": "system"
             }
           ]

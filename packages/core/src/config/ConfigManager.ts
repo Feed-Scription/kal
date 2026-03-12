@@ -53,8 +53,8 @@ export class ConfigManager {
   private deviceKey: string;
 
   constructor() {
-    // 配置目录路径
-    this.configDir = path.join(process.cwd(), '.kal');
+    // 向上查找包含 .kal 目录的项目根目录
+    this.configDir = this.findConfigDir();
     this.configFile = path.join(this.configDir, 'config.env');
     this.userConfigFile = path.join(this.configDir, 'user-config.json');
     this.projectsFile = path.join(this.configDir, 'projects.json');
@@ -65,6 +65,26 @@ export class ConfigManager {
     // 生成或获取加密密钥（延迟初始化）
     this.masterKey = this.getOrCreateMasterKey();
     this.deviceKey = this.getOrCreateDeviceKey();
+  }
+
+  private findConfigDir(): string {
+    // 从当前目录向上查找包含 config.env 的 .kal 目录
+    let currentDir = process.cwd();
+
+    while (currentDir !== path.dirname(currentDir)) {
+      const kalDir = path.join(currentDir, '.kal');
+      const configFile = path.join(kalDir, 'config.env');
+
+      // 如果找到包含 config.env 的 .kal 目录，使用它
+      if (fs.existsSync(configFile)) {
+        return kalDir;
+      }
+
+      currentDir = path.dirname(currentDir);
+    }
+
+    // 如果没找到，使用当前目录的 .kal
+    return path.join(process.cwd(), '.kal');
   }
 
   private getOrCreateMasterKey(): string {
