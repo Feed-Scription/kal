@@ -186,7 +186,7 @@
         "inputs": [
           {
             "name": "system",
-            "type": "string"
+            "type": "ChatMessage[]"
           },
           {
             "name": "user",
@@ -332,7 +332,7 @@
     "edges": [
       {
         "source": "prompt-build",
-        "sourceHandle": "text",
+        "sourceHandle": "messages",
         "target": "message",
         "targetHandle": "system"
       },

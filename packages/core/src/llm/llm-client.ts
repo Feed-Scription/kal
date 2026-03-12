@@ -167,8 +167,10 @@ export class LLMClient {
     });
 
     if (!response.ok) {
+      let body = '';
+      try { body = await response.text(); } catch {}
       const error: any = new Error(
-        `LLM API error: ${response.status} ${response.statusText}`
+        `LLM API error: ${response.status} ${response.statusText}${body ? ' — ' + body.slice(0, 500) : ''}`
       );
       error.status = response.status;
       throw error;

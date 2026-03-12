@@ -82,7 +82,7 @@ export const Message: CustomNode = {
   inputs: [
     { name: 'system', type: 'string' },
     { name: 'context', type: 'string' },
-    { name: 'user', type: 'string', required: true },
+    { name: 'user', type: 'string' },
   ],
   outputs: [
     { name: 'messages', type: 'ChatMessage[]' },
@@ -116,7 +116,7 @@ export const Message: CustomNode = {
     const historyKey = config.historyKey ?? 'history';
     let system = inputs.system as string | undefined;
     let userContext = inputs.context as string | undefined;
-    let user = inputs.user as string;
+    let user = inputs.user as string | undefined;
 
     const historyState = context.state.get(historyKey);
     if (historyState && historyState.type !== 'array') {
@@ -139,7 +139,7 @@ export const Message: CustomNode = {
     }
 
     // If context is provided, prepend it to user message for prefix caching
-    if (userContext) {
+    if (userContext && user) {
       user = userContext + '\n\n' + user;
     }
 
@@ -157,7 +157,14 @@ export const Message: CustomNode = {
     }
 
     messages.push(...history);
-    messages.push({ role: 'user', content: user });
+
+    // Only add user message if provided
+    if (user) {
+      messages.push({ role: 'user', content: user });
+    } else if (messages.length > 0 && messages[messages.length - 1]!.role !== 'user') {
+      // Some LLM providers require a user message; add a minimal trigger
+      messages.push({ role: 'user', content: '请根据以上信息生成回复。' });
+    }
 
     return { messages };
   },
@@ -201,7 +208,12 @@ export const GenerateText: CustomNode = {
     assistantPath: '',
   },
   async execute(inputs, config, context) {
-    const result = await context.llm.invoke(inputs.messages, {
+    let messages = inputs.messages as ChatMessage[];
+    // Some LLM providers require at least one user message
+    if (messages.length > 0 && !messages.some((m) => m.role === 'user')) {
+      messages = [...messages, { role: 'user', content: '请根据以上信息生成回复。' }];
+    }
+    const result = await context.llm.invoke(messages, {
       model: config.model || undefined,
       temperature: config.temperature,
       maxTokens: config.maxTokens,

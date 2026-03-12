@@ -4,6 +4,7 @@ import { EngineRuntime } from './runtime';
 import { startEngineServer } from './server';
 import { runTui } from './tui/tui';
 import { ConfigCommand } from './commands/config';
+import { runDebugCommand } from './commands/debug';
 import type { EngineCliIO, StartedEngineServer } from './types';
 
 export interface CliDependencies {
@@ -61,6 +62,12 @@ function printUsage(io: EngineCliIO): void {
     'Usage:',
     '  kal serve [project-path] [--host <host>] [--port <port>]',
     '  kal play  [project-path]',
+    '  kal debug [project-path] --start [--force-new] [--state-dir <path>] [--format <json|pretty>]',
+    '  kal debug [project-path] --continue [input] [--run-id <id>] [--input <input>]',
+    '  kal debug [project-path] --step [input] [--run-id <id>] [--input <input>]',
+    '  kal debug [project-path] --state [--run-id <id>]',
+    '  kal debug [project-path] --list',
+    '  kal debug [project-path] --delete --run-id <id>',
     '  kal config [command] [options]',
     '',
     'Config commands:',
@@ -165,6 +172,9 @@ export async function runCli(argv: string[], deps: Partial<CliDependencies> = {}
     }
     if (command === 'play') {
       return await playCommand(tokens, dependencies);
+    }
+    if (command === 'debug') {
+      return await runDebugCommand(tokens, dependencies);
     }
     if (command === 'config') {
       return await configCommand(tokens, dependencies);

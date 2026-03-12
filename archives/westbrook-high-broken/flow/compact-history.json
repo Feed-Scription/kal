@@ -21,7 +21,13 @@
           "x": -550,
           "y": -22
         },
-        "inputs": [],
+        "inputs": [
+          {
+            "name": "key",
+            "type": "string",
+            "required": true
+          }
+        ],
         "outputs": [
           {
             "name": "history",
@@ -100,6 +106,38 @@
               "label": "关键决策（必须保留）"
             }
           ]
+        }
+      },
+      {
+        "id": "message",
+        "type": "Message",
+        "label": "Assemble",
+        "position": {
+          "x": 400,
+          "y": 0
+        },
+        "inputs": [
+          {
+            "name": "system",
+            "type": "ChatMessage[]"
+          },
+          {
+            "name": "user",
+            "type": "string"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "messages",
+            "type": "ChatMessage[]"
+          }
+        ],
+        "config": {
+          "system": "",
+          "user": "",
+          "format": "xml",
+          "historyKey": "history",
+          "maxHistoryMessages": 0
         }
       },
       {
@@ -216,6 +254,18 @@
     ],
     "edges": [
       {
+        "source": "prompt-build",
+        "sourceHandle": "messages",
+        "target": "message",
+        "targetHandle": "system"
+      },
+      {
+        "source": "message",
+        "sourceHandle": "messages",
+        "target": "generate",
+        "targetHandle": "messages"
+      },
+      {
         "source": "generate",
         "sourceHandle": "text",
         "target": "write-summary",
@@ -226,12 +276,6 @@
         "sourceHandle": "text",
         "target": "signal-out",
         "targetHandle": "data"
-      },
-      {
-        "source": "prompt-build",
-        "sourceHandle": "messages",
-        "target": "generate",
-        "targetHandle": "messages"
       }
     ]
   }

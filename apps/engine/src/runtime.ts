@@ -187,6 +187,22 @@ export class EngineRuntime {
     return this.getCore().state.getAll();
   }
 
+  restoreState(snapshot: Record<string, StateValue>): void {
+    this.getCore().state.restore(snapshot);
+  }
+
+  setState(key: string, value: any): void {
+    const core = this.getCore();
+    const existing = core.state.get(key);
+    if (!existing.exists || !existing.value) {
+      throw new EngineHttpError(`State key not found: ${key}`, 400, 'STATE_KEY_NOT_FOUND', { key });
+    }
+    const result = core.state.modify(key, value);
+    if (!result.success) {
+      throw result.error;
+    }
+  }
+
   hasSession(): boolean {
     return this.getProject().session != null;
   }
@@ -226,17 +242,7 @@ export class EngineRuntime {
     return runSession(session, {
       executeFlow: (flowId, inputData) => this.executeFlow(flowId, inputData ?? {}),
       getState: () => this.getState(),
-      setState: (key, value) => {
-        const core = this.getCore();
-        const existing = core.state.get(key);
-        if (!existing.exists || !existing.value) {
-          throw new EngineHttpError(`State key not found: ${key}`, 400, 'STATE_KEY_NOT_FOUND', { key });
-        }
-        const result = core.state.modify(key, value);
-        if (!result.success) {
-          throw result.error;
-        }
-      },
+      setState: (key, value) => this.setState(key, value),
     });
   }
 }
