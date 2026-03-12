@@ -149,11 +149,7 @@
       "type": "Branch",
       "conditions": [
         {
-          "when": "state.nightChoice == 'social_media' && state.phoneUnlocked_social == false",
-          "next": "phone-locked-message"
-        },
-        {
-          "when": "state.nightChoice == 'anon_action' && state.phoneUnlocked_anon == false",
+          "when": "state.phoneUnlocked_social == false",
           "next": "phone-locked-message"
         }
       ],
@@ -161,11 +157,9 @@
     },
     {
       "id": "phone-locked-message",
-      "type": "RunFlow",
-      "flowRef": "narrate",
-      "inputs": {
-        "playerInput": "手机功能尚未解锁"
-      },
+      "type": "Prompt",
+      "promptText": "手机功能尚未解锁。社交媒体将在 Day 2 解锁，私信将在 Day 4 解锁，匿名论坛将在 Day 7 解锁。",
+      "stateKey": "phoneLockMessage",
       "next": "night-action"
     },
     {
