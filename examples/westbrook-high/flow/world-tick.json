@@ -4,7 +4,12 @@
     "name": "world-tick",
     "description": "Living world tick — NPC autonomous actions, inter-NPC interactions, rumor generation",
     "inputs": [],
-    "outputs": [{ "name": "result", "type": "object" }]
+    "outputs": [
+      {
+        "name": "result",
+        "type": "object"
+      }
+    ]
   },
   "data": {
     "nodes": [
@@ -12,96 +17,153 @@
         "id": "prompt-build",
         "type": "PromptBuild",
         "label": "World tick prompt",
-        "position": { "x": 0, "y": 0 },
-        "inputs": [{ "name": "data", "type": "object", "defaultValue": {} }],
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "inputs": [
+          {
+            "name": "data",
+            "type": "object",
+            "defaultValue": {}
+          }
+        ],
         "outputs": [
-          { "name": "messages", "type": "ChatMessage[]" },
-          { "name": "text", "type": "string" },
-          { "name": "estimatedTokens", "type": "number" }
+          {
+            "name": "messages",
+            "type": "ChatMessage[]"
+          },
+          {
+            "name": "text",
+            "type": "string"
+          },
+          {
+            "name": "estimatedTokens",
+            "type": "number"
+          }
         ],
         "config": {
           "defaultRole": "system",
           "fragments": [
             {
-              "type": "base", "id": "role",
+              "type": "base",
+              "id": "role",
               "content": "你是 Westbrook High 的世界模拟器。每天日间结束后，NPC们会独立行动。\n\n根据每个NPC的当前状态（mood、arc_stage、fear、trust），生成1-2个NPC间的互动事件。这些事件发生在玩家不在场时。\n\n规则：\n- NPC间互动受关系网影响（Lily↔Tyler前情侣、Marcus↔Zoe调查搭档、Coach↔Holloway知情者）\n- 弧线阶段差异大的NPC更可能互动\n- mood低的NPC可能做出冲动行为\n- fear高的NPC可能寻求盟友或孤立自己\n- 这些事件玩家不直接看到，但会通过传闻和社交媒体间接得知\n- 事件可能改变NPC的mood和关系\n\n同时处理：\n- 怀疑值自然衰减（-2/天，最低0）\n- NPC弧线时间推进检查（如果到达截止日且玩家未触发，自动推进到默认状态）\n\n弧线时间截止日：\n- Lily 节点2: Day 12（如果trust<40且Day≥12，自动进入阶段2默认状态）\n- Marcus 节点2: Day 15\n- Coach 节点2: Day 18\n- Zoe 节点2: Day 10\n- Tyler 节点2: Day 16\n- Holloway 节点2: Day 20\n\n输出JSON：\n{\n  \"worldEvents\": [\n    {\n      \"participants\": [\"NPC1\", \"NPC2\"],\n      \"description\": \"事件描述（玩家不可见，用于内部记录）\",\n      \"rumorText\": \"玩家可能通过传闻得知的版本（可能不完全准确）\"\n    }\n  ],\n  \"stateChanges\": {\n    \"suspicion\": 新值（衰减后）,\n    \"todayWorldEvents\": \"世界事件摘要\"\n  },\n  \"npcChanges\": {\n    \"mood_xxx\": 新值,\n    \"arc_xxx\": 新值（如果时间推进触发）\n  }\n}",
               "role": "system"
             },
             {
-              "type": "field", "id": "day",
-              "source": "state.day", "label": "当前天数"
+              "type": "field",
+              "id": "day",
+              "source": "state.day",
+              "label": "当前天数"
             },
             {
-              "type": "field", "id": "suspicion",
-              "source": "state.suspicion", "label": "怀疑值"
+              "type": "field",
+              "id": "suspicion",
+              "source": "state.suspicion",
+              "label": "怀疑值"
             },
             {
-              "type": "field", "id": "mood-lily",
-              "source": "state.mood_lily", "label": "Lily情绪"
+              "type": "field",
+              "id": "mood-lily",
+              "source": "state.mood_lily",
+              "label": "Lily情绪"
             },
             {
-              "type": "field", "id": "mood-marcus",
-              "source": "state.mood_marcus", "label": "Marcus情绪"
+              "type": "field",
+              "id": "mood-marcus",
+              "source": "state.mood_marcus",
+              "label": "Marcus情绪"
             },
             {
-              "type": "field", "id": "mood-zoe",
-              "source": "state.mood_zoe", "label": "Zoe情绪"
+              "type": "field",
+              "id": "mood-zoe",
+              "source": "state.mood_zoe",
+              "label": "Zoe情绪"
             },
             {
-              "type": "field", "id": "mood-tyler",
-              "source": "state.mood_tyler", "label": "Tyler情绪"
+              "type": "field",
+              "id": "mood-tyler",
+              "source": "state.mood_tyler",
+              "label": "Tyler情绪"
             },
             {
-              "type": "field", "id": "mood-coach",
-              "source": "state.mood_coach", "label": "Coach情绪"
+              "type": "field",
+              "id": "mood-coach",
+              "source": "state.mood_coach",
+              "label": "Coach情绪"
             },
             {
-              "type": "field", "id": "mood-holloway",
-              "source": "state.mood_holloway", "label": "Holloway情绪"
+              "type": "field",
+              "id": "mood-holloway",
+              "source": "state.mood_holloway",
+              "label": "Holloway情绪"
             },
             {
-              "type": "field", "id": "arc-lily",
-              "source": "state.arc_lily", "label": "Lily弧线"
+              "type": "field",
+              "id": "arc-lily",
+              "source": "state.arc_lily",
+              "label": "Lily弧线"
             },
             {
-              "type": "field", "id": "arc-marcus",
-              "source": "state.arc_marcus", "label": "Marcus弧线"
+              "type": "field",
+              "id": "arc-marcus",
+              "source": "state.arc_marcus",
+              "label": "Marcus弧线"
             },
             {
-              "type": "field", "id": "arc-zoe",
-              "source": "state.arc_zoe", "label": "Zoe弧线"
+              "type": "field",
+              "id": "arc-zoe",
+              "source": "state.arc_zoe",
+              "label": "Zoe弧线"
             },
             {
-              "type": "field", "id": "arc-tyler",
-              "source": "state.arc_tyler", "label": "Tyler弧线"
+              "type": "field",
+              "id": "arc-tyler",
+              "source": "state.arc_tyler",
+              "label": "Tyler弧线"
             },
             {
-              "type": "field", "id": "arc-coach",
-              "source": "state.arc_coach", "label": "Coach弧线"
+              "type": "field",
+              "id": "arc-coach",
+              "source": "state.arc_coach",
+              "label": "Coach弧线"
             },
             {
-              "type": "field", "id": "arc-holloway",
-              "source": "state.arc_holloway", "label": "Holloway弧线"
+              "type": "field",
+              "id": "arc-holloway",
+              "source": "state.arc_holloway",
+              "label": "Holloway弧线"
             },
             {
-              "type": "field", "id": "fear-lily",
-              "source": "state.fear_lily", "label": "Lily恐惧"
+              "type": "field",
+              "id": "fear-lily",
+              "source": "state.fear_lily",
+              "label": "Lily恐惧"
             },
             {
-              "type": "field", "id": "fear-tyler",
-              "source": "state.fear_tyler", "label": "Tyler恐惧"
+              "type": "field",
+              "id": "fear-tyler",
+              "source": "state.fear_tyler",
+              "label": "Tyler恐惧"
             },
             {
-              "type": "field", "id": "trust-lily",
-              "source": "state.trust_lily", "label": "Lily信任"
+              "type": "field",
+              "id": "trust-lily",
+              "source": "state.trust_lily",
+              "label": "Lily信任"
             },
             {
-              "type": "field", "id": "trust-marcus",
-              "source": "state.trust_marcus", "label": "Marcus信任"
+              "type": "field",
+              "id": "trust-marcus",
+              "source": "state.trust_marcus",
+              "label": "Marcus信任"
             },
             {
-              "type": "field", "id": "dayLog",
-              "source": "state.dayLog", "label": "今日事件"
+              "type": "field",
+              "id": "dayLog",
+              "source": "state.dayLog",
+              "label": "今日事件"
             }
           ]
         }
@@ -110,23 +172,55 @@
         "id": "message",
         "type": "Message",
         "label": "Assemble",
-        "position": { "x": 300, "y": 0 },
+        "position": {
+          "x": 300,
+          "y": 0
+        },
         "inputs": [
-          { "name": "system", "type": "ChatMessage[]" },
-          { "name": "user", "type": "string" }
+          {
+            "name": "system",
+            "type": "string"
+          },
+          {
+            "name": "user",
+            "type": "string"
+          }
         ],
-        "outputs": [{ "name": "messages", "type": "ChatMessage[]" }],
-        "config": { "historyKey": "history", "maxHistoryMessages": 4, "summaryKey": "summary" }
+        "outputs": [
+          {
+            "name": "messages",
+            "type": "ChatMessage[]"
+          }
+        ],
+        "config": {
+          "historyKey": "history",
+          "maxHistoryMessages": 4,
+          "summaryKey": "summary"
+        }
       },
       {
         "id": "generate",
         "type": "GenerateText",
         "label": "Simulate world",
-        "position": { "x": 500, "y": 0 },
-        "inputs": [{ "name": "messages", "type": "ChatMessage[]" }],
+        "position": {
+          "x": 500,
+          "y": 0
+        },
+        "inputs": [
+          {
+            "name": "messages",
+            "type": "ChatMessage[]"
+          }
+        ],
         "outputs": [
-          { "name": "text", "type": "string" },
-          { "name": "usage", "type": "object" }
+          {
+            "name": "text",
+            "type": "string"
+          },
+          {
+            "name": "usage",
+            "type": "object"
+          }
         ],
         "config": {
           "responseFormat": "json",
@@ -137,45 +231,110 @@
         "id": "json-parse",
         "type": "JSONParse",
         "label": "Parse",
-        "position": { "x": 700, "y": 0 },
-        "inputs": [{ "name": "text", "type": "string", "required": true }],
-        "outputs": [
-          { "name": "data", "type": "object" },
-          { "name": "success", "type": "boolean" },
-          { "name": "error", "type": "string" }
+        "position": {
+          "x": 700,
+          "y": 0
+        },
+        "inputs": [
+          {
+            "name": "text",
+            "type": "string",
+            "required": true
+          }
         ],
-        "config": { "extractFromCodeBlock": true, "fixCommonErrors": true, "fixTruncated": true }
+        "outputs": [
+          {
+            "name": "data",
+            "type": "object"
+          },
+          {
+            "name": "success",
+            "type": "boolean"
+          },
+          {
+            "name": "error",
+            "type": "string"
+          }
+        ],
+        "config": {
+          "extractFromCodeBlock": true,
+          "fixCommonErrors": true,
+          "fixTruncated": true
+        }
       },
       {
         "id": "apply-state",
         "type": "ApplyState",
         "label": "Apply world changes",
-        "position": { "x": 900, "y": 80 },
-        "inputs": [{ "name": "changes", "type": "object", "required": true }],
+        "position": {
+          "x": 900,
+          "y": 80
+        },
+        "inputs": [
+          {
+            "name": "changes",
+            "type": "object",
+            "required": true
+          }
+        ],
         "outputs": [
-          { "name": "applied", "type": "array" },
-          { "name": "success", "type": "boolean" }
+          {
+            "name": "applied",
+            "type": "array"
+          },
+          {
+            "name": "success",
+            "type": "boolean"
+          }
         ],
         "config": {
           "path": "stateChanges",
-          "allowedKeys": ["suspicion", "todayWorldEvents"]
+          "allowedKeys": [
+            "suspicion",
+            "todayWorldEvents"
+          ]
         }
       },
       {
         "id": "apply-npc",
         "type": "ApplyState",
         "label": "Apply NPC changes",
-        "position": { "x": 900, "y": 200 },
-        "inputs": [{ "name": "changes", "type": "object", "required": true }],
+        "position": {
+          "x": 900,
+          "y": 200
+        },
+        "inputs": [
+          {
+            "name": "changes",
+            "type": "object",
+            "required": true
+          }
+        ],
         "outputs": [
-          { "name": "applied", "type": "array" },
-          { "name": "success", "type": "boolean" }
+          {
+            "name": "applied",
+            "type": "array"
+          },
+          {
+            "name": "success",
+            "type": "boolean"
+          }
         ],
         "config": {
           "path": "npcChanges",
           "allowedKeys": [
-            "mood_lily", "mood_marcus", "mood_coach", "mood_zoe", "mood_tyler", "mood_holloway",
-            "arc_lily", "arc_marcus", "arc_coach", "arc_zoe", "arc_tyler", "arc_holloway"
+            "mood_lily",
+            "mood_marcus",
+            "mood_coach",
+            "mood_zoe",
+            "mood_tyler",
+            "mood_holloway",
+            "arc_lily",
+            "arc_marcus",
+            "arc_coach",
+            "arc_zoe",
+            "arc_tyler",
+            "arc_holloway"
           ]
         }
       },
@@ -183,19 +342,64 @@
         "id": "signal-out",
         "type": "SignalOut",
         "label": "Output",
-        "position": { "x": 900, "y": -80 },
-        "inputs": [{ "name": "data", "type": "object" }],
-        "outputs": [{ "name": "data", "type": "object" }],
-        "config": { "channel": "result" }
+        "position": {
+          "x": 900,
+          "y": -80
+        },
+        "inputs": [
+          {
+            "name": "data",
+            "type": "object"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "data",
+            "type": "object"
+          }
+        ],
+        "config": {
+          "channel": "result"
+        }
       }
     ],
     "edges": [
-      { "source": "prompt-build", "sourceHandle": "messages", "target": "message", "targetHandle": "system" },
-      { "source": "message", "sourceHandle": "messages", "target": "generate", "targetHandle": "messages" },
-      { "source": "generate", "sourceHandle": "text", "target": "json-parse", "targetHandle": "text" },
-      { "source": "json-parse", "sourceHandle": "data", "target": "apply-state", "targetHandle": "changes" },
-      { "source": "json-parse", "sourceHandle": "data", "target": "apply-npc", "targetHandle": "changes" },
-      { "source": "json-parse", "sourceHandle": "data", "target": "signal-out", "targetHandle": "data" }
+      {
+        "source": "prompt-build",
+        "sourceHandle": "text",
+        "target": "message",
+        "targetHandle": "system"
+      },
+      {
+        "source": "message",
+        "sourceHandle": "messages",
+        "target": "generate",
+        "targetHandle": "messages"
+      },
+      {
+        "source": "generate",
+        "sourceHandle": "text",
+        "target": "json-parse",
+        "targetHandle": "text"
+      },
+      {
+        "source": "json-parse",
+        "sourceHandle": "data",
+        "target": "apply-state",
+        "targetHandle": "changes"
+      },
+      {
+        "source": "json-parse",
+        "sourceHandle": "data",
+        "target": "apply-npc",
+        "targetHandle": "changes"
+      },
+      {
+        "source": "json-parse",
+        "sourceHandle": "data",
+        "target": "signal-out",
+        "targetHandle": "data"
+      }
     ]
   }
 }

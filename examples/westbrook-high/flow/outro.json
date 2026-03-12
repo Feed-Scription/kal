@@ -4,7 +4,12 @@
     "name": "outro",
     "description": "Ending narration — AI generates personalized semester review based on dual-axis ending + NPC fates + player style",
     "inputs": [],
-    "outputs": [{ "name": "result", "type": "string" }]
+    "outputs": [
+      {
+        "name": "result",
+        "type": "string"
+      }
+    ]
   },
   "data": {
     "nodes": [
@@ -12,88 +17,141 @@
         "id": "prompt-build",
         "type": "PromptBuild",
         "label": "Ending prompt",
-        "position": { "x": 0, "y": 0 },
-        "inputs": [{ "name": "data", "type": "object", "defaultValue": {} }],
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "inputs": [
+          {
+            "name": "data",
+            "type": "object",
+            "defaultValue": {}
+          }
+        ],
         "outputs": [
-          { "name": "messages", "type": "ChatMessage[]" },
-          { "name": "text", "type": "string" },
-          { "name": "estimatedTokens", "type": "number" }
+          {
+            "name": "messages",
+            "type": "ChatMessage[]"
+          },
+          {
+            "name": "text",
+            "type": "string"
+          },
+          {
+            "name": "estimatedTokens",
+            "type": "number"
+          }
         ],
         "config": {
           "defaultRole": "system",
           "fragments": [
             {
-              "type": "base", "id": "role",
+              "type": "base",
+              "id": "role",
               "content": "你是 Westbrook High 的叙事者。冷峻写实风格。绝不用感叹号。\n\n生成游戏结局——\"学期回顾\"。这是一段文学性的回顾叙事，反映玩家的整个旅程。\n\n结构：\n1. 开头：回到第一天到达Westbrook的场景，但用现在的视角重新审视\n2. 真相：根据真相深度轴，描述玩家发现了什么（或没发现什么）\n3. 人们：根据人际影响轴和NPC命运，描述每个人的结局\n4. 你：根据玩家风格标签，描述玩家自己变成了什么样的人\n5. 结尾：一句话，像墓志铭或传记结语\n\n规则：\n- 不要列举数据。用故事的方式讲述\n- 找到玩家选择中的一致模式——TA是什么类型的人？\n- 提到至少3个具体事件（从关键决策中选取）\n- 每个核心NPC至少提及一句话的命运\n- 语调要庄重但不煽情\n- empathetic玩家的回顾更温暖，aggressive玩家的回顾更锋利\n- 总长度400-600字\n\n真相深度轴含义：\n- surface: 你只知道官方说法。Maya失踪了，Ethan自杀了。学校照常运转。\n- middle: 你发现了部分真相。有些事不是表面看起来那样。\n- deep: 你看到了全貌。三条线汇聚成一个完整的悲剧。\n\n人际影响轴含义：\n- guardian: 你保护了身边的人。代价是你自己承受了更多。\n- catalyst: 你改变了格局。有人因你得救，有人因你受伤。\n- bystander: 你知道真相，但没能改变什么。也许这就是现实。\n- destroyer: 你追求真相不惜一切代价。真相大白了，但废墟上站着的只有你。\n\n输出纯文本叙事，不需要JSON格式。",
               "role": "system"
             },
             {
-              "type": "field", "id": "truthAxis",
-              "source": "state.endingTruthAxis", "label": "真相深度轴"
+              "type": "field",
+              "id": "truthAxis",
+              "source": "state.endingTruthAxis",
+              "label": "真相深度轴"
             },
             {
-              "type": "field", "id": "impactAxis",
-              "source": "state.endingImpactAxis", "label": "人际影响轴"
+              "type": "field",
+              "id": "impactAxis",
+              "source": "state.endingImpactAxis",
+              "label": "人际影响轴"
             },
             {
-              "type": "field", "id": "npcFates",
-              "source": "state.npcFates", "label": "NPC命运"
+              "type": "field",
+              "id": "npcFates",
+              "source": "state.npcFates",
+              "label": "NPC命运"
             },
             {
-              "type": "field", "id": "playstyle",
-              "source": "state.playstyle", "label": "玩家风格标签"
+              "type": "field",
+              "id": "playstyle",
+              "source": "state.playstyle",
+              "label": "玩家风格标签"
             },
             {
-              "type": "field", "id": "keyDecisions",
-              "source": "state.keyDecisions", "label": "关键决策"
+              "type": "field",
+              "id": "keyDecisions",
+              "source": "state.keyDecisions",
+              "label": "关键决策"
             },
             {
-              "type": "field", "id": "lineA",
-              "source": "state.lineA_depth", "label": "Line A深度"
+              "type": "field",
+              "id": "lineA",
+              "source": "state.lineA_depth",
+              "label": "Line A深度"
             },
             {
-              "type": "field", "id": "lineB",
-              "source": "state.lineB_depth", "label": "Line B深度"
+              "type": "field",
+              "id": "lineB",
+              "source": "state.lineB_depth",
+              "label": "Line B深度"
             },
             {
-              "type": "field", "id": "lineC",
-              "source": "state.lineC_depth", "label": "Line C深度"
+              "type": "field",
+              "id": "lineC",
+              "source": "state.lineC_depth",
+              "label": "Line C深度"
             },
             {
-              "type": "field", "id": "arcBranch-lily",
-              "source": "state.arcBranch_lily", "label": "Lily弧线分支"
+              "type": "field",
+              "id": "arcBranch-lily",
+              "source": "state.arcBranch_lily",
+              "label": "Lily弧线分支"
             },
             {
-              "type": "field", "id": "arcBranch-marcus",
-              "source": "state.arcBranch_marcus", "label": "Marcus弧线分支"
+              "type": "field",
+              "id": "arcBranch-marcus",
+              "source": "state.arcBranch_marcus",
+              "label": "Marcus弧线分支"
             },
             {
-              "type": "field", "id": "arcBranch-coach",
-              "source": "state.arcBranch_coach", "label": "Coach弧线分支"
+              "type": "field",
+              "id": "arcBranch-coach",
+              "source": "state.arcBranch_coach",
+              "label": "Coach弧线分支"
             },
             {
-              "type": "field", "id": "arcBranch-zoe",
-              "source": "state.arcBranch_zoe", "label": "Zoe弧线分支"
+              "type": "field",
+              "id": "arcBranch-zoe",
+              "source": "state.arcBranch_zoe",
+              "label": "Zoe弧线分支"
             },
             {
-              "type": "field", "id": "arcBranch-tyler",
-              "source": "state.arcBranch_tyler", "label": "Tyler弧线分支"
+              "type": "field",
+              "id": "arcBranch-tyler",
+              "source": "state.arcBranch_tyler",
+              "label": "Tyler弧线分支"
             },
             {
-              "type": "field", "id": "arcBranch-holloway",
-              "source": "state.arcBranch_holloway", "label": "Holloway弧线分支"
+              "type": "field",
+              "id": "arcBranch-holloway",
+              "source": "state.arcBranch_holloway",
+              "label": "Holloway弧线分支"
             },
             {
-              "type": "field", "id": "fourthLine",
-              "source": "state.fourthLineUnlocked", "label": "第四线已解锁"
+              "type": "field",
+              "id": "fourthLine",
+              "source": "state.fourthLineUnlocked",
+              "label": "第四线已解锁"
             },
             {
-              "type": "field", "id": "day",
-              "source": "state.day", "label": "结束天数"
+              "type": "field",
+              "id": "day",
+              "source": "state.day",
+              "label": "结束天数"
             },
             {
-              "type": "field", "id": "suspicion",
-              "source": "state.suspicion", "label": "最终怀疑值"
+              "type": "field",
+              "id": "suspicion",
+              "source": "state.suspicion",
+              "label": "最终怀疑值"
             }
           ]
         }
@@ -102,23 +160,55 @@
         "id": "message",
         "type": "Message",
         "label": "Assemble",
-        "position": { "x": 300, "y": 0 },
+        "position": {
+          "x": 300,
+          "y": 0
+        },
         "inputs": [
-          { "name": "system", "type": "ChatMessage[]" },
-          { "name": "user", "type": "string" }
+          {
+            "name": "system",
+            "type": "string"
+          },
+          {
+            "name": "user",
+            "type": "string"
+          }
         ],
-        "outputs": [{ "name": "messages", "type": "ChatMessage[]" }],
-        "config": { "historyKey": "history", "maxHistoryMessages": 6, "summaryKey": "summary" }
+        "outputs": [
+          {
+            "name": "messages",
+            "type": "ChatMessage[]"
+          }
+        ],
+        "config": {
+          "historyKey": "history",
+          "maxHistoryMessages": 6,
+          "summaryKey": "summary"
+        }
       },
       {
         "id": "generate",
         "type": "GenerateText",
         "label": "Generate ending",
-        "position": { "x": 500, "y": 0 },
-        "inputs": [{ "name": "messages", "type": "ChatMessage[]" }],
+        "position": {
+          "x": 500,
+          "y": 0
+        },
+        "inputs": [
+          {
+            "name": "messages",
+            "type": "ChatMessage[]"
+          }
+        ],
         "outputs": [
-          { "name": "text", "type": "string" },
-          { "name": "usage", "type": "object" }
+          {
+            "name": "text",
+            "type": "string"
+          },
+          {
+            "name": "usage",
+            "type": "object"
+          }
         ],
         "config": {
           "historyKey": "history",
@@ -130,16 +220,46 @@
         "id": "signal-out",
         "type": "SignalOut",
         "label": "Output",
-        "position": { "x": 700, "y": 0 },
-        "inputs": [{ "name": "data", "type": "string" }],
-        "outputs": [{ "name": "data", "type": "string" }],
-        "config": { "channel": "result" }
+        "position": {
+          "x": 700,
+          "y": 0
+        },
+        "inputs": [
+          {
+            "name": "data",
+            "type": "string"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "data",
+            "type": "string"
+          }
+        ],
+        "config": {
+          "channel": "result"
+        }
       }
     ],
     "edges": [
-      { "source": "prompt-build", "sourceHandle": "messages", "target": "message", "targetHandle": "system" },
-      { "source": "message", "sourceHandle": "messages", "target": "generate", "targetHandle": "messages" },
-      { "source": "generate", "sourceHandle": "text", "target": "signal-out", "targetHandle": "data" }
+      {
+        "source": "prompt-build",
+        "sourceHandle": "text",
+        "target": "message",
+        "targetHandle": "system"
+      },
+      {
+        "source": "message",
+        "sourceHandle": "messages",
+        "target": "generate",
+        "targetHandle": "messages"
+      },
+      {
+        "source": "generate",
+        "sourceHandle": "text",
+        "target": "signal-out",
+        "targetHandle": "data"
+      }
     ]
   }
 }

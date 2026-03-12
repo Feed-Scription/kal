@@ -4,7 +4,12 @@
     "name": "outro-dark",
     "description": "Dark ending — suspicion reached 100, player is silenced",
     "inputs": [],
-    "outputs": [{ "name": "result", "type": "string" }]
+    "outputs": [
+      {
+        "name": "result",
+        "type": "string"
+      }
+    ]
   },
   "data": {
     "nodes": [
@@ -12,53 +17,88 @@
         "id": "prompt-build",
         "type": "PromptBuild",
         "label": "Dark ending prompt",
-        "position": { "x": 0, "y": 0 },
-        "inputs": [{ "name": "data", "type": "object", "defaultValue": {} }],
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "inputs": [
+          {
+            "name": "data",
+            "type": "object",
+            "defaultValue": {}
+          }
+        ],
         "outputs": [
-          { "name": "messages", "type": "ChatMessage[]" },
-          { "name": "text", "type": "string" },
-          { "name": "estimatedTokens", "type": "number" }
+          {
+            "name": "messages",
+            "type": "ChatMessage[]"
+          },
+          {
+            "name": "text",
+            "type": "string"
+          },
+          {
+            "name": "estimatedTokens",
+            "type": "number"
+          }
         ],
         "config": {
           "defaultRole": "system",
           "fragments": [
             {
-              "type": "base", "id": "role",
+              "type": "base",
+              "id": "role",
               "content": "你是 Westbrook High 的叙事者。冷峻写实风格。绝不用感叹号。\n\n生成DARK结局——玩家的怀疑值达到100，被校方\"处理\"了。\n\n场景：\n- 校长办公室的谈话。措辞礼貌但含义明确。\n- 你的父母被通知了\"适应问题\"。\n- 转学手续已经办好。\n- 你的储物柜被清空了。你的手机里某些截图不见了。\n- 走的那天，走廊里没人看你。除了一个人——根据玩家与NPC的关系，选择信任值最高的NPC，让TA在远处看着你离开。\n\n结尾暗示：你成为了下一个\"消失\"的人。不是物理上的消失，而是从Westbrook的记忆中被抹去。就像Maya。就像Ethan。\n\n语调：冰冷、克制、令人不安。200-300字。\n\n输出纯文本叙事。",
               "role": "system"
             },
             {
-              "type": "field", "id": "day",
-              "source": "state.day", "label": "结束天数"
+              "type": "field",
+              "id": "day",
+              "source": "state.day",
+              "label": "结束天数"
             },
             {
-              "type": "field", "id": "trust-lily",
-              "source": "state.trust_lily", "label": "Lily信任"
+              "type": "field",
+              "id": "trust-lily",
+              "source": "state.trust_lily",
+              "label": "Lily信任"
             },
             {
-              "type": "field", "id": "trust-marcus",
-              "source": "state.trust_marcus", "label": "Marcus信任"
+              "type": "field",
+              "id": "trust-marcus",
+              "source": "state.trust_marcus",
+              "label": "Marcus信任"
             },
             {
-              "type": "field", "id": "trust-zoe",
-              "source": "state.trust_zoe", "label": "Zoe信任"
+              "type": "field",
+              "id": "trust-zoe",
+              "source": "state.trust_zoe",
+              "label": "Zoe信任"
             },
             {
-              "type": "field", "id": "trust-tyler",
-              "source": "state.trust_tyler", "label": "Tyler信任"
+              "type": "field",
+              "id": "trust-tyler",
+              "source": "state.trust_tyler",
+              "label": "Tyler信任"
             },
             {
-              "type": "field", "id": "keyDecisions",
-              "source": "state.keyDecisions", "label": "关键决策",
+              "type": "field",
+              "id": "keyDecisions",
+              "source": "state.keyDecisions",
+              "label": "关键决策",
               "window": 3
             },
             {
-              "type": "field", "id": "lineA",
-              "source": "state.lineA_depth", "label": "Line A深度"
+              "type": "field",
+              "id": "lineA",
+              "source": "state.lineA_depth",
+              "label": "Line A深度"
             },
             {
-              "type": "field", "id": "lineB",
-              "source": "state.lineB_depth", "label": "Line B深度"
+              "type": "field",
+              "id": "lineB",
+              "source": "state.lineB_depth",
+              "label": "Line B深度"
             }
           ]
         }
@@ -67,23 +107,55 @@
         "id": "message",
         "type": "Message",
         "label": "Assemble",
-        "position": { "x": 300, "y": 0 },
+        "position": {
+          "x": 300,
+          "y": 0
+        },
         "inputs": [
-          { "name": "system", "type": "ChatMessage[]" },
-          { "name": "user", "type": "string" }
+          {
+            "name": "system",
+            "type": "string"
+          },
+          {
+            "name": "user",
+            "type": "string"
+          }
         ],
-        "outputs": [{ "name": "messages", "type": "ChatMessage[]" }],
-        "config": { "historyKey": "history", "maxHistoryMessages": 4, "summaryKey": "summary" }
+        "outputs": [
+          {
+            "name": "messages",
+            "type": "ChatMessage[]"
+          }
+        ],
+        "config": {
+          "historyKey": "history",
+          "maxHistoryMessages": 4,
+          "summaryKey": "summary"
+        }
       },
       {
         "id": "generate",
         "type": "GenerateText",
         "label": "Generate dark ending",
-        "position": { "x": 500, "y": 0 },
-        "inputs": [{ "name": "messages", "type": "ChatMessage[]" }],
+        "position": {
+          "x": 500,
+          "y": 0
+        },
+        "inputs": [
+          {
+            "name": "messages",
+            "type": "ChatMessage[]"
+          }
+        ],
         "outputs": [
-          { "name": "text", "type": "string" },
-          { "name": "usage", "type": "object" }
+          {
+            "name": "text",
+            "type": "string"
+          },
+          {
+            "name": "usage",
+            "type": "object"
+          }
         ],
         "config": {
           "historyKey": "history",
@@ -95,16 +167,46 @@
         "id": "signal-out",
         "type": "SignalOut",
         "label": "Output",
-        "position": { "x": 700, "y": 0 },
-        "inputs": [{ "name": "data", "type": "string" }],
-        "outputs": [{ "name": "data", "type": "string" }],
-        "config": { "channel": "result" }
+        "position": {
+          "x": 700,
+          "y": 0
+        },
+        "inputs": [
+          {
+            "name": "data",
+            "type": "string"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "data",
+            "type": "string"
+          }
+        ],
+        "config": {
+          "channel": "result"
+        }
       }
     ],
     "edges": [
-      { "source": "prompt-build", "sourceHandle": "messages", "target": "message", "targetHandle": "system" },
-      { "source": "message", "sourceHandle": "messages", "target": "generate", "targetHandle": "messages" },
-      { "source": "generate", "sourceHandle": "text", "target": "signal-out", "targetHandle": "data" }
+      {
+        "source": "prompt-build",
+        "sourceHandle": "text",
+        "target": "message",
+        "targetHandle": "system"
+      },
+      {
+        "source": "message",
+        "sourceHandle": "messages",
+        "target": "generate",
+        "targetHandle": "messages"
+      },
+      {
+        "source": "generate",
+        "sourceHandle": "text",
+        "target": "signal-out",
+        "targetHandle": "data"
+      }
     ]
   }
 }

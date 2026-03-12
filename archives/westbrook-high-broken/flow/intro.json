@@ -31,6 +31,18 @@
         }
       },
       {
+        "id": "message",
+        "type": "Message",
+        "label": "Assemble",
+        "position": { "x": 200, "y": 0 },
+        "inputs": [
+          { "name": "system", "type": "ChatMessage[]" },
+          { "name": "user", "type": "string" }
+        ],
+        "outputs": [{ "name": "messages", "type": "ChatMessage[]" }],
+        "config": { "historyKey": "history", "maxHistoryMessages": 0 }
+      },
+      {
         "id": "generate",
         "type": "GenerateText",
         "label": "Generate intro",
@@ -56,7 +68,8 @@
       }
     ],
     "edges": [
-      { "source": "prompt-build", "sourceHandle": "messages", "target": "generate", "targetHandle": "messages" },
+      { "source": "prompt-build", "sourceHandle": "messages", "target": "message", "targetHandle": "system" },
+      { "source": "message", "sourceHandle": "messages", "target": "generate", "targetHandle": "messages" },
       { "source": "generate", "sourceHandle": "text", "target": "signal-out", "targetHandle": "data" }
     ]
   }

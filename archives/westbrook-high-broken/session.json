@@ -71,14 +71,6 @@
       "type": "Branch",
       "conditions": [
         {
-          "when": "state.phase == 'night'",
-          "next": "check-confrontation"
-        },
-        {
-          "when": "state.phase == 'night_done'",
-          "next": "day-end"
-        },
-        {
           "when": "state.ap <= 0",
           "next": "check-confrontation"
         },

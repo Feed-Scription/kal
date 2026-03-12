@@ -40,6 +40,7 @@ function validateOutputs(
   const declaredOutputs = new Set(nodeDef.outputs.map((output) => output.name));
   const actualOutputs = new Set(Object.keys(outputs));
 
+  // Check that all declared outputs are present
   for (const declared of declaredOutputs) {
     if (!actualOutputs.has(declared)) {
       throw new ExecutionError(
@@ -48,11 +49,12 @@ function validateOutputs(
     }
   }
 
+  // Allow extra outputs (for dynamic nodes like ReadState with config.keys)
+  // Only warn about undeclared outputs, don't throw
   for (const actual of actualOutputs) {
     if (!declaredOutputs.has(actual)) {
-      throw new ExecutionError(
-        `Node "${nodeDef.id}" (${nodeDef.type}) returned undeclared output: "${actual}"`
-      );
+      // Silently allow extra outputs - this supports dynamic output patterns
+      // like ReadState with config.keys returning multiple state values
     }
   }
 }

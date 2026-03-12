@@ -111,8 +111,15 @@ export class StateStore {
       if (!this.isJsonSerializable(value.value)) {
         throw new Error(`Invalid initial state for key "${key}": value is not JSON serializable`);
       }
-      this.store.set(key, value);
+      this.store.set(key, {
+        type: value.type,
+        value: this.deepCopy(value.value),
+      });
     }
+  }
+
+  restore(snapshot: InitialState): void {
+    this.loadInitialState(snapshot);
   }
 
   private isJsonSerializable(value: any): boolean {
