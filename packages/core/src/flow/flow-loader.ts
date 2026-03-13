@@ -5,17 +5,24 @@
 import type { FlowDefinition, HandleDefinition, NodeDefinition } from '../types/types';
 import { ValidationError } from '../types/errors';
 
+export type ManifestLookup = (nodeType: string) => { inputs: HandleDefinition[]; outputs: HandleDefinition[] } | undefined;
+
 /**
  * FlowLoader
  */
 export class FlowLoader {
   private loadedFlows: Map<string, FlowDefinition> = new Map();
   private loadingStack: Set<string> = new Set();
+  private manifestLookup?: ManifestLookup;
+
+  constructor(manifestLookup?: ManifestLookup) {
+    this.manifestLookup = manifestLookup;
+  }
 
   /**
    * Parse a flow from JSON string
    */
-  static parse(json: string): FlowDefinition {
+  static parse(json: string, manifestLookup?: ManifestLookup): FlowDefinition {
     let raw: any;
     try {
       raw = JSON.parse(json);
@@ -23,13 +30,13 @@ export class FlowLoader {
       throw new ValidationError('Invalid JSON in flow definition');
     }
 
-    return FlowLoader.validate(raw);
+    return FlowLoader.validate(raw, manifestLookup);
   }
 
   /**
    * Validate a flow definition object
    */
-  static validate(raw: any): FlowDefinition {
+  static validate(raw: any, manifestLookup?: ManifestLookup): FlowDefinition {
     if (!raw || typeof raw !== 'object') {
       throw new ValidationError('Flow definition must be an object');
     }
@@ -79,6 +86,20 @@ export class FlowLoader {
         throw new ValidationError(`Duplicate node id: "${node.id}"`);
       }
       nodeIds.add(node.id);
+
+      // Manifest-first: fill missing inputs/outputs from registry manifest
+      // SubFlow nodes are excluded — their handles depend on the referenced flow
+      if (manifestLookup && node.type !== 'SubFlow') {
+        const manifest = manifestLookup(node.type);
+        if (manifest) {
+          if (!Array.isArray(node.inputs)) {
+            node.inputs = manifest.inputs.map((h: HandleDefinition) => ({ ...h }));
+          }
+          if (!Array.isArray(node.outputs)) {
+            node.outputs = manifest.outputs.map((h: HandleDefinition) => ({ ...h }));
+          }
+        }
+      }
 
       if (!Array.isArray(node.inputs)) {
         throw new ValidationError(`Node "${node.id}" must have an "inputs" array`);
@@ -331,7 +352,7 @@ export class FlowLoader {
 
     try {
       const json = resolver(flowId);
-      const flow = FlowLoader.parse(json);
+      const flow = FlowLoader.parse(json, this.manifestLookup);
 
       for (const node of flow.data.nodes) {
         if (node.type === 'SubFlow') {
