@@ -126,6 +126,10 @@ export const ApplyState: CustomNode = {
         type: 'object',
         description: 'Operation type for each key: "set" (default), "append", or "appendMany"',
       },
+      deduplicateBy: {
+        type: 'object',
+        description: 'For appendMany keys, deduplicate by a field name. e.g. { "topicCards": "id" }',
+      },
       constraints: {
         type: 'object',
         description: 'Constraints for each key: { min, max } for numbers',
@@ -138,6 +142,7 @@ export const ApplyState: CustomNode = {
     allowedKeys: [],
     operations: {},
     constraints: {},
+    deduplicateBy: {},
   },
   async execute(inputs, config, context) {
     let changes = inputs.changes;
@@ -179,6 +184,7 @@ export const ApplyState: CustomNode = {
         : undefined;
     const operations = (config.operations as Record<string, string> | undefined) ?? {};
     const constraints = (config.constraints as Record<string, { min?: number; max?: number }> | undefined) ?? {};
+    const deduplicateBy = (config.deduplicateBy as Record<string, string> | undefined) ?? {};
     const applied: string[] = [];
 
     for (const [key, newValue] of Object.entries(changes)) {
@@ -252,7 +258,25 @@ export const ApplyState: CustomNode = {
           applied.push(key);
         } else if (operation === 'appendMany') {
           if (Array.isArray(valueToWrite)) {
-            context.state.appendMany(key, valueToWrite);
+            let items = valueToWrite;
+            const dedupField = deduplicateBy[key];
+            if (dedupField) {
+              const currentArr = existing.value as any[] ?? [];
+              const existingKeys = new Set(
+                currentArr
+                  .filter((item: any) => item && typeof item === 'object' && item[dedupField])
+                  .map((item: any) => item[dedupField])
+              );
+              items = items.filter((item: any) => {
+                if (item && typeof item === 'object' && item[dedupField]) {
+                  if (existingKeys.has(item[dedupField])) return false;
+                  existingKeys.add(item[dedupField]);
+                  return true;
+                }
+                return true;
+              });
+            }
+            context.state.appendMany(key, items);
             applied.push(key);
           } else {
             context.logger.error('ApplyState: appendMany requires array value', { key });

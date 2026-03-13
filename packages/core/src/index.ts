@@ -67,6 +67,7 @@ export type { GraphNode } from './flow/flow-graph';
 export { FlowExecutor } from './flow/flow-executor';
 export type { FlowExecutionResult } from './flow/flow-executor';
 export { FlowLoader } from './flow/flow-loader';
+export type { ManifestLookup } from './flow/flow-loader';
 export { Scheduler } from './flow/scheduler';
 
 // Session
