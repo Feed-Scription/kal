@@ -71,6 +71,10 @@
           "operations": {
             "topicCards": "appendMany",
             "evidenceCards": "appendMany"
+          },
+          "deduplicateBy": {
+            "topicCards": "id",
+            "evidenceCards": "id"
           }
         }
       },

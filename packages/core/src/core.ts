@@ -155,8 +155,12 @@ export function createKalCore(params: {
     nodeId,
   });
 
-  // Create flow loader
-  const flowLoader = new FlowLoader();
+  // Create flow loader with manifest lookup from registry
+  const flowLoader = new FlowLoader((nodeType: string) => {
+    const node = registry.get(nodeType);
+    if (!node) return undefined;
+    return { inputs: node.inputs, outputs: node.outputs };
+  });
 
   // Flow resolver fallback (set by loadFlow)
   let defaultResolver: ((id: string) => string) | undefined;
