@@ -4,7 +4,12 @@
     "name": "day-end",
     "description": "End of day — advance day counter, update game stage, check phone unlocks",
     "inputs": [],
-    "outputs": [{ "name": "result", "type": "string" }]
+    "outputs": [
+      {
+        "name": "result",
+        "type": "string"
+      }
+    ]
   },
   "data": {
     "nodes": [
@@ -12,44 +17,71 @@
         "id": "prompt-build",
         "type": "PromptBuild",
         "label": "Stage check prompt",
-        "position": { "x": 200, "y": 60 },
-        "inputs": [{ "name": "data", "type": "object", "defaultValue": {} }],
+        "inputs": [
+          {
+            "name": "data",
+            "type": "object",
+            "defaultValue": {}
+          }
+        ],
         "outputs": [
-          { "name": "messages", "type": "ChatMessage[]" },
-          { "name": "text", "type": "string" },
-          { "name": "estimatedTokens", "type": "number" }
+          {
+            "name": "messages",
+            "type": "ChatMessage[]"
+          },
+          {
+            "name": "text",
+            "type": "string"
+          },
+          {
+            "name": "estimatedTokens",
+            "type": "number"
+          }
         ],
         "config": {
           "defaultRole": "system",
           "fragments": [
             {
-              "type": "base", "id": "role",
+              "type": "base",
+              "id": "role",
               "content": "根据当前天数确定游戏阶段和手机解锁状态。纯逻辑判断，不需要叙事。\n\n重要：你必须将day值+1后返回。例如当前day=5，你应返回day=6。\n\n游戏阶段规则（用+1后的day判断）：\n- Day 1-9: adaptation\n- Day 10-18: investigation\n- Day 19-27: deepening\n- Day 28-36: endgame\n\n手机解锁规则（用+1后的day判断）：\n- Day 2+: phoneUnlocked_social = true\n- Day 4+: phoneUnlocked_dm = true\n- Day 7+: phoneUnlocked_forum = true\n- Day 14+: phoneUnlocked_anon = true\n\n结局轴判定（仅在day+1>36时计算）：\n- 真相深度轴：所有线≤1=surface, 任一线≥3=middle, 两线≥3且convergenceDiscovered=deep\n- 人际影响轴：根据NPC命运统计（拯救≥4=guardian, 拯救2-3+深渊1-2=catalyst, 旁观≥4=bystander, 深渊≥3=destroyer）\n\n输出JSON：\n{\n  \"stateChanges\": {\n    \"day\": 当前day+1的值,\n    \"gameStage\": \"阶段名\",\n    \"phoneUnlocked_social\": true/false,\n    \"phoneUnlocked_dm\": true/false,\n    \"phoneUnlocked_forum\": true/false,\n    \"phoneUnlocked_anon\": true/false,\n    \"gameOver\": true（仅day+1>36时）,\n    \"endingTruthAxis\": \"仅day+1>36\",\n    \"endingImpactAxis\": \"仅day+1>36\"\n  }\n}",
               "role": "system"
             },
             {
-              "type": "field", "id": "day",
-              "source": "state.day", "label": "当前天数（已+1后的值）"
+              "type": "field",
+              "id": "day",
+              "source": "state.day",
+              "label": "当前天数（已+1后的值）"
             },
             {
-              "type": "field", "id": "lineA",
-              "source": "state.lineA_depth", "label": "Line A深度"
+              "type": "field",
+              "id": "lineA",
+              "source": "state.lineA_depth",
+              "label": "Line A深度"
             },
             {
-              "type": "field", "id": "lineB",
-              "source": "state.lineB_depth", "label": "Line B深度"
+              "type": "field",
+              "id": "lineB",
+              "source": "state.lineB_depth",
+              "label": "Line B深度"
             },
             {
-              "type": "field", "id": "lineC",
-              "source": "state.lineC_depth", "label": "Line C深度"
+              "type": "field",
+              "id": "lineC",
+              "source": "state.lineC_depth",
+              "label": "Line C深度"
             },
             {
-              "type": "field", "id": "convergence",
-              "source": "state.convergenceDiscovered", "label": "汇聚已发现"
+              "type": "field",
+              "id": "convergence",
+              "source": "state.convergenceDiscovered",
+              "label": "汇聚已发现"
             },
             {
-              "type": "field", "id": "npcFates",
-              "source": "state.npcFates", "label": "NPC命运"
+              "type": "field",
+              "id": "npcFates",
+              "source": "state.npcFates",
+              "label": "NPC命运"
             }
           ]
         }
@@ -58,23 +90,46 @@
         "id": "message",
         "type": "Message",
         "label": "Assemble",
-        "position": { "x": 400, "y": 60 },
         "inputs": [
-          { "name": "system", "type": "ChatMessage[]" },
-          { "name": "user", "type": "string" }
+          {
+            "name": "system",
+            "type": "ChatMessage[]"
+          },
+          {
+            "name": "user",
+            "type": "string"
+          }
         ],
-        "outputs": [{ "name": "messages", "type": "ChatMessage[]" }],
-        "config": { "historyKey": "history", "maxHistoryMessages": 0 }
+        "outputs": [
+          {
+            "name": "messages",
+            "type": "ChatMessage[]"
+          }
+        ],
+        "config": {
+          "historyKey": "history",
+          "maxHistoryMessages": 0
+        }
       },
       {
         "id": "generate",
         "type": "GenerateText",
         "label": "Calculate stage",
-        "position": { "x": 600, "y": 60 },
-        "inputs": [{ "name": "messages", "type": "ChatMessage[]" }],
+        "inputs": [
+          {
+            "name": "messages",
+            "type": "ChatMessage[]"
+          }
+        ],
         "outputs": [
-          { "name": "text", "type": "string" },
-          { "name": "usage", "type": "object" }
+          {
+            "name": "text",
+            "type": "string"
+          },
+          {
+            "name": "usage",
+            "type": "object"
+          }
         ],
         "config": {
           "responseFormat": "json",
@@ -85,31 +140,66 @@
         "id": "json-parse",
         "type": "JSONParse",
         "label": "Parse",
-        "position": { "x": 800, "y": 60 },
-        "inputs": [{ "name": "text", "type": "string", "required": true }],
-        "outputs": [
-          { "name": "data", "type": "object" },
-          { "name": "success", "type": "boolean" },
-          { "name": "error", "type": "string" }
+        "inputs": [
+          {
+            "name": "text",
+            "type": "string",
+            "required": true
+          }
         ],
-        "config": { "extractFromCodeBlock": true, "fixCommonErrors": true, "fixTruncated": true }
+        "outputs": [
+          {
+            "name": "data",
+            "type": "object"
+          },
+          {
+            "name": "success",
+            "type": "boolean"
+          },
+          {
+            "name": "error",
+            "type": "string"
+          }
+        ],
+        "config": {
+          "extractFromCodeBlock": true,
+          "fixCommonErrors": true,
+          "fixTruncated": true
+        }
       },
       {
         "id": "apply-state",
         "type": "ApplyState",
         "label": "Apply stage",
-        "position": { "x": 1000, "y": 60 },
-        "inputs": [{ "name": "changes", "type": "object", "required": true }],
+        "inputs": [
+          {
+            "name": "changes",
+            "type": "object",
+            "required": true
+          }
+        ],
         "outputs": [
-          { "name": "applied", "type": "array" },
-          { "name": "success", "type": "boolean" }
+          {
+            "name": "applied",
+            "type": "array"
+          },
+          {
+            "name": "success",
+            "type": "boolean"
+          }
         ],
         "config": {
           "path": "stateChanges",
           "allowedKeys": [
-            "day", "gameStage", "gameOver",
-            "phoneUnlocked_social", "phoneUnlocked_dm", "phoneUnlocked_forum", "phoneUnlocked_anon",
-            "endingTruthAxis", "endingImpactAxis"
+            "day",
+            "gameStage",
+            "gameOver",
+            "phoneUnlocked_social",
+            "phoneUnlocked_dm",
+            "phoneUnlocked_forum",
+            "phoneUnlocked_anon",
+            "endingTruthAxis",
+            "endingImpactAxis"
           ]
         }
       },
@@ -117,18 +207,54 @@
         "id": "signal-out",
         "type": "SignalOut",
         "label": "Output",
-        "position": { "x": 1000, "y": -60 },
-        "inputs": [{ "name": "data", "type": "string" }],
-        "outputs": [{ "name": "data", "type": "string" }],
-        "config": { "channel": "result" }
+        "inputs": [
+          {
+            "name": "data",
+            "type": "string"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "data",
+            "type": "string"
+          }
+        ],
+        "config": {
+          "channel": "result"
+        }
       }
     ],
     "edges": [
-      { "source": "prompt-build", "sourceHandle": "messages", "target": "message", "targetHandle": "system" },
-      { "source": "message", "sourceHandle": "messages", "target": "generate", "targetHandle": "messages" },
-      { "source": "generate", "sourceHandle": "text", "target": "json-parse", "targetHandle": "text" },
-      { "source": "generate", "sourceHandle": "text", "target": "signal-out", "targetHandle": "data" },
-      { "source": "json-parse", "sourceHandle": "data", "target": "apply-state", "targetHandle": "changes" }
+      {
+        "source": "prompt-build",
+        "sourceHandle": "messages",
+        "target": "message",
+        "targetHandle": "system"
+      },
+      {
+        "source": "message",
+        "sourceHandle": "messages",
+        "target": "generate",
+        "targetHandle": "messages"
+      },
+      {
+        "source": "generate",
+        "sourceHandle": "text",
+        "target": "json-parse",
+        "targetHandle": "text"
+      },
+      {
+        "source": "generate",
+        "sourceHandle": "text",
+        "target": "signal-out",
+        "targetHandle": "data"
+      },
+      {
+        "source": "json-parse",
+        "sourceHandle": "data",
+        "target": "apply-state",
+        "targetHandle": "changes"
+      }
     ]
   }
 }

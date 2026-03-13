@@ -1,7 +1,7 @@
 import type { FlowExecutionResult } from '../flow/flow-executor';
 import type { NodeExecutionError } from '../types/errors';
 import type { StateValue } from '../types/types';
-import type { ChoiceStep, PromptStep, SessionDefinition, SessionStep } from '../types/session';
+import type { ChoiceStep, DynamicChoiceStep, PromptStep, SessionDefinition, SessionStep } from '../types/session';
 import { evaluateCondition } from './condition-evaluator';
 
 export type SessionAdvanceMode = 'continue' | 'step';
@@ -114,7 +114,7 @@ export async function advanceSession(
       });
     }
 
-    if (pendingUserInput !== undefined && step.type !== 'Prompt' && step.type !== 'Choice') {
+    if (pendingUserInput !== undefined && step.type !== 'Prompt' && step.type !== 'Choice' && step.type !== 'DynamicChoice') {
       return buildErrorResult({ currentStepId, stepIndex }, events, {
         code: 'INPUT_NOT_EXPECTED',
         message: `Step "${step.id}" does not accept input`,
@@ -195,10 +195,12 @@ export async function advanceSession(
       case 'Branch': {
         const state = deps.getState();
         let nextStepId = step.default;
+        let setStatePayload: Record<string, any> | undefined = step.defaultSetState;
         try {
           for (const cond of step.conditions) {
             if (evaluateCondition(cond.when, state)) {
               nextStepId = cond.next;
+              setStatePayload = cond.setState;
               break;
             }
           }
@@ -212,7 +214,72 @@ export async function advanceSession(
             },
           });
         }
+        // Apply setState side effects from the matched branch
+        if (setStatePayload) {
+          try {
+            for (const [key, value] of Object.entries(setStatePayload)) {
+              deps.setState(key, value);
+            }
+          } catch (error) {
+            return buildErrorResult({ currentStepId: step.id, stepIndex }, events, {
+              code: 'STATE_WRITE_FAILED',
+              message: (error as Error).message,
+              stepId: step.id,
+              details: { setState: setStatePayload },
+            });
+          }
+        }
         currentStepId = nextStepId;
+        stepIndex += 1;
+        if (options.mode === 'step') {
+          return finalizeStepResult(currentStepId, stepIndex, events, stepsById);
+        }
+        break;
+      }
+
+      case 'DynamicChoice': {
+        if (pendingUserInput === undefined) {
+          // Filter options based on when conditions
+          const state = deps.getState();
+          const visibleOptions = step.options.filter((opt) => {
+            if (!opt.when) return true;
+            try {
+              return evaluateCondition(opt.when, state);
+            } catch (error) {
+              return false;
+            }
+          });
+
+          if (visibleOptions.length === 0) {
+            return buildErrorResult({ currentStepId: step.id, stepIndex }, events, {
+              code: 'NO_VISIBLE_OPTIONS',
+              message: 'DynamicChoice has no visible options',
+              stepId: step.id,
+            });
+          }
+
+          return {
+            cursor: { currentStepId: step.id, stepIndex },
+            events,
+            waitingFor: {
+              kind: 'choice',
+              stepId: step.id,
+              promptText: step.promptText,
+              options: visibleOptions.map((opt) => ({ label: opt.label, value: opt.value })),
+            },
+            status: 'waiting_input',
+          };
+        }
+
+        const dynamicChoiceResult = await executeInteractiveStep(step, pendingUserInput, deps);
+        pendingUserInput = undefined;
+        if ('diagnostic' in dynamicChoiceResult) {
+          return buildErrorResult({ currentStepId: step.id, stepIndex }, events, dynamicChoiceResult.diagnostic);
+        }
+        if (dynamicChoiceResult.event) {
+          events.push(dynamicChoiceResult.event);
+        }
+        currentStepId = step.next;
         stepIndex += 1;
         if (options.mode === 'step') {
           return finalizeStepResult(currentStepId, stepIndex, events, stepsById);
@@ -240,7 +307,7 @@ export async function advanceSession(
   };
 }
 
-function buildWaitingFor(step: PromptStep | ChoiceStep): SessionWaitingFor {
+function buildWaitingFor(step: PromptStep | ChoiceStep | DynamicChoiceStep): SessionWaitingFor {
   if (step.type === 'Prompt') {
     return {
       kind: 'prompt',
@@ -253,7 +320,9 @@ function buildWaitingFor(step: PromptStep | ChoiceStep): SessionWaitingFor {
     kind: 'choice',
     stepId: step.id,
     promptText: step.promptText,
-    options: step.options,
+    options: step.type === 'DynamicChoice'
+      ? step.options.map((opt) => ({ label: opt.label, value: opt.value }))
+      : step.options,
   };
 }
 
@@ -295,7 +364,7 @@ function finalizeStepResult(
     });
   }
 
-  if (nextStep.type === 'Prompt' || nextStep.type === 'Choice') {
+  if (nextStep.type === 'Prompt' || nextStep.type === 'Choice' || nextStep.type === 'DynamicChoice') {
     return {
       cursor: { currentStepId, stepIndex },
       events,
@@ -313,7 +382,7 @@ function finalizeStepResult(
 }
 
 async function executeInteractiveStep(
-  step: PromptStep | ChoiceStep,
+  step: PromptStep | ChoiceStep | DynamicChoiceStep,
   userInput: string,
   deps: SessionRunnerDeps,
 ): Promise<{ event?: SessionTraceOutputEvent } | { diagnostic: SessionAdvanceError }> {

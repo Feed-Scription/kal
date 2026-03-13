@@ -17,10 +17,6 @@
         "id": "prompt-build",
         "type": "PromptBuild",
         "label": "Event prompt",
-        "position": {
-          "x": 0,
-          "y": 0
-        },
         "inputs": [
           {
             "name": "data",
@@ -48,7 +44,7 @@
             {
               "type": "base",
               "id": "role",
-              "content": "你是 Westbrook High 的叙事者。冷峻写实风格。绝不用感叹号。\n\n今天是关键日。根据当前天数和游戏状态，生成一个关键剧情事件。\n\n关键日事件骨架：\n- Day 1: 到达学校，认识Zoe，听到Lily哭泣\n- Day 5: 在食堂听到有人说\"Ethan不是自杀\"，Line B正式开启\n- Day 8: 如果Line A深度≥1，发现Maya的储物柜里有东西\n- Day 12: 第一次对质机会（对信任最高的NPC）\n- Day 15: Marcus和Tyler在走廊公开争吵\n- Day 18: 如果怀疑值≥30，收到匿名威胁信息\n- Day 20: 某个NPC弧线强制推进（选弧线阶段最高的NPC）\n- Day 22-25: 校庆周特殊事件\n- Day 28: 如果两线深度≥3，发现三线关联\n- Day 32-34: 最终对质\n- Day 35: 最终选择\n- Day 36: 学期结束\n\n根据当前天数选择对应的骨架，用AI生成具体叙事。如果当前天数不在列表中但isKeyDay为true，说明是NPC弧线触发的关键日——生成该NPC的弧线推进事件。",
+              "content": "你是 Westbrook High 的叙事者。冷峻写实风格。绝不用感叹号。\n\n重要关系澄清（必须严格遵守）：\n- Ethan Park 和 Lily Chen 不是亲属关系。Ethan 是 Marcus 的好友。\n- Lily 是 Maya Chen 的闺蜜（同姓 Chen，但 Lily 和 Maya 不是亲属）。\n- Lily 和 Tyler 是前情侣（隐藏关系）。\n- Zoe Park 和 Ethan Park 同姓但不是亲属。\n\n今天是关键日。根据当前天数和游戏状态，生成一个关键剧情事件。\n\n关键日事件骨架：\n- Day 1: 到达学校，认识Zoe，听到Lily哭泣\n- Day 5: 在食堂听到有人说\"Ethan不是自杀\"，Line B正式开启\n- Day 8: 如果Line A深度≥1，发现Maya的储物柜里有东西\n- Day 12: 第一次对质机会（对信任最高的NPC）\n- Day 15: Marcus和Tyler在走廊公开争吵\n- Day 18: 如果怀疑值≥30，收到匿名威胁信息\n- Day 20: 某个NPC弧线强制推进（选弧线阶段最高的NPC）\n- Day 22-25: 校庆周特殊事件\n- Day 28: 如果两线深度≥3，发现三线关联\n- Day 32-34: 最终对质\n- Day 35: 最终选择\n- Day 36: 学期结束\n\n根据当前天数选择对应的骨架，用AI生成具体叙事。如果当前天数不在列表中但isKeyDay为true，说明是NPC弧线触发的关键日——生成该NPC的弧线推进事件。\n\n弧线推进严格规则（必须遵守，不可提前）：\n- arc 值只能+1递增，绝不能跳跃（例如arc=1只能变为2，不能直接变为3）\n- Zoe: arc=1→2 需要 Day≥10 或玩家分享线索给她\n- Lily: arc=1→2 需要 trust≥40 或 Day≥12\n- Marcus: arc=1→2 需要 trust≥35 或 Day≥15\n- Coach: arc=1→2 需要 Day≥18\n- Tyler: arc=1→2 需要 Day≥16\n- Holloway: arc=1→2 需要 Day≥20\n- 在截止日之前，绝不能自动推进弧线",
               "role": "system"
             },
             {
@@ -151,7 +147,7 @@
             {
               "type": "base",
               "id": "format",
-              "content": "输出JSON格式：\n{\n  \"narrative\": \"关键日事件叙事（5-10句话，含对话）\",\n  \"eventType\": \"事件类型标签\",\n  \"stateChanges\": {\n    \"suspicion\": 新值,\n    \"lastEvent\": \"事件一句话摘要\",\n    \"pendingConfrontation\": \"NPC名（如果触发对质）或空字符串\",\n    \"lineA_depth\": 新值（如果推进）,\n    \"lineB_depth\": 新值（如果推进）,\n    \"lineC_depth\": 新值（如果推进）\n  },\n  \"npcChanges\": {\n    \"trust_xxx\": 新值,\n    \"mood_xxx\": 新值,\n    \"arc_xxx\": 新值（如果弧线推进）\n  },\n  \"newCards\": {\n    \"topics\": [],\n    \"evidence\": []\n  },\n  \"keyDecision\": \"如果这是一个关键决策点，描述决策内容；否则为null\"\n}\\n\\n极其重要：所有 JSON key 必须使用全小写。NPC名字必须小写：trust_lily、mood_marcus、fear_coach、arc_zoe、trust_tyler、mood_holloway 等。绝不能用大写如 trust_Lily 或 mood_Marcus，否则状态无法写入。",
+              "content": "输出JSON格式：\n{\n  \"narrative\": \"关键日事件叙事（5-10句话，含对话）\",\n  \"eventType\": \"事件类型标签\",\n  \"stateChanges\": {\n    \"suspicion\": 新值,\n    \"lastEvent\": \"事件一句话摘要\",\n    \"pendingConfrontation\": \"NPC名（如果触发对质）或空字符串\",\n    \"lineA_depth\": 新值（如果推进）,\n    \"lineB_depth\": 新值（如果推进）,\n    \"lineC_depth\": 新值（如果推进）\n  },\n  \"npcChanges\": {\n    \"trust_xxx\": 新值,\n    \"mood_xxx\": 新值,\n    \"arc_xxx\": 新值（如果弧线推进）\n  },\n  \"newCards\": {\n    \"topicCards\": [],\n    \"evidenceCards\": []\n  },\n  \"keyDecision\": \"如果这是一个关键决策点，描述决策内容；否则为null\"\n}\\n\\n极其重要：所有 JSON key 必须使用全小写。NPC名字必须小写：trust_lily、mood_marcus、fear_coach、arc_zoe、trust_tyler、mood_holloway 等。绝不能用大写如 trust_Lily 或 mood_Marcus，否则状态无法写入。",
               "role": "system"
             }
           ]
@@ -161,10 +157,6 @@
         "id": "message",
         "type": "Message",
         "label": "Assemble",
-        "position": {
-          "x": 300,
-          "y": 0
-        },
         "inputs": [
           {
             "name": "system",
@@ -191,10 +183,6 @@
         "id": "generate",
         "type": "GenerateText",
         "label": "Generate event",
-        "position": {
-          "x": 500,
-          "y": 0
-        },
         "inputs": [
           {
             "name": "messages",
@@ -222,10 +210,6 @@
         "id": "json-parse",
         "type": "JSONParse",
         "label": "Parse",
-        "position": {
-          "x": 700,
-          "y": 0
-        },
         "inputs": [
           {
             "name": "text",
@@ -257,10 +241,6 @@
         "id": "apply-state",
         "type": "ApplyState",
         "label": "Apply changes",
-        "position": {
-          "x": 900,
-          "y": 80
-        },
         "inputs": [
           {
             "name": "changes",
@@ -300,10 +280,6 @@
         "id": "apply-npc",
         "type": "ApplyState",
         "label": "Apply NPC changes",
-        "position": {
-          "x": 900,
-          "y": 200
-        },
         "inputs": [
           {
             "name": "changes",
@@ -352,13 +328,39 @@
         }
       },
       {
+        "id": "apply-cards",
+        "type": "ApplyState",
+        "label": "Append new cards",
+        "inputs": [
+          {
+            "name": "changes",
+            "type": "object",
+            "required": true
+          }
+        ],
+        "outputs": [
+          {
+            "name": "applied",
+            "type": "array"
+          },
+          {
+            "name": "success",
+            "type": "boolean"
+          }
+        ],
+        "config": {
+          "path": "newCards",
+          "allowedKeys": ["topicCards", "evidenceCards"],
+          "operations": {
+            "topicCards": "appendMany",
+            "evidenceCards": "appendMany"
+          }
+        }
+      },
+      {
         "id": "signal-out",
         "type": "SignalOut",
         "label": "Output",
-        "position": {
-          "x": 900,
-          "y": -80
-        },
         "inputs": [
           {
             "name": "data",
@@ -405,6 +407,12 @@
         "source": "json-parse",
         "sourceHandle": "data",
         "target": "apply-npc",
+        "targetHandle": "changes"
+      },
+      {
+        "source": "json-parse",
+        "sourceHandle": "data",
+        "target": "apply-cards",
         "targetHandle": "changes"
       },
       {

@@ -14,13 +14,51 @@
   "data": {
     "nodes": [
       {
+        "id": "read-suspicion",
+        "type": "ReadState",
+        "label": "Read suspicion",
+        "inputs": [
+          { "name": "key", "type": "string", "defaultValue": "suspicion" }
+        ],
+        "outputs": [
+          { "name": "value", "type": "any" },
+          { "name": "exists", "type": "boolean" }
+        ],
+        "config": {}
+      },
+      {
+        "id": "decay-suspicion",
+        "type": "ComputeState",
+        "label": "suspicion - 2",
+        "inputs": [
+          { "name": "value", "type": "any" }
+        ],
+        "outputs": [
+          { "name": "result", "type": "any" },
+          { "name": "success", "type": "boolean" }
+        ],
+        "config": {
+          "operation": "decrement",
+          "operand": 2
+        }
+      },
+      {
+        "id": "write-suspicion",
+        "type": "ModifyState",
+        "label": "Write suspicion",
+        "inputs": [
+          { "name": "key", "type": "string", "defaultValue": "suspicion" },
+          { "name": "value", "type": "any" }
+        ],
+        "outputs": [
+          { "name": "success", "type": "boolean" }
+        ],
+        "config": {}
+      },
+      {
         "id": "prompt-build",
         "type": "PromptBuild",
         "label": "World tick prompt",
-        "position": {
-          "x": 0,
-          "y": 0
-        },
         "inputs": [
           {
             "name": "data",
@@ -48,7 +86,7 @@
             {
               "type": "base",
               "id": "role",
-              "content": "你是 Westbrook High 的世界模拟器。每天日间结束后，NPC们会独立行动。\n\n根据每个NPC的当前状态（mood、arc_stage、fear、trust），生成1-2个NPC间的互动事件。这些事件发生在玩家不在场时。\n\n规则：\n- NPC间互动受关系网影响（Lily↔Tyler前情侣、Marcus↔Zoe调查搭档、Coach↔Holloway知情者）\n- 弧线阶段差异大的NPC更可能互动\n- mood低的NPC可能做出冲动行为\n- fear高的NPC可能寻求盟友或孤立自己\n- 这些事件玩家不直接看到，但会通过传闻和社交媒体间接得知\n- 事件可能改变NPC的mood和关系\n\n同时处理：\n- 怀疑值自然衰减（-2/天，最低0）\n- NPC弧线时间推进检查（如果到达截止日且玩家未触发，自动推进到默认状态）\n\n弧线时间截止日：\n- Lily 节点2: Day 12（如果trust<40且Day≥12，自动进入阶段2默认状态）\n- Marcus 节点2: Day 15\n- Coach 节点2: Day 18\n- Zoe 节点2: Day 10\n- Tyler 节点2: Day 16\n- Holloway 节点2: Day 20\n\n输出JSON：\n{\n  \"worldEvents\": [\n    {\n      \"participants\": [\"NPC1\", \"NPC2\"],\n      \"description\": \"事件描述（玩家不可见，用于内部记录）\",\n      \"rumorText\": \"玩家可能通过传闻得知的版本（可能不完全准确）\"\n    }\n  ],\n  \"stateChanges\": {\n    \"suspicion\": 新值（衰减后）,\n    \"todayWorldEvents\": \"世界事件摘要\"\n  },\n  \"npcChanges\": {\n    \"mood_xxx\": 新值,\n    \"arc_xxx\": 新值（如果时间推进触发）\n  }\n}\\n\\n极其重要：所有 JSON key 必须使用全小写。NPC名字必须小写：trust_lily、mood_marcus、fear_coach、arc_zoe、trust_tyler、mood_holloway 等。绝不能用大写如 trust_Lily 或 mood_Marcus，否则状态无法写入。",
+              "content": "你是 Westbrook High 的世界模拟器。每天日间结束后，NPC们会独立行动。\n\n根据每个NPC的当前状态（mood、arc_stage、fear、trust），生成1-2个NPC间的互动事件。这些事件发生在玩家不在场时。\n\n重要关系澄清（必须严格遵守）：\n- Ethan Park 和 Lily Chen 不是亲属关系。Ethan 是 Marcus 的好友。\n- Lily 是 Maya Chen 的闺蜜（同姓 Chen，但 Lily 和 Maya 不是亲属）。\n- Lily 和 Tyler 是前情侣（隐藏关系）。\n- Zoe Park 和 Ethan Park 同姓但不是亲属。\n\n规则：\n- NPC间互动受关系网影响（Lily↔Tyler前情侣、Marcus↔Zoe调查搭档、Coach↔Holloway知情者）\n- 弧线阶段差异大的NPC更可能互动\n- mood低的NPC可能做出冲动行为\n- fear高的NPC可能寻求盟友或孤立自己\n- 这些事件玩家不直接看到，但会通过传闻和社交媒体间接得知\n- 事件可能改变NPC的mood和关系\n\n同时处理：\n- NPC弧线时间推进检查（如果到达截止日且玩家未触发，自动推进到默认状态）\n\n弧线时间截止日：\n- Lily 节点2: Day 12（如果trust<40且Day≥12，自动进入阶段2默认状态）\n- Marcus 节点2: Day 15\n- Coach 节点2: Day 18\n- Zoe 节点2: Day 10\n- Tyler 节点2: Day 16\n- Holloway 节点2: Day 20\n\n注意：怀疑值衰减已由引擎自动处理（-2/天，最低0），不需要你在输出中包含suspicion字段。\n\n弧线推进严格规则（必须遵守，不可提前）：\n- arc 值只能+1递增，绝不能跳跃（例如arc=1只能变为2，不能直接变为3）\n- Zoe: arc=1→2 需要 Day≥10 或玩家分享线索给她\n- Lily: arc=1→2 需要 trust≥40 或 Day≥12\n- Marcus: arc=1→2 需要 trust≥35 或 Day≥15\n- Coach: arc=1→2 需要 Day≥18\n- Tyler: arc=1→2 需要 Day≥16\n- Holloway: arc=1→2 需要 Day≥20\n- 如果NPC已到截止日且条件未满足，自动推进到默认状态（arc+1）\n- 在截止日之前，绝不能自动推进弧线\n\n输出JSON：\n{\n  \"worldEvents\": [\n    {\n      \"participants\": [\"NPC1\", \"NPC2\"],\n      \"description\": \"事件描述（玩家不可见，用于内部记录）\",\n      \"rumorText\": \"玩家可能通过传闻得知的版本（可能不完全准确）\"\n    }\n  ],\n  \"stateChanges\": {\n    \"todayWorldEvents\": \"世界事件摘要\"\n  },\n  \"npcChanges\": {\n    \"mood_xxx\": 新值,\n    \"arc_xxx\": 新值（如果时间推进触发）\n  }\n}\\n\\n极其重要：所有 JSON key 必须使用全小写。NPC名字必须小写：trust_lily、mood_marcus、fear_coach、arc_zoe、trust_tyler、mood_holloway 等。绝不能用大写如 trust_Lily 或 mood_Marcus，否则状态无法写入。",
               "role": "system"
             },
             {
@@ -172,10 +210,6 @@
         "id": "message",
         "type": "Message",
         "label": "Assemble",
-        "position": {
-          "x": 300,
-          "y": 0
-        },
         "inputs": [
           {
             "name": "system",
@@ -202,10 +236,6 @@
         "id": "generate",
         "type": "GenerateText",
         "label": "Simulate world",
-        "position": {
-          "x": 500,
-          "y": 0
-        },
         "inputs": [
           {
             "name": "messages",
@@ -231,10 +261,6 @@
         "id": "json-parse",
         "type": "JSONParse",
         "label": "Parse",
-        "position": {
-          "x": 700,
-          "y": 0
-        },
         "inputs": [
           {
             "name": "text",
@@ -266,10 +292,6 @@
         "id": "apply-state",
         "type": "ApplyState",
         "label": "Apply world changes",
-        "position": {
-          "x": 900,
-          "y": 80
-        },
         "inputs": [
           {
             "name": "changes",
@@ -290,7 +312,6 @@
         "config": {
           "path": "stateChanges",
           "allowedKeys": [
-            "suspicion",
             "todayWorldEvents"
           ]
         }
@@ -299,10 +320,6 @@
         "id": "apply-npc",
         "type": "ApplyState",
         "label": "Apply NPC changes",
-        "position": {
-          "x": 900,
-          "y": 200
-        },
         "inputs": [
           {
             "name": "changes",
@@ -342,10 +359,6 @@
         "id": "signal-out",
         "type": "SignalOut",
         "label": "Output",
-        "position": {
-          "x": 900,
-          "y": -80
-        },
         "inputs": [
           {
             "name": "data",
@@ -364,6 +377,18 @@
       }
     ],
     "edges": [
+      {
+        "source": "read-suspicion",
+        "sourceHandle": "value",
+        "target": "decay-suspicion",
+        "targetHandle": "value"
+      },
+      {
+        "source": "decay-suspicion",
+        "sourceHandle": "result",
+        "target": "write-suspicion",
+        "targetHandle": "value"
+      },
       {
         "source": "prompt-build",
         "sourceHandle": "text",

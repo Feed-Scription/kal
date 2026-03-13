@@ -122,12 +122,22 @@ export const ApplyState: CustomNode = {
     properties: {
       path: { type: 'string' },
       allowedKeys: { type: 'array', items: { type: 'string' } },
+      operations: {
+        type: 'object',
+        description: 'Operation type for each key: "set" (default), "append", or "appendMany"',
+      },
+      constraints: {
+        type: 'object',
+        description: 'Constraints for each key: { min, max } for numbers',
+      },
     },
     additionalProperties: false,
   },
   defaultConfig: {
     path: '',
     allowedKeys: [],
+    operations: {},
+    constraints: {},
   },
   async execute(inputs, config, context) {
     let changes = inputs.changes;
@@ -167,6 +177,8 @@ export const ApplyState: CustomNode = {
       Array.isArray(config.allowedKeys) && config.allowedKeys.length > 0
         ? (config.allowedKeys as string[])
         : undefined;
+    const operations = (config.operations as Record<string, string> | undefined) ?? {};
+    const constraints = (config.constraints as Record<string, { min?: number; max?: number }> | undefined) ?? {};
     const applied: string[] = [];
 
     for (const [key, newValue] of Object.entries(changes)) {
@@ -184,10 +196,74 @@ export const ApplyState: CustomNode = {
       }
 
       try {
-        context.state.set(key, { type: existing.type, value: newValue as any });
-        applied.push(key);
+        const operation = operations[key] ?? 'set';
+        let valueToWrite = newValue;
+
+        // Type coercion: attempt to convert mismatched types before writing
+        if (valueToWrite !== null && valueToWrite !== undefined) {
+          const actualType = typeof valueToWrite;
+          if (existing.type === 'number' && actualType === 'string') {
+            const parsed = Number(valueToWrite);
+            if (Number.isFinite(parsed)) {
+              context.logger.warn('ApplyState: coerced string to number', { key, original: valueToWrite, coerced: parsed });
+              valueToWrite = parsed;
+            }
+          } else if (existing.type === 'string' && actualType === 'number') {
+            context.logger.warn('ApplyState: coerced number to string', { key, original: valueToWrite, coerced: String(valueToWrite) });
+            valueToWrite = String(valueToWrite);
+          } else if (existing.type === 'boolean' && actualType === 'string') {
+            if ((valueToWrite as string).toLowerCase() === 'true') {
+              context.logger.warn('ApplyState: coerced string to boolean', { key, original: valueToWrite, coerced: true });
+              valueToWrite = true;
+            } else if ((valueToWrite as string).toLowerCase() === 'false') {
+              context.logger.warn('ApplyState: coerced string to boolean', { key, original: valueToWrite, coerced: false });
+              valueToWrite = false;
+            }
+          } else if (existing.type === 'array' && actualType === 'string') {
+            try {
+              const parsed = JSON.parse(valueToWrite as string);
+              if (Array.isArray(parsed)) {
+                context.logger.warn('ApplyState: coerced string to array', { key });
+                valueToWrite = parsed;
+              }
+            } catch {
+              // not valid JSON array, leave as-is
+            }
+          }
+        }
+
+        // Apply constraints (clamping) for number types
+        if (existing.type === 'number' && typeof valueToWrite === 'number' && constraints[key]) {
+          const constraint = constraints[key]!;
+          const originalValue = valueToWrite;
+          if (constraint.min !== undefined && valueToWrite < constraint.min) {
+            valueToWrite = constraint.min;
+            context.logger.warn('ApplyState: clamped value to min', { key, original: originalValue, clamped: valueToWrite, min: constraint.min });
+          }
+          if (constraint.max !== undefined && (valueToWrite as number) > constraint.max) {
+            valueToWrite = constraint.max;
+            context.logger.warn('ApplyState: clamped value to max', { key, original: originalValue, clamped: valueToWrite, max: constraint.max });
+          }
+        }
+
+        // Execute operation
+        if (operation === 'append') {
+          context.state.append(key, valueToWrite);
+          applied.push(key);
+        } else if (operation === 'appendMany') {
+          if (Array.isArray(valueToWrite)) {
+            context.state.appendMany(key, valueToWrite);
+            applied.push(key);
+          } else {
+            context.logger.error('ApplyState: appendMany requires array value', { key });
+          }
+        } else {
+          // Default: set
+          context.state.set(key, { type: existing.type, value: valueToWrite as any });
+          applied.push(key);
+        }
       } catch (error) {
-        context.logger.error('ApplyState: failed to set key', { key, error: (error as Error).message });
+        context.logger.error('ApplyState: failed to apply operation', { key, error: (error as Error).message });
       }
     }
 
