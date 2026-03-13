@@ -24,6 +24,8 @@ export interface InvokeOptions {
   maxTokens?: number;
   retry?: Partial<RetryConfig>;
   cache?: Partial<CacheConfig>;
+  responseFormat?: 'text' | 'json';
+  jsonSchema?: object;
 }
 
 /**
@@ -91,7 +93,7 @@ export class LLMClient {
 
     try {
       const result = await retry(
-        () => this.callApi(model, messages, temperature, maxTokens),
+        () => this.callApi(model, messages, temperature, maxTokens, options.responseFormat, options.jsonSchema),
         retryConfig,
         isRetryableError
       );
@@ -148,9 +150,34 @@ export class LLMClient {
     model: string,
     messages: ChatMessage[],
     temperature: number,
-    maxTokens: number
+    maxTokens: number,
+    responseFormat?: 'text' | 'json',
+    jsonSchema?: object,
   ): Promise<{ text: string; usage: TokenUsage }> {
     const baseUrl = this.config.baseUrl ?? 'https://api.openai.com/v1';
+
+    const requestBody: Record<string, any> = {
+      model,
+      messages,
+      temperature,
+      max_tokens: maxTokens,
+    };
+
+    // Add response_format for structured output
+    if (responseFormat === 'json') {
+      if (jsonSchema) {
+        requestBody.response_format = {
+          type: 'json_schema',
+          json_schema: {
+            name: 'response',
+            strict: true,
+            schema: jsonSchema,
+          },
+        };
+      } else {
+        requestBody.response_format = { type: 'json_object' };
+      }
+    }
 
     const response = await this.fetchFn(`${baseUrl}/chat/completions`, {
       method: 'POST',
@@ -158,12 +185,7 @@ export class LLMClient {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${this.config.apiKey}`,
       },
-      body: JSON.stringify({
-        model,
-        messages,
-        temperature,
-        max_tokens: maxTokens,
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     if (!response.ok) {

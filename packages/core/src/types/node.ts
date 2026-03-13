@@ -67,6 +67,8 @@ export interface LLMOptions {
   maxTokens?: number;
   retry?: Partial<RetryConfig>;
   cache?: Partial<CacheConfig>;
+  responseFormat?: 'text' | 'json';
+  jsonSchema?: object;
 }
 
 /**

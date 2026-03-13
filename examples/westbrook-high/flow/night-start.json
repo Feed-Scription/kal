@@ -17,10 +17,6 @@
         "id": "set-phase",
         "type": "ModifyState",
         "label": "Set phase to night",
-        "position": {
-          "x": 0,
-          "y": -80
-        },
         "inputs": [
           {
             "name": "key",
@@ -45,10 +41,6 @@
         "id": "prompt-build",
         "type": "PromptBuild",
         "label": "Night briefing + social media",
-        "position": {
-          "x": 0,
-          "y": 80
-        },
         "inputs": [
           {
             "name": "data",
@@ -164,10 +156,6 @@
         "id": "message",
         "type": "Message",
         "label": "Assemble",
-        "position": {
-          "x": 300,
-          "y": 80
-        },
         "inputs": [
           {
             "name": "system",
@@ -194,10 +182,6 @@
         "id": "generate",
         "type": "GenerateText",
         "label": "Generate night content",
-        "position": {
-          "x": 500,
-          "y": 80
-        },
         "inputs": [
           {
             "name": "messages",
@@ -225,10 +209,6 @@
         "id": "json-parse",
         "type": "JSONParse",
         "label": "Parse",
-        "position": {
-          "x": 700,
-          "y": 80
-        },
         "inputs": [
           {
             "name": "text",
@@ -257,13 +237,38 @@
         }
       },
       {
+        "id": "apply-state",
+        "type": "ApplyState",
+        "label": "Apply night state",
+        "inputs": [
+          {
+            "name": "changes",
+            "type": "object",
+            "required": true
+          }
+        ],
+        "outputs": [
+          {
+            "name": "applied",
+            "type": "array"
+          },
+          {
+            "name": "success",
+            "type": "boolean"
+          }
+        ],
+        "config": {
+          "path": "stateChanges",
+          "allowedKeys": [
+            "todaySocialPosts",
+            "todayRumors"
+          ]
+        }
+      },
+      {
         "id": "signal-out",
         "type": "SignalOut",
         "label": "Output",
-        "position": {
-          "x": 900,
-          "y": 0
-        },
         "inputs": [
           {
             "name": "data",
@@ -299,6 +304,12 @@
         "sourceHandle": "text",
         "target": "json-parse",
         "targetHandle": "text"
+      },
+      {
+        "source": "json-parse",
+        "sourceHandle": "data",
+        "target": "apply-state",
+        "targetHandle": "changes"
       },
       {
         "source": "json-parse",

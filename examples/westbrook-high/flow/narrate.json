@@ -23,10 +23,6 @@
         "id": "signal-in",
         "type": "SignalIn",
         "label": "Player input",
-        "position": {
-          "x": 0,
-          "y": 0
-        },
         "inputs": [],
         "outputs": [
           {
@@ -42,10 +38,6 @@
         "id": "prompt-build",
         "type": "PromptBuild",
         "label": "System prompt",
-        "position": {
-          "x": 200,
-          "y": -100
-        },
         "inputs": [
           {
             "name": "data",
@@ -146,7 +138,7 @@
             {
               "type": "base",
               "id": "npc-profiles",
-              "content": "核心NPC简档：\n- Lily Chen：Maya的闺蜜，安静内向，弱点态度=共情。当前保护着Maya留下的秘密。\n- Marcus Webb：Ethan的好友，愤怒正义，弱点态度=理性分析。持有Ethan的调查笔记。\n- Coach Rivera：体育教练，权威人物，弱点态度=施压+证据。知道学校在掩盖什么。\n- Zoe Park：校报记者，好奇心强，弱点态度=共情+信息交换。碎片化的各线线索。\n- Tyler Brooks：学生会主席，表面完美，弱点态度=欺骗。连接学生和校方。\n- Ms. Holloway：心理辅导员，弱点态度=理性分析+耐心。知道比她说的更多。",
+              "content": "核心NPC简档：\n- Lily Chen：Maya的闺蜜，安静内向，弱点态度=共情。当前保护着Maya留下的秘密。\n- Marcus Webb：Ethan的好友，愤怒正义，弱点态度=理性分析。持有Ethan的调查笔记。\n- Coach Rivera：体育教练，权威人物，弱点态度=施压+证据。知道学校在掩盖什么。\n- Zoe Park：校报记者，好奇心强，弱点态度=共情+信息交换。碎片化的各线线索。\n- Tyler Brooks：学生会主席，表面完美，弱点态度=欺骗。连接学生和校方。\n- Ms. Holloway：心理辅导员，弱点态度=理性分析+耐心。知道比她说的更多。\n\n重要关系澄清（必须严格遵守）：\n- Ethan Park 和 Lily Chen 不是亲属关系。Ethan 是 Marcus 的好友。\n- Lily 是 Maya Chen 的闺蜜（同姓 Chen，但 Lily 和 Maya 不是亲属）。\n- Lily 和 Tyler 是前情侣（隐藏关系）。\n- Zoe Park 和 Ethan Park 同姓但不是亲属。",
               "role": "system"
             },
             {
@@ -198,9 +190,21 @@
               "label": "已有证据卡"
             },
             {
+              "type": "field",
+              "id": "phoneUnlocked_anon",
+              "source": "state.phoneUnlocked_anon",
+              "label": "匿名行动已解锁"
+            },
+            {
+              "type": "field",
+              "id": "phoneUnlocked_forum",
+              "source": "state.phoneUnlocked_forum",
+              "label": "论坛已解锁"
+            },
+            {
               "type": "base",
               "id": "format",
-              "content": "输出必须是合法JSON，格式如下：\n{\n  \"narrative\": \"叙事文本（含回响、当下、暗流三层）\",\n  \"stateChanges\": {\n    \"ap\": 仅在日间(phase=day)行动时返回：当前AP-1。夜间(phase=night)行动不消耗AP，不要返回ap字段。end_day时设为0,\n    \"suspicion\": 数值（当前值±变化，范围0-100）,\n    \"currentLocation\": \"当玩家选择explore时，必须改变位置。可选位置：classroom, library, gym, cafeteria, dormitory, courtyard, parking_lot, admin_office, art_room, rooftop\",\n    \"lastEvent\": \"本次关键事件一句话摘要\",\n    \"dayLog\": \"今日事件摘要追加\",\n    \"phase\": \"仅在以下情况设置：玩家选择sleep/休息时设为night_done；玩家选择end_day/结束日间时设为night。其他情况不要包含此字段\"\n  },\n  \"newCards\": {\n    \"topics\": [{ \"id\": \"唯一ID\", \"name\": \"显示名\", \"line\": \"A/B/C/cross/none\", \"related_npcs\": [\"npc名\"] }],\n    \"evidence\": [{ \"id\": \"唯一ID\", \"name\": \"显示名\", \"line\": \"A/B/C\", \"power\": 30或60, \"source\": \"获取途径\" }]\n  },\n  \"npcChanges\": {\n    \"trust_xxx\": 数值变化（±3到±15）,\n    \"mood_xxx\": 数值变化（±5到±15）,\n    \"fear_xxx\": 数值变化（±5到±20）\n  }\n}\n\n数值约束：\n- 每次行动消耗1点AP，stateChanges.ap必须是当前AP减1\n- 如果玩家选择end_day，ap设为0\n- suspicion单次变化不超过±15\n- trust单次变化不超过±15\n- mood单次变化不超过±15\n- fear单次变化不超过±20\n- 新卡牌只在有意义的发现时才给出，不要每次都给\n- 当玩家选择\"sleep\"或\"休息\"或\"结束今天\"时，stateChanges中必须包含 \"phase\": \"night_done\"\n- 当玩家选择\"end_day\"或\"结束日间\"时，stateChanges中必须包含 \"phase\": \"night\"\n\n极其重要：\n1. 所有 key 必须使用全小写\n2. npcChanges 中的数值必须是绝对值（不是增量），且必须在0-100范围内。例如当前trust_lily=10，增加5后应返回trust_lily: 15。NPC名字必须小写：trust_lily（不是trust_Lily）、mood_marcus（不是mood_Marcus）、fear_coach（不是fear_Coach）等。大写会导致状态无法写入。",
+              "content": "输出必须是合法JSON，格式如下：\n{\n  \"narrative\": \"叙事文本（含回响、当下、暗流三层）\",\n  \"stateChanges\": {\n    \"ap\": 仅在日间(phase=day)行动时返回：当前AP-1。夜间(phase=night)行动不消耗AP，不要返回ap字段。end_day时设为0,\n    \"suspicion\": 数值（当前值±变化，范围0-100）,\n    \"currentLocation\": \"当玩家选择explore时，必须改变位置。可选位置：classroom, library, gym, cafeteria, dormitory, courtyard, parking_lot, admin_office, art_room, rooftop\",\n    \"lastEvent\": \"本次关键事件一句话摘要\",\n    \"dayLog\": \"今日事件摘要追加\",\n    \"phase\": \"仅在以下情况设置：玩家选择sleep/休息时设为night_done；玩家选择end_day/结束日间时设为night。其他情况不要包含此字段\"\n  },\n  \"newCards\": {\n    \"topicCards\": [{ \"id\": \"唯一ID\", \"name\": \"显示名\", \"line\": \"A/B/C/cross/none\", \"related_npcs\": [\"npc名\"] }],\n    \"evidenceCards\": [{ \"id\": \"唯一ID\", \"name\": \"显示名\", \"line\": \"A/B/C\", \"power\": 30或60, \"source\": \"获取途径\" }]\n  },\n  \"npcChanges\": {\n    \"trust_xxx\": 数值变化（±3到±15）,\n    \"mood_xxx\": 数值变化（±5到±15）,\n    \"fear_xxx\": 数值变化（±5到±20）\n  }\n}\n\n数值约束：\n- 每次行动消耗1点AP，stateChanges.ap必须是当前AP减1\n- 如果玩家选择end_day，ap设为0\n- suspicion单次变化不超过±15\n- trust单次变化不超过±15\n- mood单次变化不超过±15\n- fear单次变化不超过±20\n- 新卡牌只在有意义的发现时才给出，不要每次都给\n- 当玩家选择\"sleep\"或\"休息\"或\"结束今天\"时，stateChanges中必须包含 \"phase\": \"night_done\"\n- 当玩家选择\"end_day\"或\"结束日间\"时，stateChanges中必须包含 \"phase\": \"night\"\n\n手机功能解锁规则：\n- 如果玩家选择anon_action（匿名行动）但phoneUnlocked_anon=false，返回叙事\"你试图打开匿名频道，但屏幕显示'功能尚未解锁'。你需要更多时间来破解这个加密通道。\"，不产生任何状态变化（stateChanges只包含lastEvent和dayLog）\n- 如果玩家选择使用论坛但phoneUnlocked_forum=false，同样返回功能未解锁的叙事\n- 已解锁的功能正常使用\n\n极其重要：\n1. 所有 key 必须使用全小写\n2. npcChanges 中的数值必须是绝对值（不是增量），且必须在0-100范围内。例如当前trust_lily=10，增加5后应返回trust_lily: 15。NPC名字必须小写：trust_lily（不是trust_Lily）、mood_marcus（不是mood_Marcus）、fear_coach（不是fear_Coach）等。大写会导致状态无法写入。",
               "role": "system"
             }
           ]
@@ -210,10 +214,6 @@
         "id": "message",
         "type": "Message",
         "label": "Assemble messages",
-        "position": {
-          "x": 400,
-          "y": 0
-        },
         "inputs": [
           {
             "name": "system",
@@ -240,10 +240,6 @@
         "id": "generate",
         "type": "GenerateText",
         "label": "Call LLM",
-        "position": {
-          "x": 600,
-          "y": 0
-        },
         "inputs": [
           {
             "name": "messages",
@@ -270,10 +266,6 @@
         "id": "signal-out",
         "type": "SignalOut",
         "label": "Output",
-        "position": {
-          "x": 800,
-          "y": 0
-        },
         "inputs": [
           {
             "name": "data",

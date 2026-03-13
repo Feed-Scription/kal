@@ -30,7 +30,7 @@
       "id": "key-day-event",
       "type": "RunFlow",
       "flowRef": "day-event",
-      "next": "check-confrontation"
+      "next": "check-ap"
     },
     {
       "id": "day-action",
@@ -140,32 +140,9 @@
           "value": "sleep"
         }
       ],
+      "stateKey": "nightChoice",
       "flowRef": "night-action",
       "inputChannel": "nightChoice",
-      "next": "check-phone-unlock"
-    },
-    {
-      "id": "check-phone-unlock",
-      "type": "Branch",
-      "conditions": [
-        {
-          "when": "state.phoneUnlocked_social == false",
-          "next": "phone-locked-message"
-        }
-      ],
-      "default": "process-night-action"
-    },
-    {
-      "id": "phone-locked-message",
-      "type": "Prompt",
-      "promptText": "手机功能尚未解锁。社交媒体将在 Day 2 解锁，私信将在 Day 4 解锁，匿名论坛将在 Day 7 解锁。",
-      "stateKey": "phoneLockMessage",
-      "next": "night-action"
-    },
-    {
-      "id": "process-night-action",
-      "type": "RunFlow",
-      "flowRef": "night-action",
       "next": "check-night-end"
     },
     {
@@ -173,11 +150,21 @@
       "type": "Branch",
       "conditions": [
         {
+          "when": "state.nightChoice == 'sleep'",
+          "next": "do-force-sleep"
+        },
+        {
           "when": "state.phase == 'night_done'",
           "next": "day-end"
         }
       ],
       "default": "night-action"
+    },
+    {
+      "id": "do-force-sleep",
+      "type": "RunFlow",
+      "flowRef": "force-sleep",
+      "next": "day-end"
     },
     {
       "id": "day-end",
