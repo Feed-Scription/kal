@@ -28,6 +28,7 @@ import {
 import { SessionPaneContextMenu, type ContextMenuState } from './SessionPaneContextMenu';
 import { SessionToolbar } from './components/SessionToolbar';
 import { useProjectStore } from '@/store/projectStore';
+import { layoutDag } from '@/utils/graph-layout';
 import { SESSION_STEP_DEFAULTS } from './session-nodes/defaults';
 import type { SessionDefinition, SessionStep, BranchStep, ChoiceStep } from '@/types/project';
 
@@ -45,90 +46,7 @@ const defaultEdgeOptions: DefaultEdgeOptions = {
   markerEnd: { type: MarkerType.ArrowClosed, color: '#64748b' },
 };
 
-const STEP_W = 400;
-const STEP_H = 220;
-const STEP_GAP_X = 80;
-const STEP_GAP_Y = 40;
-
-/**
- * 基于拓扑排序的 session step 自动布局。
- * 从 session 的边关系中提取 DAG，按层级从左到右排列。
- * 回边（target order ≤ source order）不参与拓扑排序，避免破坏层级。
- */
-function layoutSessionSteps(
-  stepIds: string[],
-  edges: Edge[],
-): Map<string, { x: number; y: number }> {
-  const positions = new Map<string, { x: number; y: number }>();
-  if (stepIds.length === 0) return positions;
-
-  // 建立 step 声明顺序索引
-  const orderIndex = new Map(stepIds.map((id, i) => [id, i]));
-
-  // 构建邻接表和入度表（跳过回边）
-  const idSet = new Set(stepIds);
-  const inDegree = new Map<string, number>();
-  const children = new Map<string, Set<string>>();
-  for (const id of stepIds) {
-    inDegree.set(id, 0);
-    children.set(id, new Set());
-  }
-  for (const e of edges) {
-    if (idSet.has(e.source) && idSet.has(e.target)) {
-      const srcIdx = orderIndex.get(e.source) ?? -1;
-      const tgtIdx = orderIndex.get(e.target) ?? -1;
-      // 跳过回边：target 在 source 之前或同位置
-      if (tgtIdx <= srcIdx) continue;
-
-      children.get(e.source)!.add(e.target);
-      inDegree.set(e.target, inDegree.get(e.target)! + 1);
-    }
-  }
-
-  // BFS 拓扑排序
-  const layers: string[][] = [];
-  const visited = new Set<string>();
-  let queue = [...inDegree.entries()].filter(([, d]) => d === 0).map(([id]) => id);
-
-  while (queue.length > 0) {
-    layers.push(queue);
-    for (const id of queue) visited.add(id);
-    const next: string[] = [];
-    for (const id of queue) {
-      for (const child of children.get(id) ?? []) {
-        const newDeg = inDegree.get(child)! - 1;
-        inDegree.set(child, newDeg);
-        if (newDeg === 0 && !visited.has(child)) {
-          next.push(child);
-        }
-      }
-    }
-    queue = next;
-  }
-
-  // 孤立节点
-  for (const id of stepIds) {
-    if (!visited.has(id)) {
-      layers.push([id]);
-      visited.add(id);
-    }
-  }
-
-  // 分配坐标
-  for (let col = 0; col < layers.length; col++) {
-    const layer = layers[col];
-    const totalH = layer.length * STEP_H + (layer.length - 1) * STEP_GAP_Y;
-    const startY = -totalH / 2;
-    for (let row = 0; row < layer.length; row++) {
-      positions.set(layer[row], {
-        x: col * (STEP_W + STEP_GAP_X),
-        y: startY + row * (STEP_H + STEP_GAP_Y),
-      });
-    }
-  }
-
-  return positions;
-}
+const SESSION_LAYOUT = { nodeWidth: 400, nodeHeight: 220, gapX: 80, gapY: 40 };
 
 /** Convert SessionDefinition → ReactFlow nodes + edges */
 function sessionToReactFlow(session: SessionDefinition): { nodes: Node[]; edges: Edge[] } {
@@ -172,7 +90,7 @@ function sessionToReactFlow(session: SessionDefinition): { nodes: Node[]; edges:
 
   // 用拓扑排序计算布局
   const stepIds = session.steps.map((s) => s.id);
-  const layoutPositions = layoutSessionSteps(stepIds, edges);
+  const { positions: layoutPositions, backEdges } = layoutDag(stepIds, edges, SESSION_LAYOUT);
 
   const nodes: Node[] = session.steps.map((step) => ({
     id: step.id,
@@ -186,13 +104,9 @@ function sessionToReactFlow(session: SessionDefinition): { nodes: Node[]; edges:
 
   // 识别回边并应用差异化样式
   const styledEdges = edges.map((edge) => {
-    const sourcePos = layoutPositions.get(edge.source);
-    const targetPos = layoutPositions.get(edge.target);
+    const isBack = backEdges.has(`${edge.source}->${edge.target}`);
 
-    // 回边判断：target 在 source 左侧或同位置
-    const isBackEdge = sourcePos && targetPos && targetPos.x <= sourcePos.x;
-
-    if (isBackEdge) {
+    if (isBack) {
       return {
         ...edge,
         type: 'smoothstep',
