@@ -19,11 +19,18 @@ export interface PromptStep {
   next: string;
 }
 
+export interface BranchCondition {
+  when: string;
+  next: string;
+  setState?: Record<string, any>;
+}
+
 export interface BranchStep {
   id: string;
   type: 'Branch';
-  conditions: { when: string; next: string }[];
+  conditions: BranchCondition[];
   default: string;
+  defaultSetState?: Record<string, any>;
 }
 
 export interface ChoiceStep {
@@ -37,13 +44,30 @@ export interface ChoiceStep {
   next: string;
 }
 
+export interface DynamicChoiceOption {
+  label: string;
+  value: string;
+  when?: string;
+}
+
+export interface DynamicChoiceStep {
+  id: string;
+  type: 'DynamicChoice';
+  promptText: string;
+  options: DynamicChoiceOption[];
+  flowRef?: string;
+  inputChannel?: string;
+  stateKey?: string;
+  next: string;
+}
+
 export interface EndStep {
   id: string;
   type: 'End';
   message?: string;
 }
 
-export type SessionStep = RunFlowStep | PromptStep | BranchStep | ChoiceStep | EndStep;
+export type SessionStep = RunFlowStep | PromptStep | BranchStep | ChoiceStep | DynamicChoiceStep | EndStep;
 
 export interface SessionDefinition {
   schemaVersion: string;

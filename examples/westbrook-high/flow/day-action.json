@@ -23,10 +23,6 @@
         "id": "signal-in",
         "type": "SignalIn",
         "label": "Action choice",
-        "position": {
-          "x": -724,
-          "y": -24
-        },
         "inputs": [],
         "outputs": [
           {
@@ -42,10 +38,6 @@
         "id": "narrate",
         "type": "SubFlow",
         "label": "Narrate action",
-        "position": {
-          "x": -168,
-          "y": -18
-        },
         "inputs": [
           {
             "name": "playerInput",
@@ -67,10 +59,6 @@
         "id": "json-parse",
         "type": "JSONParse",
         "label": "Parse response",
-        "position": {
-          "x": 400,
-          "y": 0
-        },
         "inputs": [
           {
             "name": "text",
@@ -102,10 +90,6 @@
         "id": "apply-state",
         "type": "ApplyState",
         "label": "Apply state changes",
-        "position": {
-          "x": 1052,
-          "y": 92
-        },
         "inputs": [
           {
             "name": "changes",
@@ -165,10 +149,6 @@
         "id": "apply-npc",
         "type": "ApplyState",
         "label": "Apply NPC changes",
-        "position": {
-          "x": 898,
-          "y": 656
-        },
         "inputs": [
           {
             "name": "changes",
@@ -211,13 +191,39 @@
         }
       },
       {
+        "id": "apply-cards",
+        "type": "ApplyState",
+        "label": "Append new cards",
+        "inputs": [
+          {
+            "name": "changes",
+            "type": "object",
+            "required": true
+          }
+        ],
+        "outputs": [
+          {
+            "name": "applied",
+            "type": "array"
+          },
+          {
+            "name": "success",
+            "type": "boolean"
+          }
+        ],
+        "config": {
+          "path": "newCards",
+          "allowedKeys": ["topicCards", "evidenceCards"],
+          "operations": {
+            "topicCards": "appendMany",
+            "evidenceCards": "appendMany"
+          }
+        }
+      },
+      {
         "id": "signal-out",
         "type": "SignalOut",
         "label": "Output",
-        "position": {
-          "x": 934,
-          "y": -312
-        },
         "inputs": [
           {
             "name": "data",
@@ -258,6 +264,12 @@
         "source": "json-parse",
         "sourceHandle": "data",
         "target": "apply-npc",
+        "targetHandle": "changes"
+      },
+      {
+        "source": "json-parse",
+        "sourceHandle": "data",
+        "target": "apply-cards",
         "targetHandle": "changes"
       },
       {
