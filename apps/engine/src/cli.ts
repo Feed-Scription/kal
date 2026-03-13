@@ -2,6 +2,7 @@ import { resolve } from 'node:path';
 import { EngineHttpError, formatEngineError } from './errors';
 import { EngineRuntime } from './runtime';
 import { startEngineServer } from './server';
+import { startStudioServer } from './studio-server';
 import { runTui } from './tui/tui';
 import { ConfigCommand } from './commands/config';
 import { runDebugCommand } from './commands/debug';
@@ -62,16 +63,17 @@ const defaultDependencies: CliDependencies = {
 function printUsage(io: EngineCliIO): void {
   io.stderr([
     'Usage:',
-    '  kal serve [project-path] [--host <host>] [--port <port>]',
-    '  kal play  [project-path]',
-    '  kal debug [project-path] --start [--force-new] [--state-dir <path>] [--format <json|pretty>]',
-    '  kal debug [project-path] --continue [input] [--run-id <id>] [--input <input>]',
-    '  kal debug [project-path] --step [input] [--run-id <id>] [--input <input>]',
-    '  kal debug [project-path] --state [--run-id <id>]',
-    '  kal debug [project-path] --list',
-    '  kal debug [project-path] --delete --run-id <id>',
-    '  kal lint  [project-path] [--format <json|pretty>]',
-    '  kal smoke [project-path] [--steps N] [--input value]... [--dry-run] [--format <json|pretty>]',
+    '  kal studio [project-path] [--host <host>] [--port <port>]',
+    '  kal serve  [project-path] [--host <host>] [--port <port>]',
+    '  kal play   [project-path]',
+    '  kal debug  [project-path] --start [--force-new] [--state-dir <path>] [--format <json|pretty>]',
+    '  kal debug  [project-path] --continue [input] [--run-id <id>] [--input <input>]',
+    '  kal debug  [project-path] --step [input] [--run-id <id>] [--input <input>]',
+    '  kal debug  [project-path] --state [--run-id <id>]',
+    '  kal debug  [project-path] --list',
+    '  kal debug  [project-path] --delete --run-id <id>',
+    '  kal lint   [project-path] [--format <json|pretty>]',
+    '  kal smoke  [project-path] [--steps N] [--input value]... [--dry-run] [--format <json|pretty>]',
     '  kal config [command] [options]',
     '',
     'Config commands:',
@@ -157,6 +159,23 @@ async function configCommand(
   return await configCmd.execute(tokens);
 }
 
+async function studioCommand(
+  tokens: string[],
+  dependencies: CliDependencies
+): Promise<number> {
+  const { projectPath, flags } = parseCommandArgs(tokens);
+  const runtime = await dependencies.createRuntime(resolveProjectPath(projectPath, dependencies.cwd));
+  const host = flags.host ?? '127.0.0.1';
+  const port = flags.port ? Number(flags.port) : 3000;
+  if (!Number.isFinite(port) || port < 0) {
+    throw new EngineHttpError('CLI port must be a non-negative number', 400, 'CLI_PORT_INVALID', { port: flags.port });
+  }
+  const server = await startStudioServer({ runtime, host, port });
+  dependencies.io.stdout(`Studio running on ${server.url}\n`);
+  await dependencies.waitForShutdown(server, dependencies.io);
+  return 0;
+}
+
 export async function runCli(argv: string[], deps: Partial<CliDependencies> = {}): Promise<number> {
   const dependencies: CliDependencies = {
     ...defaultDependencies,
@@ -171,6 +190,9 @@ export async function runCli(argv: string[], deps: Partial<CliDependencies> = {}
   }
 
   try {
+    if (command === 'studio') {
+      return await studioCommand(tokens, dependencies);
+    }
     if (command === 'serve') {
       return await serveCommand(tokens, dependencies);
     }
