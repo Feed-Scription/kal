@@ -1,4 +1,6 @@
 import { defineConfig } from 'tsup';
+import { cpSync, existsSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 const shared = {
   tsconfig: 'tsconfig.build.json',
@@ -7,6 +9,17 @@ const shared = {
   target: 'node18',
   external: ['@kal-ai/core'],
 };
+
+function copyEditorDist() {
+  const src = resolve('..', 'editor', 'dist');
+  const dest = resolve('dist', 'editor');
+  if (existsSync(src)) {
+    cpSync(src, dest, { recursive: true });
+    console.log('Copied editor dist → dist/editor');
+  } else {
+    console.warn('Editor dist not found, skipping copy');
+  }
+}
 
 export default defineConfig([
   {
@@ -17,6 +30,9 @@ export default defineConfig([
     format: ['esm', 'cjs'],
     dts: true,
     clean: true,
+    onSuccess: async () => {
+      copyEditorDist();
+    },
   },
   {
     ...shared,
