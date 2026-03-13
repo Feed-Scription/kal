@@ -4,7 +4,12 @@
     "name": "intro",
     "description": "Opening narration — Day 1 arrival at Westbrook High",
     "inputs": [],
-    "outputs": [{ "name": "result", "type": "string" }]
+    "outputs": [
+      {
+        "name": "result",
+        "type": "string"
+      }
+    ]
   },
   "data": {
     "nodes": [
@@ -12,18 +17,33 @@
         "id": "prompt-build",
         "type": "PromptBuild",
         "label": "Intro text",
-        "position": { "x": 0, "y": 0 },
-        "inputs": [{ "name": "data", "type": "object", "defaultValue": {} }],
+        "inputs": [
+          {
+            "name": "data",
+            "type": "object",
+            "defaultValue": {}
+          }
+        ],
         "outputs": [
-          { "name": "messages", "type": "ChatMessage[]" },
-          { "name": "text", "type": "string" },
-          { "name": "estimatedTokens", "type": "number" }
+          {
+            "name": "messages",
+            "type": "ChatMessage[]"
+          },
+          {
+            "name": "text",
+            "type": "string"
+          },
+          {
+            "name": "estimatedTokens",
+            "type": "number"
+          }
         ],
         "config": {
           "defaultRole": "system",
           "fragments": [
             {
-              "type": "base", "id": "intro-text",
+              "type": "base",
+              "id": "intro-text",
               "content": "你是 Westbrook High 的叙事者。风格：冷峻写实。绝不用感叹号。用短句和细节。\n\n生成游戏开场叙事。场景：玩家刚到达 Westbrook High，是一个转学生。\n\n必须包含以下元素：\n1. 到达学校的第一印象——一所看起来正常的美式高中\n2. 走廊里一张褪色的失踪海报——Maya Chen，三个月前失踪\n3. 海报上有人用铅笔写了一行小字（留下悬念，不要揭示内容）\n4. 被安排到宿舍，隔壁房间的门牌写着 L. Chen\n5. 一个叫 Zoe Park 的女生主动搭话，说她在写关于\"最近发生的事\"的报道\n6. 当晚在宿舍，听到隔壁有人在哭\n\n语调：克制、观察性的。像一个聪明的新生在默默记录一切。\n不要超过 400 字。\n\n输出纯文本叙事，不需要 JSON 格式。",
               "role": "system"
             }
@@ -34,23 +54,46 @@
         "id": "message",
         "type": "Message",
         "label": "Assemble",
-        "position": { "x": 200, "y": 0 },
         "inputs": [
-          { "name": "system", "type": "ChatMessage[]" },
-          { "name": "user", "type": "string" }
+          {
+            "name": "system",
+            "type": "ChatMessage[]"
+          },
+          {
+            "name": "user",
+            "type": "string"
+          }
         ],
-        "outputs": [{ "name": "messages", "type": "ChatMessage[]" }],
-        "config": { "historyKey": "history", "maxHistoryMessages": 0 }
+        "outputs": [
+          {
+            "name": "messages",
+            "type": "ChatMessage[]"
+          }
+        ],
+        "config": {
+          "historyKey": "history",
+          "maxHistoryMessages": 0
+        }
       },
       {
         "id": "generate",
         "type": "GenerateText",
         "label": "Generate intro",
-        "position": { "x": 400, "y": 0 },
-        "inputs": [{ "name": "messages", "type": "ChatMessage[]" }],
+        "inputs": [
+          {
+            "name": "messages",
+            "type": "ChatMessage[]"
+          }
+        ],
         "outputs": [
-          { "name": "text", "type": "string" },
-          { "name": "usage", "type": "object" }
+          {
+            "name": "text",
+            "type": "string"
+          },
+          {
+            "name": "usage",
+            "type": "object"
+          }
         ],
         "config": {
           "historyKey": "history",
@@ -61,16 +104,42 @@
         "id": "signal-out",
         "type": "SignalOut",
         "label": "Output",
-        "position": { "x": 600, "y": 0 },
-        "inputs": [{ "name": "data", "type": "string" }],
-        "outputs": [{ "name": "data", "type": "string" }],
-        "config": { "channel": "result" }
+        "inputs": [
+          {
+            "name": "data",
+            "type": "string"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "data",
+            "type": "string"
+          }
+        ],
+        "config": {
+          "channel": "result"
+        }
       }
     ],
     "edges": [
-      { "source": "prompt-build", "sourceHandle": "messages", "target": "message", "targetHandle": "system" },
-      { "source": "message", "sourceHandle": "messages", "target": "generate", "targetHandle": "messages" },
-      { "source": "generate", "sourceHandle": "text", "target": "signal-out", "targetHandle": "data" }
+      {
+        "source": "prompt-build",
+        "sourceHandle": "messages",
+        "target": "message",
+        "targetHandle": "system"
+      },
+      {
+        "source": "message",
+        "sourceHandle": "messages",
+        "target": "generate",
+        "targetHandle": "messages"
+      },
+      {
+        "source": "generate",
+        "sourceHandle": "text",
+        "target": "signal-out",
+        "targetHandle": "data"
+      }
     ]
   }
 }

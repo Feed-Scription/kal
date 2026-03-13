@@ -172,9 +172,10 @@ export class FlowLoader {
    */
   private static isTypeCompatible(sourceType: string, targetType: string): boolean {
     if (sourceType === targetType) return true;
-    if (targetType === 'object') return true;
-    if (targetType === 'array' && sourceType.endsWith('[]')) return true;
+    if (sourceType === 'any') return true;
     if (targetType === 'any') return true;
+    if (targetType === 'object' && (sourceType === 'object' || sourceType === 'any')) return true;
+    if (targetType === 'array' && sourceType.endsWith('[]')) return true;
     return false;
   }
 

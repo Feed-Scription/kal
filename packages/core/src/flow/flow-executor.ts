@@ -115,9 +115,21 @@ export class FlowExecutor {
         });
 
         const nodeStartTime = Date.now();
+        const nodeWarnings: string[] = [];
 
         try {
-          const context = this.contextFactory(executionId, nodeId);
+          const baseContext = this.contextFactory(executionId, nodeId);
+          // Wrap logger.warn to collect warnings
+          const context: NodeContext = {
+            ...baseContext,
+            logger: {
+              ...baseContext.logger,
+              warn: (message: string, meta?: object) => {
+                nodeWarnings.push(message);
+                baseContext.logger.warn(message, meta);
+              },
+            },
+          };
 
           if (nodeDef.type === 'SignalIn') {
             const channel = nodeDef.config?.channel as string;
@@ -165,6 +177,7 @@ export class FlowExecutor {
             outputs,
             durationMs: Date.now() - nodeStartTime,
             timestamp: Date.now(),
+            warnings: nodeWarnings.length > 0 ? nodeWarnings : undefined,
           });
         } catch (error) {
           const isTimeout = (error as any).isTimeout === true;

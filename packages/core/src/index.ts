@@ -57,6 +57,9 @@ export {
 export {
   Regex, JSONParse, PostProcess, SubFlow,
 } from './node/builtin/transform-nodes';
+export {
+  Constant, ComputeState,
+} from './node/builtin/utility-nodes';
 
 // Flow
 export { FlowGraph } from './flow/flow-graph';
