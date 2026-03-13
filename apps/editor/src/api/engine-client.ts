@@ -7,7 +7,7 @@ import type {
   SessionDefinition,
 } from '@/types/project';
 
-const BASE_URL = import.meta.env.VITE_ENGINE_URL || 'http://localhost:3000';
+const BASE_URL = import.meta.env.VITE_ENGINE_URL || '';
 
 type EngineSuccessResponse<T> = { success: true; data: T };
 type EngineErrorResponse = { success: false; error: { code: string; message: string } };
