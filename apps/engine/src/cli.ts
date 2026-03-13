@@ -8,6 +8,7 @@ import { ConfigCommand } from './commands/config';
 import { runDebugCommand } from './commands/debug';
 import { runLintCommand } from './commands/lint';
 import { runSmokeCommand } from './commands/smoke';
+import { runEvalCommand } from './commands/eval';
 import type { EngineCliIO, StartedEngineServer } from './types';
 
 export interface CliDependencies {
@@ -74,6 +75,8 @@ function printUsage(io: EngineCliIO): void {
     '  kal debug  [project-path] --delete --run-id <id>',
     '  kal lint   [project-path] [--format <json|pretty>]',
     '  kal smoke  [project-path] [--steps N] [--input value]... [--dry-run] [--format <json|pretty>]',
+    '  kal eval   render <flow> --node <id> [--state <json>] [--format <json|pretty>]',
+    '  kal eval   run <flow> --node <id> [--variant <file>] [--runs N] [--input <json>] [--state <json>] [--format <json|pretty>]',
     '  kal config [command] [options]',
     '',
     'Config commands:',
@@ -207,6 +210,9 @@ export async function runCli(argv: string[], deps: Partial<CliDependencies> = {}
     }
     if (command === 'smoke') {
       return await runSmokeCommand(tokens, dependencies);
+    }
+    if (command === 'eval') {
+      return await runEvalCommand(tokens, { cwd: dependencies.cwd, io: dependencies.io, createRuntime: dependencies.createRuntime });
     }
     if (command === 'config') {
       return await configCommand(tokens, dependencies);
