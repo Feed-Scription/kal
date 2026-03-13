@@ -12,7 +12,6 @@
         "id": "prompt-build",
         "type": "PromptBuild",
         "label": "Intro text",
-        "position": { "x": 0, "y": 0 },
         "inputs": [{ "name": "data", "type": "object", "defaultValue": {} }],
         "outputs": [
           { "name": "messages", "type": "ChatMessage[]" },
@@ -34,7 +33,6 @@
         "id": "generate",
         "type": "GenerateText",
         "label": "Generate intro",
-        "position": { "x": 400, "y": 0 },
         "inputs": [{ "name": "messages", "type": "ChatMessage[]" }],
         "outputs": [
           { "name": "text", "type": "string" },
@@ -49,7 +47,6 @@
         "id": "signal-out",
         "type": "SignalOut",
         "label": "Output",
-        "position": { "x": 600, "y": 0 },
         "inputs": [{ "name": "data", "type": "string" }],
         "outputs": [{ "name": "data", "type": "string" }],
         "config": { "channel": "result" }

@@ -299,7 +299,6 @@ Flat key-value map. Each key is a `{ type, value }` pair.
         "id": "prompt-build",
         "type": "PromptBuild",
         "label": "Build text",
-        "position": { "x": 0, "y": 0 },
         "inputs": [{ "name": "data", "type": "object", "defaultValue": {} }],
         "outputs": [
           { "name": "messages", "type": "ChatMessage[]" },
@@ -322,7 +321,6 @@ Flat key-value map. Each key is a `{ type, value }` pair.
         "id": "signal-out",
         "type": "SignalOut",
         "label": "Output",
-        "position": { "x": 360, "y": 0 },
         "inputs": [{ "name": "data", "type": "string" }],
         "outputs": [{ "name": "data", "type": "string" }],
         "config": { "channel": "result" }
@@ -357,7 +355,6 @@ Flat key-value map. Each key is a `{ type, value }` pair.
         "id": "signal-in",
         "type": "SignalIn",
         "label": "Player input",
-        "position": { "x": 0, "y": 0 },
         "inputs": [],
         "outputs": [{ "name": "data", "type": "string" }],
         "config": { "channel": "playerInput" }
@@ -366,7 +363,6 @@ Flat key-value map. Each key is a `{ type, value }` pair.
         "id": "narrate",
         "type": "SubFlow",
         "label": "Narration sub-flow",
-        "position": { "x": 200, "y": 0 },
         "inputs": [{ "name": "playerInput", "type": "string", "required": true }],
         "outputs": [{ "name": "response", "type": "string" }],
         "config": { "ref": "narrate" }
@@ -375,7 +371,6 @@ Flat key-value map. Each key is a `{ type, value }` pair.
         "id": "json-parse",
         "type": "JSONParse",
         "label": "Parse JSON",
-        "position": { "x": 400, "y": 0 },
         "inputs": [{ "name": "text", "type": "string", "required": true }],
         "outputs": [
           { "name": "data", "type": "object" },
@@ -392,7 +387,6 @@ Flat key-value map. Each key is a `{ type, value }` pair.
         "id": "apply-state",
         "type": "ApplyState",
         "label": "Write state",
-        "position": { "x": 600, "y": 100 },
         "inputs": [{ "name": "changes", "type": "object", "required": true }],
         "outputs": [
           { "name": "applied", "type": "array" },
@@ -407,7 +401,6 @@ Flat key-value map. Each key is a `{ type, value }` pair.
         "id": "signal-out",
         "type": "SignalOut",
         "label": "Output",
-        "position": { "x": 600, "y": -100 },
         "inputs": [{ "name": "data", "type": "object" }],
         "outputs": [{ "name": "data", "type": "object" }],
         "config": { "channel": "result" }
@@ -440,7 +433,6 @@ Flat key-value map. Each key is a `{ type, value }` pair.
         "id": "signal-in",
         "type": "SignalIn",
         "label": "Input",
-        "position": { "x": 0, "y": 0 },
         "inputs": [],
         "outputs": [{ "name": "data", "type": "string" }],
         "config": { "channel": "playerInput" }
@@ -449,7 +441,6 @@ Flat key-value map. Each key is a `{ type, value }` pair.
         "id": "prompt-build",
         "type": "PromptBuild",
         "label": "System prompt",
-        "position": { "x": 200, "y": -100 },
         "inputs": [{ "name": "data", "type": "object", "defaultValue": {} }],
         "outputs": [
           { "name": "messages", "type": "ChatMessage[]" },
@@ -488,7 +479,6 @@ Flat key-value map. Each key is a `{ type, value }` pair.
         "id": "message",
         "type": "Message",
         "label": "Assemble messages",
-        "position": { "x": 400, "y": 0 },
         "inputs": [
           { "name": "system", "type": "ChatMessage[]" },
           { "name": "user", "type": "string" }
@@ -504,7 +494,6 @@ Flat key-value map. Each key is a `{ type, value }` pair.
         "id": "generate",
         "type": "GenerateText",
         "label": "Call LLM",
-        "position": { "x": 600, "y": 0 },
         "inputs": [{ "name": "messages", "type": "ChatMessage[]" }],
         "outputs": [
           { "name": "text", "type": "string" },
@@ -520,7 +509,6 @@ Flat key-value map. Each key is a `{ type, value }` pair.
         "id": "signal-out",
         "type": "SignalOut",
         "label": "Output",
-        "position": { "x": 800, "y": 0 },
         "inputs": [{ "name": "data", "type": "string" }],
         "outputs": [{ "name": "data", "type": "string" }],
         "config": { "channel": "response" }
