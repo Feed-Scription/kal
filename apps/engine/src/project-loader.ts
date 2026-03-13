@@ -1,4 +1,4 @@
-import { ConfigLoader, FlowLoader, validateSessionDefinition } from '@kal-ai/core';
+import { ConfigLoader, FlowLoader, validateSessionDefinition, BUILTIN_NODES } from '@kal-ai/core';
 import type { FlowDefinition, InitialState, SessionDefinition } from '@kal-ai/core';
 import { EngineHttpError } from './errors';
 import type { EngineProject } from './types';
@@ -65,7 +65,8 @@ export async function loadEngineProject(projectRoot: string): Promise<EngineProj
     flowFileMap[flowId] = filePath;
   }
 
-  const loader = new FlowLoader();
+  const builtinManifest = new Map(BUILTIN_NODES.map((n) => [n.type, { inputs: n.inputs, outputs: n.outputs }]));
+  const loader = new FlowLoader((nodeType) => builtinManifest.get(nodeType));
   const resolver = (flowId: string): string => {
     const raw = flowTextsById[flowId];
     if (!raw) {
