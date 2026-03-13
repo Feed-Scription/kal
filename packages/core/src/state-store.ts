@@ -85,7 +85,9 @@ export class StateStore {
       return { success: false, error: new Error(`Appended values for key "${key}" are not JSON serializable`) };
     }
 
-    const nextValue = [...(existing.value as any[]), ...this.deepCopy(values)];
+    const currentArray = existing.value as any[];
+    const copied = this.deepCopy(values);
+    const nextValue = [...currentArray, ...copied];
     this.store.set(key, { type: 'array', value: nextValue });
     return { success: true, data: undefined };
   }
@@ -97,7 +99,15 @@ export class StateStore {
   getAll(): Record<string, StateValue> {
     const result: Record<string, StateValue> = {};
     for (const [key, value] of this.store.entries()) {
-      result[key] = { type: value.type, value: this.deepCopy(value.value) };
+      const entry: StateValue = { type: value.type, value: this.deepCopy(value.value) };
+      // Preserve constraints so snapshots round-trip correctly
+      const constraint = this.constraints.get(key);
+      if (constraint) {
+        if (constraint.min !== undefined) entry.min = constraint.min;
+        if (constraint.max !== undefined) entry.max = constraint.max;
+        if (constraint.enum !== undefined) entry.enum = constraint.enum;
+      }
+      result[key] = entry;
     }
     return result;
   }
@@ -126,9 +136,10 @@ export class StateStore {
         });
       }
 
+      const constrainedValue = this.applyConstraints(key, value.type, value.value);
       this.store.set(key, {
         type: value.type,
-        value: this.deepCopy(value.value),
+        value: this.deepCopy(constrainedValue),
         min: value.min,
         max: value.max,
         enum: value.enum,
