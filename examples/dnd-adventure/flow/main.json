@@ -23,10 +23,6 @@
         "id": "signal-in",
         "type": "SignalIn",
         "label": "玩家输入",
-        "position": {
-          "x": 265.9407979811846,
-          "y": 183.99392418465678
-        },
         "inputs": [],
         "outputs": [
           {
@@ -42,10 +38,6 @@
         "id": "narrate",
         "type": "SubFlow",
         "label": "叙事子流程",
-        "position": {
-          "x": -97.40854809775946,
-          "y": 261.3022956908151
-        },
         "inputs": [
           {
             "name": "playerInput",
@@ -67,10 +59,6 @@
         "id": "json-parse",
         "type": "JSONParse",
         "label": "解析JSON",
-        "position": {
-          "x": -402.0035318320232,
-          "y": -201.00176591601158
-        },
         "inputs": [
           {
             "name": "text",
@@ -102,10 +90,6 @@
         "id": "apply-state",
         "type": "ApplyState",
         "label": "回写状态",
-        "position": {
-          "x": -397.3650295416537,
-          "y": 256.66379340044557
-        },
         "inputs": [
           {
             "name": "changes",
@@ -138,10 +122,6 @@
         "id": "signal-out",
         "type": "SignalOut",
         "label": "输出结果",
-        "position": {
-          "x": 353.9389174666119,
-          "y": -110.22915191174285
-        },
         "inputs": [
           {
             "name": "data",

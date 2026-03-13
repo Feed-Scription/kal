@@ -30,7 +30,7 @@
       "id": "key-day-event",
       "type": "RunFlow",
       "flowRef": "day-event",
-      "next": "check-confrontation"
+      "next": "check-ap"
     },
     {
       "id": "day-action",
@@ -140,6 +140,7 @@
           "value": "sleep"
         }
       ],
+      "stateKey": "nightChoice",
       "flowRef": "night-action",
       "inputChannel": "nightChoice",
       "next": "check-night-end"
@@ -149,11 +150,21 @@
       "type": "Branch",
       "conditions": [
         {
+          "when": "state.nightChoice == 'sleep'",
+          "next": "do-force-sleep"
+        },
+        {
           "when": "state.phase == 'night_done'",
           "next": "day-end"
         }
       ],
       "default": "night-action"
+    },
+    {
+      "id": "do-force-sleep",
+      "type": "RunFlow",
+      "flowRef": "force-sleep",
+      "next": "day-end"
     },
     {
       "id": "day-end",

@@ -17,10 +17,6 @@
         "id": "prompt-build",
         "type": "PromptBuild",
         "label": "Dark ending prompt",
-        "position": {
-          "x": 0,
-          "y": 0
-        },
         "inputs": [
           {
             "name": "data",
@@ -107,10 +103,6 @@
         "id": "message",
         "type": "Message",
         "label": "Assemble",
-        "position": {
-          "x": 300,
-          "y": 0
-        },
         "inputs": [
           {
             "name": "system",
@@ -137,10 +129,6 @@
         "id": "generate",
         "type": "GenerateText",
         "label": "Generate dark ending",
-        "position": {
-          "x": 500,
-          "y": 0
-        },
         "inputs": [
           {
             "name": "messages",
@@ -167,10 +155,6 @@
         "id": "signal-out",
         "type": "SignalOut",
         "label": "Output",
-        "position": {
-          "x": 700,
-          "y": 0
-        },
         "inputs": [
           {
             "name": "data",

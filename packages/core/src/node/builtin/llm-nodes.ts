@@ -197,6 +197,8 @@ export const GenerateText: CustomNode = {
         additionalProperties: false,
       },
       assistantPath: { type: 'string' },
+      responseFormat: { type: 'string', enum: ['text', 'json'] },
+      jsonSchema: { type: 'object' },
     },
     additionalProperties: true,
   },
@@ -219,6 +221,8 @@ export const GenerateText: CustomNode = {
       maxTokens: config.maxTokens,
       retry: config.retry,
       cache: config.cache,
+      responseFormat: config.responseFormat as 'text' | 'json' | undefined,
+      jsonSchema: config.jsonSchema as object | undefined,
     });
 
     const historyKey = config.historyKey ?? 'history';
