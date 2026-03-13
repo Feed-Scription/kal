@@ -151,7 +151,8 @@ export class EngineRuntime {
     };
 
     // Validate all flows before any mutation
-    const loader = new FlowLoader();
+    const builtinManifest = new Map(BUILTIN_NODES.map((n) => [n.type, { inputs: n.inputs, outputs: n.outputs }]));
+    const loader = new FlowLoader((nodeType) => builtinManifest.get(nodeType));
     const nextFlows: Record<string, FlowDefinition> = {};
     for (const id of Object.keys(nextTexts).sort()) {
       nextFlows[id] = loader.load(id, resolver);

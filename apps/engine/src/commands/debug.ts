@@ -19,6 +19,7 @@ import type {
   DebugEvent,
   DebugListPayload,
   DebugObservation,
+  DebugOutputEvent,
   DebugRunSnapshot,
   DebugStateSummary,
   DebugStatePayload,
@@ -42,6 +43,7 @@ interface ParsedDebugArgs {
   projectPath?: string;
   runId?: string;
   input?: string;
+  inputs?: string[];
   stateDir?: string;
   format: 'json' | 'pretty' | 'agent';
   verbose: boolean;
@@ -335,7 +337,7 @@ async function advanceExistingRun(
     };
   }
 
-  if (snapshot.waitingFor && parsed.input === undefined) {
+  if (snapshot.waitingFor && parsed.input === undefined && !parsed.inputs) {
     const waitingFor = toOutputWaitingFor(snapshot.waitingFor);
     return {
       exitCode: 2,
@@ -367,7 +369,7 @@ async function advanceExistingRun(
     };
   }
 
-  if (!snapshot.waitingFor && parsed.input !== undefined) {
+  if (!snapshot.waitingFor && parsed.input !== undefined && !parsed.inputs) {
     return {
       exitCode: 2,
       payload: buildErrorAdvancePayload(projectRoot, {
@@ -394,6 +396,11 @@ async function advanceExistingRun(
     throw new EngineHttpError('项目缺少 session.json，无法恢复 debug 模式', 400, 'NO_SESSION');
   }
   runtime.restoreState(snapshot.stateSnapshot);
+
+  // Multi-step mode: --inputs "explore,explore,sleep"
+  if (parsed.inputs) {
+    return advanceMultiStep(projectRoot, snapshot, parsed, runtime, manager);
+  }
 
   const beforeState = runtime.getState();
   const result = await advanceSession(runtime.getSession()!, createRunnerDeps(runtime), snapshot.cursor, {
@@ -429,6 +436,89 @@ async function advanceExistingRun(
   return {
     exitCode: result.status === 'error' ? 1 : 0,
     payload: buildAdvancePayload(projectRoot, savedSnapshot.runId, result, diagnostics, beforeState, afterState),
+  };
+}
+
+async function advanceMultiStep(
+  projectRoot: string,
+  snapshot: DebugRunSnapshot,
+  parsed: ParsedDebugArgs,
+  runtime: EngineRuntime,
+  manager: DebugSessionManager,
+): Promise<CommandResult> {
+  const inputQueue = [...parsed.inputs!];
+  const session = runtime.getSession()!;
+  const deps = createRunnerDeps(runtime);
+  const beforeState = runtime.getState();
+
+  let cursor = snapshot.cursor;
+  let currentSnapshot = snapshot;
+  let result: SessionAdvanceResult;
+  let stepsCompleted = 0;
+
+  for (let i = 0; i < inputQueue.length; i++) {
+    const userInput = inputQueue[i]!;
+    result = await advanceSession(session, deps, cursor, {
+      mode: 'continue',
+      userInput,
+    });
+
+    cursor = result.cursor;
+    stepsCompleted++;
+
+    const afterState = runtime.getState();
+    currentSnapshot = {
+      ...currentSnapshot,
+      cursor: result.cursor,
+      waitingFor: result.waitingFor,
+      status: result.status,
+      stateSnapshot: afterState,
+      recentEvents: result.events,
+      updatedAt: Date.now(),
+      inputHistory: [
+        ...currentSnapshot.inputHistory,
+        {
+          stepId: cursor.currentStepId ?? '',
+          stepIndex: cursor.stepIndex,
+          input: userInput,
+          timestamp: Date.now(),
+        },
+      ],
+    };
+
+    // Stop early if session ended, errored, or no more input expected
+    if (result.status === 'ended' || result.status === 'error') {
+      break;
+    }
+
+    // If waiting_input but we have more inputs, continue the loop
+    // If not waiting_input (paused), run a continue without input to advance
+    if (result.status !== 'waiting_input' && i < inputQueue.length - 1) {
+      // Session is running (paused after step), advance without input
+      result = await advanceSession(session, deps, cursor, { mode: 'continue' });
+      cursor = result.cursor;
+      currentSnapshot = {
+        ...currentSnapshot,
+        cursor: result.cursor,
+        waitingFor: result.waitingFor,
+        status: result.status,
+        stateSnapshot: runtime.getState(),
+        recentEvents: result.events,
+        updatedAt: Date.now(),
+      };
+      if (result.status === 'ended' || result.status === 'error') {
+        break;
+      }
+    }
+  }
+
+  const afterState = runtime.getState();
+  const savedSnapshot = await finalizeSnapshot(projectRoot, currentSnapshot, result!, parsed.cleanup, manager);
+  const diagnostics = await buildDiagnosticsFromResult(runtime, result!, parsed.verbose, undefined);
+
+  return {
+    exitCode: result!.status === 'error' ? 1 : 0,
+    payload: buildAdvancePayload(projectRoot, savedSnapshot.runId, result!, diagnostics, beforeState, afterState),
   };
 }
 
@@ -1254,6 +1344,7 @@ function parseDebugArgs(tokens: string[]): ParsedDebugArgs {
   let projectPath: string | undefined;
   let runId: string | undefined;
   let input: string | undefined;
+  let inputs: string[] | undefined;
   let stateDir: string | undefined;
   let format: 'json' | 'pretty' | 'agent' = 'json';
   let verbose = false;
@@ -1288,12 +1379,12 @@ function parseDebugArgs(tokens: string[]): ParsedDebugArgs {
       continue;
     }
 
-    if (token === '--run-id' || token === '--state-dir' || token === '--format' || token === '--input') {
+    if (token === '--run-id' || token === '--run' || token === '--state-dir' || token === '--format' || token === '--input' || token === '--inputs') {
       const value = tokens[index + 1];
       if (!value || value.startsWith('--')) {
         throw new EngineHttpError(`Missing value for flag ${token}`, 400, 'DEBUG_FLAG_VALUE_REQUIRED', { flag: token });
       }
-      if (token === '--run-id') {
+      if (token === '--run-id' || token === '--run') {
         runId = value;
       } else if (token === '--state-dir') {
         stateDir = value;
@@ -1302,6 +1393,11 @@ function parseDebugArgs(tokens: string[]): ParsedDebugArgs {
           throw new EngineHttpError(`Unsupported debug format: ${value}`, 400, 'DEBUG_FORMAT_INVALID', { format: value });
         }
         format = value;
+      } else if (token === '--inputs') {
+        inputs = value.split(',').map((s) => s.trim()).filter(Boolean);
+        if (inputs.length === 0) {
+          throw new EngineHttpError('--inputs requires at least one non-empty value', 400, 'DEBUG_INPUTS_EMPTY');
+        }
       } else {
         input = value;
       }
@@ -1338,12 +1434,19 @@ function parseDebugArgs(tokens: string[]): ParsedDebugArgs {
   if ((action === 'state' || action === 'list' || action === 'delete' || action === 'start' || action === 'retry' || action === 'skip') && input !== undefined) {
     throw new EngineHttpError('Input can only be provided with --continue or --step', 400, 'DEBUG_INPUT_INVALID');
   }
+  if (inputs && input) {
+    throw new EngineHttpError('Cannot use both --input and --inputs', 400, 'DEBUG_INPUT_CONFLICT');
+  }
+  if (inputs && action !== 'continue') {
+    throw new EngineHttpError('--inputs can only be used with --continue', 400, 'DEBUG_INPUTS_ACTION_INVALID');
+  }
 
   return {
     action,
     projectPath,
     runId,
     input,
+    inputs,
     stateDir,
     format,
     verbose,
