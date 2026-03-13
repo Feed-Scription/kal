@@ -53,6 +53,9 @@ export type StateValueType = 'string' | 'number' | 'boolean' | 'object' | 'array
 export interface StateValue {
   type: StateValueType;
   value: JsonValue;
+  min?: number;
+  max?: number;
+  enum?: string[];
 }
 
 export interface StateStore {

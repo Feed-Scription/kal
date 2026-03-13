@@ -35,8 +35,6 @@ Every Flow is a JSON file with two layers: `meta` (contract) and `data` (DAG).
 {
   "id": "unique-node-id",
   "type": "NodeType",
-  "label": "Display label",
-  "position": { "x": 0, "y": 0 },
   "inputs": [
     { "name": "data", "type": "string", "required": true }
   ],
@@ -46,6 +44,10 @@ Every Flow is a JSON file with two layers: `meta` (contract) and `data` (DAG).
   "config": { ... }
 }
 ```
+
+**Optional fields (omit in AI-generated flows):**
+- `label` — Display name for UI. If omitted, the editor uses `type` as fallback.
+- `position` — Canvas coordinates `{ x, y }`. The editor has auto-layout that computes positions from DAG structure.
 
 ### Edge Definition
 
@@ -61,6 +63,84 @@ Every Flow is a JSON file with two layers: `meta` (contract) and `data` (DAG).
 ### Type Compatibility
 
 Handle types support basic compatibility checking: `any` matches everything, `object` and `array` have loose matching. Exact type match is preferred.
+
+---
+
+## Utility Nodes
+
+### Constant
+
+Output a static value. Use for deterministic state assignments that don't need LLM involvement (e.g. setting `phase: "night_done"` after sleep).
+
+| Config | Type | Description |
+|--------|------|-------------|
+| `value` | `any` | The constant value to output |
+| `type` | `string?` | Value type hint: `'string' \| 'number' \| 'boolean' \| 'object' \| 'array'` |
+
+**Outputs:** `value` — the configured constant.
+
+```json
+{
+  "type": "Constant",
+  "config": { "value": { "phase": "night_done" }, "type": "object" }
+}
+```
+
+**When to use Constant instead of LLM:**
+- Setting phase transitions (`phase: "night_done"`)
+- Fixed numeric values (`ap: 3` for daily reset)
+- Boolean flags (`isKeyDay: true`)
+- Any value that doesn't require creative judgment
+
+### ComputeState
+
+Deterministic computation node. Replaces LLM for arithmetic, lookups, and conditionals.
+
+| Config | Type | Description |
+|--------|------|-------------|
+| `operation` | `string` | `'increment' \| 'decrement' \| 'multiply' \| 'divide' \| 'lookup' \| 'conditional'` |
+| `operand` | `any` | Number for arithmetic, object for lookup table |
+| `condition` | `string?` | Condition for conditional op (e.g. `"value > 10"`) |
+| `trueValue` | `any?` | Value when condition is true |
+| `falseValue` | `any?` | Value when condition is false |
+
+**Inputs:** `value` — the input value to compute on.
+
+**Outputs:** `result` (computed value), `success` (boolean).
+
+**Examples:**
+
+Day increment (replaces LLM doing day+1):
+```json
+{
+  "type": "ComputeState",
+  "config": { "operation": "increment", "operand": 1 }
+}
+```
+
+Game stage lookup by day:
+```json
+{
+  "type": "ComputeState",
+  "config": {
+    "operation": "lookup",
+    "operand": { "1": "early", "2": "early", "3": "mid", "4": "mid", "5": "late" }
+  }
+}
+```
+
+Conditional assignment:
+```json
+{
+  "type": "ComputeState",
+  "config": {
+    "operation": "conditional",
+    "condition": "value >= 3",
+    "trueValue": true,
+    "falseValue": false
+  }
+}
+```
 
 ---
 
@@ -140,6 +220,8 @@ Batch write state changes from an object. The most important node for LLM → st
 |--------|------|-------------|
 | `path` | `string?` | Extract sub-object from input (e.g. `"stateChanges"`) |
 | `allowedKeys` | `string[]?` | Whitelist of keys allowed to update. `[]` = no filter |
+| `operations` | `Record<string, 'set' \| 'append' \| 'appendMany'>?` | Operation per key. Default: `set` |
+| `constraints` | `Record<string, { min?, max? }>?` | Clamp number values before writing |
 
 **Inputs:** `changes` — object with key-value pairs to write back. If no `changes` input, auto-packs all named inputs.
 
@@ -150,6 +232,30 @@ Batch write state changes from an object. The most important node for LLM → st
 - Preserves original type of each key
 - `path` extracts a sub-object: if input is `{ stateChanges: { health: 85 } }` and path is `"stateChanges"`, it applies `{ health: 85 }`
 - `allowedKeys` filters which keys can be written — critical for preventing LLM from modifying arbitrary state
+- `operations` controls how each key is written:
+  - `"set"` (default) — overwrite the value
+  - `"append"` — append a single item to an array state key (e.g. card collection)
+  - `"appendMany"` — append multiple items to an array state key
+- `constraints` clamps number values before writing — use for NPC mood, AP, suspicion etc. to prevent LLM from producing out-of-range values
+
+**Example with operations and constraints:**
+```json
+{
+  "type": "ApplyState",
+  "config": {
+    "path": "stateChanges",
+    "allowedKeys": ["ap", "suspicion", "mood_lily", "topicCards"],
+    "operations": {
+      "topicCards": "append"
+    },
+    "constraints": {
+      "ap": { "min": 0, "max": 3 },
+      "suspicion": { "min": 0, "max": 100 },
+      "mood_lily": { "min": 0, "max": 100 }
+    }
+  }
+}
+```
 
 ---
 
@@ -226,7 +332,8 @@ Call LLM and auto-manage conversation history.
 | `model` | `string?` | Override default model |
 | `temperature` | `number?` | Sampling temperature |
 | `maxTokens` | `number?` | Max output tokens |
-| `responseFormat` | `'text' \| 'json'?` | Response format hint |
+| `responseFormat` | `'text' \| 'json'?` | Response format. `'json'` enables JSON mode |
+| `jsonSchema` | `object?` | JSON Schema for structured output (requires `responseFormat: 'json'`). Uses constrained decoding to guarantee output matches schema |
 | `historyKey` | `string?` | State key for history (default: `"history"`) |
 | `historyPolicy.maxMessages` | `number?` | Max history entries |
 | `assistantPath` | `string?` | JSON path to extract for history (e.g. `"narrative"`) |
@@ -236,6 +343,35 @@ Call LLM and auto-manage conversation history.
 **Outputs:** `text` (string — raw LLM response), `usage` (object — token counts).
 
 **Auto-history behavior:** After each call, appends user message + assistant reply to `state[historyKey]`. If the history state doesn't exist, creates it automatically.
+
+**JSON Schema structured output:**
+When `responseFormat: "json"` and `jsonSchema` are both set, the LLM is physically constrained to output JSON matching the schema. This eliminates missing fields, wrong types, and structural errors.
+
+```json
+{
+  "type": "GenerateText",
+  "config": {
+    "responseFormat": "json",
+    "jsonSchema": {
+      "type": "object",
+      "properties": {
+        "narrative": { "type": "string" },
+        "stateChanges": {
+          "type": "object",
+          "properties": {
+            "ap": { "type": "number" },
+            "phase": { "type": "string", "enum": ["day", "night", "night_done"] }
+          }
+        }
+      },
+      "required": ["narrative", "stateChanges"],
+      "additionalProperties": false
+    }
+  }
+}
+```
+
+**Important:** JSON Schema `minimum`/`maximum` constraints are NOT enforced by constrained decoding — use ApplyState `constraints` or StateStore `min`/`max` for number range enforcement.
 
 ### GenerateImage
 
@@ -350,9 +486,17 @@ Present options to player. Same mechanics as Prompt but with predefined options.
 }
 ```
 
+**Three legal combinations:**
+1. `flowRef + inputChannel` — selection triggers a flow, input passed via channel
+2. `stateKey` only — selection stored in state, no flow executed
+3. `flowRef + stateKey + inputChannel` — selection stored in state AND triggers a flow
+
+**Invalid:** `inputChannel` without `flowRef` — the flow cannot receive input without a flowRef. The engine will reject this at validation time.
+```
+
 ### Branch
 
-Conditional jump based on state expressions.
+Conditional jump based on state expressions. Supports optional `setState` side effects on each branch.
 
 ```json
 {
@@ -366,6 +510,46 @@ Conditional jump based on state expressions.
 ```
 
 Conditions are evaluated in order; first match wins. `default` is used when no condition matches.
+
+**Branch setState** — Apply state changes as a side effect of branching, without needing a separate flow:
+
+```json
+{
+  "id": "sleep-check", "type": "Branch",
+  "conditions": [
+    { "when": "state.phase == 'night'", "next": "day-start", "setState": { "phase": "night_done" } }
+  ],
+  "default": "night-action",
+  "defaultSetState": { "nightActions": 0 }
+}
+```
+
+This eliminates trivial flows like `force-sleep.json` that only set a single state value.
+
+### DynamicChoice
+
+Like Choice, but filters options based on state conditions. Only visible options are shown to the player.
+
+```json
+{
+  "id": "phone-menu", "type": "DynamicChoice",
+  "promptText": "手机功能：",
+  "options": [
+    { "label": "浏览社交媒体", "value": "social_media", "when": "state.phoneUnlocked_social == true" },
+    { "label": "匿名行动", "value": "anon_action", "when": "state.phoneUnlocked_anon == true" },
+    { "label": "休息", "value": "sleep" }
+  ],
+  "stateKey": "phoneChoice",
+  "flowRef": "phone-action",
+  "inputChannel": "choice",
+  "next": "after-phone"
+}
+```
+
+- Options without `when` are always visible
+- Options with `when` are only shown if the condition evaluates to true
+- If no options are visible, the engine returns a `NO_VISIBLE_OPTIONS` error
+- Same `flowRef`/`stateKey`/`inputChannel` combinations as Choice
 
 ### End
 
@@ -391,14 +575,31 @@ The runtime state container. All state is `{ type, value }` pairs defined in `in
 | `object` | `{ ... }` | Must be plain object |
 | `array` | `[ ... ]` | Must be array |
 
+### State Schema Constraints
+
+`initial_state.json` supports declarative constraints that the engine enforces on every write:
+
+```json
+{
+  "ap": { "type": "number", "value": 3, "min": 0, "max": 3 },
+  "mood_lily": { "type": "number", "value": 30, "min": 0, "max": 100 },
+  "phase": { "type": "string", "value": "day", "enum": ["day", "night", "night_done"] }
+}
+```
+
+- `min`/`max` — number values are automatically clamped on every `modify`/`upsert`
+- `enum` — string values are rejected if not in the enum list (falls back to first enum value)
+
+**This is the global safety net.** Even if LLM returns `mood: -5` or `phase: "sleeping"`, the engine will clamp/reject at the StateStore level.
+
 ### Operations
 
 | Operation | Description |
 |-----------|-------------|
 | `add(key, type, value)` | Create new state key |
 | `get(key)` | Read value (returns deep copy) |
-| `modify(key, value)` | Update existing key |
-| `upsert(key, type, value)` | Create or update |
+| `modify(key, value)` | Update existing key (enforces constraints) |
+| `upsert(key, type, value)` | Create or update (enforces constraints) |
 | `remove(key)` | Delete key |
 | `append(key, item)` | Append single item to array |
 | `appendMany(key, items)` | Append multiple items to array |
@@ -407,6 +608,22 @@ The runtime state container. All state is `{ type, value }` pairs defined in `in
 | `clear()` | Remove all state |
 
 All values must be JSON-serializable. Type checking is enforced at runtime.
+
+### Deterministic Logic Guidelines
+
+**Do NOT use LLM for these operations — use ComputeState or Constant node:**
+- Numeric increment/decrement (day+1, AP reset) → `ComputeState` with `increment`/`decrement`
+- Lookup tables (gameStage by day range) → `ComputeState` with `lookup`
+- Conditional assignments (phone unlock by day number) → `ComputeState` with `conditional`
+- State machine transitions (sleep → night_done) → `Constant` node or Branch `setState`
+- Boolean flag setting (isKeyDay = true) → `Constant` node
+
+**DO use LLM for these operations:**
+- Narrative generation
+- NPC dialogue and personality
+- Event creation and description
+- Mood/trust change direction and magnitude (engine clamps the result)
+- Card content generation
 
 ---
 
@@ -448,6 +665,11 @@ interface NodeContext {
 |---------|-------------|
 | `kal serve [project-path]` | Start HTTP API server |
 | `kal play [project-path]` | Start interactive TUI (requires session.json) |
+| `kal debug [project-path] --start` | Start a debug session |
+| `kal debug [project-path] --continue [input]` | Advance debug session |
+| `kal debug [project-path] --format agent` | Compact output for AI agents (< 2KB) |
+| `kal lint [project-path]` | Static analysis — checks session/flow/state consistency |
+| `kal smoke [project-path] [--steps N] [--input val]...` | Auto-advance session N steps with preset inputs |
 | `kal help` | Print usage |
 
 ### HTTP API

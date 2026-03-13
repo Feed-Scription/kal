@@ -17,10 +17,6 @@
         "id": "read-state",
         "type": "ReadState",
         "label": "Read day info",
-        "position": {
-          "x": 0,
-          "y": 0
-        },
         "inputs": [],
         "outputs": [
           {
@@ -50,10 +46,6 @@
         "id": "set-ap",
         "type": "ModifyState",
         "label": "Reset AP to 3",
-        "position": {
-          "x": 200,
-          "y": -80
-        },
         "inputs": [
           {
             "name": "key",
@@ -78,10 +70,6 @@
         "id": "set-phase",
         "type": "ModifyState",
         "label": "Set phase to day",
-        "position": {
-          "x": 200,
-          "y": 0
-        },
         "inputs": [
           {
             "name": "key",
@@ -106,10 +94,6 @@
         "id": "set-daylog",
         "type": "ModifyState",
         "label": "Clear day log",
-        "position": {
-          "x": 200,
-          "y": 80
-        },
         "inputs": [
           {
             "name": "key",
@@ -134,10 +118,6 @@
         "id": "prompt-build",
         "type": "PromptBuild",
         "label": "Morning briefing prompt",
-        "position": {
-          "x": 400,
-          "y": 0
-        },
         "inputs": [
           {
             "name": "data",
@@ -217,10 +197,6 @@
         "id": "message",
         "type": "Message",
         "label": "Assemble",
-        "position": {
-          "x": 600,
-          "y": 0
-        },
         "inputs": [
           {
             "name": "system",
@@ -247,10 +223,6 @@
         "id": "generate",
         "type": "GenerateText",
         "label": "Generate briefing",
-        "position": {
-          "x": 800,
-          "y": 0
-        },
         "inputs": [
           {
             "name": "messages",
@@ -277,10 +249,6 @@
         "id": "json-parse",
         "type": "JSONParse",
         "label": "Parse response",
-        "position": {
-          "x": 1000,
-          "y": 0
-        },
         "inputs": [
           {
             "name": "text",
@@ -312,10 +280,6 @@
         "id": "apply-state",
         "type": "ApplyState",
         "label": "Apply changes",
-        "position": {
-          "x": 1200,
-          "y": 80
-        },
         "inputs": [
           {
             "name": "changes",
@@ -346,10 +310,6 @@
         "id": "signal-out",
         "type": "SignalOut",
         "label": "Output",
-        "position": {
-          "x": 1200,
-          "y": -80
-        },
         "inputs": [
           {
             "name": "data",

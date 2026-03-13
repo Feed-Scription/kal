@@ -6,6 +6,8 @@ import {
   type SessionTraceEvent,
   type SessionWaitingFor,
   type StateValue,
+  type LLMRequestEvent,
+  type LLMResponseEvent,
 } from '@kal-ai/core';
 import { resolve } from 'node:path';
 import { buildCliDiagnostic, buildDebugDiagnostic } from '../debug/diagnostic-builder';
@@ -33,7 +35,7 @@ interface DebugCommandDependencies {
   createRuntime(projectRoot: string): Promise<EngineRuntime>;
 }
 
-type DebugAction = 'start' | 'continue' | 'step' | 'state' | 'list' | 'delete';
+type DebugAction = 'start' | 'continue' | 'step' | 'state' | 'list' | 'delete' | 'retry' | 'skip';
 
 interface ParsedDebugArgs {
   action: DebugAction;
@@ -41,7 +43,7 @@ interface ParsedDebugArgs {
   runId?: string;
   input?: string;
   stateDir?: string;
-  format: 'json' | 'pretty';
+  format: 'json' | 'pretty' | 'agent';
   verbose: boolean;
   cleanup: boolean;
   forceNew: boolean;
@@ -98,6 +100,12 @@ export async function runDebugCommand(
       case 'continue':
       case 'step':
         result = await advanceExistingRun(projectRoot, parsed, manager, dependencies);
+        break;
+      case 'retry':
+        result = await retryCurrentStep(projectRoot, parsed, manager, dependencies);
+        break;
+      case 'skip':
+        result = await skipCurrentStep(projectRoot, parsed, manager, dependencies);
         break;
     }
 
@@ -424,6 +432,174 @@ async function advanceExistingRun(
   };
 }
 
+async function retryCurrentStep(
+  projectRoot: string,
+  parsed: ParsedDebugArgs,
+  manager: DebugSessionManager,
+  dependencies: DebugCommandDependencies,
+): Promise<CommandResult> {
+  const snapshotResult = await resolveExistingRun(projectRoot, parsed.runId, manager);
+  if ('exitCode' in snapshotResult) {
+    return snapshotResult;
+  }
+
+  const snapshot = snapshotResult;
+
+  if (snapshot.status !== 'error') {
+    return {
+      exitCode: 2,
+      payload: buildErrorAdvancePayload(projectRoot, {
+        runId: snapshot.runId,
+        currentStepId: snapshot.cursor.currentStepId,
+        currentStepIndex: snapshot.cursor.stepIndex,
+        stateSummary: buildStateSummary(snapshot.stateSnapshot),
+        diagnostics: [
+          buildCliDiagnostic({
+            code: 'RETRY_NOT_APPLICABLE',
+            message: `--retry can only be used when run status is "error", current status: "${snapshot.status}"`,
+            suggestions: [
+              'Use --continue or --step to advance the session normally',
+            ],
+          }),
+        ],
+      }),
+    };
+  }
+
+  // Re-execute from the same cursor position (retry the failed step)
+  const runtime = await dependencies.createRuntime(projectRoot);
+  if (!runtime.hasSession()) {
+    throw new EngineHttpError('项目缺少 session.json，无法恢复 debug 模式', 400, 'NO_SESSION');
+  }
+  runtime.restoreState(snapshot.stateSnapshot);
+
+  const beforeState = runtime.getState();
+  const result = await advanceSession(runtime.getSession()!, createRunnerDeps(runtime), snapshot.cursor, {
+    mode: 'step' as SessionAdvanceMode,
+    userInput: parsed.input,
+  });
+  const afterState = runtime.getState();
+
+  const nextSnapshot: DebugRunSnapshot = {
+    ...snapshot,
+    cursor: result.cursor,
+    waitingFor: result.waitingFor,
+    status: result.status,
+    stateSnapshot: afterState,
+    recentEvents: result.events,
+    updatedAt: Date.now(),
+    inputHistory: snapshot.inputHistory,
+  };
+
+  const savedSnapshot = await finalizeSnapshot(projectRoot, nextSnapshot, result, parsed.cleanup, manager);
+  const diagnostics = await buildDiagnosticsFromResult(runtime, result, parsed.verbose, undefined);
+
+  return {
+    exitCode: result.status === 'error' ? 1 : 0,
+    payload: buildAdvancePayload(projectRoot, savedSnapshot.runId, result, diagnostics, beforeState, afterState),
+  };
+}
+
+async function skipCurrentStep(
+  projectRoot: string,
+  parsed: ParsedDebugArgs,
+  manager: DebugSessionManager,
+  dependencies: DebugCommandDependencies,
+): Promise<CommandResult> {
+  const snapshotResult = await resolveExistingRun(projectRoot, parsed.runId, manager);
+  if ('exitCode' in snapshotResult) {
+    return snapshotResult;
+  }
+
+  const snapshot = snapshotResult;
+
+  if (snapshot.status !== 'error' && snapshot.status !== 'paused') {
+    return {
+      exitCode: 2,
+      payload: buildErrorAdvancePayload(projectRoot, {
+        runId: snapshot.runId,
+        currentStepId: snapshot.cursor.currentStepId,
+        currentStepIndex: snapshot.cursor.stepIndex,
+        stateSummary: buildStateSummary(snapshot.stateSnapshot),
+        diagnostics: [
+          buildCliDiagnostic({
+            code: 'SKIP_NOT_APPLICABLE',
+            message: `--skip can only be used when run status is "error" or "paused", current status: "${snapshot.status}"`,
+            suggestions: [
+              'Use --continue or --step to advance the session normally',
+            ],
+          }),
+        ],
+      }),
+    };
+  }
+
+  // Move cursor to the next step without executing the current one
+  const runtime = await dependencies.createRuntime(projectRoot);
+  if (!runtime.hasSession()) {
+    throw new EngineHttpError('项目缺少 session.json，无法恢复 debug 模式', 400, 'NO_SESSION');
+  }
+  runtime.restoreState(snapshot.stateSnapshot);
+
+  // Find the current step and determine its "next"
+  const session = runtime.getSession()!;
+  const currentStep = session.steps.find((s) => s.id === snapshot.cursor.currentStepId);
+
+  if (!currentStep || !('next' in currentStep) || !currentStep.next) {
+    return {
+      exitCode: 2,
+      payload: buildErrorAdvancePayload(projectRoot, {
+        runId: snapshot.runId,
+        currentStepId: snapshot.cursor.currentStepId,
+        currentStepIndex: snapshot.cursor.stepIndex,
+        stateSummary: buildStateSummary(snapshot.stateSnapshot),
+        diagnostics: [
+          buildCliDiagnostic({
+            code: 'SKIP_NO_NEXT',
+            message: `Cannot skip step "${snapshot.cursor.currentStepId}" — it has no "next" step (Branch or End step)`,
+            suggestions: [
+              'Use --start --force-new to restart the session',
+            ],
+          }),
+        ],
+      }),
+    };
+  }
+
+  // Advance cursor to the next step
+  const nextStepId = currentStep.next as string;
+  const nextStepIndex = session.steps.findIndex((s) => s.id === nextStepId);
+  const skippedCursor = {
+    ...snapshot.cursor,
+    currentStepId: nextStepId,
+    stepIndex: nextStepIndex >= 0 ? nextStepIndex : snapshot.cursor.stepIndex + 1,
+  };
+
+  const nextSnapshot: DebugRunSnapshot = {
+    ...snapshot,
+    cursor: skippedCursor,
+    waitingFor: null,
+    status: 'paused' as const,
+    recentEvents: [],
+    updatedAt: Date.now(),
+  };
+
+  await manager.saveRun(nextSnapshot);
+  await manager.setActiveRun(projectRoot, nextSnapshot.runId);
+
+  const stateSummary = buildStateSummary(snapshot.stateSnapshot);
+
+  return {
+    exitCode: 0,
+    payload: buildAdvancePayload(projectRoot, nextSnapshot.runId, {
+      status: 'paused',
+      cursor: skippedCursor,
+      waitingFor: null,
+      events: [],
+    }, [], snapshot.stateSnapshot, snapshot.stateSnapshot),
+  };
+}
+
 async function finalizeSnapshot(
   projectRoot: string,
   snapshot: DebugRunSnapshot,
@@ -536,6 +712,46 @@ function createRunnerDeps(runtime: EngineRuntime) {
     getState: () => runtime.getState(),
     setState: (key: string, value: any) => runtime.setState(key, value),
   };
+}
+
+interface LLMTrace {
+  nodeId: string;
+  model: string;
+  request: string;
+  response: string;
+  latencyMs?: number;
+  cached?: boolean;
+}
+
+function registerLLMTraceHooks(runtime: EngineRuntime): LLMTrace[] {
+  const traces: LLMTrace[] = [];
+  const pendingRequests = new Map<string, { model: string; messages: string }>();
+
+  runtime.registerHooks({
+    onLLMRequest: (event: LLMRequestEvent) => {
+      const lastMsg = event.messages[event.messages.length - 1];
+      const preview = lastMsg?.content?.slice(0, 500) ?? '';
+      pendingRequests.set(`${event.executionId}:${event.nodeId}`, {
+        model: event.model,
+        messages: preview,
+      });
+    },
+    onLLMResponse: (event: LLMResponseEvent) => {
+      const key = `${event.executionId}:${event.nodeId}`;
+      const pending = pendingRequests.get(key);
+      traces.push({
+        nodeId: event.nodeId,
+        model: pending?.model ?? event.model,
+        request: pending?.messages ?? '',
+        response: event.text.slice(0, 500),
+        latencyMs: event.latencyMs,
+        cached: event.cached,
+      });
+      pendingRequests.delete(key);
+    },
+  });
+
+  return traces;
 }
 
 function buildAdvancePayload(
@@ -1039,7 +1255,7 @@ function parseDebugArgs(tokens: string[]): ParsedDebugArgs {
   let runId: string | undefined;
   let input: string | undefined;
   let stateDir: string | undefined;
-  let format: 'json' | 'pretty' = 'json';
+  let format: 'json' | 'pretty' | 'agent' = 'json';
   let verbose = false;
   let cleanup = false;
   let forceNew = false;
@@ -1048,7 +1264,7 @@ function parseDebugArgs(tokens: string[]): ParsedDebugArgs {
   for (let index = 0; index < tokens.length; index += 1) {
     const token = tokens[index]!;
 
-    if (token === '--start' || token === '--continue' || token === '--step' || token === '--state' || token === '--list' || token === '--delete') {
+    if (token === '--start' || token === '--continue' || token === '--step' || token === '--state' || token === '--list' || token === '--delete' || token === '--retry' || token === '--skip') {
       if (action) {
         throw new EngineHttpError('Only one debug action can be specified', 400, 'DEBUG_ACTION_CONFLICT');
       }
@@ -1082,7 +1298,7 @@ function parseDebugArgs(tokens: string[]): ParsedDebugArgs {
       } else if (token === '--state-dir') {
         stateDir = value;
       } else if (token === '--format') {
-        if (value !== 'json' && value !== 'pretty') {
+        if (value !== 'json' && value !== 'pretty' && value !== 'agent') {
           throw new EngineHttpError(`Unsupported debug format: ${value}`, 400, 'DEBUG_FORMAT_INVALID', { format: value });
         }
         format = value;
@@ -1119,7 +1335,7 @@ function parseDebugArgs(tokens: string[]): ParsedDebugArgs {
   if (action === 'delete' && !runId) {
     throw new EngineHttpError('--delete requires --run-id', 400, 'DEBUG_DELETE_RUN_ID_REQUIRED');
   }
-  if ((action === 'state' || action === 'list' || action === 'delete' || action === 'start') && input !== undefined) {
+  if ((action === 'state' || action === 'list' || action === 'delete' || action === 'start' || action === 'retry' || action === 'skip') && input !== undefined) {
     throw new EngineHttpError('Input can only be provided with --continue or --step', 400, 'DEBUG_INPUT_INVALID');
   }
 
@@ -1221,10 +1437,70 @@ function renderPretty(payload: unknown): string {
   return `${lines.join('\n')}\n`;
 }
 
-function writeResult(io: EngineCliIO, result: CommandResult, format: 'json' | 'pretty'): number {
-  const rendered = format === 'pretty'
-    ? renderPretty(result.payload)
-    : `${JSON.stringify(result.payload, null, 2)}\n`;
+function writeResult(io: EngineCliIO, result: CommandResult, format: 'json' | 'pretty' | 'agent'): number {
+  let rendered: string;
+  if (format === 'agent') {
+    rendered = `${JSON.stringify(renderAgent(result.payload), null, 2)}\n`;
+  } else if (format === 'pretty') {
+    rendered = renderPretty(result.payload);
+  } else {
+    rendered = `${JSON.stringify(result.payload, null, 2)}\n`;
+  }
   io.stdout(rendered);
   return result.exitCode;
+}
+
+function renderAgent(payload: unknown): Record<string, any> {
+  if (!payload || typeof payload !== 'object') {
+    return { status: 'unknown', summary: String(payload) };
+  }
+
+  // Handle list payload
+  if ('runs' in payload) {
+    const list = payload as DebugListPayload;
+    return {
+      runs: list.runs.map((r) => ({
+        run_id: r.run_id,
+        status: r.status,
+        active: r.active,
+      })),
+    };
+  }
+
+  // Handle delete payload
+  if ('deleted' in payload) {
+    return payload as Record<string, any>;
+  }
+
+  // Handle state payload
+  if ('state' in payload) {
+    const statePayload = payload as DebugStatePayload;
+    return {
+      run_id: statePayload.run_id,
+      status: statePayload.status,
+      summary: statePayload.observation.summary,
+      waiting_for: statePayload.waiting_for,
+      state_changed: statePayload.state_summary.changed,
+    };
+  }
+
+  // Handle advance payload (most common)
+  const advance = payload as DebugAdvancePayload;
+  const narration = advance.events
+    .filter((e): e is DebugOutputEvent => e.type === 'output')
+    .map((e) => e.normalized.narration)
+    .filter(Boolean)
+    .join('\n')
+    .slice(0, 500) || undefined;
+
+  return {
+    run_id: advance.run_id,
+    status: advance.status,
+    summary: advance.observation.summary,
+    waiting_for: advance.waiting_for,
+    state_changed: advance.state_summary.changed,
+    narration,
+    diagnostics: advance.diagnostics.map((d) => ({ code: d.code, message: d.message })),
+    next: advance.observation.suggested_next_action?.command ?? null,
+  };
 }

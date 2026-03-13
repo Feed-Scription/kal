@@ -85,6 +85,10 @@ export class EngineRuntime {
     return this.core;
   }
 
+  registerHooks(hooks: Partial<import('@kal-ai/core').EngineHooks>): void {
+    this.getCore().hooks.registerAll(hooks);
+  }
+
   getProject(): EngineProject {
     if (!this.project || !this.core) {
       throw new EngineHttpError('Engine runtime is not loaded', 500, 'RUNTIME_NOT_READY');
