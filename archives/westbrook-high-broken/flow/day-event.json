@@ -4,7 +4,12 @@
     "name": "day-event",
     "description": "Key day event — scripted story beats with AI-generated flesh",
     "inputs": [],
-    "outputs": [{ "name": "result", "type": "object" }]
+    "outputs": [
+      {
+        "name": "result",
+        "type": "object"
+      }
+    ]
   },
   "data": {
     "nodes": [
@@ -12,88 +17,136 @@
         "id": "prompt-build",
         "type": "PromptBuild",
         "label": "Event prompt",
-        "position": { "x": 0, "y": 0 },
-        "inputs": [{ "name": "data", "type": "object", "defaultValue": {} }],
+        "inputs": [
+          {
+            "name": "data",
+            "type": "object",
+            "defaultValue": {}
+          }
+        ],
         "outputs": [
-          { "name": "messages", "type": "ChatMessage[]" },
-          { "name": "text", "type": "string" },
-          { "name": "estimatedTokens", "type": "number" }
+          {
+            "name": "messages",
+            "type": "ChatMessage[]"
+          },
+          {
+            "name": "text",
+            "type": "string"
+          },
+          {
+            "name": "estimatedTokens",
+            "type": "number"
+          }
         ],
         "config": {
           "defaultRole": "system",
           "fragments": [
             {
-              "type": "base", "id": "role",
+              "type": "base",
+              "id": "role",
               "content": "你是 Westbrook High 的叙事者。冷峻写实风格。绝不用感叹号。\n\n今天是关键日。根据当前天数和游戏状态，生成一个关键剧情事件。\n\n关键日事件骨架：\n- Day 1: 到达学校，认识Zoe，听到Lily哭泣\n- Day 5: 在食堂听到有人说\"Ethan不是自杀\"，Line B正式开启\n- Day 8: 如果Line A深度≥1，发现Maya的储物柜里有东西\n- Day 12: 第一次对质机会（对信任最高的NPC）\n- Day 15: Marcus和Tyler在走廊公开争吵\n- Day 18: 如果怀疑值≥30，收到匿名威胁信息\n- Day 20: 某个NPC弧线强制推进（选弧线阶段最高的NPC）\n- Day 22-25: 校庆周特殊事件\n- Day 28: 如果两线深度≥3，发现三线关联\n- Day 32-34: 最终对质\n- Day 35: 最终选择\n- Day 36: 学期结束\n\n根据当前天数选择对应的骨架，用AI生成具体叙事。如果当前天数不在列表中但isKeyDay为true，说明是NPC弧线触发的关键日——生成该NPC的弧线推进事件。",
               "role": "system"
             },
             {
-              "type": "field", "id": "day",
-              "source": "state.day", "label": "当前天数"
+              "type": "field",
+              "id": "day",
+              "source": "state.day",
+              "label": "当前天数"
             },
             {
-              "type": "field", "id": "suspicion",
-              "source": "state.suspicion", "label": "怀疑值"
+              "type": "field",
+              "id": "suspicion",
+              "source": "state.suspicion",
+              "label": "怀疑值"
             },
             {
-              "type": "field", "id": "lineA",
-              "source": "state.lineA_depth", "label": "Line A深度"
+              "type": "field",
+              "id": "lineA",
+              "source": "state.lineA_depth",
+              "label": "Line A深度"
             },
             {
-              "type": "field", "id": "lineB",
-              "source": "state.lineB_depth", "label": "Line B深度"
+              "type": "field",
+              "id": "lineB",
+              "source": "state.lineB_depth",
+              "label": "Line B深度"
             },
             {
-              "type": "field", "id": "lineC",
-              "source": "state.lineC_depth", "label": "Line C深度"
+              "type": "field",
+              "id": "lineC",
+              "source": "state.lineC_depth",
+              "label": "Line C深度"
             },
             {
-              "type": "field", "id": "arc-lily",
-              "source": "state.arc_lily", "label": "Lily弧线阶段"
+              "type": "field",
+              "id": "arc-lily",
+              "source": "state.arc_lily",
+              "label": "Lily弧线阶段"
             },
             {
-              "type": "field", "id": "arc-marcus",
-              "source": "state.arc_marcus", "label": "Marcus弧线阶段"
+              "type": "field",
+              "id": "arc-marcus",
+              "source": "state.arc_marcus",
+              "label": "Marcus弧线阶段"
             },
             {
-              "type": "field", "id": "arc-zoe",
-              "source": "state.arc_zoe", "label": "Zoe弧线阶段"
+              "type": "field",
+              "id": "arc-zoe",
+              "source": "state.arc_zoe",
+              "label": "Zoe弧线阶段"
             },
             {
-              "type": "field", "id": "arc-tyler",
-              "source": "state.arc_tyler", "label": "Tyler弧线阶段"
+              "type": "field",
+              "id": "arc-tyler",
+              "source": "state.arc_tyler",
+              "label": "Tyler弧线阶段"
             },
             {
-              "type": "field", "id": "trust-lily",
-              "source": "state.trust_lily", "label": "Lily信任"
+              "type": "field",
+              "id": "trust-lily",
+              "source": "state.trust_lily",
+              "label": "Lily信任"
             },
             {
-              "type": "field", "id": "trust-marcus",
-              "source": "state.trust_marcus", "label": "Marcus信任"
+              "type": "field",
+              "id": "trust-marcus",
+              "source": "state.trust_marcus",
+              "label": "Marcus信任"
             },
             {
-              "type": "field", "id": "trust-zoe",
-              "source": "state.trust_zoe", "label": "Zoe信任"
+              "type": "field",
+              "id": "trust-zoe",
+              "source": "state.trust_zoe",
+              "label": "Zoe信任"
             },
             {
-              "type": "field", "id": "trust-tyler",
-              "source": "state.trust_tyler", "label": "Tyler信任"
+              "type": "field",
+              "id": "trust-tyler",
+              "source": "state.trust_tyler",
+              "label": "Tyler信任"
             },
             {
-              "type": "field", "id": "lastEvent",
-              "source": "state.lastEvent", "label": "上一个关键事件"
+              "type": "field",
+              "id": "lastEvent",
+              "source": "state.lastEvent",
+              "label": "上一个关键事件"
             },
             {
-              "type": "field", "id": "keyDecisions",
-              "source": "state.keyDecisions", "label": "关键历史决策",
+              "type": "field",
+              "id": "keyDecisions",
+              "source": "state.keyDecisions",
+              "label": "关键历史决策",
               "window": 5
             },
             {
-              "type": "field", "id": "playstyle",
-              "source": "state.playstyle", "label": "玩家风格"
+              "type": "field",
+              "id": "playstyle",
+              "source": "state.playstyle",
+              "label": "玩家风格"
             },
             {
-              "type": "base", "id": "format",
+              "type": "base",
+              "id": "format",
               "content": "输出JSON格式：\n{\n  \"narrative\": \"关键日事件叙事（5-10句话，含对话）\",\n  \"eventType\": \"事件类型标签\",\n  \"stateChanges\": {\n    \"suspicion\": 新值,\n    \"lastEvent\": \"事件一句话摘要\",\n    \"pendingConfrontation\": \"NPC名（如果触发对质）或空字符串\",\n    \"lineA_depth\": 新值（如果推进）,\n    \"lineB_depth\": 新值（如果推进）,\n    \"lineC_depth\": 新值（如果推进）\n  },\n  \"npcChanges\": {\n    \"trust_xxx\": 新值,\n    \"mood_xxx\": 新值,\n    \"arc_xxx\": 新值（如果弧线推进）\n  },\n  \"newCards\": {\n    \"topics\": [],\n    \"evidence\": []\n  },\n  \"keyDecision\": \"如果这是一个关键决策点，描述决策内容；否则为null\"\n}",
               "role": "system"
             }
@@ -104,23 +157,47 @@
         "id": "message",
         "type": "Message",
         "label": "Assemble",
-        "position": { "x": 300, "y": 0 },
         "inputs": [
-          { "name": "system", "type": "ChatMessage[]" },
-          { "name": "user", "type": "string" }
+          {
+            "name": "system",
+            "type": "ChatMessage[]"
+          },
+          {
+            "name": "user",
+            "type": "string"
+          }
         ],
-        "outputs": [{ "name": "messages", "type": "ChatMessage[]" }],
-        "config": { "historyKey": "history", "maxHistoryMessages": 8, "summaryKey": "summary" }
+        "outputs": [
+          {
+            "name": "messages",
+            "type": "ChatMessage[]"
+          }
+        ],
+        "config": {
+          "historyKey": "history",
+          "maxHistoryMessages": 8,
+          "summaryKey": "summary"
+        }
       },
       {
         "id": "generate",
         "type": "GenerateText",
         "label": "Generate event",
-        "position": { "x": 500, "y": 0 },
-        "inputs": [{ "name": "messages", "type": "ChatMessage[]" }],
+        "inputs": [
+          {
+            "name": "messages",
+            "type": "ChatMessage[]"
+          }
+        ],
         "outputs": [
-          { "name": "text", "type": "string" },
-          { "name": "usage", "type": "object" }
+          {
+            "name": "text",
+            "type": "string"
+          },
+          {
+            "name": "usage",
+            "type": "object"
+          }
         ],
         "config": {
           "responseFormat": "json",
@@ -133,32 +210,69 @@
         "id": "json-parse",
         "type": "JSONParse",
         "label": "Parse",
-        "position": { "x": 700, "y": 0 },
-        "inputs": [{ "name": "text", "type": "string", "required": true }],
-        "outputs": [
-          { "name": "data", "type": "object" },
-          { "name": "success", "type": "boolean" },
-          { "name": "error", "type": "string" }
+        "inputs": [
+          {
+            "name": "text",
+            "type": "string",
+            "required": true
+          }
         ],
-        "config": { "extractFromCodeBlock": true, "fixCommonErrors": true, "fixTruncated": true }
+        "outputs": [
+          {
+            "name": "data",
+            "type": "object"
+          },
+          {
+            "name": "success",
+            "type": "boolean"
+          },
+          {
+            "name": "error",
+            "type": "string"
+          }
+        ],
+        "config": {
+          "extractFromCodeBlock": true,
+          "fixCommonErrors": true,
+          "fixTruncated": true
+        }
       },
       {
         "id": "apply-state",
         "type": "ApplyState",
         "label": "Apply changes",
-        "position": { "x": 900, "y": 80 },
-        "inputs": [{ "name": "changes", "type": "object", "required": true }],
+        "inputs": [
+          {
+            "name": "changes",
+            "type": "object",
+            "required": true
+          }
+        ],
         "outputs": [
-          { "name": "applied", "type": "array" },
-          { "name": "success", "type": "boolean" }
+          {
+            "name": "applied",
+            "type": "array"
+          },
+          {
+            "name": "success",
+            "type": "boolean"
+          }
         ],
         "config": {
           "path": "stateChanges",
           "allowedKeys": [
-            "suspicion", "lastEvent", "pendingConfrontation", "dayLog",
-            "lineA_depth", "lineB_depth", "lineC_depth",
-            "lineA_evidence", "lineB_evidence", "lineC_evidence",
-            "gameStage", "convergenceDiscovered"
+            "suspicion",
+            "lastEvent",
+            "pendingConfrontation",
+            "dayLog",
+            "lineA_depth",
+            "lineB_depth",
+            "lineC_depth",
+            "lineA_evidence",
+            "lineB_evidence",
+            "lineC_evidence",
+            "gameStage",
+            "convergenceDiscovered"
           ]
         }
       },
@@ -166,19 +280,50 @@
         "id": "apply-npc",
         "type": "ApplyState",
         "label": "Apply NPC changes",
-        "position": { "x": 900, "y": 200 },
-        "inputs": [{ "name": "changes", "type": "object", "required": true }],
+        "inputs": [
+          {
+            "name": "changes",
+            "type": "object",
+            "required": true
+          }
+        ],
         "outputs": [
-          { "name": "applied", "type": "array" },
-          { "name": "success", "type": "boolean" }
+          {
+            "name": "applied",
+            "type": "array"
+          },
+          {
+            "name": "success",
+            "type": "boolean"
+          }
         ],
         "config": {
           "path": "npcChanges",
           "allowedKeys": [
-            "trust_lily", "trust_marcus", "trust_coach", "trust_zoe", "trust_tyler", "trust_holloway",
-            "mood_lily", "mood_marcus", "mood_coach", "mood_zoe", "mood_tyler", "mood_holloway",
-            "fear_lily", "fear_marcus", "fear_coach", "fear_zoe", "fear_tyler", "fear_holloway",
-            "arc_lily", "arc_marcus", "arc_coach", "arc_zoe", "arc_tyler", "arc_holloway"
+            "trust_lily",
+            "trust_marcus",
+            "trust_coach",
+            "trust_zoe",
+            "trust_tyler",
+            "trust_holloway",
+            "mood_lily",
+            "mood_marcus",
+            "mood_coach",
+            "mood_zoe",
+            "mood_tyler",
+            "mood_holloway",
+            "fear_lily",
+            "fear_marcus",
+            "fear_coach",
+            "fear_zoe",
+            "fear_tyler",
+            "fear_holloway",
+            "arc_lily",
+            "arc_marcus",
+            "arc_coach",
+            "arc_zoe",
+            "arc_tyler",
+            "arc_holloway"
           ]
         }
       },
@@ -186,19 +331,60 @@
         "id": "signal-out",
         "type": "SignalOut",
         "label": "Output",
-        "position": { "x": 900, "y": -80 },
-        "inputs": [{ "name": "data", "type": "object" }],
-        "outputs": [{ "name": "data", "type": "object" }],
-        "config": { "channel": "result" }
+        "inputs": [
+          {
+            "name": "data",
+            "type": "object"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "data",
+            "type": "object"
+          }
+        ],
+        "config": {
+          "channel": "result"
+        }
       }
     ],
     "edges": [
-      { "source": "prompt-build", "sourceHandle": "messages", "target": "message", "targetHandle": "system" },
-      { "source": "message", "sourceHandle": "messages", "target": "generate", "targetHandle": "messages" },
-      { "source": "generate", "sourceHandle": "text", "target": "json-parse", "targetHandle": "text" },
-      { "source": "json-parse", "sourceHandle": "data", "target": "apply-state", "targetHandle": "changes" },
-      { "source": "json-parse", "sourceHandle": "data", "target": "apply-npc", "targetHandle": "changes" },
-      { "source": "json-parse", "sourceHandle": "data", "target": "signal-out", "targetHandle": "data" }
+      {
+        "source": "prompt-build",
+        "sourceHandle": "messages",
+        "target": "message",
+        "targetHandle": "system"
+      },
+      {
+        "source": "message",
+        "sourceHandle": "messages",
+        "target": "generate",
+        "targetHandle": "messages"
+      },
+      {
+        "source": "generate",
+        "sourceHandle": "text",
+        "target": "json-parse",
+        "targetHandle": "text"
+      },
+      {
+        "source": "json-parse",
+        "sourceHandle": "data",
+        "target": "apply-state",
+        "targetHandle": "changes"
+      },
+      {
+        "source": "json-parse",
+        "sourceHandle": "data",
+        "target": "apply-npc",
+        "targetHandle": "changes"
+      },
+      {
+        "source": "json-parse",
+        "sourceHandle": "data",
+        "target": "signal-out",
+        "targetHandle": "data"
+      }
     ]
   }
 }

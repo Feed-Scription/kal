@@ -29,7 +29,22 @@
       "Bash(do python3:*)",
       "Bash(chmod +x:*)",
       "Bash(do echo:*)",
-      "Bash(printf y\\\\nopenai\\\\nsk-test123456789\\\\nn\\\\n:*)"
+      "Bash(printf y\\\\nopenai\\\\nsk-test123456789\\\\nn\\\\n:*)",
+      "Bash(git remote:*)",
+      "Bash(env:*)",
+      "Bash(export:*)",
+      "Bash(grep:*)",
+      "Bash(kal debug:*)",
+      "WebFetch(domain:docs.claude.com)",
+      "WebFetch(domain:www.letsdatascience.com)",
+      "WebFetch(domain:superjson.ai)",
+      "WebFetch(domain:www.digitalapplied.com)",
+      "Bash(npx vitest:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm test:*)",
+      "Bash(npx tsup:*)",
+      "Bash(do git:*)",
+      "Bash(git:*)"
     ]
   }
 }

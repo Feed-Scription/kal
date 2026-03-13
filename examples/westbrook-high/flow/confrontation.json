@@ -17,10 +17,6 @@
         "id": "prompt-build",
         "type": "PromptBuild",
         "label": "Confrontation prompt",
-        "position": {
-          "x": -570,
-          "y": -22
-        },
         "inputs": [
           {
             "name": "data",
@@ -179,10 +175,6 @@
         "id": "message",
         "type": "Message",
         "label": "Assemble",
-        "position": {
-          "x": -36,
-          "y": -18
-        },
         "inputs": [
           {
             "name": "system",
@@ -212,10 +204,6 @@
         "id": "generate",
         "type": "GenerateText",
         "label": "Generate confrontation",
-        "position": {
-          "x": 500,
-          "y": 0
-        },
         "inputs": [
           {
             "name": "messages",
@@ -245,10 +233,6 @@
         "id": "json-parse",
         "type": "JSONParse",
         "label": "Parse",
-        "position": {
-          "x": 996,
-          "y": -88
-        },
         "inputs": [
           {
             "name": "text",
@@ -280,10 +264,6 @@
         "id": "clear-pending",
         "type": "ModifyState",
         "label": "Clear pending confrontation",
-        "position": {
-          "x": 1278,
-          "y": 182
-        },
         "inputs": [
           {
             "name": "key",
@@ -308,10 +288,6 @@
         "id": "signal-out",
         "type": "SignalOut",
         "label": "Output",
-        "position": {
-          "x": 1232,
-          "y": -396
-        },
         "inputs": [
           {
             "name": "data",

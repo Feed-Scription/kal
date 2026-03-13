@@ -13,6 +13,7 @@ export interface SessionValidationError {
 export function validateSessionDefinition(
   raw: unknown,
   availableFlowIds: string[],
+  _options?: { initialStateKeys?: string[] },
 ): SessionValidationError[] {
   const errors: SessionValidationError[] = [];
   if (!raw || typeof raw !== 'object') {
@@ -34,7 +35,7 @@ export function validateSessionDefinition(
   const steps = def.steps as SessionStep[];
   const stepIds = new Set(steps.map((s) => s.id));
   const flowIds = new Set(availableFlowIds);
-  const validTypes = new Set(['RunFlow', 'Prompt', 'Branch', 'End', 'Choice']);
+  const validTypes = new Set(['RunFlow', 'Prompt', 'Branch', 'End', 'Choice', 'DynamicChoice']);
   let hasEnd = false;
 
   for (let i = 0; i < steps.length; i++) {
@@ -70,6 +71,9 @@ export function validateSessionDefinition(
         }
         if (step.flowRef && (!step.inputChannel || typeof step.inputChannel !== 'string')) {
           errors.push({ path: `${prefix}.inputChannel`, message: 'inputChannel is required when flowRef is set' });
+        }
+        if (step.inputChannel && !step.flowRef) {
+          errors.push({ path: `${prefix}.inputChannel`, message: 'inputChannel requires flowRef — flow cannot receive input without a flowRef' });
         }
         if (step.stateKey !== undefined && typeof step.stateKey !== 'string') {
           errors.push({ path: `${prefix}.stateKey`, message: 'stateKey must be a string' });
@@ -120,6 +124,9 @@ export function validateSessionDefinition(
         if (step.flowRef && (!step.inputChannel || typeof step.inputChannel !== 'string')) {
           errors.push({ path: `${prefix}.inputChannel`, message: 'inputChannel is required when flowRef is set' });
         }
+        if (step.inputChannel && !step.flowRef) {
+          errors.push({ path: `${prefix}.inputChannel`, message: 'inputChannel requires flowRef — flow cannot receive input without a flowRef' });
+        }
         if (step.stateKey !== undefined && typeof step.stateKey !== 'string') {
           errors.push({ path: `${prefix}.stateKey`, message: 'stateKey must be a string' });
         }
@@ -136,6 +143,53 @@ export function validateSessionDefinition(
             }
             if (!opt.value || typeof opt.value !== 'string') {
               errors.push({ path: `${prefix}.options[${j}].value`, message: 'value is required' });
+            }
+          }
+        }
+        if (!stepIds.has(step.next)) {
+          errors.push({ path: `${prefix}.next`, message: `Step not found: ${step.next}` });
+        }
+        break;
+      }
+      case 'DynamicChoice': {
+        if (!step.flowRef && !step.stateKey) {
+          errors.push({ path: `${prefix}.flowRef`, message: 'DynamicChoice step requires flowRef or stateKey' });
+        }
+        if (step.flowRef && !flowIds.has(step.flowRef)) {
+          errors.push({ path: `${prefix}.flowRef`, message: `Flow not found: ${step.flowRef}` });
+        }
+        if (step.flowRef && (!step.inputChannel || typeof step.inputChannel !== 'string')) {
+          errors.push({ path: `${prefix}.inputChannel`, message: 'inputChannel is required when flowRef is set' });
+        }
+        if (step.inputChannel && !step.flowRef) {
+          errors.push({ path: `${prefix}.inputChannel`, message: 'inputChannel requires flowRef — flow cannot receive input without a flowRef' });
+        }
+        if (step.stateKey !== undefined && typeof step.stateKey !== 'string') {
+          errors.push({ path: `${prefix}.stateKey`, message: 'stateKey must be a string' });
+        }
+        if (!step.promptText || typeof step.promptText !== 'string') {
+          errors.push({ path: `${prefix}.promptText`, message: 'promptText is required' });
+        }
+        if (!Array.isArray(step.options) || step.options.length === 0) {
+          errors.push({ path: `${prefix}.options`, message: 'options must be a non-empty array' });
+        } else {
+          for (let j = 0; j < step.options.length; j++) {
+            const opt = step.options[j]!;
+            if (!opt.label || typeof opt.label !== 'string') {
+              errors.push({ path: `${prefix}.options[${j}].label`, message: 'label is required' });
+            }
+            if (!opt.value || typeof opt.value !== 'string') {
+              errors.push({ path: `${prefix}.options[${j}].value`, message: 'value is required' });
+            }
+            if (opt.when !== undefined && typeof opt.when !== 'string') {
+              errors.push({ path: `${prefix}.options[${j}].when`, message: 'when must be a string condition' });
+            }
+            if (typeof opt.when === 'string') {
+              try {
+                parseCondition(opt.when);
+              } catch (e) {
+                errors.push({ path: `${prefix}.options[${j}].when`, message: (e as Error).message });
+              }
             }
           }
         }

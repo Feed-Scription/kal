@@ -1,0 +1,43 @@
+{
+  "meta": {
+    "schemaVersion": "1.0.0",
+    "name": "force-sleep",
+    "description": "Hardcode phase=night_done when player chooses sleep. No LLM needed.",
+    "inputs": [],
+    "outputs": [{ "name": "result", "type": "string" }]
+  },
+  "data": {
+    "nodes": [
+      {
+        "id": "apply-state",
+        "type": "ApplyState",
+        "label": "Set night_done",
+        "inputs": [
+          {
+            "name": "changes",
+            "type": "object",
+            "required": true,
+            "defaultValue": { "stateChanges": { "phase": "night_done" } }
+          }
+        ],
+        "outputs": [
+          { "name": "applied", "type": "array" },
+          { "name": "success", "type": "boolean" }
+        ],
+        "config": {
+          "path": "stateChanges",
+          "allowedKeys": ["phase"]
+        }
+      },
+      {
+        "id": "signal-out",
+        "type": "SignalOut",
+        "label": "Output",
+        "inputs": [{ "name": "data", "type": "string" }],
+        "outputs": [{ "name": "data", "type": "string" }],
+        "config": { "channel": "result" }
+      }
+    ],
+    "edges": []
+  }
+}

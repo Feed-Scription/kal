@@ -55,6 +55,7 @@ export interface NodeEndEvent {
   outputs: Record<string, any>;
   durationMs: number;
   timestamp: number;
+  warnings?: string[];
 }
 
 /**

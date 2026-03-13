@@ -2,7 +2,7 @@
   "meta": {
     "schemaVersion": "1.0.0",
     "name": "day-end",
-    "description": "End of day — advance day counter, update game stage, check phone unlocks",
+    "description": "End of day — advance day counter (deterministic), update game stage, check phone unlocks",
     "inputs": [],
     "outputs": [
       {
@@ -14,13 +14,51 @@
   "data": {
     "nodes": [
       {
+        "id": "read-day",
+        "type": "ReadState",
+        "label": "Read current day",
+        "inputs": [
+          { "name": "key", "type": "string", "defaultValue": "day" }
+        ],
+        "outputs": [
+          { "name": "value", "type": "any" },
+          { "name": "exists", "type": "boolean" }
+        ],
+        "config": {}
+      },
+      {
+        "id": "increment-day",
+        "type": "ComputeState",
+        "label": "day + 1",
+        "inputs": [
+          { "name": "value", "type": "any" }
+        ],
+        "outputs": [
+          { "name": "result", "type": "any" },
+          { "name": "success", "type": "boolean" }
+        ],
+        "config": {
+          "operation": "increment",
+          "operand": 1
+        }
+      },
+      {
+        "id": "write-day",
+        "type": "ModifyState",
+        "label": "Write new day",
+        "inputs": [
+          { "name": "key", "type": "string", "defaultValue": "day" },
+          { "name": "value", "type": "any" }
+        ],
+        "outputs": [
+          { "name": "success", "type": "boolean" }
+        ],
+        "config": {}
+      },
+      {
         "id": "prompt-build",
         "type": "PromptBuild",
         "label": "Stage check prompt",
-        "position": {
-          "x": 200,
-          "y": 60
-        },
         "inputs": [
           {
             "name": "data",
@@ -29,18 +67,9 @@
           }
         ],
         "outputs": [
-          {
-            "name": "messages",
-            "type": "ChatMessage[]"
-          },
-          {
-            "name": "text",
-            "type": "string"
-          },
-          {
-            "name": "estimatedTokens",
-            "type": "number"
-          }
+          { "name": "messages", "type": "ChatMessage[]" },
+          { "name": "text", "type": "string" },
+          { "name": "estimatedTokens", "type": "number" }
         ],
         "config": {
           "defaultRole": "system",
@@ -48,14 +77,14 @@
             {
               "type": "base",
               "id": "role",
-              "content": "根据当前天数确定游戏阶段和手机解锁状态。纯逻辑判断，不需要叙事。\n\n重要：你必须将day值+1后返回。例如当前day=5，你应返回day=6。\n\n游戏阶段规则（用+1后的day判断）：\n- Day 1-9: adaptation\n- Day 10-18: investigation\n- Day 19-27: deepening\n- Day 28-36: endgame\n\n手机解锁规则（用+1后的day判断）：\n- Day 2+: phoneUnlocked_social = true\n- Day 4+: phoneUnlocked_dm = true\n- Day 7+: phoneUnlocked_forum = true\n- Day 14+: phoneUnlocked_anon = true\n\n结局轴判定（仅在day+1>36时计算）：\n- 真相深度轴：所有线≤1=surface, 任一线≥3=middle, 两线≥3且convergenceDiscovered=deep\n- 人际影响轴：根据NPC命运统计（拯救≥4=guardian, 拯救2-3+深渊1-2=catalyst, 旁观≥4=bystander, 深渊≥3=destroyer）\n\n输出JSON：\n{\n  \"stateChanges\": {\n    \"day\": 当前day+1的值,\n    \"gameStage\": \"阶段名\",\n    \"phoneUnlocked_social\": true/false,\n    \"phoneUnlocked_dm\": true/false,\n    \"phoneUnlocked_forum\": true/false,\n    \"phoneUnlocked_anon\": true/false,\n    \"gameOver\": true（仅day+1>36时）,\n    \"endingTruthAxis\": \"仅day+1>36\",\n    \"endingImpactAxis\": \"仅day+1>36\"\n  }\n}",
+              "content": "你是一个纯逻辑计算器。day已经由引擎自动递增完毕，你只需要根据nextDay的值判断游戏阶段和手机解锁状态。\n\n注意：day字段已经是递增后的新值（nextDay），不需要你再+1。\n\n判断规则：\n1. 游戏阶段：day 1-9=adaptation, 10-18=investigation, 19-27=deepening, 28-36=endgame\n2. 手机解锁：day>=2则social=true, day>=4则dm=true, day>=7则forum=true, day>=14则anon=true\n3. 如果day>36，设gameOver=true并计算结局轴\n\n结局轴（仅day>36时）：\n- 真相深度轴：所有线≤1=surface, 任一线≥3=middle, 两线≥3且convergenceDiscovered=deep\n- 人际影响轴：拯救≥4=guardian, 拯救2-3+深渊1-2=catalyst, 旁观≥4=bystander, 深渊≥3=destroyer\n\n输出严格JSON（不要包裹在代码块中）：\n{\"stateChanges\":{\"gameStage\":\"阶段名\",\"phoneUnlocked_social\":bool,\"phoneUnlocked_dm\":bool,\"phoneUnlocked_forum\":bool,\"phoneUnlocked_anon\":bool}}\n\n示例：day=3 → {\"stateChanges\":{\"gameStage\":\"adaptation\",\"phoneUnlocked_social\":true,\"phoneUnlocked_dm\":false,\"phoneUnlocked_forum\":false,\"phoneUnlocked_anon\":false}}\n示例：day=7 → {\"stateChanges\":{\"gameStage\":\"adaptation\",\"phoneUnlocked_social\":true,\"phoneUnlocked_dm\":true,\"phoneUnlocked_forum\":true,\"phoneUnlocked_anon\":false}}\n示例：day=14 → {\"stateChanges\":{\"gameStage\":\"investigation\",\"phoneUnlocked_social\":true,\"phoneUnlocked_dm\":true,\"phoneUnlocked_forum\":true,\"phoneUnlocked_anon\":true}}",
               "role": "system"
             },
             {
               "type": "field",
               "id": "day",
               "source": "state.day",
-              "label": "当前天数（已+1后的值）"
+              "label": "day（已递增后的新天数，直接用此值判断）"
             },
             {
               "type": "field",
@@ -94,25 +123,12 @@
         "id": "generate",
         "type": "GenerateText",
         "label": "Calculate stage",
-        "position": {
-          "x": 600,
-          "y": 60
-        },
         "inputs": [
-          {
-            "name": "messages",
-            "type": "ChatMessage[]"
-          }
+          { "name": "messages", "type": "ChatMessage[]" }
         ],
         "outputs": [
-          {
-            "name": "text",
-            "type": "string"
-          },
-          {
-            "name": "usage",
-            "type": "object"
-          }
+          { "name": "text", "type": "string" },
+          { "name": "usage", "type": "object" }
         ],
         "config": {
           "responseFormat": "json",
@@ -123,30 +139,13 @@
         "id": "json-parse",
         "type": "JSONParse",
         "label": "Parse",
-        "position": {
-          "x": 800,
-          "y": 60
-        },
         "inputs": [
-          {
-            "name": "text",
-            "type": "string",
-            "required": true
-          }
+          { "name": "text", "type": "string", "required": true }
         ],
         "outputs": [
-          {
-            "name": "data",
-            "type": "object"
-          },
-          {
-            "name": "success",
-            "type": "boolean"
-          },
-          {
-            "name": "error",
-            "type": "string"
-          }
+          { "name": "data", "type": "object" },
+          { "name": "success", "type": "boolean" },
+          { "name": "error", "type": "string" }
         ],
         "config": {
           "extractFromCodeBlock": true,
@@ -158,31 +157,16 @@
         "id": "apply-state",
         "type": "ApplyState",
         "label": "Apply stage",
-        "position": {
-          "x": 1000,
-          "y": 60
-        },
         "inputs": [
-          {
-            "name": "changes",
-            "type": "object",
-            "required": true
-          }
+          { "name": "changes", "type": "object", "required": true }
         ],
         "outputs": [
-          {
-            "name": "applied",
-            "type": "array"
-          },
-          {
-            "name": "success",
-            "type": "boolean"
-          }
+          { "name": "applied", "type": "array" },
+          { "name": "success", "type": "boolean" }
         ],
         "config": {
           "path": "stateChanges",
           "allowedKeys": [
-            "day",
             "gameStage",
             "gameOver",
             "phoneUnlocked_social",
@@ -198,21 +182,11 @@
         "id": "signal-out",
         "type": "SignalOut",
         "label": "Output",
-        "position": {
-          "x": 1000,
-          "y": -60
-        },
         "inputs": [
-          {
-            "name": "data",
-            "type": "string"
-          }
+          { "name": "data", "type": "string" }
         ],
         "outputs": [
-          {
-            "name": "data",
-            "type": "string"
-          }
+          { "name": "data", "type": "string" }
         ],
         "config": {
           "channel": "result"
@@ -220,6 +194,24 @@
       }
     ],
     "edges": [
+      {
+        "source": "read-day",
+        "sourceHandle": "value",
+        "target": "increment-day",
+        "targetHandle": "value"
+      },
+      {
+        "source": "increment-day",
+        "sourceHandle": "result",
+        "target": "write-day",
+        "targetHandle": "value"
+      },
+      {
+        "source": "prompt-build",
+        "sourceHandle": "messages",
+        "target": "generate",
+        "targetHandle": "messages"
+      },
       {
         "source": "generate",
         "sourceHandle": "text",
@@ -237,12 +229,6 @@
         "sourceHandle": "data",
         "target": "apply-state",
         "targetHandle": "changes"
-      },
-      {
-        "source": "prompt-build",
-        "sourceHandle": "messages",
-        "target": "generate",
-        "targetHandle": "messages"
       }
     ]
   }

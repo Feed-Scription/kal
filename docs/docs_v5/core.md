@@ -189,6 +189,8 @@ Hook 可以在创建 Core 实例时注册，并在 Flow 执行过程中被触发
 - 包含 `type` / `label` / `category` / `inputs` / `outputs` / `configSchema` / `defaultConfig`
 - 所有内置节点均已填充 `category`、`configSchema` 和 `defaultConfig`
 
+相关设计说明见 [first-principles-architecture.md](./first-principles-architecture.md) 中的“Manifest-First 与 Instance-First”附录。
+
 ### 12. Session 交互层
 
 **状态：已完成**

@@ -23,10 +23,6 @@
         "id": "signal-in",
         "type": "SignalIn",
         "label": "玩家输入",
-        "position": {
-          "x": -800,
-          "y": 600
-        },
         "inputs": [],
         "outputs": [
           {
@@ -42,10 +38,6 @@
         "id": "prompt-static",
         "type": "PromptBuild",
         "label": "固定DM设定",
-        "position": {
-          "x": -730,
-          "y": 100
-        },
         "inputs": [
           {
             "name": "data",
@@ -89,10 +81,6 @@
         "id": "prompt-dynamic",
         "type": "PromptBuild",
         "label": "动态状态",
-        "position": {
-          "x": -730,
-          "y": 400
-        },
         "inputs": [
           {
             "name": "data",
@@ -215,10 +203,6 @@
         "id": "message",
         "type": "Message",
         "label": "组装消息",
-        "position": {
-          "x": -160,
-          "y": 360
-        },
         "inputs": [
           {
             "name": "system",
@@ -253,10 +237,6 @@
         "id": "generate-text",
         "type": "GenerateText",
         "label": "LLM生成",
-        "position": {
-          "x": 330,
-          "y": 460
-        },
         "inputs": [
           {
             "name": "messages",
@@ -290,10 +270,6 @@
         "id": "signal-out",
         "type": "SignalOut",
         "label": "输出响应",
-        "position": {
-          "x": 770,
-          "y": 680
-        },
         "inputs": [
           {
             "name": "data",
