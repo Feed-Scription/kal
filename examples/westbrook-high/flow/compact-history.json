@@ -17,10 +17,6 @@
         "id": "read-state",
         "type": "ReadState",
         "label": "Read history",
-        "position": {
-          "x": -550,
-          "y": -22
-        },
         "inputs": [],
         "outputs": [
           {
@@ -47,10 +43,6 @@
         "id": "prompt-build",
         "type": "PromptBuild",
         "label": "Compaction prompt",
-        "position": {
-          "x": -42,
-          "y": 6
-        },
         "inputs": [
           {
             "name": "data",
@@ -106,10 +98,6 @@
         "id": "generate",
         "type": "GenerateText",
         "label": "Generate summary",
-        "position": {
-          "x": 600,
-          "y": 0
-        },
         "inputs": [
           {
             "name": "messages",
@@ -138,10 +126,6 @@
         "id": "write-summary",
         "type": "ModifyState",
         "label": "Write summary",
-        "position": {
-          "x": 800,
-          "y": -60
-        },
         "inputs": [
           {
             "name": "key",
@@ -165,10 +149,6 @@
         "id": "clear-history",
         "type": "ModifyState",
         "label": "Clear history",
-        "position": {
-          "x": 800,
-          "y": 60
-        },
         "inputs": [
           {
             "name": "key",
@@ -193,10 +173,6 @@
         "id": "signal-out",
         "type": "SignalOut",
         "label": "Output",
-        "position": {
-          "x": 1000,
-          "y": 0
-        },
         "inputs": [
           {
             "name": "data",
