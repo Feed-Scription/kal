@@ -5,6 +5,7 @@
 
 import type { Fragment } from './fragments';
 import type { ChatMessage, ChatMessageRole, StateValue } from '../types/types';
+import { parseCondition, evaluateCondition } from '../session/condition-evaluator';
 
 export interface PromptScope {
   data?: Record<string, any>;
@@ -56,6 +57,24 @@ export function composeMessages(
 }
 
 /**
+ * Interpolate {{state.xxx}} and {{data.xxx}} template variables in text.
+ * Missing values preserve the placeholder for debugging.
+ * Does NOT touch {{items}} (used by field fragments).
+ */
+export function interpolateVariables(text: string, scope: PromptScope): string {
+  return text.replace(
+    /\{\{((?:state|data)\.[a-zA-Z0-9_.]+)\}\}/g,
+    (match, path: string) => {
+      const value = getValue(path, scope);
+      if (value === undefined || value === null) return match;
+      if (typeof value === 'string') return value;
+      if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+      return JSON.stringify(value);
+    },
+  );
+}
+
+/**
  * Resolve a single fragment into text segments
  */
 function resolveFragment(
@@ -67,7 +86,7 @@ function resolveFragment(
 
   switch (fragment.type) {
     case 'base':
-      return [{ text: fragment.content, role: effectiveRole }];
+      return [{ text: interpolateVariables(fragment.content, scope), role: effectiveRole }];
 
     case 'field':
       return resolveField(fragment, scope, effectiveRole);
@@ -131,16 +150,17 @@ function resolveField(
     .map((item) => (typeof item === 'string' ? item : JSON.stringify(item)))
     .join('\n');
 
-  const template = fragment.template
+  const fmt = fragment.format ?? fragment.template
     ?? ((fragment as any).label ? `${(fragment as any).label}: {{items}}` : '{{items}}');
   return [{
-    text: template.replace('{{items}}', serialized),
+    text: fmt.replace('{{items}}', serialized),
     role: fragment.role ?? inheritedRole,
   }];
 }
 
 /**
  * Resolve a when fragment
+ * Supports comparison operators (state.key op literal) and simple truthy checks
  */
 function resolveWhen(
   fragment: Extract<Fragment, { type: 'when' }>,
@@ -148,7 +168,27 @@ function resolveWhen(
   inheritedRole?: ChatMessageRole
 ): ResolvedSegment[] {
   const nextRole = fragment.role ?? inheritedRole;
-  const conditionValue = getValue(fragment.condition, scope);
+
+  // Try comparison expression first (state.key op literal)
+  let conditionValue: boolean;
+  try {
+    const { stateKey } = parseCondition(fragment.condition);
+    const actualKey = stateKey.endsWith('.length')
+      ? stateKey.slice(0, -'.length'.length)
+      : stateKey;
+
+    const sv = scope.state?.get(actualKey);
+    if (!sv) {
+      conditionValue = false;
+    } else {
+      // Build minimal state record for evaluateCondition
+      const stateRecord: Record<string, StateValue> = { [actualKey]: sv };
+      conditionValue = evaluateCondition(fragment.condition, stateRecord);
+    }
+  } catch {
+    // Fallback to truthy check for simple paths like "state.isMarxism"
+    conditionValue = !!getValue(fragment.condition, scope);
+  }
 
   if (conditionValue) {
     return fragment.fragments.flatMap((child) => resolveFragment(child, scope, nextRole));
@@ -259,6 +299,10 @@ function getValue(path: string, scope: PromptScope): any {
       return stateValue.value;
     }
     return getNestedValue(stateValue.value as Record<string, any>, rest.join('.'));
+  }
+
+  if (path.startsWith('data.')) {
+    return getNestedValue(scope.data ?? {}, path.slice('data.'.length));
   }
 
   return getNestedValue(scope.data ?? {}, path);
