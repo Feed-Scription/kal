@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { base, field, when, randomSlot, budget } from '../../prompt/fragments';
-import { compose, composeMessages, composeSegments, formatSection, buildMessages } from '../../prompt/compose';
+import { compose, composeMessages, composeSegments, formatSection, buildMessages, interpolateVariables } from '../../prompt/compose';
 import type { PromptScope } from '../../prompt/compose';
 
 function createScope(data: Record<string, any> = {}, state: Record<string, any> = {}): PromptScope {
@@ -134,5 +134,169 @@ describe('Prompt Format', () => {
       expect(messages[1]!.role).toBe('assistant');
       expect(messages[2]!.role).toBe('user');
     });
+  });
+});
+
+describe('Base Fragment Interpolation', () => {
+  it('{{state.round}} 应该插值为数字', () => {
+    const result = compose(
+      [base('info', '当前回合: {{state.round}}')],
+      createScope({}, { round: { type: 'number', value: 5 } }),
+    );
+    expect(result).toBe('当前回合: 5');
+  });
+
+  it('{{state.player.name}} 应该支持嵌套路径', () => {
+    const result = compose(
+      [base('info', '玩家: {{state.player.name}}')],
+      createScope({}, { player: { type: 'object', value: { name: 'Alice' } } }),
+    );
+    expect(result).toBe('玩家: Alice');
+  });
+
+  it('{{data.category}} 应该从 data 源插值', () => {
+    const result = compose(
+      [base('info', '分类: {{data.category}}')],
+      createScope({ category: '历史' }),
+    );
+    expect(result).toBe('分类: 历史');
+  });
+
+  it('{{state.missing}} 缺失值应保留占位符', () => {
+    const result = compose(
+      [base('info', '值: {{state.missing}}')],
+      createScope(),
+    );
+    expect(result).toBe('值: {{state.missing}}');
+  });
+
+  it('混合插值应支持部分替换', () => {
+    const result = compose(
+      [base('info', 'Round {{state.round}} of {{state.maxRounds}}')],
+      createScope({}, {
+        round: { type: 'number', value: 3 },
+        maxRounds: { type: 'number', value: 10 },
+      }),
+    );
+    expect(result).toBe('Round 3 of 10');
+  });
+
+  it('{{items}} 在 base 内容中不应被插值', () => {
+    const result = compose(
+      [base('info', '模板: {{items}}')],
+      createScope(),
+    );
+    expect(result).toBe('模板: {{items}}');
+  });
+
+  it('对象值应被 JSON.stringify', () => {
+    const result = compose(
+      [base('info', '数据: {{state.obj}}')],
+      createScope({}, { obj: { type: 'object', value: { a: 1, b: 2 } } }),
+    );
+    expect(result).toBe('数据: {"a":1,"b":2}');
+  });
+
+  it('布尔值应被转为字符串', () => {
+    const result = compose(
+      [base('info', '激活: {{state.active}}')],
+      createScope({}, { active: { type: 'boolean', value: true } }),
+    );
+    expect(result).toBe('激活: true');
+  });
+});
+
+describe('When Fragment Comparison Operators', () => {
+  it('state.round >= 9 当 round=10 应为 true', () => {
+    const f = when('hint', 'state.round >= 9', [base('msg', '回合快结束了')]);
+    const result = composeSegments([f], createScope({}, {
+      round: { type: 'number', value: 10 },
+    }));
+    expect(result).toEqual(['回合快结束了']);
+  });
+
+  it('state.round >= 9 当 round=5 应走 else 分支', () => {
+    const f = when('hint', 'state.round >= 9',
+      [base('late', '快结束了')],
+      [base('early', '还早呢')],
+    );
+    const result = composeSegments([f], createScope({}, {
+      round: { type: 'number', value: 5 },
+    }));
+    expect(result).toEqual(['还早呢']);
+  });
+
+  it('state.score == 100 等值比较', () => {
+    const f = when('perfect', 'state.score == 100', [base('msg', '满分!')]);
+    const result = composeSegments([f], createScope({}, {
+      score: { type: 'number', value: 100 },
+    }));
+    expect(result).toEqual(['满分!']);
+  });
+
+  it('state.score != 100 不等比较', () => {
+    const f = when('imperfect', 'state.score != 100', [base('msg', '继续努力')]);
+    const result = composeSegments([f], createScope({}, {
+      score: { type: 'number', value: 80 },
+    }));
+    expect(result).toEqual(['继续努力']);
+  });
+
+  it('state.health < 20 小于比较', () => {
+    const f = when('danger', 'state.health < 20',
+      [base('low', '危险!')],
+      [base('ok', '安全')],
+    );
+    expect(composeSegments([f], createScope({}, {
+      health: { type: 'number', value: 10 },
+    }))).toEqual(['危险!']);
+    expect(composeSegments([f], createScope({}, {
+      health: { type: 'number', value: 50 },
+    }))).toEqual(['安全']);
+  });
+
+  it('简单 truthy 路径仍然有效: state.isActive', () => {
+    const f = when('check', 'state.isActive', [base('msg', '已激活')]);
+    expect(composeSegments([f], createScope({}, {
+      isActive: { type: 'boolean', value: true },
+    }))).toEqual(['已激活']);
+    expect(composeSegments([f], createScope({}, {
+      isActive: { type: 'boolean', value: false },
+    }))).toEqual([]);
+  });
+
+  it('data 路径 truthy 检查仍然有效', () => {
+    const f = when('check', 'inCombat', [base('msg', '战斗中')]);
+    expect(composeSegments([f], createScope({ inCombat: true }))).toEqual(['战斗中']);
+    expect(composeSegments([f], createScope({ inCombat: false }))).toEqual([]);
+  });
+
+  it('缺失 state key 时比较表达式应为 false', () => {
+    const f = when('check', 'state.round >= 5', [base('msg', '显示')]);
+    const result = composeSegments([f], createScope());
+    expect(result).toEqual([]);
+  });
+});
+
+describe('Field Fragment format alias', () => {
+  it('field() builder 应使用 format 字段', () => {
+    const f = field('name', 'state.player.name', '玩家: {{items}}');
+    expect(f.format).toBe('玩家: {{items}}');
+    expect(f.template).toBeUndefined();
+  });
+
+  it('format 字段应正确渲染', () => {
+    const f = field('name', 'state.player.name', '玩家: {{items}}');
+    const result = composeSegments([f], createScope({}, {
+      player: { type: 'object', value: { name: 'Alice' } },
+    }));
+    expect(result).toEqual(['玩家: Alice']);
+  });
+
+  it('旧的 template 字段应向后兼容', () => {
+    // Simulate a legacy fragment with template instead of format
+    const f = { type: 'field' as const, id: 'name', source: 'items', template: '列表: {{items}}' };
+    const result = composeSegments([f], createScope({ items: ['A', 'B'] }));
+    expect(result).toEqual(['列表: A\nB']);
   });
 });
