@@ -191,9 +191,16 @@ function resolveWhen(
   }
 
   if (conditionValue) {
-    return fragment.fragments.flatMap((child) => resolveFragment(child, scope, nextRole));
+    // Support shorthand: content string instead of fragments array
+    const children = fragment.fragments
+      ?? ((fragment as any).content ? [{ type: 'base' as const, id: fragment.id + '_content', content: (fragment as any).content }] : []);
+    return children.flatMap((child: Fragment) => resolveFragment(child, scope, nextRole));
   }
   if (fragment.else) {
+    // Support shorthand: else as string instead of Fragment[]
+    if (typeof fragment.else === 'string') {
+      return fragment.else ? [{ text: fragment.else, role: nextRole }] : [];
+    }
     return fragment.else.flatMap((child) => resolveFragment(child, scope, nextRole));
   }
   return [];
