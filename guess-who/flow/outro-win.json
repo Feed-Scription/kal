@@ -1,0 +1,221 @@
+{
+  "meta": {
+    "schemaVersion": "1.0.0",
+    "name": "outro-win",
+    "description": "Victory ending — player guessed correctly",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "result",
+        "type": "string"
+      }
+    ]
+  },
+  "data": {
+    "nodes": [
+      {
+        "id": "prompt-build",
+        "type": "PromptBuild",
+        "label": "Prompt 构建",
+        "position": {
+          "x": 0,
+          "y": -323.5
+        },
+        "inputs": [
+          {
+            "name": "data",
+            "type": "object",
+            "defaultValue": {}
+          }
+        ],
+        "outputs": [
+          {
+            "name": "messages",
+            "type": "ChatMessage[]"
+          },
+          {
+            "name": "text",
+            "type": "string"
+          },
+          {
+            "name": "estimatedTokens",
+            "type": "number"
+          }
+        ],
+        "config": {
+          "defaultRole": "system",
+          "fragments": [
+            {
+              "type": "base",
+              "id": "role",
+              "content": "你是猜名人游戏的主持人。玩家猜中了你心里的名人。\n\n玩家用了 {{state.round}} 个回合（共 {{state.maxRounds}} 回合）猜中，生成不同等级的结局评语：\n- 1-5 回合：天才级别，表现出极度震惊和不甘\n- 6-10 回合：优秀，表现出佩服但嘴硬\n- 11-15 回合：险胜，表现出如释重负的吐槽\n\n内容要求：\n1. 先宣布结果，吐槽玩家的表现\n2. 简短回顾玩家的提问策略\n3. 分享一个关于这个名人的有趣冷知识\n4. 用一句话结尾\n\n语气：幽默风趣，像损友一样吐槽但带着善意。不用感叹号。\n\n【重要】直接输出评语正文。不要输出思考过程、分析、候选方案或任何元信息。不要使用 JSON 或代码块格式。",
+              "role": "system"
+            },
+            {
+              "type": "field",
+              "id": "target",
+              "source": "state.targetCelebrity",
+              "label": "目标名人"
+            },
+            {
+              "type": "field",
+              "id": "clues",
+              "source": "state.targetClues",
+              "label": "名人档案"
+            },
+            {
+              "type": "field",
+              "id": "history",
+              "source": "state.history",
+              "label": "对话历史",
+              "window": 20
+            },
+            {
+              "type": "base",
+              "id": "format",
+              "content": "【输出格式】直接输出纯文本结局评语。禁止输出 JSON、代码块、字典或任何结构化格式。只写自然语言段落，150 字以内。",
+              "role": "system"
+            }
+          ]
+        }
+      },
+      {
+        "id": "message",
+        "type": "Message",
+        "label": "消息组装",
+        "position": {
+          "x": 464,
+          "y": -207.5
+        },
+        "inputs": [
+          {
+            "name": "system",
+            "type": "ChatMessage[]"
+          },
+          {
+            "name": "user",
+            "type": "string"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "messages",
+            "type": "ChatMessage[]"
+          }
+        ],
+        "config": {
+          "system": "",
+          "user": "",
+          "format": "xml",
+          "historyKey": "history",
+          "maxHistoryMessages": 0
+        }
+      },
+      {
+        "id": "user-msg",
+        "type": "Constant",
+        "label": "常量",
+        "position": {
+          "x": 0,
+          "y": 100.5
+        },
+        "inputs": [],
+        "outputs": [
+          {
+            "name": "value",
+            "type": "string"
+          }
+        ],
+        "config": {
+          "value": "请生成胜利结局评语。",
+          "type": "string"
+        }
+      },
+      {
+        "id": "generate",
+        "type": "GenerateText",
+        "label": "生成文本",
+        "position": {
+          "x": 928,
+          "y": -419.5
+        },
+        "inputs": [
+          {
+            "name": "messages",
+            "type": "ChatMessage[]"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "text",
+            "type": "string"
+          },
+          {
+            "name": "usage",
+            "type": "object"
+          }
+        ],
+        "config": {
+          "model": "",
+          "temperature": 0.7,
+          "maxTokens": 2000,
+          "historyKey": "",
+          "assistantPath": "",
+          "historyPolicy": {
+            "maxMessages": 0
+          }
+        }
+      },
+      {
+        "id": "signal-out",
+        "type": "SignalOut",
+        "label": "信号输出",
+        "position": {
+          "x": 1392,
+          "y": -87.5
+        },
+        "inputs": [
+          {
+            "name": "data",
+            "type": "string"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "data",
+            "type": "string"
+          }
+        ],
+        "config": {
+          "channel": "result"
+        }
+      }
+    ],
+    "edges": [
+      {
+        "source": "user-msg",
+        "sourceHandle": "value",
+        "target": "message",
+        "targetHandle": "user"
+      },
+      {
+        "source": "prompt-build",
+        "sourceHandle": "messages",
+        "target": "message",
+        "targetHandle": "system"
+      },
+      {
+        "source": "message",
+        "sourceHandle": "messages",
+        "target": "generate",
+        "targetHandle": "messages"
+      },
+      {
+        "source": "generate",
+        "sourceHandle": "text",
+        "target": "signal-out",
+        "targetHandle": "data"
+      }
+    ]
+  }
+}
