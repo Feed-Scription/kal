@@ -49,6 +49,16 @@ export interface NumericStats {
 }
 
 /**
+ * Boolean statistics for a field
+ */
+export interface BooleanStats {
+  trueCount: number;
+  falseCount: number;
+  trueRate: number;
+  nullCount: number;
+}
+
+/**
  * Evaluation run result
  */
 export interface EvalRunResult {
@@ -62,6 +72,7 @@ export interface EvalRunResult {
     avgLatency: number;
     perRun: RunResult[];
     numericStats: Record<string, NumericStats>;
+    booleanStats?: Record<string, BooleanStats>;
   };
 }
 

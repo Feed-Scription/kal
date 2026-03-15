@@ -9,6 +9,8 @@ import { runDebugCommand } from './commands/debug';
 import { runLintCommand } from './commands/lint';
 import { runSmokeCommand } from './commands/smoke';
 import { runEvalCommand } from './commands/eval';
+import { runInitCommand } from './commands/init';
+import { runSchemaCommand } from './commands/schema';
 import type { EngineCliIO, StartedEngineServer } from './types';
 
 export interface CliDependencies {
@@ -75,8 +77,12 @@ function printUsage(io: EngineCliIO): void {
     '  kal debug  [project-path] --delete --run-id <id>',
     '  kal lint   [project-path] [--format <json|pretty>]',
     '  kal smoke  [project-path] [--steps N] [--input value]... [--dry-run] [--format <json|pretty>]',
+    '  kal eval   nodes <flow> [--format <json|pretty>]',
     '  kal eval   render <flow> --node <id> [--state <json>] [--format <json|pretty>]',
     '  kal eval   run <flow> --node <id> [--variant <file>] [--runs N] [--input <json>] [--state <json>] [--format <json|pretty>]',
+    '  kal eval   compare <file-a> <file-b> [--format <json|pretty>]',
+    '  kal init   <project-name> [--template minimal|game]',
+    '  kal schema nodes | node <type> | session',
     '  kal config [command] [options]',
     '',
     'Config commands:',
@@ -213,6 +219,12 @@ export async function runCli(argv: string[], deps: Partial<CliDependencies> = {}
     }
     if (command === 'eval') {
       return await runEvalCommand(tokens, { cwd: dependencies.cwd, io: dependencies.io, createRuntime: dependencies.createRuntime });
+    }
+    if (command === 'init') {
+      return await runInitCommand(tokens, { cwd: dependencies.cwd, io: dependencies.io });
+    }
+    if (command === 'schema') {
+      return await runSchemaCommand(tokens, { cwd: dependencies.cwd, io: dependencies.io });
     }
     if (command === 'config') {
       return await configCommand(tokens, dependencies);

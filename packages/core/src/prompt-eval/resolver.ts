@@ -6,7 +6,6 @@ import type { Fragment } from '../prompt/fragments';
 import type { StateValue } from '../types/types';
 import { compose } from '../prompt/compose';
 import type { PromptScope } from '../prompt/compose';
-import { evaluateCondition } from '../session/condition-evaluator';
 import type { RenderResult, RenderedFragment } from './types';
 
 /**
@@ -38,25 +37,6 @@ function renderSingleFragment(
 }
 
 /**
- * Check if a when condition is active, using the condition evaluator
- * for expressions like "state.round >= 9", falling back to compose for simple paths.
- */
-function isWhenActive(
-  condition: string,
-  state: Record<string, StateValue>,
-  scope: PromptScope,
-): boolean {
-  // Try expression evaluation first (handles state.key op literal)
-  try {
-    return evaluateCondition(condition, state);
-  } catch {
-    // Fall back to compose-style path lookup (truthy check)
-    const text = compose([{ type: 'when', id: '_probe', condition, fragments: [{ type: 'base', id: '_', content: '1' }] }], scope);
-    return text.length > 0;
-  }
-}
-
-/**
  * Render a PromptBuild node's fragments with given state
  */
 export function renderPrompt(
@@ -78,8 +58,8 @@ export function renderPrompt(
     };
     if (fragment.type === 'when') {
       result.condition = fragment.condition;
-      // Use condition evaluator for accurate activation status
-      result.active = isWhenActive(fragment.condition, state, scope);
+      // compose() now handles comparison operators in resolveWhen(),
+      // so active status from renderSingleFragment is already accurate
     }
     return result;
   });
