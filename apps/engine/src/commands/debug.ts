@@ -1,6 +1,5 @@
 import {
   advanceSession,
-  createSessionCursor,
   type SessionAdvanceMode,
   type SessionAdvanceResult,
   type SessionTraceEvent,
@@ -27,6 +26,8 @@ import type {
   DiagnosticPayload,
 } from '../debug/types';
 import { formatEngineError, EngineHttpError } from '../errors';
+import { RunManager } from '../run-manager';
+import { buildRunStateSummary, createRunnerDeps, toRunEvent, toRunWaitingFor } from '../run-views';
 import type { EngineCliIO } from '../types';
 import type { EngineRuntime } from '../runtime';
 
@@ -98,32 +99,37 @@ export async function runDebugCommand(
   }
 
   const projectRoot = resolveProjectRoot(parsed.projectPath, dependencies.cwd);
-  const manager = new DebugSessionManager(parsed.stateDir);
+  const manager = new DebugSessionManager(parsed.stateDir ?? resolve(projectRoot, '.kal', 'runs'));
+  const runManager = new RunManager({
+    projectRoot,
+    createRuntime: () => dependencies.createRuntime(projectRoot),
+    store: manager,
+  });
 
   try {
     let result: CommandResult;
     switch (parsed.action) {
       case 'list':
-        result = await listRuns(projectRoot, manager);
+        result = await listRuns(projectRoot, runManager);
         break;
       case 'delete':
-        result = await deleteRun(projectRoot, parsed.runId!, manager);
+        result = await deleteRun(projectRoot, parsed.runId!, runManager);
         break;
       case 'state':
-        result = await getState(projectRoot, parsed.runId, parsed.verbose, manager, parsed.latest);
+        result = await getState(projectRoot, parsed.runId, parsed.verbose, runManager, parsed.latest);
         break;
       case 'start':
-        result = await startRun(projectRoot, parsed, manager, dependencies);
+        result = await startRun(projectRoot, parsed, runManager);
         break;
       case 'continue':
       case 'step':
-        result = await advanceExistingRun(projectRoot, parsed, manager, dependencies);
+        result = await advanceExistingRun(projectRoot, parsed, manager, runManager, dependencies);
         break;
       case 'retry':
-        result = await retryCurrentStep(projectRoot, parsed, manager, dependencies);
+        result = await retryCurrentStep(projectRoot, parsed, manager, runManager, dependencies);
         break;
       case 'skip':
-        result = await skipCurrentStep(projectRoot, parsed, manager, dependencies);
+        result = await skipCurrentStep(projectRoot, parsed, manager, runManager, dependencies);
         break;
     }
 
@@ -151,18 +157,11 @@ export async function runDebugCommand(
   }
 }
 
-async function listRuns(projectRoot: string, manager: DebugSessionManager): Promise<CommandResult> {
-  const runs = await manager.listRuns(projectRoot);
+async function listRuns(projectRoot: string, runManager: RunManager): Promise<CommandResult> {
+  const runs = await runManager.listRuns();
   const payload: DebugListPayload = {
     project_root: projectRoot,
-    runs: runs.map((run) => ({
-      run_id: run.runId,
-      status: run.status,
-      waiting_for: toOutputWaitingFor(run.waitingFor),
-      updated_at: run.updatedAt,
-      created_at: run.createdAt,
-      active: run.active,
-    })),
+    runs,
   };
   return { exitCode: 0, payload };
 }
@@ -170,30 +169,16 @@ async function listRuns(projectRoot: string, manager: DebugSessionManager): Prom
 async function deleteRun(
   projectRoot: string,
   runId: string,
-  manager: DebugSessionManager,
+  runManager: RunManager,
 ): Promise<CommandResult> {
-  const snapshot = await manager.readRun(runId);
-  if (!snapshot || snapshot.projectRoot !== projectRoot) {
-    return {
-      exitCode: 2,
-      payload: buildErrorAdvancePayload(projectRoot, {
-        runId,
-        diagnostics: [
-          buildCliDiagnostic({
-            code: 'RUN_NOT_FOUND',
-            message: `Debug run not found: ${runId}`,
-            suggestions: [
-              '运行 `kal debug <project> --list` 查看可用 run',
-              '确认当前 project path 与 run 所属项目一致',
-            ],
-          }),
-        ],
-      }),
-    };
+  try {
+    await runManager.deleteRun(runId);
+  } catch (error) {
+    if (error instanceof EngineHttpError) {
+      return buildCommandResultFromRunError(projectRoot, error, 2);
+    }
+    throw error;
   }
-
-  await manager.deleteRun(runId);
-  await manager.clearActiveRun(projectRoot, runId);
 
   const payload: DebugDeletePayload = {
     deleted: true,
@@ -206,12 +191,17 @@ async function getState(
   projectRoot: string,
   runId: string | undefined,
   verbose: boolean,
-  manager: DebugSessionManager,
+  runManager: RunManager,
   latest = false,
 ): Promise<CommandResult> {
-  const snapshot = await resolveExistingRun(projectRoot, runId, manager, latest);
-  if ('exitCode' in snapshot) {
-    return snapshot;
+  let snapshot: DebugRunSnapshot;
+  try {
+    snapshot = await runManager.readSnapshot({ runId, latest });
+  } catch (error) {
+    if (error instanceof EngineHttpError) {
+      return buildCommandResultFromRunError(projectRoot, error, 2);
+    }
+    throw error;
   }
 
   const stateSummary = buildStateSummary(snapshot.stateSnapshot);
@@ -241,219 +231,228 @@ async function getState(
 async function startRun(
   projectRoot: string,
   parsed: ParsedDebugArgs,
-  manager: DebugSessionManager,
-  dependencies: DebugCommandDependencies,
+  runManager: RunManager,
 ): Promise<CommandResult> {
-  const activeRunId = await manager.getActiveRunId(projectRoot);
-  if (activeRunId && !parsed.forceNew) {
+  try {
+    const created = await runManager.createRun({
+      forceNew: parsed.forceNew,
+      cleanup: parsed.cleanup,
+      mode: 'continue',
+    });
+    const diagnostics = await buildDiagnosticsFromResult(created.runtime, created.result, parsed.verbose, undefined);
     return {
-      exitCode: 2,
-      payload: buildErrorAdvancePayload(projectRoot, {
-        runId: activeRunId,
-        diagnostics: [
-          buildCliDiagnostic({
-            code: 'ACTIVE_RUN_EXISTS',
-            message: `An active debug run already exists for ${projectRoot}`,
-            suggestions: [
-              '运行 `kal debug <project> --continue` 继续当前 run',
-              '运行 `kal debug <project> --delete --run-id <id>` 删除旧 run',
-              '或使用 `kal debug <project> --start --force-new` 创建新 run',
-            ],
-          }),
-        ],
-      }),
+      exitCode: created.result.status === 'error' ? 1 : 0,
+      payload: buildAdvancePayload(
+        projectRoot,
+        created.snapshot.runId,
+        created.result,
+        diagnostics,
+        created.beforeState,
+        created.afterState,
+      ),
+    };
+  } catch (error) {
+    if (error instanceof EngineHttpError) {
+      return buildCommandResultFromRunError(projectRoot, error, 2);
+    }
+    throw error;
+  }
+}
+
+function buildCommandResultFromRunError(
+  projectRoot: string,
+  error: EngineHttpError,
+  exitCode: number,
+  action?: 'continue' | 'step',
+): CommandResult {
+  const details = (error.details && typeof error.details === 'object')
+    ? error.details as Record<string, unknown>
+    : {};
+  const runId = typeof details.runId === 'string' ? details.runId : undefined;
+  const waitingFor = normalizeWaitingFor(details.waitingFor);
+  const currentStepId = typeof details.currentStepId === 'string' ? details.currentStepId : undefined;
+  const currentStepIndex = typeof details.currentStepIndex === 'number' ? details.currentStepIndex : undefined;
+  const stateSummary = normalizeStateSummary(details.stateSummary);
+
+  return {
+    exitCode,
+    payload: buildErrorAdvancePayload(projectRoot, {
+      runId,
+      waitingFor,
+      currentStepId,
+      currentStepIndex,
+      stateSummary,
+      diagnostics: [
+        buildCliDiagnostic({
+          code: error.code,
+          message: error.message,
+          suggestions: suggestionsForRunError(error.code, runId, action),
+          details: error.details,
+        }),
+      ],
+      preferredAction: preferredActionForRunError(projectRoot, error.code, action),
+    }),
+  };
+}
+
+function normalizeWaitingFor(value: unknown): DebugWaitingForPayload | null | undefined {
+  if (!value || typeof value !== 'object') {
+    return undefined;
+  }
+
+  const payload = value as Record<string, unknown>;
+  if (typeof payload.kind !== 'string' || typeof payload.step_id !== 'string') {
+    return undefined;
+  }
+
+  return {
+    kind: payload.kind as DebugWaitingForPayload['kind'],
+    step_id: payload.step_id,
+    prompt_text: typeof payload.prompt_text === 'string' ? payload.prompt_text : undefined,
+    options: Array.isArray(payload.options)
+      ? payload.options as Array<{ label: string; value: string }>
+      : undefined,
+  };
+}
+
+function normalizeStateSummary(value: unknown): DebugStateSummary | undefined {
+  if (!value || typeof value !== 'object') {
+    return undefined;
+  }
+
+  const summary = value as Record<string, unknown>;
+  if (!Array.isArray(summary.keys) || !Array.isArray(summary.changed) || typeof summary.total_keys !== 'number') {
+    return undefined;
+  }
+
+  return {
+    total_keys: summary.total_keys,
+    keys: summary.keys as string[],
+    changed: summary.changed as string[],
+    changed_values: (summary.changed_values ?? {}) as Record<string, { old: any; new: any }>,
+    preview: (summary.preview ?? {}) as Record<string, any>,
+  };
+}
+
+function preferredActionForRunError(
+  projectRoot: string,
+  code: string,
+  action?: 'continue' | 'step',
+): DebugActionDescriptor | undefined {
+  if (code === 'INPUT_REQUIRED' && action) {
+    return {
+      kind: action === 'step' ? 'step' : 'provide_input',
+      command: `kal debug ${projectRoot} --${action} <input>`,
+      description: action === 'step'
+        ? 'Provide the requested input and stop after one step.'
+        : 'Provide the requested input and continue until the next boundary.',
+      input_required: true,
     };
   }
 
-  const runtime = await dependencies.createRuntime(projectRoot);
-  if (!runtime.hasSession()) {
-    throw new EngineHttpError('项目缺少 session.json，无法启动 debug 模式', 400, 'NO_SESSION');
+  return undefined;
+}
+
+function suggestionsForRunError(
+  code: string,
+  runId?: string,
+  action?: 'continue' | 'step',
+): string[] {
+  switch (code) {
+    case 'ACTIVE_RUN_EXISTS':
+      return [
+        '运行 `kal debug <project> --continue` 继续当前 run',
+        '运行 `kal debug <project> --delete --run-id <id>` 删除旧 run',
+        '或使用 `kal debug <project> --start --force-new` 创建新 run',
+      ];
+    case 'INPUT_REQUIRED':
+      return [
+        `运行 \`kal debug <project> --${action ?? 'continue'} <input>\` 提供输入`,
+        '必要时运行 `kal debug <project> --state` 查看当前状态',
+      ];
+    case 'INPUT_NOT_EXPECTED':
+      return [
+        `运行 \`kal debug <project> --${action ?? 'continue'}\` 继续执行`,
+        '必要时运行 `kal debug <project> --state` 查看当前 cursor',
+      ];
+    case 'SESSION_HASH_MISMATCH':
+      return [
+        '运行 `kal debug <project> --start --force-new` 创建新 run',
+        ...(runId ? [`如需清理旧快照，运行 \`kal debug <project> --delete --run-id ${runId}\``] : []),
+      ];
+    case 'RUN_NOT_ACTIVE':
+      return [
+        '运行 `kal debug <project> --start --force-new` 创建新 run',
+        '如需查看旧状态，使用 `kal debug <project> --state --run-id <id>`',
+      ];
+    case 'RUN_NOT_FOUND':
+      return [
+        '运行 `kal debug <project> --list` 查看可用 run',
+        '确认当前 project path 与 run 所属项目一致',
+      ];
+    case 'NO_ACTIVE_RUN':
+      return [
+        '运行 `kal debug <project> --start` 创建新 run',
+        '或使用 `kal debug <project> --list` 查看已有 runs',
+      ];
+    default:
+      return ['修复当前错误后重新运行调试命令'];
   }
-
-  const session = runtime.getSession()!;
-  const beforeState = runtime.getState();
-  const result = await advanceSession(session, createRunnerDeps(runtime), createSessionCursor(session), {
-    mode: 'continue',
-  });
-  const afterState = runtime.getState();
-  const sessionHash = await manager.computeSessionHash(projectRoot);
-  let snapshot = await manager.createRun({
-    projectRoot,
-    sessionHash,
-    cursor: result.cursor,
-    waitingFor: result.waitingFor,
-    status: result.status,
-    stateSnapshot: afterState,
-    recentEvents: result.events,
-    inputHistory: [],
-  });
-  snapshot = await finalizeSnapshot(projectRoot, snapshot, result, parsed.cleanup, manager);
-
-  const diagnostics = await buildDiagnosticsFromResult(runtime, result, parsed.verbose, undefined);
-  return {
-    exitCode: result.status === 'error' ? 1 : 0,
-    payload: buildAdvancePayload(projectRoot, snapshot.runId, result, diagnostics, beforeState, afterState),
-  };
 }
 
 async function advanceExistingRun(
   projectRoot: string,
   parsed: ParsedDebugArgs,
   manager: DebugSessionManager,
+  runManager: RunManager,
   dependencies: DebugCommandDependencies,
 ): Promise<CommandResult> {
-  const snapshotResult = await resolveExistingRun(projectRoot, parsed.runId, manager, parsed.latest);
-  if ('exitCode' in snapshotResult) {
-    return snapshotResult;
+  let snapshot: DebugRunSnapshot;
+  try {
+    snapshot = await runManager.readSnapshot({ runId: parsed.runId, latest: parsed.latest });
+  } catch (error) {
+    if (error instanceof EngineHttpError) {
+      return buildCommandResultFromRunError(projectRoot, error, 2);
+    }
+    throw error;
   }
-
-  const snapshot = snapshotResult;
-  const currentHash = await manager.computeSessionHash(projectRoot);
-  if (snapshot.sessionHash !== currentHash) {
-    await manager.clearActiveRun(projectRoot, snapshot.runId);
-    return {
-      exitCode: 2,
-      payload: buildErrorAdvancePayload(projectRoot, {
-        runId: snapshot.runId,
-        currentStepId: snapshot.cursor.currentStepId,
-        currentStepIndex: snapshot.cursor.stepIndex,
-        stateSummary: buildStateSummary(snapshot.stateSnapshot),
-        diagnostics: [
-          buildCliDiagnostic({
-            code: 'SESSION_HASH_MISMATCH',
-            message: '项目文件已修改，当前调试快照已失效',
-            suggestions: [
-              '运行 `kal debug <project> --start --force-new` 创建新 run',
-              `如需清理旧快照，运行 \`kal debug <project> --delete --run-id ${snapshot.runId}\``,
-            ],
-          }),
-        ],
-      }),
-    };
-  }
-
-  if (snapshot.status === 'ended' || snapshot.status === 'error') {
-    return {
-      exitCode: 2,
-      payload: buildErrorAdvancePayload(projectRoot, {
-        runId: snapshot.runId,
-        currentStepId: snapshot.cursor.currentStepId,
-        currentStepIndex: snapshot.cursor.stepIndex,
-        stateSummary: buildStateSummary(snapshot.stateSnapshot),
-        diagnostics: [
-          buildCliDiagnostic({
-            code: 'RUN_NOT_ACTIVE',
-            message: `Run ${snapshot.runId} is already ${snapshot.status}`,
-            suggestions: [
-              '运行 `kal debug <project> --start --force-new` 创建新 run',
-              '如需查看旧状态，使用 `kal debug <project> --state --run-id <id>`',
-            ],
-          }),
-        ],
-      }),
-    };
-  }
-
-  if (snapshot.waitingFor && parsed.input === undefined && !parsed.inputs) {
-    const waitingFor = toOutputWaitingFor(snapshot.waitingFor);
-    return {
-      exitCode: 2,
-      payload: buildErrorAdvancePayload(projectRoot, {
-        runId: snapshot.runId,
-        waitingFor,
-        currentStepId: snapshot.cursor.currentStepId,
-        currentStepIndex: snapshot.cursor.stepIndex,
-        stateSummary: buildStateSummary(snapshot.stateSnapshot),
-        diagnostics: [
-          buildCliDiagnostic({
-            code: 'INPUT_REQUIRED',
-            message: `Run ${snapshot.runId} 正在等待 ${snapshot.waitingFor.kind} 输入`,
-            suggestions: [
-              `运行 \`kal debug <project> --${parsed.action} <input>\` 提供输入`,
-              '必要时运行 `kal debug <project> --state` 查看当前状态',
-            ],
-          }),
-        ],
-        preferredAction: {
-          kind: parsed.action === 'step' ? 'step' : 'provide_input',
-          command: `kal debug ${projectRoot} --${parsed.action} <input>`,
-          description: parsed.action === 'step'
-            ? 'Provide the requested input and stop after one step.'
-            : 'Provide the requested input and continue until the next boundary.',
-          input_required: true,
-        },
-      }),
-    };
-  }
-
-  if (!snapshot.waitingFor && parsed.input !== undefined && !parsed.inputs) {
-    return {
-      exitCode: 2,
-      payload: buildErrorAdvancePayload(projectRoot, {
-        runId: snapshot.runId,
-        currentStepId: snapshot.cursor.currentStepId,
-        currentStepIndex: snapshot.cursor.stepIndex,
-        stateSummary: buildStateSummary(snapshot.stateSnapshot),
-        diagnostics: [
-          buildCliDiagnostic({
-            code: 'INPUT_NOT_EXPECTED',
-            message: `Run ${snapshot.runId} 当前步骤不接受输入`,
-            suggestions: [
-              `运行 \`kal debug <project> --${parsed.action}\` 继续执行`,
-              '必要时运行 `kal debug <project> --state` 查看当前 cursor',
-            ],
-          }),
-        ],
-      }),
-    };
-  }
-
-  const runtime = await dependencies.createRuntime(projectRoot);
-  if (!runtime.hasSession()) {
-    throw new EngineHttpError('项目缺少 session.json，无法恢复 debug 模式', 400, 'NO_SESSION');
-  }
-  runtime.restoreState(snapshot.stateSnapshot);
 
   // Multi-step mode: --inputs "explore,explore,sleep"
   if (parsed.inputs) {
+    const runtime = await dependencies.createRuntime(projectRoot);
+    if (!runtime.hasSession()) {
+      throw new EngineHttpError('项目缺少 session.json，无法恢复 debug 模式', 400, 'NO_SESSION');
+    }
+    runtime.restoreState(snapshot.stateSnapshot);
     return advanceMultiStep(projectRoot, snapshot, parsed, runtime, manager);
   }
 
-  const beforeState = runtime.getState();
-  const result = await advanceSession(runtime.getSession()!, createRunnerDeps(runtime), snapshot.cursor, {
-    mode: parsed.action as SessionAdvanceMode,
-    userInput: parsed.input,
-  });
-  const afterState = runtime.getState();
-
-  const nextSnapshot: DebugRunSnapshot = {
-    ...snapshot,
-    cursor: result.cursor,
-    waitingFor: result.waitingFor,
-    status: result.status,
-    stateSnapshot: afterState,
-    recentEvents: result.events,
-    updatedAt: Date.now(),
-    inputHistory: parsed.input === undefined
-      ? snapshot.inputHistory
-      : [
-          ...snapshot.inputHistory,
-          {
-            stepId: snapshot.cursor.currentStepId ?? '',
-            stepIndex: snapshot.cursor.stepIndex,
-            input: parsed.input,
-            timestamp: Date.now(),
-          },
-        ],
-  };
-
-  const savedSnapshot = await finalizeSnapshot(projectRoot, nextSnapshot, result, parsed.cleanup, manager);
-  const diagnostics = await buildDiagnosticsFromResult(runtime, result, parsed.verbose, parsed.input);
-
-  return {
-    exitCode: result.status === 'error' ? 1 : 0,
-    payload: buildAdvancePayload(projectRoot, savedSnapshot.runId, result, diagnostics, beforeState, afterState),
-  };
+  try {
+    const advanced = await runManager.advanceRun({
+      runId: parsed.runId,
+      latest: parsed.latest,
+      input: parsed.input,
+      cleanup: parsed.cleanup,
+      mode: parsed.action as SessionAdvanceMode,
+    });
+    const diagnostics = await buildDiagnosticsFromResult(advanced.runtime, advanced.result, parsed.verbose, parsed.input);
+    return {
+      exitCode: advanced.result.status === 'error' ? 1 : 0,
+      payload: buildAdvancePayload(
+        projectRoot,
+        advanced.snapshot.runId,
+        advanced.result,
+        diagnostics,
+        advanced.beforeState,
+        advanced.afterState,
+      ),
+    };
+  } catch (error) {
+    if (error instanceof EngineHttpError) {
+      return buildCommandResultFromRunError(projectRoot, error, 2, parsed.action as 'continue' | 'step');
+    }
+    throw error;
+  }
 }
 
 async function advanceMultiStep(
@@ -543,14 +542,18 @@ async function retryCurrentStep(
   projectRoot: string,
   parsed: ParsedDebugArgs,
   manager: DebugSessionManager,
+  runManager: RunManager,
   dependencies: DebugCommandDependencies,
 ): Promise<CommandResult> {
-  const snapshotResult = await resolveExistingRun(projectRoot, parsed.runId, manager, parsed.latest);
-  if ('exitCode' in snapshotResult) {
-    return snapshotResult;
+  let snapshot: DebugRunSnapshot;
+  try {
+    snapshot = await runManager.readSnapshot({ runId: parsed.runId, latest: parsed.latest });
+  } catch (error) {
+    if (error instanceof EngineHttpError) {
+      return buildCommandResultFromRunError(projectRoot, error, 2);
+    }
+    throw error;
   }
-
-  const snapshot = snapshotResult;
 
   if (snapshot.status !== 'error') {
     return {
@@ -611,14 +614,18 @@ async function skipCurrentStep(
   projectRoot: string,
   parsed: ParsedDebugArgs,
   manager: DebugSessionManager,
+  runManager: RunManager,
   dependencies: DebugCommandDependencies,
 ): Promise<CommandResult> {
-  const snapshotResult = await resolveExistingRun(projectRoot, parsed.runId, manager, parsed.latest);
-  if ('exitCode' in snapshotResult) {
-    return snapshotResult;
+  let snapshot: DebugRunSnapshot;
+  try {
+    snapshot = await runManager.readSnapshot({ runId: parsed.runId, latest: parsed.latest });
+  } catch (error) {
+    if (error instanceof EngineHttpError) {
+      return buildCommandResultFromRunError(projectRoot, error, 2);
+    }
+    throw error;
   }
-
-  const snapshot = snapshotResult;
 
   if (snapshot.status !== 'error' && snapshot.status !== 'paused') {
     return {
@@ -726,84 +733,6 @@ async function finalizeSnapshot(
   return snapshot;
 }
 
-async function resolveExistingRun(
-  projectRoot: string,
-  runId: string | undefined,
-  manager: DebugSessionManager,
-  latest = false,
-): Promise<DebugRunSnapshot | CommandResult> {
-  let effectiveRunId = runId;
-
-  // --latest: pick the most recent run for this project
-  if (!effectiveRunId && latest) {
-    const runs = await manager.listRuns(projectRoot);
-    if (runs.length > 0) {
-      effectiveRunId = runs[0]!.runId; // listRuns returns sorted by updatedAt desc
-    }
-  }
-
-  if (!effectiveRunId) {
-    effectiveRunId = await manager.getActiveRunId(projectRoot) ?? undefined;
-  }
-
-  if (!effectiveRunId) {
-    return {
-      exitCode: 2,
-      payload: buildErrorAdvancePayload(projectRoot, {
-        diagnostics: [
-          buildCliDiagnostic({
-            code: 'NO_ACTIVE_RUN',
-            message: `No active debug run for ${projectRoot}`,
-            suggestions: [
-              '运行 `kal debug <project> --start` 创建新 run',
-              '或使用 `kal debug <project> --list` 查看已有 runs',
-            ],
-          }),
-        ],
-      }),
-    };
-  }
-
-  const snapshot = await manager.readRun(effectiveRunId);
-  if (!snapshot) {
-    await manager.clearActiveRun(projectRoot, effectiveRunId);
-    return {
-      exitCode: 2,
-      payload: buildErrorAdvancePayload(projectRoot, {
-        runId: effectiveRunId,
-        diagnostics: [
-          buildCliDiagnostic({
-            code: 'RUN_NOT_FOUND',
-            message: `Debug run not found: ${effectiveRunId}`,
-            suggestions: [
-              '运行 `kal debug <project> --list` 查看可用 runs',
-              '必要时重新运行 `kal debug <project> --start`',
-            ],
-          }),
-        ],
-      }),
-    };
-  }
-
-  if (snapshot.projectRoot !== projectRoot) {
-    return {
-      exitCode: 2,
-      payload: buildErrorAdvancePayload(projectRoot, {
-        runId: snapshot.runId,
-        diagnostics: [
-          buildCliDiagnostic({
-            code: 'RUN_PROJECT_MISMATCH',
-            message: `Run ${snapshot.runId} 属于其他项目`,
-            suggestions: ['使用匹配的 project path 或重新创建 run'],
-          }),
-        ],
-      }),
-    };
-  }
-
-  return snapshot;
-}
-
 async function buildDiagnosticsFromResult(
   runtime: EngineRuntime,
   result: SessionAdvanceResult,
@@ -823,14 +752,6 @@ async function buildDiagnosticsFromResult(
       stateSnapshot: runtime.getState(),
     }),
   ];
-}
-
-function createRunnerDeps(runtime: EngineRuntime) {
-  return {
-    executeFlow: (flowId: string, inputData?: Record<string, any>) => runtime.executeFlow(flowId, inputData ?? {}),
-    getState: () => runtime.getState(),
-    setState: (key: string, value: any) => runtime.setState(key, value),
-  };
 }
 
 interface LLMTrace {
@@ -948,36 +869,11 @@ function buildErrorAdvancePayload(
 }
 
 function toDebugEvent(event: SessionTraceEvent): DebugEvent {
-  if (event.type === 'end') {
-    return {
-      type: 'end',
-      message: event.message,
-    };
-  }
-
-  return {
-    type: 'output',
-    step_id: event.stepId,
-    flow_id: event.flowId,
-    raw: event.data,
-    normalized: {
-      narration: extractNarration(event.data),
-      state_changes: diffStates(event.stateBefore, event.stateAfter),
-      labels: Object.keys(event.data).sort(),
-    },
-  };
+  return toRunEvent(event) as DebugEvent;
 }
 
 function toOutputWaitingFor(waitingFor: SessionWaitingFor | null): DebugWaitingForPayload | null {
-  if (!waitingFor) {
-    return null;
-  }
-  return {
-    kind: waitingFor.kind,
-    step_id: waitingFor.stepId,
-    prompt_text: waitingFor.promptText,
-    options: waitingFor.options,
-  };
+  return toRunWaitingFor(waitingFor) as DebugWaitingForPayload | null;
 }
 
 interface BuildObservationParams {
@@ -1038,77 +934,7 @@ function buildStateSummary(
   afterState: Record<string, StateValue>,
   beforeState: Record<string, StateValue> = afterState,
 ): DebugStateSummary {
-  const changedValues = diffStates(beforeState, afterState);
-  return {
-    total_keys: Object.keys(afterState).length,
-    keys: Object.keys(afterState).sort(),
-    changed: Object.keys(changedValues).sort(),
-    changed_values: changedValues,
-    preview: buildStatePreview(afterState),
-  };
-}
-
-function diffStates(
-  beforeState: Record<string, StateValue>,
-  afterState: Record<string, StateValue>,
-): Record<string, { old: any; new: any }> {
-  const changed: Record<string, { old: any; new: any }> = {};
-  const keys = new Set([...Object.keys(beforeState), ...Object.keys(afterState)]);
-
-  for (const key of [...keys].sort()) {
-    const beforeValue = beforeState[key];
-    const afterValue = afterState[key];
-    const beforeJson = beforeValue ? JSON.stringify(beforeValue) : '';
-    const afterJson = afterValue ? JSON.stringify(afterValue) : '';
-    if (beforeJson === afterJson) {
-      continue;
-    }
-    changed[key] = {
-      old: beforeValue?.value ?? null,
-      new: afterValue?.value ?? null,
-    };
-  }
-
-  return changed;
-}
-
-function buildStatePreview(state: Record<string, StateValue>): Record<string, any> {
-  const preview: Record<string, any> = {};
-
-  for (const key of Object.keys(state).sort()) {
-    if (Object.keys(preview).length >= 6) {
-      break;
-    }
-    preview[key] = toPreviewValue(state[key]?.value ?? null);
-  }
-
-  return preview;
-}
-
-function toPreviewValue(value: any): any {
-  if (typeof value === 'string') {
-    return value.length > 120 ? `${value.slice(0, 117)}...` : value;
-  }
-  if (typeof value === 'number' || typeof value === 'boolean' || value === null) {
-    return value;
-  }
-  if (Array.isArray(value)) {
-    return value.length > 4
-      ? [...value.slice(0, 4), `...(${value.length - 4} more)`]
-      : value.map((item) => toPreviewValue(item));
-  }
-  if (typeof value === 'object') {
-    const preview: Record<string, any> = {};
-    const entries = Object.entries(value);
-    for (const [key, entryValue] of entries.slice(0, 4)) {
-      preview[key] = toPreviewValue(entryValue);
-    }
-    if (entries.length > 4) {
-      preview.__truncated__ = `${entries.length - 4} more keys`;
-    }
-    return preview;
-  }
-  return String(value);
+  return buildRunStateSummary(afterState, beforeState) as DebugStateSummary;
 }
 
 function inferBlockingReason(
@@ -1352,22 +1178,6 @@ function dedupeActionDescriptors(actions: DebugActionDescriptor[]): DebugActionD
   return unique;
 }
 
-function extractNarration(data: Record<string, any>): string | undefined {
-  const preferredKeys = ['narration', 'text', 'message', 'reply'];
-  for (const key of preferredKeys) {
-    if (typeof data[key] === 'string' && data[key].trim().length > 0) {
-      return data[key];
-    }
-  }
-
-  for (const value of Object.values(data)) {
-    if (typeof value === 'string' && value.trim().length > 0) {
-      return value;
-    }
-  }
-
-  return undefined;
-}
 
 function parseDebugArgs(tokens: string[]): ParsedDebugArgs {
   let action: DebugAction | undefined;
