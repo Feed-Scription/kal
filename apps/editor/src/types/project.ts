@@ -174,6 +174,74 @@ export type ExecutionResult = {
   error?: string;
 };
 
+export type RunWaitingFor = {
+  kind: 'prompt' | 'choice';
+  step_id: string;
+  prompt_text?: string;
+  options?: Array<{ label: string; value: string }>;
+};
+
+export type RunOutputEvent = {
+  type: 'output';
+  step_id: string;
+  flow_id?: string;
+  raw: Record<string, any>;
+  normalized: {
+    narration?: string;
+    state_changes: Record<string, { old: any; new: any }>;
+    labels: string[];
+  };
+};
+
+export type RunEndEvent = {
+  type: 'end';
+  message?: string;
+};
+
+export type RunEvent = RunOutputEvent | RunEndEvent;
+
+export type RunStateSummary = {
+  total_keys: number;
+  keys: string[];
+  changed: string[];
+  changed_values: Record<string, { old: any; new: any }>;
+  preview: Record<string, any>;
+};
+
+export type RunSummary = {
+  run_id: string;
+  status: 'paused' | 'waiting_input' | 'ended' | 'error';
+  waiting_for: RunWaitingFor | null;
+  updated_at: number;
+  created_at: number;
+  active: boolean;
+};
+
+export type RunView = RunSummary & {
+  cursor: {
+    currentStepId: string | null;
+    stepIndex: number;
+  };
+  state_summary: RunStateSummary;
+  recent_events: RunEvent[];
+};
+
+export type RunStateView = RunView & {
+  state: Record<string, StateValue>;
+};
+
+export type RunStreamEventName =
+  | 'run.created'
+  | 'run.updated'
+  | 'run.ended'
+  | 'run.cancelled'
+  | 'run.invalidated';
+
+export type RunStreamEvent = {
+  type: RunStreamEventName;
+  run: RunView;
+};
+
 export type NodeManifest = {
   type: string;
   label?: string;
