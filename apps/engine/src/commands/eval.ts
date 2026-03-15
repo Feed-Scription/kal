@@ -2,6 +2,7 @@
  * CLI command: kal eval
  *
  * Subcommands:
+ *   kal eval nodes <flow> [--format json|pretty]
  *   kal eval render <flow> --node <id> [--state <json>] [--format json|pretty]
  *   kal eval run <flow> --node <id> [--variant <file>] [--runs N] [--input <json>] [--state <json>] [--format json|pretty]
  *   kal eval compare <file-a> <file-b> [--format json|pretty]
@@ -25,7 +26,7 @@ interface EvalCommandDependencies {
 }
 
 interface ParsedEvalArgs {
-  subcommand: 'render' | 'run' | 'compare';
+  subcommand: 'nodes' | 'render' | 'run' | 'compare';
   flowPath: string;
   node: string;
   variant?: string;
@@ -39,7 +40,7 @@ interface ParsedEvalArgs {
 
 function parseEvalArgs(tokens: string[]): ParsedEvalArgs {
   if (tokens.length === 0) {
-    throw new Error('Missing subcommand. Usage: kal eval <render|run> ...');
+    throw new Error('Missing subcommand. Usage: kal eval <nodes|render|run|compare> ...');
   }
 
   const subcommand = tokens[0]!;
@@ -234,7 +235,6 @@ async function handleNodes(
 
   return 0;
 }
-
 async function handleRender(
   parsed: ParsedEvalArgs,
   deps: EvalCommandDependencies,
@@ -461,7 +461,6 @@ function buildComparison(a: any, b: any, labelA: string, labelB: string): any {
     diff: {},
   };
 
-  // Compare top-level cost and latency
   if (a.result && b.result) {
     result.diff.cost = {
       a: a.result.cost,
@@ -476,7 +475,6 @@ function buildComparison(a: any, b: any, labelA: string, labelB: string): any {
       pctChange: a.result.avgLatency > 0 ? round4((b.result.avgLatency - a.result.avgLatency) / a.result.avgLatency * 100) : null,
     };
 
-    // Compare numeric stats
     const numericDiff: Record<string, any> = {};
     const allNumericKeys = new Set([
       ...Object.keys(a.result.numericStats ?? {}),
@@ -498,7 +496,6 @@ function buildComparison(a: any, b: any, labelA: string, labelB: string): any {
       result.diff.numericStats = numericDiff;
     }
 
-    // Compare boolean stats
     const booleanDiff: Record<string, any> = {};
     const allBooleanKeys = new Set([
       ...Object.keys(a.result.booleanStats ?? {}),
@@ -571,7 +568,6 @@ export async function runEvalCommand(
     parsed = parseEvalArgs(tokens);
   } catch (error) {
     const errorMsg = (error as Error).message;
-    // Handle --help flag
     if (errorMsg === 'Help requested') {
       dependencies.io.stdout(
         'Usage:\n' +
