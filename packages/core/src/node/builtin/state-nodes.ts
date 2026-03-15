@@ -4,6 +4,20 @@
 
 import type { CustomNode } from '../../types/node';
 
+function clampNumber(value: number, constraints?: { min?: number; max?: number }): number {
+  if (!constraints) return value;
+  let result = value;
+  if (constraints.min !== undefined && result < constraints.min) result = constraints.min;
+  if (constraints.max !== undefined && result > constraints.max) result = constraints.max;
+  return result;
+}
+
+function coerceToNumber(value: unknown): number | null {
+  if (typeof value === 'number') return value;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
 export const AddState: CustomNode = {
   type: 'AddState',
   label: '添加状态',
@@ -124,7 +138,7 @@ export const ApplyState: CustomNode = {
       allowedKeys: { type: 'array', items: { type: 'string' } },
       operations: {
         type: 'object',
-        description: 'Operation type for each key: "set" (default), "append", or "appendMany"',
+        description: 'Operation type for each key: "set" (default), "append", "appendMany", or "increment"',
       },
       deduplicateBy: {
         type: 'object',
@@ -281,6 +295,22 @@ export const ApplyState: CustomNode = {
           } else {
             context.logger.error('ApplyState: appendMany requires array value', { key });
           }
+        } else if (operation === 'increment') {
+          if (existing.type !== 'number') {
+            context.logger.error('ApplyState: increment requires number state key', { key, type: existing.type });
+            continue;
+          }
+          const delta = coerceToNumber(valueToWrite);
+          if (delta === null) {
+            context.logger.error('ApplyState: increment value is not a number', { key, value: valueToWrite });
+            continue;
+          }
+          const newValue = clampNumber(
+            (existing.value as number) + delta,
+            constraints[key],
+          );
+          context.state.set(key, { type: 'number', value: newValue });
+          applied.push(key);
         } else {
           // Default: set
           context.state.set(key, { type: existing.type, value: valueToWrite as any });

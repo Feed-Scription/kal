@@ -46,15 +46,17 @@ function cloneFlowWithVariant(
 }
 
 /**
- * Find and validate a PromptBuild node in a flow
+ * Find and validate a PromptBuild node in a flow.
+ * Also accepts GenerateText nodes for render inspection.
  */
 export function findPromptBuildNode(flow: FlowDefinition, nodeId: string): NodeDefinition {
   const node = flow.data.nodes.find((n: NodeDefinition) => n.id === nodeId);
   if (!node) {
     throw new Error(`Node "${nodeId}" not found in flow`);
   }
-  if (node.type !== 'PromptBuild') {
-    throw new Error(`Node "${nodeId}" is type "${node.type}", expected PromptBuild`);
+  const allowed = new Set(['PromptBuild', 'GenerateText']);
+  if (!allowed.has(node.type)) {
+    throw new Error(`Node "${nodeId}" is type "${node.type}", expected PromptBuild or GenerateText`);
   }
   return node;
 }

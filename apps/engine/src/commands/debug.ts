@@ -49,6 +49,7 @@ interface ParsedDebugArgs {
   verbose: boolean;
   cleanup: boolean;
   forceNew: boolean;
+  latest: boolean;
 }
 
 interface CommandResult {
@@ -64,6 +65,21 @@ export async function runDebugCommand(
   try {
     parsed = parseDebugArgs(tokens);
   } catch (error) {
+    // Handle --help flag
+    if (error instanceof EngineHttpError && error.code === 'DEBUG_HELP_REQUESTED') {
+      dependencies.io.stdout(
+        'Usage:\n' +
+        '  kal debug [project-path] --start [--force-new] [--state-dir <path>] [--format <json|pretty>]\n' +
+        '  kal debug [project-path] --continue [input] [--run-id <id>] [--input <input>] [--latest]\n' +
+        '  kal debug [project-path] --step [input] [--run-id <id>] [--input <input>] [--latest]\n' +
+        '  kal debug [project-path] --state [--run-id <id>] [--latest]\n' +
+        '  kal debug [project-path] --list\n' +
+        '  kal debug [project-path] --delete --run-id <id>\n' +
+        '\nFlags:\n' +
+        '  --latest    Auto-select the most recent debug run (instead of --run-id)\n'
+      );
+      return 0;
+    }
     return writeResult(dependencies.io, {
       exitCode: 2,
       payload: buildErrorAdvancePayload(resolveProjectRoot(undefined, dependencies.cwd), {
@@ -94,7 +110,7 @@ export async function runDebugCommand(
         result = await deleteRun(projectRoot, parsed.runId!, manager);
         break;
       case 'state':
-        result = await getState(projectRoot, parsed.runId, parsed.verbose, manager);
+        result = await getState(projectRoot, parsed.runId, parsed.verbose, manager, parsed.latest);
         break;
       case 'start':
         result = await startRun(projectRoot, parsed, manager, dependencies);
@@ -191,8 +207,9 @@ async function getState(
   runId: string | undefined,
   verbose: boolean,
   manager: DebugSessionManager,
+  latest = false,
 ): Promise<CommandResult> {
-  const snapshot = await resolveExistingRun(projectRoot, runId, manager);
+  const snapshot = await resolveExistingRun(projectRoot, runId, manager, latest);
   if ('exitCode' in snapshot) {
     return snapshot;
   }
@@ -285,7 +302,7 @@ async function advanceExistingRun(
   manager: DebugSessionManager,
   dependencies: DebugCommandDependencies,
 ): Promise<CommandResult> {
-  const snapshotResult = await resolveExistingRun(projectRoot, parsed.runId, manager);
+  const snapshotResult = await resolveExistingRun(projectRoot, parsed.runId, manager, parsed.latest);
   if ('exitCode' in snapshotResult) {
     return snapshotResult;
   }
@@ -528,7 +545,7 @@ async function retryCurrentStep(
   manager: DebugSessionManager,
   dependencies: DebugCommandDependencies,
 ): Promise<CommandResult> {
-  const snapshotResult = await resolveExistingRun(projectRoot, parsed.runId, manager);
+  const snapshotResult = await resolveExistingRun(projectRoot, parsed.runId, manager, parsed.latest);
   if ('exitCode' in snapshotResult) {
     return snapshotResult;
   }
@@ -596,7 +613,7 @@ async function skipCurrentStep(
   manager: DebugSessionManager,
   dependencies: DebugCommandDependencies,
 ): Promise<CommandResult> {
-  const snapshotResult = await resolveExistingRun(projectRoot, parsed.runId, manager);
+  const snapshotResult = await resolveExistingRun(projectRoot, parsed.runId, manager, parsed.latest);
   if ('exitCode' in snapshotResult) {
     return snapshotResult;
   }
@@ -677,8 +694,6 @@ async function skipCurrentStep(
   await manager.saveRun(nextSnapshot);
   await manager.setActiveRun(projectRoot, nextSnapshot.runId);
 
-  const stateSummary = buildStateSummary(snapshot.stateSnapshot);
-
   return {
     exitCode: 0,
     payload: buildAdvancePayload(projectRoot, nextSnapshot.runId, {
@@ -715,8 +730,22 @@ async function resolveExistingRun(
   projectRoot: string,
   runId: string | undefined,
   manager: DebugSessionManager,
+  latest = false,
 ): Promise<DebugRunSnapshot | CommandResult> {
-  const effectiveRunId = runId ?? await manager.getActiveRunId(projectRoot);
+  let effectiveRunId = runId;
+
+  // --latest: pick the most recent run for this project
+  if (!effectiveRunId && latest) {
+    const runs = await manager.listRuns(projectRoot);
+    if (runs.length > 0) {
+      effectiveRunId = runs[0]!.runId; // listRuns returns sorted by updatedAt desc
+    }
+  }
+
+  if (!effectiveRunId) {
+    effectiveRunId = await manager.getActiveRunId(projectRoot) ?? undefined;
+  }
+
   if (!effectiveRunId) {
     return {
       exitCode: 2,
@@ -813,6 +842,7 @@ interface LLMTrace {
   cached?: boolean;
 }
 
+// @ts-expect-error reserved for verbose trace mode (not yet wired)
 function registerLLMTraceHooks(runtime: EngineRuntime): LLMTrace[] {
   const traces: LLMTrace[] = [];
   const pendingRequests = new Map<string, { model: string; messages: string }>();
@@ -1350,6 +1380,7 @@ function parseDebugArgs(tokens: string[]): ParsedDebugArgs {
   let verbose = false;
   let cleanup = false;
   let forceNew = false;
+  let latest = false;
   let lastAdvanceFlag: 'continue' | 'step' | null = null;
 
   for (let index = 0; index < tokens.length; index += 1) {
@@ -1379,6 +1410,11 @@ function parseDebugArgs(tokens: string[]): ParsedDebugArgs {
       continue;
     }
 
+    if (token === '--latest') {
+      latest = true;
+      continue;
+    }
+
     if (token === '--run-id' || token === '--run' || token === '--state-dir' || token === '--format' || token === '--input' || token === '--inputs') {
       const value = tokens[index + 1];
       if (!value || value.startsWith('--')) {
@@ -1403,6 +1439,10 @@ function parseDebugArgs(tokens: string[]): ParsedDebugArgs {
       }
       index += 1;
       continue;
+    }
+
+    if (token === '--help' || token === '-h') {
+      throw new EngineHttpError('Help requested', 400, 'DEBUG_HELP_REQUESTED');
     }
 
     if (token.startsWith('--')) {
@@ -1452,6 +1492,7 @@ function parseDebugArgs(tokens: string[]): ParsedDebugArgs {
     verbose,
     cleanup,
     forceNew,
+    latest,
   };
 }
 
@@ -1549,7 +1590,13 @@ function writeResult(io: EngineCliIO, result: CommandResult, format: 'json' | 'p
   } else {
     rendered = `${JSON.stringify(result.payload, null, 2)}\n`;
   }
-  io.stdout(rendered);
+  // Structured JSON payloads always go to stdout for machine consumption.
+  // Only pretty-format errors go to stderr for human readability.
+  if (result.exitCode !== 0 && format === 'pretty') {
+    io.stderr(rendered);
+  } else {
+    io.stdout(rendered);
+  }
   return result.exitCode;
 }
 
