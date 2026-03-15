@@ -264,6 +264,9 @@ describe('Engine HTTP server', () => {
         intro: createStateMutationFlow(),
         main: createPassThroughFlow(),
       },
+      initialState: {
+        visited: { type: 'boolean', value: false },
+      },
       session,
     });
     cleanups.push(fixture.cleanup);
@@ -284,7 +287,7 @@ describe('Engine HTTP server', () => {
       step_id: 'turn',
     });
     expect(created.data.run.state_summary.changed_values).toMatchObject({
-      visited: { old: null, new: true },
+      visited: { old: false, new: true },
     });
 
     const runId = created.data.run.run_id as string;
