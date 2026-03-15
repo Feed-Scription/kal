@@ -77,6 +77,7 @@ function printUsage(io: EngineCliIO): void {
     '  kal debug  [project-path] --delete --run-id <id>',
     '  kal lint   [project-path] [--format <json|pretty>]',
     '  kal smoke  [project-path] [--steps N] [--input value]... [--dry-run] [--format <json|pretty>]',
+    '  kal eval   nodes <flow> [--format <json|pretty>]',
     '  kal eval   render <flow> --node <id> [--state <json>] [--format <json|pretty>]',
     '  kal eval   run <flow> --node <id> [--variant <file>] [--runs N] [--input <json>] [--state <json>] [--format <json|pretty>]',
     '  kal eval   compare <file-a> <file-b> [--format <json|pretty>]',
