@@ -86,6 +86,13 @@ Engine 负责：
 | GET | `/api/session` | 读取 Session |
 | PUT | `/api/session` | 保存 Session |
 | DELETE | `/api/session` | 删除 Session |
+| POST | `/api/runs` | 创建 managed run，并自动推进到第一个交互边界 |
+| GET | `/api/runs` | 列出当前项目下的 managed runs |
+| GET | `/api/runs/:id` | 获取单个 run 的当前视图 |
+| GET | `/api/runs/:id/state` | 获取 run 的完整状态快照 |
+| POST | `/api/runs/:id/advance` | 提交输入并继续推进 run |
+| POST | `/api/runs/:id/cancel` | 取消并删除指定 run |
+| GET | `/api/runs/:id/stream` | 订阅 run 的 SSE 更新流 |
 
 附加能力：
 
@@ -93,6 +100,22 @@ Engine 负责：
 - 请求体大小限制（1MB）
 - Content-Type 校验（要求 `application/json`）
 - OPTIONS 预检请求处理
+- managed run 存储（项目级 `.kal/runs`）
+- run SSE 事件：`run.created` / `run.updated` / `run.ended` / `run.cancelled` / `run.invalidated`
+
+### 4.1 Managed Run Runtime
+
+`kal serve` 现在已经具备一层面向薄前端的 managed run 协议，用于替代前端自己编排 Session 执行过程。
+
+默认交互模型：
+
+- 前端 `POST /api/runs` 创建一个 run
+- Engine 自动推进到下一个交互边界（`waiting_input` / `ended` / `error`）
+- 前端读取 `RunView` 中的 `status` / `waiting_for` / `state_summary` / `recent_events`
+- 需要用户输入时，前端通过 `POST /api/runs/:id/advance` 提交 input
+- 需要更流畅的 UI 时，前端通过 `GET /api/runs/:id/stream` 订阅 SSE
+
+这样前端只需要承担展示和输入采集，不再需要自己维护 Session cursor、state snapshot 和恢复逻辑。
 
 ### 5. 统一错误模型
 
@@ -149,7 +172,7 @@ Editor -> Engine -> Core
 - `kal init` — 项目脚手架命令
 - `kal validate` — 独立校验命令
 - 热重载（文件监听自动 reload，当前只有手动 `POST /api/project/reload`）
-- SSE 执行事件流（实时推送 Flow/Node 执行事件到前端）
+- 低层 Flow/Node 执行 trace 流（当前 SSE 只提供 run 级别更新，不暴露逐节点 trace）
 - 日志文件输出（当前日志仅 console 输出）
 - Telemetry 查询服务（Core 的 Telemetry 在内存中，未通过 API 暴露）
 - 生产环境 CORS 配置（当前为 `*`）
@@ -164,6 +187,10 @@ Editor -> Engine -> Core
 - `kal play` 提供基于 Session 的交互式终端运行体验
 - 测试已覆盖 runtime、server、CLI 的核心路径
 
-下一步重点是 SSE 执行事件流和热重载能力。
+下一步重点是：
+
+- 补齐更细粒度的执行 trace / diagnostics 查询能力
+- 热重载能力
+- 围绕 managed run runtime 继续压平前端接入复杂度
 
 此外，针对 Claude Code、Cursor、Codex 等 Agent 无法使用 `kal play` 交互式 TUI 的问题，已补充一份 `kal debug` 设计方案，计划提供可恢复、结构化输出的 CLI 调试入口。

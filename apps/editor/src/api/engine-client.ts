@@ -4,6 +4,10 @@ import type {
   ProjectInfo,
   ExecutionResult,
   NodeManifest,
+  RunStateView,
+  RunStreamEvent,
+  RunSummary,
+  RunView,
   SessionDefinition,
 } from '@/types/project';
 
@@ -13,10 +17,22 @@ type EngineSuccessResponse<T> = { success: true; data: T };
 type EngineErrorResponse = { success: false; error: { code: string; message: string } };
 type EngineResponse<T> = EngineSuccessResponse<T> | EngineErrorResponse;
 
+function buildApiUrl(path: string): string {
+  if (!BASE_URL) {
+    return path;
+  }
+
+  try {
+    return new URL(path, BASE_URL).toString();
+  } catch {
+    return `${BASE_URL}${path}`;
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let res: Response;
   try {
-    res = await fetch(`${BASE_URL}${path}`, init);
+    res = await fetch(buildApiUrl(path), init);
   } catch {
     throw new Error('无法连接到 Engine 服务，请确认 Engine 已启动');
   }
@@ -87,5 +103,70 @@ export const engineApi = {
 
   async deleteSession(): Promise<void> {
     await request('/api/session', { method: 'DELETE' });
+  },
+
+  async createRun(forceNew = false): Promise<RunView> {
+    const data = await request<{ run: RunView }>('/api/runs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(forceNew ? { forceNew: true } : {}),
+    });
+    return data.run;
+  },
+
+  async listRuns(): Promise<RunSummary[]> {
+    const data = await request<{ runs: RunSummary[] }>('/api/runs');
+    return data.runs;
+  },
+
+  async getRun(runId: string): Promise<RunView> {
+    const data = await request<{ run: RunView }>(`/api/runs/${encodeURIComponent(runId)}`);
+    return data.run;
+  },
+
+  async getRunState(runId: string): Promise<RunStateView> {
+    const data = await request<{ run: RunStateView }>(`/api/runs/${encodeURIComponent(runId)}/state`);
+    return data.run;
+  },
+
+  async advanceRun(runId: string, input?: string): Promise<RunView> {
+    const data = await request<{ run: RunView }>(`/api/runs/${encodeURIComponent(runId)}/advance`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input === undefined ? {} : { input }),
+    });
+    return data.run;
+  },
+
+  async cancelRun(runId: string): Promise<void> {
+    await request(`/api/runs/${encodeURIComponent(runId)}/cancel`, {
+      method: 'POST',
+    });
+  },
+
+  subscribeRun(runId: string, onEvent: (event: RunStreamEvent) => void): () => void {
+    const source = new EventSource(buildApiUrl(`/api/runs/${encodeURIComponent(runId)}/stream`));
+    const eventTypes: RunStreamEvent['type'][] = [
+      'run.created',
+      'run.updated',
+      'run.ended',
+      'run.cancelled',
+      'run.invalidated',
+    ];
+
+    for (const eventType of eventTypes) {
+      source.addEventListener(eventType, (event) => {
+        const payload = JSON.parse((event as MessageEvent<string>).data) as RunStreamEvent;
+        onEvent(payload);
+      });
+    }
+
+    source.onerror = () => {
+      // EventSource will retry automatically. Keep the connection unless explicitly closed.
+    };
+
+    return () => {
+      source.close();
+    };
   },
 };

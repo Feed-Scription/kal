@@ -602,16 +602,16 @@ Next: kal debug examples/westbrook-high --continue <input>
 
 ### 存储位置
 
-调试快照默认保存在用户缓存目录：
+调试快照默认保存在项目目录：
 
 ```text
-~/.kal/debug-runs/
+/path/to/project/.kal/runs/
   active.json                          # { "activeByProject": { "/path/to/project": "dbg_xxx" } }
   dbg_1710234567_a3f2c9.json           # 快照文件
   dbg_1710234890_b7e1d4.json
 ```
 
-支持通过 `--state-dir` 覆盖。
+这样 `kal debug` 与 `kal serve` 默认共享同一批 managed run 快照。支持通过 `--state-dir` 覆盖。
 
 ### Active Session 机制
 
@@ -1119,7 +1119,7 @@ kal debug . --start --force-new
 
 - 默认输出格式为 `json`
 - 默认采用可恢复会话模型（cursor-based，非 replay）
-- 调试快照默认放在用户缓存目录（`~/.kal/debug-runs/`），而不是项目目录
+- 调试快照默认放在项目目录（`<project>/.kal/runs/`），便于与 `kal serve` 共享
 - `--start` 显式启动新会话，避免隐式创建导致的歧义
 - 省略 `--run-id` 时自动使用 active session，减少 Agent 状态管理负担
 - `--delete` 必须显式传 `--run-id`
