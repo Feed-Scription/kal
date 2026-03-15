@@ -1,4 +1,4 @@
-import { BUILTIN_NODES, FlowLoader, createKalCore, runSession, validateSessionDefinition, ConfigManager } from '@kal-ai/core';
+import { BUILTIN_NODES, FlowLoader, createKalCore, runSession, validateSessionDefinition } from '@kal-ai/core';
 import type {
   FlowDefinition,
   FlowExecutionResult,
@@ -11,6 +11,7 @@ import { writeFile, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { EngineHttpError } from './errors';
 import { loadEngineProject } from './project-loader';
+import { ensureUserConfig } from './ensure-user-config';
 import type { EngineProject, FlowListItem, ProjectInfo } from './types';
 
 export class EngineRuntime {
@@ -29,43 +30,7 @@ export class EngineRuntime {
   }
 
   async reload(): Promise<void> {
-    // 首先从配置管理器加载用户配置，并设置到环境变量中
-    // 这必须在加载项目之前完成，因为项目配置可能使用环境变量替换
-    const configManager = new ConfigManager();
-    const userConfig = configManager.loadConfig();
-
-    // 将用户配置中的 API 密钥设置到环境变量中（如果环境变量未设置）
-    if (userConfig.openai?.apiKey && !process.env.OPENAI_API_KEY) {
-      process.env.OPENAI_API_KEY = userConfig.openai.apiKey;
-    }
-    if (userConfig.openai?.baseUrl && !process.env.OPENAI_BASE_URL) {
-      process.env.OPENAI_BASE_URL = userConfig.openai.baseUrl;
-    }
-    if (userConfig.anthropic?.apiKey && !process.env.ANTHROPIC_API_KEY) {
-      process.env.ANTHROPIC_API_KEY = userConfig.anthropic.apiKey;
-    }
-    if (userConfig.google?.apiKey && !process.env.GOOGLE_API_KEY) {
-      process.env.GOOGLE_API_KEY = userConfig.google.apiKey;
-    }
-
-    // 动态设置其他提供商的环境变量
-    Object.keys(userConfig).forEach(provider => {
-      if (typeof userConfig[provider] === 'object' && userConfig[provider]) {
-        const providerConfig = userConfig[provider] as any;
-        if (providerConfig.apiKey) {
-          const envKey = `${provider.toUpperCase()}_API_KEY`;
-          if (!process.env[envKey]) {
-            process.env[envKey] = providerConfig.apiKey;
-          }
-        }
-        if (providerConfig.baseUrl) {
-          const envKey = `${provider.toUpperCase()}_BASE_URL`;
-          if (!process.env[envKey]) {
-            process.env[envKey] = providerConfig.baseUrl;
-          }
-        }
-      }
-    });
+    ensureUserConfig();
 
     // 现在加载项目，此时环境变量已经设置好了
     this.project = await loadEngineProject(this.projectRoot);
@@ -83,6 +48,10 @@ export class EngineRuntime {
       throw new EngineHttpError('Engine runtime is not loaded', 500, 'RUNTIME_NOT_READY');
     }
     return this.core;
+  }
+
+  getKalCore(): ReturnType<typeof createKalCore> {
+    return this.getCore();
   }
 
   registerHooks(hooks: Partial<import('@kal-ai/core').EngineHooks>): void {

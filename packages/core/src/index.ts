@@ -74,6 +74,13 @@ export { Scheduler } from './flow/scheduler';
 export * from './types/session';
 export * from './session';
 
+// Prompt Eval
+export { renderPrompt, runEval, findPromptBuildNode, computeStats, computeAllStats } from './prompt-eval';
+export type {
+  RenderResult, RenderedFragment, EvalRunResult, RunResult,
+  NumericStats, VariantDefinition, EvalRunOptions,
+} from './prompt-eval';
+
 // Core
 export { createKalCore } from './core';
 export type { KalCore } from './core';
