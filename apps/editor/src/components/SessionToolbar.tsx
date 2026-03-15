@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Save, Download, Trash2, Plus } from "lucide-react";
+import { Save, Download, Trash2, Plus, Play } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -16,9 +16,19 @@ type SessionToolbarProps = {
   onExport?: () => void;
   onDelete?: () => void;
   onCreate?: () => void;
+  onRun?: () => void;
+  canRun?: boolean;
 };
 
-export function SessionToolbar({ hasSession, onSave, onExport, onDelete, onCreate }: SessionToolbarProps) {
+export function SessionToolbar({
+  hasSession,
+  onSave,
+  onExport,
+  onDelete,
+  onCreate,
+  onRun,
+  canRun = false,
+}: SessionToolbarProps) {
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   if (!hasSession) {
@@ -47,6 +57,11 @@ export function SessionToolbar({ hasSession, onSave, onExport, onDelete, onCreat
         <Button variant="ghost" size="sm" onClick={onExport} title="导出 JSON">
           <Download className="mr-1.5 size-4" />
           导出
+        </Button>
+
+        <Button variant="ghost" size="sm" onClick={onRun} title="运行 Session" disabled={!canRun}>
+          <Play className="mr-1.5 size-4" />
+          运行
         </Button>
 
         <Button

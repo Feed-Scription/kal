@@ -51,6 +51,10 @@ export class EngineRuntime {
     return this.getCore();
   }
 
+  getProjectRoot(): string {
+    return this.projectRoot;
+  }
+
   registerHooks(hooks: Partial<import('@kal-ai/core').EngineHooks>): void {
     this.getCore().hooks.registerAll(hooks);
   }
