@@ -148,7 +148,7 @@
       },
       {
         "id": "save-background",
-        "type": "ModifyState",
+        "type": "WriteState",
         "label": "修改状态",
         "inputs": [
           {

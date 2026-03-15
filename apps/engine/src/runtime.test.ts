@@ -49,6 +49,9 @@ describe('EngineRuntime', () => {
         main: createPassThroughFlow(),
         mutate: createStateMutationFlow(),
       },
+      initialState: {
+        visited: { type: 'boolean', value: false },
+      },
     });
     cleanups.push(fixture.cleanup);
 
@@ -57,7 +60,7 @@ describe('EngineRuntime', () => {
     expect(runtime.getProjectInfo().state.keys).toContain('visited');
 
     await runtime.reload();
-    expect(runtime.getProjectInfo().state.keys).not.toContain('visited');
+    expect(runtime.getProjectInfo().state.keys).toContain('visited');
   });
 
   it('saveFlow 应该拒绝非法 flow', async () => {

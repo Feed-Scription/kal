@@ -82,6 +82,7 @@ type SessionStep = RunFlowStep | PromptStep | BranchStep | ChoiceStep | DynamicC
 | `type` | `'DynamicChoice'` | Yes |
 | `promptText` | `string` | Yes |
 | `options` | `DynamicChoiceOption[]` | Yes |
+| `optionsFromState` | `OptionsFromState` | No |
 | `flowRef` | `string` | No |
 | `inputChannel` | `string` | No |
 | `stateKey` | `string` | No |
@@ -105,7 +106,7 @@ type SessionStep = RunFlowStep | PromptStep | BranchStep | ChoiceStep | DynamicC
 
 | Field | Type | Required |
 |-------|------|----------|
-| `when` | `string` | Yes |
+| `when` | `ConditionSpec` | Yes |
 | `next` | `string` | Yes |
 | `setState` | `Record<string, any>` | No |
 
@@ -117,7 +118,7 @@ type SessionStep = RunFlowStep | PromptStep | BranchStep | ChoiceStep | DynamicC
 |-------|------|----------|
 | `label` | `string` | Yes |
 | `value` | `string` | Yes |
-| `when` | `string` | No |
+| `when` | `ConditionSpec` | No |
 
 ---
 

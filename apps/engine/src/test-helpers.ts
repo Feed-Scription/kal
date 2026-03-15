@@ -112,14 +112,13 @@ export function createStateMutationFlow(): FlowDefinition {
     data: {
       nodes: [
         {
-          id: 'add-state',
-          type: 'AddState',
+          id: 'write-state',
+          type: 'WriteState',
           inputs: [
-            { name: 'key', type: 'string', required: true, defaultValue: 'visited' },
-            { name: 'type', type: 'string', required: true, defaultValue: 'boolean' },
-            { name: 'value', type: 'any', required: true, defaultValue: true },
+            { name: 'key', type: 'string', defaultValue: 'visited' },
+            { name: 'value', type: 'any', defaultValue: true },
           ],
-          outputs: [{ name: 'success', type: 'boolean' }],
+          outputs: [{ name: 'applied', type: 'array' }, { name: 'success', type: 'boolean' }],
         },
       ],
       edges: [],

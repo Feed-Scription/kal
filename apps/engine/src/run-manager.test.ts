@@ -29,6 +29,9 @@ describe('RunManager', () => {
         intro: createStateMutationFlow(),
         main: createPassThroughFlow(),
       },
+      initialState: {
+        visited: { type: 'boolean', value: false },
+      },
       session,
     });
     cleanups.push(fixture.cleanup);
@@ -44,7 +47,7 @@ describe('RunManager', () => {
       step_id: 'turn',
     });
     expect(created.run.state_summary.changed_values).toMatchObject({
-      visited: { old: null, new: true },
+      visited: { old: false, new: true },
     });
     expect(created.run.recent_events).toHaveLength(1);
   });
