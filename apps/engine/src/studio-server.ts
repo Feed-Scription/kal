@@ -4,6 +4,7 @@ import { join, normalize, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
+import { RunManager } from './run-manager';
 import { handleEngineRequest } from './server';
 import type { StartedEngineServer } from './types';
 import { EngineRuntime } from './runtime';
@@ -66,6 +67,7 @@ async function serveStaticFile(
 
 async function handleStudioRequest(
   runtime: EngineRuntime,
+  runs: RunManager,
   editorDir: string,
   req: IncomingMessage,
   res: ServerResponse,
@@ -76,7 +78,7 @@ async function handleStudioRequest(
 
   // All /api/* requests and non-GET requests go to the engine
   if (pathname.startsWith('/api/') || method !== 'GET') {
-    return handleEngineRequest(runtime, req, res);
+    return handleEngineRequest(runtime, req, res, { runs });
   }
 
   // Try serving the exact static file
@@ -105,13 +107,15 @@ export async function startStudioServer(params: {
   runtime: EngineRuntime;
   host?: string;
   port?: number;
+  runStateDir?: string;
 }): Promise<StartedEngineServer> {
   const host = params.host ?? '127.0.0.1';
   const port = params.port ?? 3000;
   const editorDir = getEditorDistDir();
+  const runs = RunManager.fromRuntime(params.runtime, params.runStateDir);
 
   const server = createServer((req, res) => {
-    void handleStudioRequest(params.runtime, editorDir, req, res);
+    void handleStudioRequest(params.runtime, runs, editorDir, req, res);
   });
 
   await new Promise<void>((resolve, reject) => {

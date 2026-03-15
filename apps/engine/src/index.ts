@@ -2,6 +2,7 @@ export { EngineRuntime } from './runtime';
 export { loadEngineProject } from './project-loader';
 export { startEngineServer, handleEngineRequest } from './server';
 export { startStudioServer } from './studio-server';
+export { RunManager } from './run-manager';
 export { runCli } from './cli';
 export { runDebugCommand } from './commands/debug';
 export { runTui } from './tui/tui';
@@ -15,10 +16,20 @@ export type {
   EngineErrorResponse,
   EngineProject,
   EngineResponse,
+  AdvanceRunRequest,
+  CreateRunRequest,
   ExecuteFlowRequest,
   ExecuteFlowResponse,
   FlowListItem,
   ProjectInfo,
+  RunEvent,
+  RunStateSummary,
+  RunStateView,
+  RunStreamEvent,
+  RunStreamEventName,
+  RunSummary,
+  RunView,
+  RunWaitingFor,
   StartedEngineServer,
 } from './types';
 export type {
