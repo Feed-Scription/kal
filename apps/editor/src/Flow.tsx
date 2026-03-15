@@ -21,93 +21,31 @@ import { PaneContextMenu, type ContextMenuState } from "./PaneContextMenu";
 import { FlowToolbar } from "./components/FlowToolbar";
 import { ExecutionDialog } from "./components/ExecutionDialog";
 import { useProjectStore } from "@/store/projectStore";
+import { layoutDag } from "@/utils/graph-layout";
 import type { FlowDefinition, NodeDefinition, EdgeDefinition, NodeManifest } from "@/types/project";
 
-const NODE_W = 320;
-const NODE_H = 200;
-const GAP_X = 80;
-const GAP_Y = 40;
+const FLOW_LAYOUT = { nodeWidth: 320, nodeHeight: 200, gapX: 80, gapY: 40 };
 
-/**
- * 基于拓扑排序的自动布局。
- * 将 DAG 按层级从左到右排列，同层节点从上到下排列。
- * 仅对没有 position 的节点生效。
- */
 function autoLayout(
   nodes: NodeDefinition[],
   edges: EdgeDefinition[],
-): Map<string, { x: number; y: number }> {
-  const positions = new Map<string, { x: number; y: number }>();
-
-  // 如果所有节点都有有效的 position（不全堆叠在同一点），直接返回空 map
+): { positions: Map<string, { x: number; y: number }>; backEdges: Set<string> } {
+  // If all nodes already have valid distinct positions, skip layout
   const withPos = nodes.filter((n) => n.position);
   if (withPos.length === nodes.length && nodes.length > 1) {
     const allSame = withPos.every(
       (n) => n.position!.x === withPos[0].position!.x && n.position!.y === withPos[0].position!.y,
     );
-    if (!allSame) return positions;
+    if (!allSame) return { positions: new Map(), backEdges: new Set() };
   } else if (withPos.length === nodes.length) {
-    return positions;
+    return { positions: new Map(), backEdges: new Set() };
   }
 
-  // 构建邻接表和入度表
-  const inDegree = new Map<string, number>();
-  const children = new Map<string, Set<string>>();
-  for (const n of nodes) {
-    inDegree.set(n.id, 0);
-    children.set(n.id, new Set());
-  }
-  for (const e of edges) {
-    if (inDegree.has(e.target)) {
-      inDegree.set(e.target, inDegree.get(e.target)! + 1);
-    }
-    children.get(e.source)?.add(e.target);
-  }
-
-  // BFS 拓扑排序，按层分组
-  const layers: string[][] = [];
-  const visited = new Set<string>();
-  let queue = [...inDegree.entries()].filter(([, d]) => d === 0).map(([id]) => id);
-
-  while (queue.length > 0) {
-    layers.push(queue);
-    for (const id of queue) visited.add(id);
-
-    const next: string[] = [];
-    for (const id of queue) {
-      for (const child of children.get(id) ?? []) {
-        const newDeg = inDegree.get(child)! - 1;
-        inDegree.set(child, newDeg);
-        if (newDeg === 0 && !visited.has(child)) {
-          next.push(child);
-        }
-      }
-    }
-    queue = next;
-  }
-
-  // 处理可能的孤立节点（无边连接）
-  for (const n of nodes) {
-    if (!visited.has(n.id)) {
-      layers.push([n.id]);
-      visited.add(n.id);
-    }
-  }
-
-  // 分配坐标：每层一列，同层内垂直排列
-  for (let col = 0; col < layers.length; col++) {
-    const layer = layers[col];
-    const totalH = layer.length * NODE_H + (layer.length - 1) * GAP_Y;
-    const startY = -totalH / 2;
-    for (let row = 0; row < layer.length; row++) {
-      positions.set(layer[row], {
-        x: col * (NODE_W + GAP_X),
-        y: startY + row * (NODE_H + GAP_Y),
-      });
-    }
-  }
-
-  return positions;
+  return layoutDag(
+    nodes.map((n) => n.id),
+    edges,
+    FLOW_LAYOUT,
+  );
 }
 
 const fitViewOptions: FitViewOptions = {
@@ -160,7 +98,7 @@ export default function Flow() {
 
       isLoadingRef.current = true;
 
-      const layoutPositions = autoLayout(flowDef.data.nodes, flowDef.data.edges);
+      const { positions: layoutPositions } = autoLayout(flowDef.data.nodes, flowDef.data.edges);
 
       const reactFlowNodes: Node[] = flowDef.data.nodes.map((node) => {
         const manifest = manifestMap.get(node.type);
@@ -346,12 +284,25 @@ export default function Flow() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleManualSave]);
 
+  const handleAutoLayout = useCallback(() => {
+    const nodeIds = nodes.map((n) => n.id);
+    const simpleEdges = edges.map((e) => ({ source: e.source, target: e.target }));
+    const { positions } = layoutDag(nodeIds, simpleEdges, FLOW_LAYOUT);
+    setNodes((nds) =>
+      nds.map((n) => {
+        const pos = positions.get(n.id);
+        return pos ? { ...n, position: pos } : n;
+      }),
+    );
+  }, [nodes, edges]);
+
   return (
     <div className="relative h-full w-full">
       <FlowToolbar
         onSave={handleManualSave}
         onExport={handleExportFlow}
         onRun={handleRunFlow}
+        onAutoLayout={handleAutoLayout}
       />
       <ReactFlow
         nodes={nodes}
