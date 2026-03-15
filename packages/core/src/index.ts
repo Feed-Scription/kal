@@ -17,6 +17,7 @@ export { StateStore } from './state-store';
 
 // Config
 export { ConfigLoader } from './config-loader';
+export type { ConfigParseOptions } from './config-loader';
 export { ConfigManager } from './config';
 export type { UserConfig } from './config';
 
@@ -73,6 +74,12 @@ export { Scheduler } from './flow/scheduler';
 // Session
 export * from './types/session';
 export * from './session';
+
+// Expression (selectively exposed — avoid ambiguous re-exports with session)
+export { readerFromStateRecord, readerFromStore, resolvePath, interpolateTemplate } from './expression/reader';
+export type { ValueReader } from './expression/reader';
+export { evaluateCondition as evaluateConditionSpec, parseLiteral, parseAtom, validateConditionSpec } from './expression/predicate';
+export type { ConditionSpec, ParsedAtom, EvaluateOptions } from './expression/predicate';
 
 // Prompt Eval
 export { renderPrompt, runEval, findPromptBuildNode, computeStats, computeAllStats, computeBooleanStats } from './prompt-eval';
