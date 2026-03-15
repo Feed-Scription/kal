@@ -2,7 +2,10 @@ import type { FlowExecutionResult } from '../flow/flow-executor';
 import type { NodeExecutionError } from '../types/errors';
 import type { StateValue } from '../types/types';
 import type { ChoiceStep, DynamicChoiceStep, PromptStep, SessionDefinition, SessionStep } from '../types/session';
-import { evaluateCondition } from './condition-evaluator';
+import { readerFromStateRecord } from '../expression/reader';
+import { evaluateCondition as evalCondition } from '../expression/predicate';
+import type { ConditionSpec } from '../expression/predicate';
+import { materializeWaitingFor, NoVisibleOptionsError } from './materializer';
 
 export type SessionAdvanceMode = 'continue' | 'step';
 export type SessionAdvanceStatus = 'waiting_input' | 'paused' | 'ended' | 'error';
@@ -135,70 +138,60 @@ export async function advanceSession(
         currentStepId = step.next;
         stepIndex += 1;
         if (options.mode === 'step') {
-          return finalizeStepResult(currentStepId, stepIndex, events, stepsById);
+          return finalizeStepResult(currentStepId, stepIndex, events, stepsById, deps.getState());
         }
         break;
       }
 
-      case 'Prompt': {
+      case 'Prompt':
+      case 'Choice':
+      case 'DynamicChoice': {
         if (pendingUserInput === undefined) {
-          return {
-            cursor: { currentStepId: step.id, stepIndex },
-            events,
-            waitingFor: buildWaitingFor(step),
-            status: 'waiting_input',
-          };
+          const reader = readerFromStateRecord(deps.getState());
+          try {
+            const waitingFor = materializeWaitingFor(step, reader);
+            return {
+              cursor: { currentStepId: step.id, stepIndex },
+              events,
+              waitingFor,
+              status: 'waiting_input',
+            };
+          } catch (error) {
+            if (error instanceof NoVisibleOptionsError) {
+              return buildErrorResult({ currentStepId: step.id, stepIndex }, events, {
+                code: 'NO_VISIBLE_OPTIONS',
+                message: 'DynamicChoice has no visible options',
+                stepId: step.id,
+              });
+            }
+            throw error;
+          }
         }
 
-        const promptResult = await executeInteractiveStep(step, pendingUserInput, deps);
+        const interactiveResult = await executeInteractiveStep(step, pendingUserInput, deps);
         pendingUserInput = undefined;
-        if ('diagnostic' in promptResult) {
-          return buildErrorResult({ currentStepId: step.id, stepIndex }, events, promptResult.diagnostic);
+        if ('diagnostic' in interactiveResult) {
+          return buildErrorResult({ currentStepId: step.id, stepIndex }, events, interactiveResult.diagnostic);
         }
-        if (promptResult.event) {
-          events.push(promptResult.event);
+        if (interactiveResult.event) {
+          events.push(interactiveResult.event);
         }
         currentStepId = step.next;
         stepIndex += 1;
         if (options.mode === 'step') {
-          return finalizeStepResult(currentStepId, stepIndex, events, stepsById);
-        }
-        break;
-      }
-
-      case 'Choice': {
-        if (pendingUserInput === undefined) {
-          return {
-            cursor: { currentStepId: step.id, stepIndex },
-            events,
-            waitingFor: buildWaitingFor(step),
-            status: 'waiting_input',
-          };
-        }
-
-        const choiceResult = await executeInteractiveStep(step, pendingUserInput, deps);
-        pendingUserInput = undefined;
-        if ('diagnostic' in choiceResult) {
-          return buildErrorResult({ currentStepId: step.id, stepIndex }, events, choiceResult.diagnostic);
-        }
-        if (choiceResult.event) {
-          events.push(choiceResult.event);
-        }
-        currentStepId = step.next;
-        stepIndex += 1;
-        if (options.mode === 'step') {
-          return finalizeStepResult(currentStepId, stepIndex, events, stepsById);
+          return finalizeStepResult(currentStepId, stepIndex, events, stepsById, deps.getState());
         }
         break;
       }
 
       case 'Branch': {
         const state = deps.getState();
+        const reader = readerFromStateRecord(state);
         let nextStepId = step.default;
         let setStatePayload: Record<string, any> | undefined = step.defaultSetState;
         try {
           for (const cond of step.conditions) {
-            if (evaluateCondition(cond.when, state)) {
+            if (evalCondition(cond.when as ConditionSpec, reader, { mode: 'strict' })) {
               nextStepId = cond.next;
               setStatePayload = cond.setState;
               break;
@@ -232,57 +225,7 @@ export async function advanceSession(
         currentStepId = nextStepId;
         stepIndex += 1;
         if (options.mode === 'step') {
-          return finalizeStepResult(currentStepId, stepIndex, events, stepsById);
-        }
-        break;
-      }
-
-      case 'DynamicChoice': {
-        if (pendingUserInput === undefined) {
-          // Filter options based on when conditions
-          const state = deps.getState();
-          const visibleOptions = step.options.filter((opt) => {
-            if (!opt.when) return true;
-            try {
-              return evaluateCondition(opt.when, state);
-            } catch (error) {
-              return false;
-            }
-          });
-
-          if (visibleOptions.length === 0) {
-            return buildErrorResult({ currentStepId: step.id, stepIndex }, events, {
-              code: 'NO_VISIBLE_OPTIONS',
-              message: 'DynamicChoice has no visible options',
-              stepId: step.id,
-            });
-          }
-
-          return {
-            cursor: { currentStepId: step.id, stepIndex },
-            events,
-            waitingFor: {
-              kind: 'choice',
-              stepId: step.id,
-              promptText: step.promptText,
-              options: visibleOptions.map((opt) => ({ label: opt.label, value: opt.value })),
-            },
-            status: 'waiting_input',
-          };
-        }
-
-        const dynamicChoiceResult = await executeInteractiveStep(step, pendingUserInput, deps);
-        pendingUserInput = undefined;
-        if ('diagnostic' in dynamicChoiceResult) {
-          return buildErrorResult({ currentStepId: step.id, stepIndex }, events, dynamicChoiceResult.diagnostic);
-        }
-        if (dynamicChoiceResult.event) {
-          events.push(dynamicChoiceResult.event);
-        }
-        currentStepId = step.next;
-        stepIndex += 1;
-        if (options.mode === 'step') {
-          return finalizeStepResult(currentStepId, stepIndex, events, stepsById);
+          return finalizeStepResult(currentStepId, stepIndex, events, stepsById, deps.getState());
         }
         break;
       }
@@ -307,25 +250,6 @@ export async function advanceSession(
   };
 }
 
-function buildWaitingFor(step: PromptStep | ChoiceStep | DynamicChoiceStep): SessionWaitingFor {
-  if (step.type === 'Prompt') {
-    return {
-      kind: 'prompt',
-      stepId: step.id,
-      promptText: step.promptText,
-    };
-  }
-
-  return {
-    kind: 'choice',
-    stepId: step.id,
-    promptText: step.promptText,
-    options: step.type === 'DynamicChoice'
-      ? step.options.map((opt) => ({ label: opt.label, value: opt.value }))
-      : step.options,
-  };
-}
-
 function buildErrorResult(
   cursor: SessionCursor,
   events: SessionTraceEvent[],
@@ -345,6 +269,7 @@ function finalizeStepResult(
   stepIndex: number,
   events: SessionTraceEvent[],
   stepsById: Map<string, SessionStep>,
+  state?: Record<string, StateValue>,
 ): SessionAdvanceResult {
   if (currentStepId === null) {
     return {
@@ -365,12 +290,24 @@ function finalizeStepResult(
   }
 
   if (nextStep.type === 'Prompt' || nextStep.type === 'Choice' || nextStep.type === 'DynamicChoice') {
-    return {
-      cursor: { currentStepId, stepIndex },
-      events,
-      waitingFor: buildWaitingFor(nextStep),
-      status: 'waiting_input',
-    };
+    const reader = readerFromStateRecord(state ?? {});
+    try {
+      return {
+        cursor: { currentStepId, stepIndex },
+        events,
+        waitingFor: materializeWaitingFor(nextStep, reader),
+        status: 'waiting_input',
+      };
+    } catch (error) {
+      if (error instanceof NoVisibleOptionsError) {
+        return buildErrorResult({ currentStepId, stepIndex }, events, {
+          code: 'NO_VISIBLE_OPTIONS',
+          message: 'DynamicChoice has no visible options',
+          stepId: currentStepId,
+        });
+      }
+      throw error;
+    }
   }
 
   return {

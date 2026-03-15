@@ -5,6 +5,8 @@
 
 import type { Fragment } from './fragments';
 import type { ChatMessage, ChatMessageRole, StateValue } from '../types/types';
+import { readerFromStore, resolvePath, interpolateTemplate } from '../expression/reader';
+import { evaluateCondition } from '../expression/predicate';
 
 export interface PromptScope {
   data?: Record<string, any>;
@@ -56,6 +58,15 @@ export function composeMessages(
 }
 
 /**
+ * Interpolate {{state.xxx}} and {{data.xxx}} template variables in text.
+ * Missing values preserve the placeholder for debugging.
+ * Does NOT touch {{items}} (used by field fragments).
+ */
+export function interpolateVariables(text: string, scope: PromptScope): string {
+  return interpolateTemplate(text, scopeToReader(scope));
+}
+
+/**
  * Resolve a single fragment into text segments
  */
 function resolveFragment(
@@ -67,7 +78,7 @@ function resolveFragment(
 
   switch (fragment.type) {
     case 'base':
-      return [{ text: fragment.content, role: effectiveRole }];
+      return [{ text: interpolateVariables(fragment.content, scope), role: effectiveRole }];
 
     case 'field':
       return resolveField(fragment, scope, effectiveRole);
@@ -131,16 +142,17 @@ function resolveField(
     .map((item) => (typeof item === 'string' ? item : JSON.stringify(item)))
     .join('\n');
 
-  const template = fragment.template
+  const fmt = fragment.format ?? fragment.template
     ?? ((fragment as any).label ? `${(fragment as any).label}: {{items}}` : '{{items}}');
   return [{
-    text: template.replace('{{items}}', serialized),
+    text: fmt.replace('{{items}}', serialized),
     role: fragment.role ?? inheritedRole,
   }];
 }
 
 /**
  * Resolve a when fragment
+ * Supports comparison operators (state.key op literal) and simple truthy checks
  */
 function resolveWhen(
   fragment: Extract<Fragment, { type: 'when' }>,
@@ -148,12 +160,20 @@ function resolveWhen(
   inheritedRole?: ChatMessageRole
 ): ResolvedSegment[] {
   const nextRole = fragment.role ?? inheritedRole;
-  const conditionValue = getValue(fragment.condition, scope);
+  const reader = scopeToReader(scope);
+  const conditionValue = evaluateCondition(fragment.condition, reader, { mode: 'lenient' });
 
   if (conditionValue) {
-    return fragment.fragments.flatMap((child) => resolveFragment(child, scope, nextRole));
+    // Support shorthand: content string instead of fragments array
+    const children = fragment.fragments
+      ?? ((fragment as any).content ? [{ type: 'base' as const, id: fragment.id + '_content', content: (fragment as any).content }] : []);
+    return children.flatMap((child: Fragment) => resolveFragment(child, scope, nextRole));
   }
   if (fragment.else) {
+    // Support shorthand: else as string instead of Fragment[]
+    if (typeof fragment.else === 'string') {
+      return fragment.else ? [{ text: fragment.else, role: nextRole }] : [];
+    }
     return fragment.else.flatMap((child) => resolveFragment(child, scope, nextRole));
   }
   return [];
@@ -242,33 +262,15 @@ function resolveBudget(
   return allSegments;
 }
 
-function getValue(path: string, scope: PromptScope): any {
-  if (path.startsWith('state.')) {
-    const statePath = path.slice('state.'.length);
-    const [stateKey, ...rest] = statePath.split('.');
-    if (!stateKey) {
-      return undefined;
-    }
-
-    const stateValue = scope.state?.get(stateKey);
-    if (!stateValue) {
-      return undefined;
-    }
-
-    if (rest.length === 0) {
-      return stateValue.value;
-    }
-    return getNestedValue(stateValue.value as Record<string, any>, rest.join('.'));
-  }
-
-  return getNestedValue(scope.data ?? {}, path);
+function scopeToReader(scope: PromptScope) {
+  return readerFromStore(
+    scope.state ?? { get: () => undefined },
+    scope.data,
+  );
 }
 
-/**
- * Get a nested value from an object using dot notation
- */
-function getNestedValue(obj: Record<string, any>, path: string): any {
-  return path.split('.').reduce((current, key) => current?.[key], obj);
+function getValue(path: string, scope: PromptScope): any {
+  return resolvePath(scopeToReader(scope), path);
 }
 
 /**

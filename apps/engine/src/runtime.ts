@@ -11,7 +11,6 @@ import { writeFile, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { EngineHttpError } from './errors';
 import { loadEngineProject } from './project-loader';
-import { ensureUserConfig } from './ensure-user-config';
 import type { EngineProject, FlowListItem, ProjectInfo } from './types';
 
 export class EngineRuntime {
@@ -30,9 +29,7 @@ export class EngineRuntime {
   }
 
   async reload(): Promise<void> {
-    ensureUserConfig();
-
-    // 现在加载项目，此时环境变量已经设置好了
+    // loadEngineProject automatically bridges .kal/config.env → process.env
     this.project = await loadEngineProject(this.projectRoot);
 
     this.core = createKalCore({

@@ -3,6 +3,7 @@
  */
 
 import type { CustomNode } from '../../types/node';
+import { evaluateValueCondition } from '../../expression/predicate';
 
 export const Constant: CustomNode = {
   type: 'Constant',
@@ -127,7 +128,7 @@ export const ComputeState: CustomNode = {
             throw new Error('conditional requires condition string');
           }
           const condition = config.condition as string;
-          const result = evaluateSimpleCondition(condition, value);
+          const result = evaluateValueCondition(condition, value);
           return {
             result: result ? config.trueValue : config.falseValue,
             success: true,
@@ -144,59 +145,4 @@ export const ComputeState: CustomNode = {
   },
 };
 
-/**
- * Simple condition evaluator for ComputeState conditional operation.
- * Supports: value op literal
- * Operators: ==, !=, >, >=, <, <=
- */
-function evaluateSimpleCondition(condition: string, value: any): boolean {
-  const match = /^value\s*(==|!=|>=?|<=?)\s*(.+)$/.exec(condition.trim());
-  if (!match) {
-    throw new Error(`Invalid condition: ${condition}. Expected format: value op literal`);
-  }
-
-  const [, operator, literalRaw] = match;
-  const literal = parseLiteral(literalRaw!);
-
-  switch (operator) {
-    case '==':
-      return value === literal;
-    case '!=':
-      return value !== literal;
-    case '>':
-      return (value as number) > (literal as number);
-    case '>=':
-      return (value as number) >= (literal as number);
-    case '<':
-      return (value as number) < (literal as number);
-    case '<=':
-      return (value as number) <= (literal as number);
-    default:
-      return false;
-  }
-}
-
-function parseLiteral(raw: string): string | number | boolean | null {
-  const trimmed = raw.trim();
-
-  if (trimmed === 'true') return true;
-  if (trimmed === 'false') return false;
-  if (trimmed === 'null') return null;
-
-  // Quoted string
-  if (
-    (trimmed.startsWith("'") && trimmed.endsWith("'")) ||
-    (trimmed.startsWith('"') && trimmed.endsWith('"'))
-  ) {
-    return trimmed.slice(1, -1);
-  }
-
-  // Number
-  const num = Number(trimmed);
-  if (!Number.isNaN(num) && trimmed !== '') {
-    return num;
-  }
-
-  throw new Error(`Invalid literal: ${raw}`);
-}
 

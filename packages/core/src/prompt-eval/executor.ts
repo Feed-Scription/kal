@@ -46,15 +46,17 @@ function cloneFlowWithVariant(
 }
 
 /**
- * Find and validate a PromptBuild node in a flow
+ * Find and validate a PromptBuild node in a flow.
+ * Also accepts GenerateText nodes for render inspection.
  */
 export function findPromptBuildNode(flow: FlowDefinition, nodeId: string): NodeDefinition {
   const node = flow.data.nodes.find((n: NodeDefinition) => n.id === nodeId);
   if (!node) {
     throw new Error(`Node "${nodeId}" not found in flow`);
   }
-  if (node.type !== 'PromptBuild') {
-    throw new Error(`Node "${nodeId}" is type "${node.type}", expected PromptBuild`);
+  const allowed = new Set(['PromptBuild', 'GenerateText']);
+  if (!allowed.has(node.type)) {
+    throw new Error(`Node "${nodeId}" is type "${node.type}", expected PromptBuild or GenerateText`);
   }
   return node;
 }
@@ -91,57 +93,67 @@ export async function runEval(
   const outputs: any[] = [];
 
   for (let i = 0; i < runs; i++) {
-    // Restore state before each run
-    if (state) {
-      const merged = { ...originalState };
-      for (const [key, sv] of Object.entries(state)) {
-        merged[key] = sv;
-      }
-      stateStore.restore(merged);
-    } else {
-      stateStore.restore(originalState);
-    }
-
-    // Collect LLM usage and raw outputs via hook
-    let runCost = 0;
-    const llmRawOutputs: string[] = [];
-    const onLLMResponse = (event: LLMResponseEvent) => {
-      if (!event.cached) {
-        runCost += estimateCostFromUsage(event.usage);
-      }
-      llmRawOutputs.push(event.text);
-    };
-    core.hooks.on('onLLMResponse', onLLMResponse);
-
-    const startTime = Date.now();
-
+    // Wrap each run in try-catch for error isolation
     try {
-      const result = await core.executeFlow(effectiveFlow, flowId, input ?? {}, resolver);
-      const latency = Date.now() - startTime;
+      // Restore state atomically before each run (restore() does clear + set internally)
+      const targetState: Record<string, StateValue> = state
+        ? { ...originalState, ...state }
+        : { ...originalState };
+      stateStore.restore(targetState);
 
-      // Extract output from SignalOut channels
-      const output = Object.keys(result.outputs).length === 1
-        ? Object.values(result.outputs)[0]
-        : result.outputs;
-
-      perRun.push({
-        output,
-        cost: Math.round(runCost * 10000) / 10000,
-        latency,
-        llmRawOutputs: llmRawOutputs.length > 0 ? llmRawOutputs : undefined,
-      });
-      outputs.push(output);
-
-      if (result.errors.length > 0) {
-        const errMsg = result.errors.map((e: any) => `${e.nodeId}: ${e.message}`).join('; ');
-        // Still record the run but note the error in output
-        if (output === undefined || (typeof output === 'object' && Object.keys(output).length === 0)) {
-          outputs[outputs.length - 1] = `[ERROR] ${errMsg}`;
-          perRun[perRun.length - 1]!.output = `[ERROR] ${errMsg}`;
+      // Collect LLM usage and raw outputs via hook
+      let runCost = 0;
+      const llmRawOutputs: string[] = [];
+      const onLLMResponse = (event: LLMResponseEvent) => {
+        if (!event.cached) {
+          runCost += estimateCostFromUsage(event.usage);
         }
+        llmRawOutputs.push(event.text);
+      };
+      core.hooks.on('onLLMResponse', onLLMResponse);
+
+      const startTime = Date.now();
+
+      try {
+        const result = await core.executeFlow(effectiveFlow, flowId, input ?? {}, resolver);
+        const latency = Date.now() - startTime;
+
+        // Extract output from SignalOut channels
+        const output = Object.keys(result.outputs).length === 1
+          ? Object.values(result.outputs)[0]
+          : result.outputs;
+
+        perRun.push({
+          output,
+          cost: Math.round(runCost * 10000) / 10000,
+          latency,
+          llmRawOutputs: llmRawOutputs.length > 0 ? llmRawOutputs : undefined,
+        });
+        outputs.push(output);
+
+        if (result.errors.length > 0) {
+          const errMsg = result.errors.map((e: any) => `${e.nodeId}: ${e.message}`).join('; ');
+          // Still record the run but note the error in output
+          if (output === undefined || (typeof output === 'object' && Object.keys(output).length === 0)) {
+            outputs[outputs.length - 1] = `[ERROR] ${errMsg}`;
+            perRun[perRun.length - 1]!.output = `[ERROR] ${errMsg}`;
+          }
+        }
+      } finally {
+        // Always cleanup hook even if executeFlow throws
+        core.hooks.off('onLLMResponse', onLLMResponse);
       }
-    } finally {
-      core.hooks.off('onLLMResponse', onLLMResponse);
+    } catch (error) {
+      // Error isolation: record failure and continue to next run
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      perRun.push({
+        output: `[ERROR] ${errorMsg}`,
+        cost: 0,
+        latency: 0,
+        llmRawOutputs: undefined,
+      });
+      outputs.push(`[ERROR] ${errorMsg}`);
+      // Continue to next run instead of aborting entire eval
     }
   }
 
@@ -152,7 +164,7 @@ export async function runEval(
   const avgLatency = runs > 0
     ? Math.round(perRun.reduce((sum, r) => sum + r.latency, 0) / runs)
     : 0;
-  const numericStats = computeAllStats(perRun);
+  const { numeric: numericStats, boolean: booleanStats } = computeAllStats(perRun);
 
   return {
     flowPath: flowId,
@@ -165,6 +177,7 @@ export async function runEval(
       avgLatency,
       perRun,
       numericStats,
+      booleanStats: Object.keys(booleanStats).length > 0 ? booleanStats : undefined,
     },
   };
 }
