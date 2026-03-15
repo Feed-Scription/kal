@@ -1,5 +1,14 @@
 import { create } from 'zustand';
-import type { ProjectData, FlowDefinition, ProjectState, KalConfig, SessionDefinition } from '@/types/project';
+import type {
+  ProjectData,
+  FlowDefinition,
+  ProjectState,
+  KalConfig,
+  RunStateView,
+  RunSummary,
+  RunView,
+  SessionDefinition,
+} from '@/types/project';
 import { engineApi } from '@/api/engine-client';
 
 type ProjectStore = {
@@ -19,6 +28,12 @@ type ProjectStore = {
   reloadProject: () => Promise<void>;
   saveSession: (session: SessionDefinition) => Promise<void>;
   deleteSession: () => Promise<void>;
+  createRun: (forceNew?: boolean) => Promise<RunView>;
+  listRuns: () => Promise<RunSummary[]>;
+  getRun: (runId: string) => Promise<RunView>;
+  getRunState: (runId: string) => Promise<RunStateView>;
+  advanceRun: (runId: string, input?: string) => Promise<RunView>;
+  cancelRun: (runId: string) => Promise<void>;
 };
 
 export const useProjectStore = create<ProjectStore>((set, get) => ({
@@ -185,5 +200,29 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         session: null,
       },
     });
+  },
+
+  createRun: async (forceNew = false) => {
+    return engineApi.createRun(forceNew);
+  },
+
+  listRuns: async () => {
+    return engineApi.listRuns();
+  },
+
+  getRun: async (runId: string) => {
+    return engineApi.getRun(runId);
+  },
+
+  getRunState: async (runId: string) => {
+    return engineApi.getRunState(runId);
+  },
+
+  advanceRun: async (runId: string, input?: string) => {
+    return engineApi.advanceRun(runId, input);
+  },
+
+  cancelRun: async (runId: string) => {
+    await engineApi.cancelRun(runId);
   },
 }));

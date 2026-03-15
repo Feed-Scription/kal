@@ -74,14 +74,26 @@ Engine 会对保存的 Flow 做完整校验；Session 保存则走单独的 Sess
 - 调用 `POST /api/executions` 执行 Flow
 - 显示执行结果（JSON 格式化）或错误信息
 
-注意：这是单次 Flow 执行，不支持直接在 editor 中跑多轮 Session。多轮交互式运行应使用 `kal play`。
+### 7. Session Runtime 面板
 
-### 7. State 查看
+- Session 视图提供一个轻量运行面板
+- 点击“运行”后调用 `POST /api/runs` 创建 managed run
+- Editor 通过 `GET /api/runs/:id/stream` 订阅 run 级别 SSE
+- 输入提交走 `POST /api/runs/:id/advance`
+- 面板展示：
+  - 当前 `status` / `waiting_for`
+  - 最近事件输出
+  - `state_summary.preview`
+  - 完整 state JSON
+
+注意：Editor 只负责薄 UI 和输入采集，不负责自己维护 Session cursor、state snapshot 或恢复逻辑。
+
+### 8. State 查看
 
 - 只读展示项目 State 数据
 - Engine 当前无 State 保存 API，修改需编辑 `initial_state.json` 后重载
 
-### 8. Config 查看
+### 9. Config 查看
 
 - 只读展示项目配置
 - Engine 当前无 Config 保存 API，修改需编辑 `kal_config.json` 后重载
@@ -110,6 +122,12 @@ type FlowDefinition = {
 | GET | `/api/session` | 加载 Session |
 | PUT | `/api/session` | 保存 Session |
 | DELETE | `/api/session` | 删除 Session |
+| POST | `/api/runs` | 创建 Session managed run |
+| GET | `/api/runs` | 查询现有 runs |
+| GET | `/api/runs/:id/state` | 获取 run state |
+| POST | `/api/runs/:id/advance` | 提交输入并推进 run |
+| POST | `/api/runs/:id/cancel` | 取消 run |
+| GET | `/api/runs/:id/stream` | 订阅 run 的 SSE 更新 |
 | POST | `/api/project/reload` | 热重载项目 |
 
 ## 当前限制
@@ -121,14 +139,14 @@ type FlowDefinition = {
 | 删除 Flow | 不支持，同上 |
 | 编辑 State | 不支持（只读），需编辑文件后重载 |
 | 编辑 Config | 不支持（只读），同上 |
-| 直接在 editor 中运行多轮 Session | 不支持，应使用 `kal play` |
+| 直接在 editor 中运行 managed Session | 支持（run 级别，不暴露底层执行细节） |
 
 以下能力不计划在 Editor 中实现（不属于审查工具的职责）：
 
-- 执行高亮 / SSE 事件流
-- 运行时 State 同步
+- 节点级执行高亮 / 逐节点 trace 流
+- 长期运行时 State 可视化编排
 - Telemetry 面板
-- 多轮对话界面
+- 完整产品级多轮对话界面
 
 ## 定位说明
 
@@ -136,7 +154,7 @@ Editor 在整体架构中的角色：
 
 ```text
 Engine API
-  ├── Editor（审查工具）— 查看 Flow / Session 拓扑、轻量调整参数
+  ├── Editor（审查工具）— 查看 Flow / Session 拓扑、轻量调整参数、薄 runtime 面板
   ├── 通用 TUI（已实现）— 交互式运行、多轮对话调试
   └── 用户自定义前端 — 最终产品形态（游戏 UI、聊天界面等）
 ```
@@ -152,6 +170,7 @@ Editor 不需要过多投入，当前功能已满足审查需求。
 | `src/types/project.ts` | 类型定义（与 Core 对齐） |
 | `src/components/ProjectLoader.tsx` | Engine 连接页面 |
 | `src/components/ExecutionDialog.tsx` | Flow 执行对话框 |
+| `src/components/SessionRunDialog.tsx` | Session runtime 运行面板 |
 | `src/Flow.tsx` | Flow 画布编辑器 |
 | `src/SessionEditor.tsx` | Session 画布编辑器 |
 | `src/nodes/ManifestNode.tsx` | 基于 Node manifest 的通用节点组件 |
