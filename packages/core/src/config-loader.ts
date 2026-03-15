@@ -6,8 +6,13 @@ import type { KalConfig } from './types/types';
 import { DEFAULT_RETRY_CONFIG, DEFAULT_CACHE_CONFIG } from './types/types';
 import { ConfigError } from './types/errors';
 
+export interface ConfigParseOptions {
+  /** When true, unset env vars are replaced with placeholders instead of throwing */
+  lenient?: boolean;
+}
+
 export class ConfigLoader {
-  static parse(jsonString: string): KalConfig {
+  static parse(jsonString: string, options?: ConfigParseOptions): KalConfig {
     let raw: any;
     try {
       raw = JSON.parse(jsonString);
@@ -15,29 +20,33 @@ export class ConfigLoader {
       throw new ConfigError('Invalid JSON in config file');
     }
 
-    const substituted = this.substituteEnvVars(raw);
+    const lenient = options?.lenient ?? false;
+    const substituted = this.substituteEnvVars(raw, lenient);
     this.validateRequired(substituted);
     this.validateConstraints(substituted);
     return this.fillDefaults(substituted);
   }
 
-  private static substituteEnvVars(obj: any): any {
+  private static substituteEnvVars(obj: any, lenient = false): any {
     if (typeof obj === 'string') {
       return obj.replace(/\$\{([^}]+)\}/g, (_match, varName: string) => {
         const value = process.env[varName];
         if (value === undefined) {
+          if (lenient) {
+            return `<unset:${varName}>`;
+          }
           throw new ConfigError(`Environment variable "${varName}" is not set`);
         }
         return value;
       });
     }
     if (Array.isArray(obj)) {
-      return obj.map((item) => this.substituteEnvVars(item));
+      return obj.map((item) => this.substituteEnvVars(item, lenient));
     }
     if (typeof obj === 'object' && obj !== null) {
       const result: Record<string, any> = {};
       for (const [key, value] of Object.entries(obj)) {
-        result[key] = this.substituteEnvVars(value);
+        result[key] = this.substituteEnvVars(value, lenient);
       }
       return result;
     }

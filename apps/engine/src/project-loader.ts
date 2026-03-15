@@ -1,5 +1,5 @@
-import { ConfigLoader, FlowLoader, validateSessionDefinition, BUILTIN_NODES } from '@kal-ai/core';
-import type { FlowDefinition, InitialState, SessionDefinition } from '@kal-ai/core';
+import { ConfigLoader, FlowLoader, validateSessionDefinition, BUILTIN_NODES, ConfigManager } from '@kal-ai/core';
+import type { FlowDefinition, InitialState, SessionDefinition, ConfigParseOptions } from '@kal-ai/core';
 import { EngineHttpError } from './errors';
 import type { EngineProject } from './types';
 import { basename, join, resolve } from 'node:path';
@@ -21,7 +21,54 @@ async function readJsonFile<T>(filePath: string, required: boolean): Promise<T |
   }
 }
 
-export async function loadEngineProject(projectRoot: string): Promise<EngineProject> {
+/**
+ * Bridge ConfigManager (.kal/config.env) → process.env
+ *
+ * kal_config.json uses ${OPENAI_API_KEY} style env var references.
+ * ConfigManager stores encrypted API keys in .kal/config.env.
+ * This function bridges the two so ConfigLoader can resolve them.
+ */
+function bridgeUserConfigToEnv(): void {
+  try {
+    const configManager = new ConfigManager();
+    const userConfig = configManager.loadConfig();
+
+    for (const provider of Object.keys(userConfig)) {
+      const val = userConfig[provider];
+      if (typeof val !== 'object' || !val) continue;
+      const providerConfig = val as Record<string, unknown>;
+
+      if (typeof providerConfig.apiKey === 'string') {
+        const envKey = `${provider.toUpperCase()}_API_KEY`;
+        if (!process.env[envKey]) {
+          process.env[envKey] = providerConfig.apiKey;
+        }
+      }
+      if (typeof providerConfig.baseUrl === 'string') {
+        const envKey = `${provider.toUpperCase()}_BASE_URL`;
+        if (!process.env[envKey]) {
+          process.env[envKey] = providerConfig.baseUrl;
+        }
+      }
+    }
+  } catch {
+    // ConfigManager may fail if .kal dir doesn't exist — that's fine
+  }
+}
+
+export interface LoadProjectOptions {
+  /** When true, unset env vars in config are replaced with placeholders (for lint mode) */
+  lenient?: boolean;
+  /** When false, skip bridging .kal/config.env → process.env (default: true) */
+  bridgeUserConfig?: boolean;
+}
+
+export async function loadEngineProject(projectRoot: string, options?: LoadProjectOptions): Promise<EngineProject> {
+  // Bridge .kal/config.env → process.env before parsing kal_config.json
+  if (options?.bridgeUserConfig !== false) {
+    bridgeUserConfigToEnv();
+  }
+
   const resolvedRoot = resolve(projectRoot);
   const configPath = join(resolvedRoot, 'kal_config.json');
   const flowDir = join(resolvedRoot, 'flow');
@@ -39,7 +86,8 @@ export async function loadEngineProject(projectRoot: string): Promise<EngineProj
     throw error;
   }
 
-  const config = ConfigLoader.parse(configRaw);
+  const configOptions: ConfigParseOptions = { lenient: options?.lenient ?? false };
+  const config = ConfigLoader.parse(configRaw, configOptions);
   const initialState = (await readJsonFile<InitialState>(initialStatePath, false)) ?? {};
 
   let entries;

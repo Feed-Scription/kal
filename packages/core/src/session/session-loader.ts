@@ -3,12 +3,116 @@
  */
 
 import type { SessionStep } from '../types/session';
-import { parseCondition } from './condition-evaluator';
+import type { ConditionSpec } from '../expression/predicate';
+import { validateConditionSpec } from '../expression/predicate';
 
 export interface SessionValidationError {
   path: string;
   message: string;
 }
+
+// ── Shared validation helpers ──
+
+function validateFlowRef(
+  step: { flowRef?: string },
+  prefix: string,
+  flowIds: Set<string>,
+  errors: SessionValidationError[],
+): void {
+  if (step.flowRef && !flowIds.has(step.flowRef)) {
+    errors.push({ path: `${prefix}.flowRef`, message: `Flow not found: ${step.flowRef}` });
+  }
+}
+
+function validateInputChannel(
+  step: { flowRef?: string; inputChannel?: string },
+  prefix: string,
+  errors: SessionValidationError[],
+): void {
+  if (step.flowRef && (!step.inputChannel || typeof step.inputChannel !== 'string')) {
+    errors.push({ path: `${prefix}.inputChannel`, message: 'inputChannel is required when flowRef is set' });
+  }
+  if (step.inputChannel && !step.flowRef) {
+    errors.push({ path: `${prefix}.inputChannel`, message: 'inputChannel requires flowRef — flow cannot receive input without a flowRef' });
+  }
+}
+
+function validateStateKey(
+  step: { stateKey?: string },
+  prefix: string,
+  errors: SessionValidationError[],
+): void {
+  if (step.stateKey !== undefined && typeof step.stateKey !== 'string') {
+    errors.push({ path: `${prefix}.stateKey`, message: 'stateKey must be a string' });
+  }
+}
+
+function validateNext(
+  step: { next: string },
+  prefix: string,
+  stepIds: Set<string>,
+  errors: SessionValidationError[],
+): void {
+  if (!stepIds.has(step.next)) {
+    errors.push({ path: `${prefix}.next`, message: `Step not found: ${step.next}` });
+  }
+}
+
+function validateOptions(
+  options: any[],
+  prefix: string,
+  errors: SessionValidationError[],
+): void {
+  for (let j = 0; j < options.length; j++) {
+    const opt = options[j]!;
+    if (!opt.label || typeof opt.label !== 'string') {
+      errors.push({ path: `${prefix}[${j}].label`, message: 'label is required' });
+    }
+    if (!opt.value || typeof opt.value !== 'string') {
+      errors.push({ path: `${prefix}[${j}].value`, message: 'value is required' });
+    }
+  }
+}
+
+function validateInteractiveStep(
+  step: { flowRef?: string; stateKey?: string; inputChannel?: string },
+  prefix: string,
+  stepTypeName: string,
+  flowIds: Set<string>,
+  errors: SessionValidationError[],
+): void {
+  if (!step.flowRef && !step.stateKey) {
+    errors.push({ path: `${prefix}.flowRef`, message: `${stepTypeName} step requires flowRef or stateKey` });
+  }
+  validateFlowRef(step, prefix, flowIds, errors);
+  validateInputChannel(step, prefix, errors);
+  validateStateKey(step, prefix, errors);
+}
+
+function validateConditionField(
+  spec: ConditionSpec,
+  path: string,
+  errors: SessionValidationError[],
+): void {
+  const condErrors = validateConditionSpec(spec, path);
+  errors.push(...condErrors);
+}
+
+function validateOptionsFromState(
+  config: any,
+  prefix: string,
+  errors: SessionValidationError[],
+): void {
+  if (!config || typeof config !== 'object') {
+    errors.push({ path: prefix, message: 'optionsFromState must be an object' });
+    return;
+  }
+  if (!config.stateKey || typeof config.stateKey !== 'string') {
+    errors.push({ path: `${prefix}.stateKey`, message: 'stateKey is required' });
+  }
+}
+
+// ── Main validator ──
 
 export function validateSessionDefinition(
   raw: unknown,
@@ -54,33 +158,13 @@ export function validateSessionDefinition(
 
     switch (step.type) {
       case 'RunFlow': {
-        if (!flowIds.has(step.flowRef)) {
-          errors.push({ path: `${prefix}.flowRef`, message: `Flow not found: ${step.flowRef}` });
-        }
-        if (!stepIds.has(step.next)) {
-          errors.push({ path: `${prefix}.next`, message: `Step not found: ${step.next}` });
-        }
+        validateFlowRef(step, prefix, flowIds, errors);
+        validateNext(step, prefix, stepIds, errors);
         break;
       }
       case 'Prompt': {
-        if (!step.flowRef && !step.stateKey) {
-          errors.push({ path: `${prefix}.flowRef`, message: 'Prompt step requires flowRef or stateKey' });
-        }
-        if (step.flowRef && !flowIds.has(step.flowRef)) {
-          errors.push({ path: `${prefix}.flowRef`, message: `Flow not found: ${step.flowRef}` });
-        }
-        if (step.flowRef && (!step.inputChannel || typeof step.inputChannel !== 'string')) {
-          errors.push({ path: `${prefix}.inputChannel`, message: 'inputChannel is required when flowRef is set' });
-        }
-        if (step.inputChannel && !step.flowRef) {
-          errors.push({ path: `${prefix}.inputChannel`, message: 'inputChannel requires flowRef — flow cannot receive input without a flowRef' });
-        }
-        if (step.stateKey !== undefined && typeof step.stateKey !== 'string') {
-          errors.push({ path: `${prefix}.stateKey`, message: 'stateKey must be a string' });
-        }
-        if (!stepIds.has(step.next)) {
-          errors.push({ path: `${prefix}.next`, message: `Step not found: ${step.next}` });
-        }
+        validateInteractiveStep(step, prefix, 'Prompt', flowIds, errors);
+        validateNext(step, prefix, stepIds, errors);
         break;
       }
       case 'Branch': {
@@ -89,14 +173,7 @@ export function validateSessionDefinition(
         } else {
           for (let j = 0; j < step.conditions.length; j++) {
             const cond = step.conditions[j]!;
-            try {
-              parseCondition(cond.when);
-            } catch (e) {
-              errors.push({
-                path: `${prefix}.conditions[${j}].when`,
-                message: (e as Error).message,
-              });
-            }
+            validateConditionField(cond.when, `${prefix}.conditions[${j}].when`, errors);
             if (!stepIds.has(cond.next)) {
               errors.push({
                 path: `${prefix}.conditions[${j}].next`,
@@ -115,87 +192,39 @@ export function validateSessionDefinition(
         break;
       }
       case 'Choice': {
-        if (!step.flowRef && !step.stateKey) {
-          errors.push({ path: `${prefix}.flowRef`, message: 'Choice step requires flowRef or stateKey' });
-        }
-        if (step.flowRef && !flowIds.has(step.flowRef)) {
-          errors.push({ path: `${prefix}.flowRef`, message: `Flow not found: ${step.flowRef}` });
-        }
-        if (step.flowRef && (!step.inputChannel || typeof step.inputChannel !== 'string')) {
-          errors.push({ path: `${prefix}.inputChannel`, message: 'inputChannel is required when flowRef is set' });
-        }
-        if (step.inputChannel && !step.flowRef) {
-          errors.push({ path: `${prefix}.inputChannel`, message: 'inputChannel requires flowRef — flow cannot receive input without a flowRef' });
-        }
-        if (step.stateKey !== undefined && typeof step.stateKey !== 'string') {
-          errors.push({ path: `${prefix}.stateKey`, message: 'stateKey must be a string' });
-        }
+        validateInteractiveStep(step, prefix, 'Choice', flowIds, errors);
         if (!step.promptText || typeof step.promptText !== 'string') {
           errors.push({ path: `${prefix}.promptText`, message: 'promptText is required' });
         }
         if (!Array.isArray(step.options) || step.options.length === 0) {
           errors.push({ path: `${prefix}.options`, message: 'options must be a non-empty array' });
         } else {
-          for (let j = 0; j < step.options.length; j++) {
-            const opt = step.options[j]!;
-            if (!opt.label || typeof opt.label !== 'string') {
-              errors.push({ path: `${prefix}.options[${j}].label`, message: 'label is required' });
-            }
-            if (!opt.value || typeof opt.value !== 'string') {
-              errors.push({ path: `${prefix}.options[${j}].value`, message: 'value is required' });
-            }
-          }
+          validateOptions(step.options, `${prefix}.options`, errors);
         }
-        if (!stepIds.has(step.next)) {
-          errors.push({ path: `${prefix}.next`, message: `Step not found: ${step.next}` });
-        }
+        validateNext(step, prefix, stepIds, errors);
         break;
       }
       case 'DynamicChoice': {
-        if (!step.flowRef && !step.stateKey) {
-          errors.push({ path: `${prefix}.flowRef`, message: 'DynamicChoice step requires flowRef or stateKey' });
-        }
-        if (step.flowRef && !flowIds.has(step.flowRef)) {
-          errors.push({ path: `${prefix}.flowRef`, message: `Flow not found: ${step.flowRef}` });
-        }
-        if (step.flowRef && (!step.inputChannel || typeof step.inputChannel !== 'string')) {
-          errors.push({ path: `${prefix}.inputChannel`, message: 'inputChannel is required when flowRef is set' });
-        }
-        if (step.inputChannel && !step.flowRef) {
-          errors.push({ path: `${prefix}.inputChannel`, message: 'inputChannel requires flowRef — flow cannot receive input without a flowRef' });
-        }
-        if (step.stateKey !== undefined && typeof step.stateKey !== 'string') {
-          errors.push({ path: `${prefix}.stateKey`, message: 'stateKey must be a string' });
-        }
+        validateInteractiveStep(step, prefix, 'DynamicChoice', flowIds, errors);
         if (!step.promptText || typeof step.promptText !== 'string') {
           errors.push({ path: `${prefix}.promptText`, message: 'promptText is required' });
         }
-        if (!Array.isArray(step.options) || step.options.length === 0) {
+        const hasOptionsFromState = !!(step as any).optionsFromState;
+        if (hasOptionsFromState) {
+          validateOptionsFromState((step as any).optionsFromState, `${prefix}.optionsFromState`, errors);
+        }
+        if (!Array.isArray(step.options) || (!hasOptionsFromState && step.options.length === 0)) {
           errors.push({ path: `${prefix}.options`, message: 'options must be a non-empty array' });
         } else {
+          validateOptions(step.options, `${prefix}.options`, errors);
           for (let j = 0; j < step.options.length; j++) {
             const opt = step.options[j]!;
-            if (!opt.label || typeof opt.label !== 'string') {
-              errors.push({ path: `${prefix}.options[${j}].label`, message: 'label is required' });
-            }
-            if (!opt.value || typeof opt.value !== 'string') {
-              errors.push({ path: `${prefix}.options[${j}].value`, message: 'value is required' });
-            }
-            if (opt.when !== undefined && typeof opt.when !== 'string') {
-              errors.push({ path: `${prefix}.options[${j}].when`, message: 'when must be a string condition' });
-            }
-            if (typeof opt.when === 'string') {
-              try {
-                parseCondition(opt.when);
-              } catch (e) {
-                errors.push({ path: `${prefix}.options[${j}].when`, message: (e as Error).message });
-              }
+            if (opt.when !== undefined) {
+              validateConditionField(opt.when, `${prefix}.options[${j}].when`, errors);
             }
           }
         }
-        if (!stepIds.has(step.next)) {
-          errors.push({ path: `${prefix}.next`, message: `Step not found: ${step.next}` });
-        }
+        validateNext(step, prefix, stepIds, errors);
         break;
       }
     }

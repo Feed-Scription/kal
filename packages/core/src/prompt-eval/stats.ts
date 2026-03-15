@@ -1,8 +1,8 @@
 /**
- * Numeric statistics calculator
+ * Numeric and boolean statistics calculator
  */
 
-import type { NumericStats } from './types';
+import type { NumericStats, BooleanStats } from './types';
 
 /**
  * Compute statistics for an array of numbers
@@ -63,26 +63,64 @@ export function extractNumericFields(obj: any): Record<string, number> {
 }
 
 /**
+ * Extract boolean fields from an object (shallow)
+ */
+export function extractBooleanFields(obj: any): Record<string, boolean> {
+  if (obj == null || typeof obj !== 'object') return {};
+  const result: Record<string, boolean> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (typeof value === 'boolean') {
+      result[key] = value;
+    }
+  }
+  return result;
+}
+
+/**
+ * Compute boolean statistics for an array of boolean values
+ */
+export function computeBooleanStats(values: (boolean | null | undefined)[]): BooleanStats {
+  let trueCount = 0;
+  let falseCount = 0;
+  let nullCount = 0;
+  for (const v of values) {
+    if (v === true) trueCount++;
+    else if (v === false) falseCount++;
+    else nullCount++;
+  }
+  const total = trueCount + falseCount;
+  return {
+    trueCount,
+    falseCount,
+    trueRate: total > 0 ? round(trueCount / total) : 0,
+    nullCount,
+  };
+}
+
+/**
  * Compute stats for all numeric fields across multiple run outputs,
  * plus built-in cost/latency/outputLength stats
  */
 export function computeAllStats(
   perRun: Array<{ output: any; cost: number; latency: number }>,
-): Record<string, NumericStats> {
-  const stats: Record<string, NumericStats> = {};
+): { numeric: Record<string, NumericStats>; boolean: Record<string, BooleanStats> } {
+  const numeric: Record<string, NumericStats> = {};
+  const boolean: Record<string, BooleanStats> = {};
 
-  // Built-in stats
-  stats.cost = computeStats(perRun.map((r) => r.cost));
-  stats.latency = computeStats(perRun.map((r) => r.latency));
-  stats.outputLength = computeStats(
+  // Built-in numeric stats
+  numeric.cost = computeStats(perRun.map((r) => r.cost));
+  numeric.latency = computeStats(perRun.map((r) => r.latency));
+  numeric.outputLength = computeStats(
     perRun.map((r) => {
       const out = typeof r.output === 'string' ? r.output : JSON.stringify(r.output);
       return out.length;
     }),
   );
 
-  // Extract numeric fields from parsed JSON outputs
+  // Extract numeric and boolean fields from parsed JSON outputs
   const numericFieldValues: Record<string, number[]> = {};
+  const booleanFieldValues: Record<string, (boolean | null | undefined)[]> = {};
+
   for (const run of perRun) {
     let parsed: any = run.output;
     if (typeof parsed === 'string') {
@@ -92,20 +130,31 @@ export function computeAllStats(
         continue;
       }
     }
-    const fields = extractNumericFields(parsed);
-    for (const [key, value] of Object.entries(fields)) {
-      if (!numericFieldValues[key]) {
-        numericFieldValues[key] = [];
-      }
+
+    const numFields = extractNumericFields(parsed);
+    for (const [key, value] of Object.entries(numFields)) {
+      if (!numericFieldValues[key]) numericFieldValues[key] = [];
       numericFieldValues[key]!.push(value);
+    }
+
+    const boolFields = extractBooleanFields(parsed);
+    for (const [key, value] of Object.entries(boolFields)) {
+      if (!booleanFieldValues[key]) booleanFieldValues[key] = [];
+      booleanFieldValues[key]!.push(value);
     }
   }
 
   for (const [key, values] of Object.entries(numericFieldValues)) {
     if (values.length === perRun.length) {
-      stats[`output.${key}`] = computeStats(values);
+      numeric[`output.${key}`] = computeStats(values);
     }
   }
 
-  return stats;
+  for (const [key, values] of Object.entries(booleanFieldValues)) {
+    if (values.length === perRun.length) {
+      boolean[`output.${key}`] = computeBooleanStats(values);
+    }
+  }
+
+  return { numeric, boolean };
 }

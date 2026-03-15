@@ -22,7 +22,9 @@ export interface FieldFragment {
   id: string;
   role?: ChatMessageRole;
   source: string;
-  template: string;
+  /** @deprecated Use `format` instead */
+  template?: string;
+  format?: string;
   window?: number;
   sample?: number;
   sort?: string;
@@ -88,10 +90,10 @@ export function base(id: string, content: string, role?: ChatMessageRole): BaseF
 export function field(
   id: string,
   source: string,
-  template: string,
+  format: string,
   options?: { role?: ChatMessageRole; window?: number; sample?: number; sort?: string; dedup?: string[] }
 ): FieldFragment {
-  return { type: 'field', id, source, template, ...options };
+  return { type: 'field', id, source, format, ...options };
 }
 
 /**
