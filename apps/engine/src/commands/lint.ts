@@ -4,7 +4,9 @@
 
 import { resolve } from 'node:path';
 import { loadEngineProject } from '../project-loader';
-import { FlowLoader, validateSessionDefinition } from '@kal-ai/core';
+import { validateSessionDefinition, BUILTIN_NODES } from '@kal-ai/core';
+import type { FlowDefinition } from '@kal-ai/core';
+import type { CustomNode } from '@kal-ai/core';
 import type { EngineCliIO } from '../types';
 import { buildCliDiagnostic } from '../debug/diagnostic-builder';
 import type { DiagnosticPayload } from '../debug/types';
@@ -37,7 +39,7 @@ export async function runLintCommand(
   const projectRoot = resolve(dependencies.cwd, parsed.projectPath ?? '.');
 
   try {
-    const project = await loadEngineProject(projectRoot);
+    const project = await loadEngineProject(projectRoot, { lenient: true });
     const diagnostics: DiagnosticPayload[] = [];
 
     // 1. Session validation
@@ -120,6 +122,13 @@ export async function runLintCommand(
           }
         }
       }
+    }
+
+    // 5. Deep flow node validation
+    const nodeManifestMap = buildNodeManifestMap();
+    for (const [flowId, flow] of Object.entries(project.flowsById)) {
+      const flowDiags = validateFlowNodesDeep(flow, flowId, nodeManifestMap, project.initialState);
+      diagnostics.push(...flowDiags);
     }
 
     const payload: LintPayload = {
@@ -225,4 +234,113 @@ function renderPretty(payload: LintPayload): string {
   lines.push(`Summary: ${payload.summary.errors} error(s), ${payload.summary.warnings} warning(s)`);
 
   return lines.join('\n');
+}
+
+// ── Deep flow node validation ──
+
+function buildNodeManifestMap(): Map<string, CustomNode> {
+  const map = new Map<string, CustomNode>();
+  for (const node of BUILTIN_NODES) {
+    map.set(node.type, node);
+  }
+  return map;
+}
+
+function validateFlowNodesDeep(
+  flow: FlowDefinition,
+  flowId: string,
+  manifestMap: Map<string, CustomNode>,
+  initialState: Record<string, any>,
+): DiagnosticPayload[] {
+  const diagnostics: DiagnosticPayload[] = [];
+  const flowFile = `flow/${flowId}.json`;
+
+  // Build edge index: which inputs have incoming edges
+  const connectedInputs = new Set<string>(); // "nodeId:handleName"
+  for (const edge of flow.data.edges) {
+    connectedInputs.add(`${edge.target}:${edge.targetHandle}`);
+  }
+
+  for (const node of flow.data.nodes) {
+    const manifest = manifestMap.get(node.type);
+    if (!manifest) continue; // custom node, skip
+
+    // Check 1: Required inputs must have an edge or a defaultValue
+    for (const input of manifest.inputs) {
+      if (!input.required) continue;
+      if (input.defaultValue !== undefined) continue;
+      if (connectedInputs.has(`${node.id}:${input.name}`)) continue;
+
+      diagnostics.push(
+        buildCliDiagnostic({
+          code: 'MISSING_REQUIRED_INPUT',
+          message: `Node "${node.id}" (${node.type}) required input "${input.name}" has no incoming edge`,
+          file: flowFile,
+          jsonPath: `data.nodes[id=${node.id}]`,
+          suggestions: [
+            `Connect an edge to input "${input.name}" on node "${node.id}"`,
+            `Or provide a Constant node wired to "${input.name}"`,
+          ],
+        })
+      );
+    }
+
+    // Check 2: Validate node config against configSchema
+    if (manifest.configSchema && node.config) {
+      const configDiags = validateNodeConfig(node.id, node.type, node.config, manifest.configSchema, flowFile);
+      diagnostics.push(...configDiags);
+    }
+  }
+
+  return diagnostics;
+}
+
+function validateNodeConfig(
+  nodeId: string,
+  nodeType: string,
+  config: Record<string, any>,
+  schema: Record<string, any>,
+  flowFile: string,
+): DiagnosticPayload[] {
+  const diagnostics: DiagnosticPayload[] = [];
+
+  // Check required fields
+  if (Array.isArray(schema.required)) {
+    for (const field of schema.required) {
+      if (config[field] === undefined || config[field] === null || config[field] === '') {
+        diagnostics.push(
+          buildCliDiagnostic({
+            code: 'CONFIG_MISSING_REQUIRED',
+            message: `Node "${nodeId}" (${nodeType}) config missing required field "${field}"`,
+            file: flowFile,
+            jsonPath: `data.nodes[id=${nodeId}].config`,
+            suggestions: [`Add "${field}" to the node's config`],
+          })
+        );
+      }
+    }
+  }
+
+  // Check additionalProperties: false
+  if (schema.additionalProperties === false && schema.properties) {
+    const allowedKeys = new Set(Object.keys(schema.properties));
+    for (const key of Object.keys(config)) {
+      if (!allowedKeys.has(key)) {
+        diagnostics.push(
+          buildCliDiagnostic({
+            code: 'CONFIG_UNKNOWN_FIELD',
+            message: `Node "${nodeId}" (${nodeType}) config has unknown field "${key}" (not in configSchema)`,
+            file: flowFile,
+            jsonPath: `data.nodes[id=${nodeId}].config.${key}`,
+            suggestions: [
+              `Remove "${key}" from config — this node type does not accept it`,
+              `If "${key}" should be an input, wire it via an edge instead`,
+            ],
+          })
+        );
+      }
+    }
+  }
+
+  return diagnostics;
 }

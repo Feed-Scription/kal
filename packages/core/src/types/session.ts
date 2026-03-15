@@ -2,6 +2,8 @@
  * Session Flow type definitions — state machine layer on top of DAG flows
  */
 
+import type { ConditionSpec } from '../expression/predicate';
+
 export interface RunFlowStep {
   id: string;
   type: 'RunFlow';
@@ -20,7 +22,7 @@ export interface PromptStep {
 }
 
 export interface BranchCondition {
-  when: string;
+  when: ConditionSpec;
   next: string;
   setState?: Record<string, any>;
 }
@@ -44,10 +46,17 @@ export interface ChoiceStep {
   next: string;
 }
 
+export interface OptionsFromState {
+  stateKey: string;
+  labelField?: string;
+  valueField?: string;
+  whenField?: string;
+}
+
 export interface DynamicChoiceOption {
   label: string;
   value: string;
-  when?: string;
+  when?: ConditionSpec;
 }
 
 export interface DynamicChoiceStep {
@@ -55,6 +64,7 @@ export interface DynamicChoiceStep {
   type: 'DynamicChoice';
   promptText: string;
   options: DynamicChoiceOption[];
+  optionsFromState?: OptionsFromState;
   flowRef?: string;
   inputChannel?: string;
   stateKey?: string;

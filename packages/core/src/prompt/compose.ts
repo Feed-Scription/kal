@@ -5,7 +5,8 @@
 
 import type { Fragment } from './fragments';
 import type { ChatMessage, ChatMessageRole, StateValue } from '../types/types';
-import { parseCondition, evaluateCondition } from '../session/condition-evaluator';
+import { readerFromStore, resolvePath, interpolateTemplate } from '../expression/reader';
+import { evaluateCondition } from '../expression/predicate';
 
 export interface PromptScope {
   data?: Record<string, any>;
@@ -62,16 +63,7 @@ export function composeMessages(
  * Does NOT touch {{items}} (used by field fragments).
  */
 export function interpolateVariables(text: string, scope: PromptScope): string {
-  return text.replace(
-    /\{\{((?:state|data)\.[a-zA-Z0-9_.]+)\}\}/g,
-    (match, path: string) => {
-      const value = getValue(path, scope);
-      if (value === undefined || value === null) return match;
-      if (typeof value === 'string') return value;
-      if (typeof value === 'number' || typeof value === 'boolean') return String(value);
-      return JSON.stringify(value);
-    },
-  );
+  return interpolateTemplate(text, scopeToReader(scope));
 }
 
 /**
@@ -168,27 +160,8 @@ function resolveWhen(
   inheritedRole?: ChatMessageRole
 ): ResolvedSegment[] {
   const nextRole = fragment.role ?? inheritedRole;
-
-  // Try comparison expression first (state.key op literal)
-  let conditionValue: boolean;
-  try {
-    const { stateKey } = parseCondition(fragment.condition);
-    const actualKey = stateKey.endsWith('.length')
-      ? stateKey.slice(0, -'.length'.length)
-      : stateKey;
-
-    const sv = scope.state?.get(actualKey);
-    if (!sv) {
-      conditionValue = false;
-    } else {
-      // Build minimal state record for evaluateCondition
-      const stateRecord: Record<string, StateValue> = { [actualKey]: sv };
-      conditionValue = evaluateCondition(fragment.condition, stateRecord);
-    }
-  } catch {
-    // Fallback to truthy check for simple paths like "state.isMarxism"
-    conditionValue = !!getValue(fragment.condition, scope);
-  }
+  const reader = scopeToReader(scope);
+  const conditionValue = evaluateCondition(fragment.condition, reader, { mode: 'lenient' });
 
   if (conditionValue) {
     // Support shorthand: content string instead of fragments array
@@ -289,37 +262,15 @@ function resolveBudget(
   return allSegments;
 }
 
-function getValue(path: string, scope: PromptScope): any {
-  if (path.startsWith('state.')) {
-    const statePath = path.slice('state.'.length);
-    const [stateKey, ...rest] = statePath.split('.');
-    if (!stateKey) {
-      return undefined;
-    }
-
-    const stateValue = scope.state?.get(stateKey);
-    if (!stateValue) {
-      return undefined;
-    }
-
-    if (rest.length === 0) {
-      return stateValue.value;
-    }
-    return getNestedValue(stateValue.value as Record<string, any>, rest.join('.'));
-  }
-
-  if (path.startsWith('data.')) {
-    return getNestedValue(scope.data ?? {}, path.slice('data.'.length));
-  }
-
-  return getNestedValue(scope.data ?? {}, path);
+function scopeToReader(scope: PromptScope) {
+  return readerFromStore(
+    scope.state ?? { get: () => undefined },
+    scope.data,
+  );
 }
 
-/**
- * Get a nested value from an object using dot notation
- */
-function getNestedValue(obj: Record<string, any>, path: string): any {
-  return path.split('.').reduce((current, key) => current?.[key], obj);
+function getValue(path: string, scope: PromptScope): any {
+  return resolvePath(scopeToReader(scope), path);
 }
 
 /**
