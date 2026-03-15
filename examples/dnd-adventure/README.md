@@ -18,7 +18,7 @@ session.json (Session 交互壳)
   intro(RunFlow) → turn(Prompt→main) → check(Branch) → death/victory/turn
 
 main.json (主编排)
-  SignalIn → SubFlow(narrate) → JSONParse → ApplyState → SignalOut
+  SignalIn → SubFlow(narrate) → JSONParse → WriteState → SignalOut
 
 narrate.json (叙事子流程，支持前缀缓存)
   SignalIn ─────────────────────────────→ Message(user)

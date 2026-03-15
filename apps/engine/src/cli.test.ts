@@ -92,6 +92,9 @@ describe('CLI', () => {
         intro: createStateMutationFlow(),
         main: createPassThroughFlow(),
       },
+      initialState: {
+        visited: { type: 'boolean', value: false },
+      },
       session,
     });
     cleanups.push(fixture.cleanup);
@@ -115,7 +118,7 @@ describe('CLI', () => {
     expect(payload.run_id).toBeTruthy();
     expect(payload.events).toHaveLength(1);
     expect(payload.state_summary.changed_values).toMatchObject({
-      visited: { old: null, new: true },
+      visited: { old: false, new: true },
     });
     expect(payload.observation).toMatchObject({
       blocking_reason: 'awaiting_input',
@@ -237,6 +240,7 @@ describe('CLI', () => {
       },
       initialState: {
         playerName: { type: 'string', value: 'Hero' },
+        visited: { type: 'boolean', value: false },
       },
       session,
     });

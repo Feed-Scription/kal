@@ -96,7 +96,7 @@
       },
       {
         "id": "apply-state",
-        "type": "ApplyState",
+        "type": "WriteState",
         "label": "批量应用状态",
         "inputs": [
           {

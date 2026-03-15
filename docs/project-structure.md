@@ -62,7 +62,7 @@ Flat key-value map that defines all game state at the start of a session. Each k
 ```
 
 Guidelines:
-- Pre-declare every key the LLM might write to — `ApplyState` only modifies existing keys
+- Pre-declare every key the LLM might write to — `WriteState` only modifies existing keys
 - Always include `history` (array) and `summary` (string) for conversation management
 - Keep it flat — no nesting inside `value`
 - Supported types: `string`, `number`, `boolean`, `object`, `array`
