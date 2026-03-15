@@ -1,6 +1,7 @@
 export { EngineRuntime } from './runtime';
 export { loadEngineProject } from './project-loader';
 export { startEngineServer, handleEngineRequest } from './server';
+export { startStudioServer } from './studio-server';
 export { runCli } from './cli';
 export { runDebugCommand } from './commands/debug';
 export { runTui } from './tui/tui';

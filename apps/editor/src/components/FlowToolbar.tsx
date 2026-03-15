@@ -1,14 +1,15 @@
 import { Button } from "@/components/ui/button";
-import { Save, Play, Download } from "lucide-react";
+import { Save, Play, Download, LayoutGrid } from "lucide-react";
 import { useProjectStore } from "@/store/projectStore";
 
 type FlowToolbarProps = {
   onSave?: () => void;
   onExport?: () => void;
   onRun?: () => void;
+  onAutoLayout?: () => void;
 };
 
-export function FlowToolbar({ onSave, onExport, onRun }: FlowToolbarProps) {
+export function FlowToolbar({ onSave, onExport, onRun, onAutoLayout }: FlowToolbarProps) {
   const project = useProjectStore((state) => state.project);
   const currentFlow = useProjectStore((state) => state.currentFlow);
 
@@ -51,6 +52,16 @@ export function FlowToolbar({ onSave, onExport, onRun }: FlowToolbarProps) {
       >
         <Play className="mr-1.5 size-4" />
         运行
+      </Button>
+
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={onAutoLayout}
+        title="自动排版"
+      >
+        <LayoutGrid className="mr-1.5 size-4" />
+        排版
       </Button>
     </div>
   );
