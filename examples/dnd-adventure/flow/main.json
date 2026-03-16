@@ -88,7 +88,7 @@
       },
       {
         "id": "apply-state",
-        "type": "ApplyState",
+        "type": "WriteState",
         "label": "回写状态",
         "inputs": [
           {

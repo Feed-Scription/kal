@@ -46,5 +46,7 @@
       "Bash(do git:*)",
       "Bash(git:*)"
     ]
-  }
+  },
+  "outputStyle": "Explanatory",
+  "prefersReducedMotion": false
 }

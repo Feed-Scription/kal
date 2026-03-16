@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { Regex, PostProcess, JSONParse, SubFlow } from '../../../node/builtin/transform-nodes';
 import { PromptBuild, Message, GenerateImage, GenerateText, UpdateHistory, CompactHistory } from '../../../node/builtin/llm-nodes';
-import { AddState, RemoveState, ModifyState, ApplyState } from '../../../node/builtin/state-nodes';
+import { WriteState } from '../../../node/builtin/state-nodes';
 import { createMockContext } from '../../helpers/test-utils';
 
 describe('Transform 节点', () => {
@@ -204,20 +204,29 @@ describe('LLM 节点', () => {
 });
 
 describe('State 节点', () => {
-  it('AddState / ModifyState / RemoveState 应该工作', async () => {
+  it('WriteState 应该通过 key + value 写入单个 state key', async () => {
     const ctx = createMockContext();
-    expect((await AddState.execute({ key: 'score', type: 'number', value: 1 }, {}, ctx)).success).toBe(true);
-    expect((await ModifyState.execute({ key: 'score', value: 2 }, {}, ctx)).success).toBe(true);
-    expect((await RemoveState.execute({ key: 'score' }, {}, ctx)).success).toBe(true);
+    ctx.state.set('score', { type: 'number', value: 1 });
+    const result = await WriteState.execute({ key: 'score', value: 2 }, {}, ctx);
+    expect(result.success).toBe(true);
+    expect(result.applied).toEqual(['score']);
+    expect(ctx.state.get('score')).toEqual({ type: 'number', value: 2 });
   });
 
-  it('ApplyState 应该批量更新已存在的 state key', async () => {
+  it('WriteState 单 key 模式在 key 不存在时应返回 success: false', async () => {
+    const ctx = createMockContext();
+    const result = await WriteState.execute({ key: 'nonexistent', value: 42 }, {}, ctx);
+    expect(result.success).toBe(false);
+    expect(result.applied).toEqual([]);
+  });
+
+  it('WriteState 应该批量更新已存在的 state key', async () => {
     const ctx = createMockContext();
     ctx.state.set('health', { type: 'number', value: 100 });
     ctx.state.set('location', { type: 'string', value: '广场' });
     ctx.state.set('gold', { type: 'number', value: 50 });
 
-    const result = await ApplyState.execute(
+    const result = await WriteState.execute(
       { changes: { health: 80, location: '铁匠铺', gold: 30 } },
       {},
       ctx
@@ -230,11 +239,11 @@ describe('State 节点', () => {
     expect(ctx.state.get('gold')).toEqual({ type: 'number', value: 30 });
   });
 
-  it('ApplyState 应该跳过不存在的 state key', async () => {
+  it('WriteState 应该跳过不存在的 state key', async () => {
     const ctx = createMockContext();
     ctx.state.set('health', { type: 'number', value: 100 });
 
-    const result = await ApplyState.execute(
+    const result = await WriteState.execute(
       { changes: { health: 90, unknown: 'foo' } },
       {},
       ctx
@@ -245,12 +254,12 @@ describe('State 节点', () => {
     expect(ctx.state.get('unknown')).toBeUndefined();
   });
 
-  it('ApplyState 应该支持 path 配置提取子对象', async () => {
+  it('WriteState 应该支持 path 配置提取子对象', async () => {
     const ctx = createMockContext();
     ctx.state.set('health', { type: 'number', value: 100 });
     ctx.state.set('location', { type: 'string', value: '广场' });
 
-    const result = await ApplyState.execute(
+    const result = await WriteState.execute(
       { changes: { narrative: '你来到了...', stateChanges: { health: 70, location: '矿井' } } },
       { path: 'stateChanges' },
       ctx
@@ -261,12 +270,12 @@ describe('State 节点', () => {
     expect(ctx.state.get('health')).toEqual({ type: 'number', value: 70 });
   });
 
-  it('ApplyState 应该支持 allowedKeys 白名单', async () => {
+  it('WriteState 应该支持 allowedKeys 白名单', async () => {
     const ctx = createMockContext();
     ctx.state.set('health', { type: 'number', value: 100 });
     ctx.state.set('gold', { type: 'number', value: 50 });
 
-    const result = await ApplyState.execute(
+    const result = await WriteState.execute(
       { changes: { health: 80, gold: 999 } },
       { allowedKeys: ['health'] },
       ctx
@@ -277,12 +286,12 @@ describe('State 节点', () => {
     expect(ctx.state.get('gold')).toEqual({ type: 'number', value: 50 });
   });
 
-  it('ApplyState 在 allowedKeys 为空数组时不应过滤任何 key', async () => {
+  it('WriteState 在 allowedKeys 为空数组时不应过滤任何 key', async () => {
     const ctx = createMockContext();
     ctx.state.set('health', { type: 'number', value: 100 });
     ctx.state.set('gold', { type: 'number', value: 50 });
 
-    const result = await ApplyState.execute(
+    const result = await WriteState.execute(
       { changes: { health: 80, gold: 40 } },
       { allowedKeys: [] },
       ctx
@@ -294,13 +303,13 @@ describe('State 节点', () => {
     expect(ctx.state.get('gold')).toEqual({ type: 'number', value: 40 });
   });
 
-  it('ApplyState 应该支持直接使用命名输入批量更新状态', async () => {
+  it('WriteState 应该支持直接使用命名输入批量更新状态', async () => {
     const ctx = createMockContext();
     ctx.state.set('strength', { type: 'number', value: 10 });
     ctx.state.set('dexterity', { type: 'number', value: 10 });
     ctx.state.set('skills', { type: 'array', value: [] });
 
-    const result = await ApplyState.execute(
+    const result = await WriteState.execute(
       { strength: 14, dexterity: 12, skills: ['重击'] },
       {},
       ctx
@@ -313,9 +322,9 @@ describe('State 节点', () => {
     expect(ctx.state.get('skills')).toEqual({ type: 'array', value: ['重击'] });
   });
 
-  it('ApplyState 在 changes 无效时应该返回 success: false', async () => {
+  it('WriteState 在 changes 无效时应该返回 success: false', async () => {
     const ctx = createMockContext();
-    const result = await ApplyState.execute({ changes: null }, {}, ctx);
+    const result = await WriteState.execute({ changes: null }, {}, ctx);
     expect(result.success).toBe(false);
     expect(result.applied).toEqual([]);
   });

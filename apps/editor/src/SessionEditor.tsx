@@ -27,6 +27,7 @@ import {
 } from './session-nodes';
 import { SessionPaneContextMenu, type ContextMenuState } from './SessionPaneContextMenu';
 import { SessionToolbar } from './components/SessionToolbar';
+import { SessionRunDialog } from './components/SessionRunDialog';
 import { useProjectStore } from '@/store/projectStore';
 import { layoutDag } from '@/utils/graph-layout';
 import { SESSION_STEP_DEFAULTS } from './session-nodes/defaults';
@@ -256,6 +257,7 @@ function SessionEditorInner() {
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
   const [initialized, setInitialized] = useState(false);
+  const [runDialogOpen, setRunDialogOpen] = useState(false);
   const isLoadingRef = useRef(false);
   const [contextMenu, setContextMenu] = useState<ContextMenuState>({
     open: false,
@@ -405,7 +407,10 @@ function SessionEditorInner() {
         onExport={handleExport}
         onDelete={handleDelete}
         onCreate={handleCreate}
+        onRun={() => setRunDialogOpen(true)}
+        canRun={!!session}
       />
+      <SessionRunDialog open={runDialogOpen} onOpenChange={setRunDialogOpen} />
       <ReactFlow
         nodes={nodes}
         edges={edges}

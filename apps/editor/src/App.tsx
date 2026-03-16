@@ -22,10 +22,20 @@ export default function App() {
   return (
     <>
       <AppSidebar currentView={currentView} onViewChange={setCurrentView}>
-        {currentView === "flow" && <Flow />}
-        {currentView === "state" && <StateManager />}
-        {currentView === "config" && <ConfigEditor />}
-        {currentView === "session" && <SessionEditor />}
+        <div className="relative h-full w-full">
+          <div className={`absolute inset-0 transition-opacity duration-300 ease-[var(--ease-apple)] ${currentView === "flow" ? "opacity-100" : "opacity-0 pointer-events-none"}`}>
+            <Flow />
+          </div>
+          <div className={`absolute inset-0 transition-opacity duration-300 ease-[var(--ease-apple)] ${currentView === "state" ? "opacity-100" : "opacity-0 pointer-events-none"}`}>
+            <StateManager />
+          </div>
+          <div className={`absolute inset-0 transition-opacity duration-300 ease-[var(--ease-apple)] ${currentView === "config" ? "opacity-100" : "opacity-0 pointer-events-none"}`}>
+            <ConfigEditor />
+          </div>
+          <div className={`absolute inset-0 transition-opacity duration-300 ease-[var(--ease-apple)] ${currentView === "session" ? "opacity-100" : "opacity-0 pointer-events-none"}`}>
+            <SessionEditor />
+          </div>
+        </div>
       </AppSidebar>
       <StatusBar />
     </>

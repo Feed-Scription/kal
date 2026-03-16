@@ -4,7 +4,10 @@ import type {
   FlowMeta,
   InitialState,
   KalConfig,
+  SessionAdvanceStatus,
+  SessionCursor,
   SessionDefinition,
+  StateValue,
 } from '@kal-ai/core';
 
 export interface EngineProject {
@@ -67,4 +70,81 @@ export interface ExecuteFlowResponse extends FlowExecutionResult {}
 export interface EngineCliIO {
   stdout(message: string): void;
   stderr(message: string): void;
+}
+
+export interface RunWaitingFor {
+  kind: 'prompt' | 'choice';
+  step_id: string;
+  prompt_text?: string;
+  options?: Array<{ label: string; value: string }>;
+}
+
+export interface RunOutputEvent {
+  type: 'output';
+  step_id: string;
+  flow_id?: string;
+  raw: Record<string, any>;
+  normalized: {
+    narration?: string;
+    state_changes: Record<string, { old: any; new: any }>;
+    labels: string[];
+  };
+}
+
+export interface RunEndEvent {
+  type: 'end';
+  message?: string;
+}
+
+export type RunEvent = RunOutputEvent | RunEndEvent;
+
+export interface RunStateSummary {
+  total_keys: number;
+  keys: string[];
+  changed: string[];
+  changed_values: Record<string, { old: any; new: any }>;
+  preview: Record<string, any>;
+}
+
+export interface RunSummary {
+  run_id: string;
+  status: SessionAdvanceStatus;
+  waiting_for: RunWaitingFor | null;
+  updated_at: number;
+  created_at: number;
+  active: boolean;
+}
+
+export interface RunView extends RunSummary {
+  cursor: SessionCursor;
+  state_summary: RunStateSummary;
+  recent_events: RunEvent[];
+}
+
+export interface RunStateView extends RunView {
+  state: Record<string, StateValue>;
+}
+
+export interface CreateRunRequest {
+  forceNew?: boolean;
+  cleanup?: boolean;
+  mode?: 'continue' | 'step';
+}
+
+export interface AdvanceRunRequest {
+  input?: string;
+  cleanup?: boolean;
+  mode?: 'continue' | 'step';
+}
+
+export type RunStreamEventName =
+  | 'run.created'
+  | 'run.updated'
+  | 'run.ended'
+  | 'run.cancelled'
+  | 'run.invalidated';
+
+export interface RunStreamEvent {
+  type: RunStreamEventName;
+  run: RunView;
 }

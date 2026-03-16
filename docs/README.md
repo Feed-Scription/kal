@@ -9,7 +9,7 @@ KAL is a data-driven game engine where game logic is defined in JSON, not code. 
 | [Getting Started](getting-started.md) | Build a minimal Q&A game from scratch, then explore the DND adventure example |
 | [Core Concepts](concepts.md) | Node, Flow, State, Session — the four objects and how they fit together |
 | [Project Structure](project-structure.md) | File-by-file breakdown of a KAL project |
-| [Roadmap](roadmap.md) | Project roadmap and TODO list |
+| [TODO](internal/todo.md) | Project TODO list |
 
 ## Reference (auto-generated)
 
@@ -17,10 +17,10 @@ These docs are generated from source code by `pnpm generate-docs`. Do not edit t
 
 | Document | Description |
 |----------|-------------|
-| [Built-in Nodes](reference/nodes.md) | All 20 built-in nodes — inputs, outputs, config, defaults |
+| [Built-in Nodes](reference/nodes.md) | All 17 built-in nodes — inputs, outputs, config, defaults |
 | [Session Steps](reference/session-steps.md) | The 6 session step types and their fields |
 | [Configuration](reference/config.md) | KalConfig, EngineConfig, LLMConfig, and default values |
-| [CLI Commands](reference/cli.md) | `kal serve`, `play`, `debug`, `lint`, `smoke`, `config` |
+| [CLI Commands](reference/cli.md) | `kal serve`, `studio`, `play`, `debug`, `lint`, `smoke`, `eval`, `init`, `schema`, `config` |
 | [Hook Events](reference/hooks.md) | Engine lifecycle hooks and event types |
 
 ## Internal
