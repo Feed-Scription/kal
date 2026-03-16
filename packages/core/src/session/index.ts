@@ -8,6 +8,8 @@ export type { ParsedCondition } from './condition-evaluator';
 export {
   advanceSession,
   createSessionCursor,
+  inspectCurrentSessionStep,
+  previewAdvanceSession,
 } from './session-runner';
 export type {
   AdvanceSessionOptions,
@@ -16,6 +18,8 @@ export type {
   SessionAdvanceResult,
   SessionAdvanceStatus,
   SessionCursor,
+  SessionInspectionResult,
+  SessionPreviewResult,
   SessionRunnerDeps,
   SessionTraceEvent,
   SessionWaitingFor,

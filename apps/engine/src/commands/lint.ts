@@ -4,7 +4,7 @@
 
 import { resolve } from 'node:path';
 import { loadEngineProject } from '../project-loader';
-import { validateSessionDefinition, BUILTIN_NODES } from '@kal-ai/core';
+import { validateSessionDefinition, BUILTIN_NODES, CustomNodeLoader, NodeRegistry } from '@kal-ai/core';
 import type { FlowDefinition } from '@kal-ai/core';
 import type { CustomNode } from '@kal-ai/core';
 import type { EngineCliIO } from '../types';
@@ -99,7 +99,9 @@ export async function runLintCommand(
         if (step.type === 'Branch') {
           for (const condition of step.conditions) {
             // Extract state keys from condition (simple regex for state.xxx)
-            const matches = condition.when.match(/state\.(\w+)/g);
+            const matches = typeof condition.when === 'string'
+              ? condition.when.match(/state\.(\w+)/g)
+              : null;
             if (matches) {
               for (const match of matches) {
                 const key = match.replace('state.', '');
@@ -125,9 +127,9 @@ export async function runLintCommand(
     }
 
     // 5. Deep flow node validation
-    const nodeManifestMap = buildNodeManifestMap();
+    const nodeManifestMap = await buildNodeManifestMap(projectRoot);
     for (const [flowId, flow] of Object.entries(project.flowsById)) {
-      const flowDiags = validateFlowNodesDeep(flow, flowId, nodeManifestMap, project.initialState);
+      const flowDiags = validateFlowNodesDeep(flow, flowId, nodeManifestMap);
       diagnostics.push(...flowDiags);
     }
 
@@ -238,9 +240,15 @@ function renderPretty(payload: LintPayload): string {
 
 // ── Deep flow node validation ──
 
-function buildNodeManifestMap(): Map<string, CustomNode> {
-  const map = new Map<string, CustomNode>();
+async function buildNodeManifestMap(projectRoot: string): Promise<Map<string, CustomNode>> {
+  const registry = new NodeRegistry();
   for (const node of BUILTIN_NODES) {
+    registry.register(node);
+  }
+  await CustomNodeLoader.loadFromProject(projectRoot, registry);
+
+  const map = new Map<string, CustomNode>();
+  for (const node of registry.getAll()) {
     map.set(node.type, node);
   }
   return map;
@@ -250,7 +258,6 @@ function validateFlowNodesDeep(
   flow: FlowDefinition,
   flowId: string,
   manifestMap: Map<string, CustomNode>,
-  initialState: Record<string, any>,
 ): DiagnosticPayload[] {
   const diagnostics: DiagnosticPayload[] = [];
   const flowFile = `flow/${flowId}.json`;
@@ -307,7 +314,7 @@ function validateNodeConfig(
   // Check required fields
   if (Array.isArray(schema.required)) {
     for (const field of schema.required) {
-      if (config[field] === undefined || config[field] === null || config[field] === '') {
+      if (config[field] === undefined || config[field] === null) {
         diagnostics.push(
           buildCliDiagnostic({
             code: 'CONFIG_MISSING_REQUIRED',

@@ -68,10 +68,312 @@ export interface SessionAdvanceResult {
   diagnostic?: SessionAdvanceError;
 }
 
+export interface SessionInspectionResult {
+  cursor: SessionCursor;
+  waitingFor: SessionWaitingFor | null;
+  status: SessionAdvanceStatus;
+  diagnostic?: SessionAdvanceError;
+}
+
+export interface SessionPreviewResult {
+  cursor: SessionCursor;
+  waitingFor: SessionWaitingFor | null;
+  status: SessionAdvanceStatus;
+  stateAfter: Record<string, StateValue>;
+  diagnostic?: SessionAdvanceError;
+}
+
 export function createSessionCursor(session: SessionDefinition): SessionCursor {
   return {
     currentStepId: session.entryStep ?? session.steps[0]?.id ?? null,
     stepIndex: 0,
+  };
+}
+
+export function inspectCurrentSessionStep(
+  session: SessionDefinition,
+  cursor: SessionCursor,
+  state: Record<string, StateValue>,
+): SessionInspectionResult {
+  const stepsById = createStepsById(session);
+  if (stepsById.size === 0) {
+    return {
+      cursor,
+      waitingFor: null,
+      status: 'error',
+      diagnostic: {
+        code: 'SESSION_EMPTY',
+        message: 'Session has no steps',
+      },
+    };
+  }
+
+  if (cursor.currentStepId === null) {
+    return {
+      cursor,
+      waitingFor: null,
+      status: 'ended',
+    };
+  }
+
+  const step = stepsById.get(cursor.currentStepId);
+  if (!step) {
+    return {
+      cursor,
+      waitingFor: null,
+      status: 'error',
+      diagnostic: {
+        code: 'SESSION_STEP_NOT_FOUND',
+        message: `Step not found: ${cursor.currentStepId}`,
+        stepId: cursor.currentStepId,
+      },
+    };
+  }
+
+  if (step.type === 'Prompt' || step.type === 'Choice' || step.type === 'DynamicChoice') {
+    const reader = readerFromStateRecord(state);
+    try {
+      return {
+        cursor,
+        waitingFor: materializeWaitingFor(step, reader),
+        status: 'waiting_input',
+      };
+    } catch (error) {
+      if (error instanceof NoVisibleOptionsError) {
+        return {
+          cursor,
+          waitingFor: null,
+          status: 'error',
+          diagnostic: {
+            code: 'NO_VISIBLE_OPTIONS',
+            message: 'DynamicChoice has no visible options',
+            stepId: step.id,
+          },
+        };
+      }
+      throw error;
+    }
+  }
+
+  return {
+    cursor,
+    waitingFor: null,
+    status: step.type === 'End' ? 'ended' : 'paused',
+  };
+}
+
+export function previewAdvanceSession(
+  session: SessionDefinition,
+  cursor: SessionCursor,
+  state: Record<string, StateValue>,
+  options: AdvanceSessionOptions,
+): SessionPreviewResult {
+  const stepsById = createStepsById(session);
+  if (stepsById.size === 0) {
+    return {
+      cursor,
+      waitingFor: null,
+      status: 'error',
+      stateAfter: cloneStateRecord(state),
+      diagnostic: {
+        code: 'SESSION_EMPTY',
+        message: 'Session has no steps',
+      },
+    };
+  }
+
+  if (cursor.currentStepId === null) {
+    return {
+      cursor,
+      waitingFor: null,
+      status: 'ended',
+      stateAfter: cloneStateRecord(state),
+    };
+  }
+
+  const previewState = cloneStateRecord(state);
+  let currentStepId = cursor.currentStepId;
+  let stepIndex = cursor.stepIndex;
+  let pendingUserInput = options.userInput;
+
+  while (currentStepId) {
+    const step = stepsById.get(currentStepId);
+    if (!step) {
+      return {
+        cursor: { currentStepId, stepIndex },
+        waitingFor: null,
+        status: 'error',
+        stateAfter: previewState,
+        diagnostic: {
+          code: 'SESSION_STEP_NOT_FOUND',
+          message: `Step not found: ${currentStepId}`,
+          stepId: currentStepId,
+        },
+      };
+    }
+
+    if (pendingUserInput !== undefined && step.type !== 'Prompt' && step.type !== 'Choice' && step.type !== 'DynamicChoice') {
+      return {
+        cursor: { currentStepId, stepIndex },
+        waitingFor: null,
+        status: 'error',
+        stateAfter: previewState,
+        diagnostic: {
+          code: 'INPUT_NOT_EXPECTED',
+          message: `Step "${step.id}" does not accept input`,
+          stepId: step.id,
+          details: {
+            input: pendingUserInput,
+          },
+        },
+      };
+    }
+
+    switch (step.type) {
+      case 'RunFlow': {
+        currentStepId = step.next;
+        stepIndex += 1;
+        if (options.mode === 'step') {
+          return finalizePreviewResult(currentStepId, stepIndex, stepsById, previewState);
+        }
+        break;
+      }
+
+      case 'Prompt':
+      case 'Choice':
+      case 'DynamicChoice': {
+        if (pendingUserInput === undefined) {
+          const reader = readerFromStateRecord(previewState);
+          try {
+            return {
+              cursor: { currentStepId: step.id, stepIndex },
+              waitingFor: materializeWaitingFor(step, reader),
+              status: 'waiting_input',
+              stateAfter: previewState,
+            };
+          } catch (error) {
+            if (error instanceof NoVisibleOptionsError) {
+              return {
+                cursor: { currentStepId: step.id, stepIndex },
+                waitingFor: null,
+                status: 'error',
+                stateAfter: previewState,
+                diagnostic: {
+                  code: 'NO_VISIBLE_OPTIONS',
+                  message: 'DynamicChoice has no visible options',
+                  stepId: step.id,
+                },
+              };
+            }
+            throw error;
+          }
+        }
+
+        if (step.stateKey) {
+          try {
+            previewSetState(previewState, step.stateKey, pendingUserInput);
+          } catch (error) {
+            return {
+              cursor: { currentStepId: step.id, stepIndex },
+              waitingFor: null,
+              status: 'error',
+              stateAfter: previewState,
+              diagnostic: {
+                code: inferStateErrorCode(error),
+                message: (error as Error).message,
+                stepId: step.id,
+                details: {
+                  input: pendingUserInput,
+                  stateKey: step.stateKey,
+                },
+              },
+            };
+          }
+        }
+
+        pendingUserInput = undefined;
+        currentStepId = step.next;
+        stepIndex += 1;
+        if (options.mode === 'step') {
+          return finalizePreviewResult(currentStepId, stepIndex, stepsById, previewState);
+        }
+        break;
+      }
+
+      case 'Branch': {
+        const reader = readerFromStateRecord(previewState);
+        let nextStepId = step.default;
+        let setStatePayload: Record<string, any> | undefined = step.defaultSetState;
+        try {
+          for (const cond of step.conditions) {
+            if (evalCondition(cond.when as ConditionSpec, reader, { mode: 'strict' })) {
+              nextStepId = cond.next;
+              setStatePayload = cond.setState;
+              break;
+            }
+          }
+        } catch (error) {
+          return {
+            cursor: { currentStepId: step.id, stepIndex },
+            waitingFor: null,
+            status: 'error',
+            stateAfter: previewState,
+            diagnostic: {
+              code: 'CONDITION_EVAL_ERROR',
+              message: (error as Error).message,
+              stepId: step.id,
+              details: {
+                condition: step.conditions.map((cond) => cond.when),
+              },
+            },
+          };
+        }
+
+        if (setStatePayload) {
+          try {
+            for (const [key, value] of Object.entries(setStatePayload)) {
+              previewSetState(previewState, key, value);
+            }
+          } catch (error) {
+            return {
+              cursor: { currentStepId: step.id, stepIndex },
+              waitingFor: null,
+              status: 'error',
+              stateAfter: previewState,
+              diagnostic: {
+                code: inferStateErrorCode(error),
+                message: (error as Error).message,
+                stepId: step.id,
+                details: { setState: setStatePayload },
+              },
+            };
+          }
+        }
+
+        currentStepId = nextStepId;
+        stepIndex += 1;
+        if (options.mode === 'step') {
+          return finalizePreviewResult(currentStepId, stepIndex, stepsById, previewState);
+        }
+        break;
+      }
+
+      case 'End': {
+        return {
+          cursor: { currentStepId: null, stepIndex: stepIndex + 1 },
+          waitingFor: null,
+          status: 'ended',
+          stateAfter: previewState,
+        };
+      }
+    }
+  }
+
+  return {
+    cursor: { currentStepId: null, stepIndex },
+    waitingFor: null,
+    status: 'ended',
+    stateAfter: previewState,
   };
 }
 
@@ -81,10 +383,7 @@ export async function advanceSession(
   cursor: SessionCursor,
   options: AdvanceSessionOptions,
 ): Promise<SessionAdvanceResult> {
-  const stepsById = new Map<string, SessionStep>();
-  for (const step of session.steps) {
-    stepsById.set(step.id, step);
-  }
+  const stepsById = createStepsById(session);
 
   if (stepsById.size === 0) {
     return buildErrorResult(cursor, [], {
@@ -264,6 +563,14 @@ function buildErrorResult(
   };
 }
 
+function createStepsById(session: SessionDefinition): Map<string, SessionStep> {
+  const stepsById = new Map<string, SessionStep>();
+  for (const step of session.steps) {
+    stepsById.set(step.id, step);
+  }
+  return stepsById;
+}
+
 function finalizeStepResult(
   currentStepId: string | null,
   stepIndex: number,
@@ -315,6 +622,71 @@ function finalizeStepResult(
     events,
     waitingFor: null,
     status: 'paused',
+  };
+}
+
+function finalizePreviewResult(
+  currentStepId: string | null,
+  stepIndex: number,
+  stepsById: Map<string, SessionStep>,
+  stateAfter: Record<string, StateValue>,
+): SessionPreviewResult {
+  if (currentStepId === null) {
+    return {
+      cursor: { currentStepId: null, stepIndex },
+      waitingFor: null,
+      status: 'ended',
+      stateAfter,
+    };
+  }
+
+  const nextStep = stepsById.get(currentStepId);
+  if (!nextStep) {
+    return {
+      cursor: { currentStepId, stepIndex },
+      waitingFor: null,
+      status: 'error',
+      stateAfter,
+      diagnostic: {
+        code: 'SESSION_STEP_NOT_FOUND',
+        message: `Step not found: ${currentStepId}`,
+        stepId: currentStepId,
+      },
+    };
+  }
+
+  if (nextStep.type === 'Prompt' || nextStep.type === 'Choice' || nextStep.type === 'DynamicChoice') {
+    const reader = readerFromStateRecord(stateAfter);
+    try {
+      return {
+        cursor: { currentStepId, stepIndex },
+        waitingFor: materializeWaitingFor(nextStep, reader),
+        status: 'waiting_input',
+        stateAfter,
+      };
+    } catch (error) {
+      if (error instanceof NoVisibleOptionsError) {
+        return {
+          cursor: { currentStepId, stepIndex },
+          waitingFor: null,
+          status: 'error',
+          stateAfter,
+          diagnostic: {
+            code: 'NO_VISIBLE_OPTIONS',
+            message: 'DynamicChoice has no visible options',
+            stepId: currentStepId,
+          },
+        };
+      }
+      throw error;
+    }
+  }
+
+  return {
+    cursor: { currentStepId, stepIndex },
+    waitingFor: null,
+    status: 'paused',
+    stateAfter,
   };
 }
 
@@ -442,4 +814,22 @@ function inferStateErrorCode(error: unknown): string {
     return 'STATE_KEY_NOT_FOUND';
   }
   return 'STATE_WRITE_FAILED';
+}
+
+function cloneStateRecord(state: Record<string, StateValue>): Record<string, StateValue> {
+  if (typeof structuredClone === 'function') {
+    return structuredClone(state);
+  }
+  return JSON.parse(JSON.stringify(state)) as Record<string, StateValue>;
+}
+
+function previewSetState(state: Record<string, StateValue>, key: string, value: any): void {
+  const existing = state[key];
+  if (!existing) {
+    throw new Error(`State key not found: ${key}`);
+  }
+  state[key] = {
+    ...existing,
+    value,
+  };
 }

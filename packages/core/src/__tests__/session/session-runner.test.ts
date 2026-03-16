@@ -3,6 +3,8 @@ import { StateStore } from '../../state-store';
 import {
   advanceSession,
   createSessionCursor,
+  inspectCurrentSessionStep,
+  previewAdvanceSession,
   type SessionRunnerDeps,
 } from '../../session/session-runner';
 import type { SessionDefinition } from '../../types/session';
@@ -188,5 +190,105 @@ describe('advanceSession', () => {
       code: 'INPUT_NOT_EXPECTED',
       stepId: 'intro',
     });
+  });
+
+  it('inspectCurrentSessionStep 应该只检查当前交互步骤', () => {
+    const session: SessionDefinition = {
+      schemaVersion: '1.0.0',
+      steps: [
+        { id: 'intro', type: 'RunFlow', flowRef: 'intro', next: 'choice' },
+        {
+          id: 'choice',
+          type: 'Choice',
+          promptText: '选择道路',
+          options: [{ label: '左', value: 'left' }],
+          next: 'end',
+        },
+        { id: 'end', type: 'End' },
+      ],
+    };
+
+    const inspection = inspectCurrentSessionStep(session, createSessionCursor(session), {});
+    expect(inspection.status).toBe('paused');
+    expect(inspection.waitingFor).toBeNull();
+  });
+
+  it('previewAdvanceSession 应该在 step 模式下无副作用推进到下一个输入边界', () => {
+    const session: SessionDefinition = {
+      schemaVersion: '1.0.0',
+      steps: [
+        { id: 'intro', type: 'RunFlow', flowRef: 'intro', next: 'choice' },
+        {
+          id: 'choice',
+          type: 'Choice',
+          promptText: '选择道路',
+          options: [{ label: '左', value: 'left' }],
+          next: 'end',
+        },
+        { id: 'end', type: 'End' },
+      ],
+    };
+
+    const initialState = {
+      progress: { type: 'string' as const, value: 'start' },
+    };
+
+    const preview = previewAdvanceSession(session, createSessionCursor(session), initialState, {
+      mode: 'step',
+    });
+
+    expect(preview.status).toBe('waiting_input');
+    expect(preview.cursor).toEqual({
+      currentStepId: 'choice',
+      stepIndex: 1,
+    });
+    expect(preview.stateAfter).toEqual(initialState);
+  });
+
+  it('previewAdvanceSession 应该在 dry-run 模拟中更新 stateKey 和 Branch setState', () => {
+    const session: SessionDefinition = {
+      schemaVersion: '1.0.0',
+      steps: [
+        {
+          id: 'name',
+          type: 'Prompt',
+          stateKey: 'playerName',
+          promptText: '名字？',
+          next: 'branch',
+        },
+        {
+          id: 'branch',
+          type: 'Branch',
+          conditions: [{ when: 'state.playerName == "Alice"', next: 'end', setState: { result: 'ok' } }],
+          default: 'end',
+          defaultSetState: { result: 'other' },
+        },
+        { id: 'end', type: 'End' },
+      ],
+    };
+
+    const initialState = {
+      playerName: { type: 'string' as const, value: '' },
+      result: { type: 'string' as const, value: '' },
+    };
+
+    const afterPrompt = previewAdvanceSession(session, createSessionCursor(session), initialState, {
+      mode: 'step',
+      userInput: 'Alice',
+    });
+    expect(afterPrompt.cursor).toEqual({
+      currentStepId: 'branch',
+      stepIndex: 1,
+    });
+    expect(afterPrompt.stateAfter.playerName?.value).toBe('Alice');
+
+    const afterBranch = previewAdvanceSession(session, afterPrompt.cursor, afterPrompt.stateAfter, {
+      mode: 'step',
+    });
+    expect(afterBranch.cursor).toEqual({
+      currentStepId: 'end',
+      stepIndex: 2,
+    });
+    expect(afterBranch.stateAfter.result?.value).toBe('ok');
   });
 });

@@ -26,6 +26,54 @@ import type { FlowDefinition, NodeDefinition, EdgeDefinition, NodeManifest } fro
 
 const FLOW_LAYOUT = { nodeWidth: 320, nodeHeight: 200, gapX: 80, gapY: 40 };
 
+type Schema = {
+  type?: string;
+  properties?: Record<string, Schema>;
+  items?: Schema;
+  additionalProperties?: boolean | Schema;
+};
+
+function sanitizeConfigWithSchema(value: unknown, schema?: Schema): unknown {
+  if (!schema || value === null || value === undefined) {
+    return value;
+  }
+
+  if (schema.type === "array") {
+    if (!Array.isArray(value)) return value;
+    return schema.items ? value.map((item) => sanitizeConfigWithSchema(item, schema.items)) : value;
+  }
+
+  if (schema.type !== "object" || typeof value !== "object" || Array.isArray(value)) {
+    return value;
+  }
+
+  const record = value as Record<string, unknown>;
+  const properties = schema.properties ?? {};
+  const result: Record<string, unknown> = {};
+
+  if (schema.additionalProperties === false) {
+    for (const [key, childSchema] of Object.entries(properties)) {
+      if (key in record) {
+        result[key] = sanitizeConfigWithSchema(record[key], childSchema);
+      }
+    }
+    return result;
+  }
+
+  for (const [key, childValue] of Object.entries(record)) {
+    const childSchema = properties[key];
+    if (childSchema) {
+      result[key] = sanitizeConfigWithSchema(childValue, childSchema);
+    } else if (schema.additionalProperties && typeof schema.additionalProperties === "object") {
+      result[key] = sanitizeConfigWithSchema(childValue, schema.additionalProperties);
+    } else {
+      result[key] = childValue;
+    }
+  }
+
+  return result;
+}
+
 function autoLayout(
   nodes: NodeDefinition[],
   edges: EdgeDefinition[],
@@ -193,15 +241,28 @@ export default function Flow() {
     return {
       meta: existingFlow?.meta ?? { schemaVersion: '1.0' },
       data: {
-        nodes: nodes.map((node) => ({
-          id: node.id,
-          type: node.type || 'default',
-          label: String(node.data.label || node.type || 'Node'),
-          position: node.position,
-          inputs: Array.isArray(node.data.inputs) ? node.data.inputs : [],
-          outputs: Array.isArray(node.data.outputs) ? node.data.outputs : [],
-          config: node.data.config || {},
-        })),
+        nodes: nodes.map((node) => {
+          const nodeData = node.data as {
+            label?: string;
+            config?: Record<string, unknown>;
+            inputs?: NodeDefinition['inputs'];
+            outputs?: NodeDefinition['outputs'];
+            manifest?: NodeManifest;
+          };
+
+          return {
+            id: node.id,
+            type: node.type || 'default',
+            label: String(nodeData.label || node.type || 'Node'),
+            position: node.position,
+            inputs: Array.isArray(nodeData.inputs) ? nodeData.inputs : [],
+            outputs: Array.isArray(nodeData.outputs) ? nodeData.outputs : [],
+            config: (sanitizeConfigWithSchema(
+              nodeData.config || {},
+              nodeData.manifest?.configSchema as Schema | undefined,
+            ) as Record<string, unknown>) || {},
+          };
+        }),
         edges: edges.map((edge) => ({
           source: edge.source,
           sourceHandle: edge.sourceHandle || '',
