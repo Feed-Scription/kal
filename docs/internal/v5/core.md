@@ -28,7 +28,7 @@ Core 已定义并导出当前运行时使用的基础类型：
 当前已实现的内置节点包括：
 
 - 信号类：`SignalIn`、`SignalOut`、`Timer`
-- State 类：`AddState`、`RemoveState`、`ReadState`、`ModifyState`、`ApplyState`
+- State 类：`AddState`、`RemoveState`、`ReadState`、`ModifyState`、`WriteState`
 - LLM 类：`PromptBuild`、`Message`、`GenerateText`、`GenerateImage`
 - 处理类：`Regex`、`JSONParse`、`PostProcess`、`SubFlow`
 
@@ -71,9 +71,9 @@ Core 已定义并导出当前运行时使用的基础类型：
 - `clear`
 - `loadInitialState`
 
-`ApplyState` 节点提供批量状态回写能力：接收一个 object，遍历其 key-value 对，逐个写回已存在的 state key。支持 `path` 配置从输入中提取子对象（如 `"stateChanges"`），支持 `allowedKeys` 白名单过滤。只修改已存在的 state key，保留原有 type。这解决了 LLM 输出 stateChanges 后无法自动回写 StateStore 的问题。
+`WriteState` 节点提供批量状态回写能力：接收一个 object，遍历其 key-value 对，逐个写回已存在的 state key。支持 `path` 配置从输入中提取子对象（如 `"stateChanges"`），支持 `allowedKeys` 白名单过滤。只修改已存在的 state key，保留原有 type。这解决了 LLM 输出 stateChanges 后无法自动回写 StateStore 的问题。
 
-当前 `ApplyState` 还支持两种简化用法：
+当前 `WriteState` 还支持两种简化用法：
 
 - 如果没有传入 `changes`，会自动把所有命名输入打包成待写回对象
 - `allowedKeys: []` 视为“不做白名单过滤”，而不是“全部禁止”

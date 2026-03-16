@@ -16,7 +16,7 @@ export function FlowToolbar({ onSave, onExport, onRun, onAutoLayout }: FlowToolb
   if (!project || !currentFlow) return null;
 
   return (
-    <div className="absolute left-4 top-4 z-10 flex gap-2 rounded-lg border bg-background/95 p-2 shadow-lg backdrop-blur">
+    <div className="absolute left-4 top-4 z-10 flex gap-2 rounded-lg border bg-background/95 p-2 shadow-lg backdrop-blur animate-in fade-in-0 slide-in-from-top-2 duration-300 ease-[var(--ease-apple)]">
       <div className="flex items-center gap-2 border-r pr-2">
         <span className="text-sm font-medium">{currentFlow}</span>
         <span className="text-xs text-muted-foreground">

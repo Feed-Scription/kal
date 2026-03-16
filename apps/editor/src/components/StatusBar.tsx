@@ -73,24 +73,24 @@ export function StatusBar() {
 
         <div className="flex items-center gap-1.5">
           {saveStatus === "saved" && (
-            <>
+            <span className="flex items-center gap-1.5 animate-in fade-in-0 duration-200 ease-[var(--ease-apple)]">
               <CheckCircle2 className="size-3.5 text-green-600" />
               <span className="text-green-600">
                 已保存 {lastSaved && `(${formatTime(lastSaved)})`}
               </span>
-            </>
+            </span>
           )}
           {saveStatus === "saving" && (
-            <>
+            <span className="flex items-center gap-1.5 animate-in fade-in-0 duration-200 ease-[var(--ease-apple)]">
               <Loader2 className="size-3.5 animate-spin text-yellow-600" />
               <span className="text-yellow-600">保存中...</span>
-            </>
+            </span>
           )}
           {saveStatus === "error" && (
-            <>
+            <span className="flex items-center gap-1.5 animate-in fade-in-0 duration-200 ease-[var(--ease-apple)]">
               <XCircle className="size-3.5 text-red-600" />
               <span className="text-red-600">保存失败</span>
-            </>
+            </span>
           )}
         </div>
       </div>

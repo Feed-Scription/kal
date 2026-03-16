@@ -36,12 +36,14 @@ export interface CreateRunOptions {
   forceNew?: boolean;
   cleanup?: boolean;
   mode?: SessionAdvanceMode;
+  onRuntimeCreated?: (runtime: EngineRuntime) => void;
 }
 
 export interface AdvanceRunOptions extends RunSelection {
   cleanup?: boolean;
   input?: string;
   mode?: SessionAdvanceMode;
+  onRuntimeCreated?: (runtime: EngineRuntime) => void;
 }
 
 export interface GetRunOptions extends RunSelection {
@@ -127,6 +129,9 @@ export class RunManager {
     }
 
     const runtime = await this.createRuntime();
+    if (options.onRuntimeCreated) {
+      options.onRuntimeCreated(runtime);
+    }
     if (!runtime.hasSession()) {
       throw new EngineHttpError('Project has no session.json', 400, 'NO_SESSION');
     }
@@ -202,6 +207,9 @@ export class RunManager {
     }
 
     const runtime = await this.createRuntime();
+    if (options.onRuntimeCreated) {
+      options.onRuntimeCreated(runtime);
+    }
     if (!runtime.hasSession()) {
       throw new EngineHttpError('Project has no session.json', 400, 'NO_SESSION');
     }

@@ -34,7 +34,7 @@ KAL is a data-driven game engine where game logic is defined in JSON, not code. 
 
 ## Node
 
-A node is the smallest unit of logic. Each node has typed inputs, typed outputs, and optional config. KAL ships with 16 built-in nodes across 5 categories:
+A node is the smallest unit of logic. Each node has typed inputs, typed outputs, and optional config. KAL ships with 17 built-in nodes across 5 categories:
 
 | Category | Nodes | Purpose |
 |----------|-------|---------|

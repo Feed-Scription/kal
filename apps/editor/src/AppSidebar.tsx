@@ -270,7 +270,7 @@ export function AppSidebar({ children, currentView, onViewChange }: AppSidebarPr
             </div>
           )}
         </div>
-        <div className="h-[calc(100vh-3.5rem-2rem)]">
+        <div className="relative h-[calc(100vh-3.5rem-2rem)]">
           {children}
         </div>
       </SidebarInset>

@@ -171,10 +171,10 @@ The `next: "ask"` creates an infinite loop — the player keeps asking questions
 
 ```bash
 # Validate the project first
-node apps/engine/dist/bin.js lint my-game
+kal lint my-game
 
 # Play interactively
-node apps/engine/dist/bin.js play my-game
+kal play my-game
 ```
 
 In the TUI, type your questions and see LLM responses. Type `/quit` to exit.
@@ -182,9 +182,9 @@ In the TUI, type your questions and see LLM responses. Type `/quit` to exit.
 You can also use debug mode for step-by-step execution:
 
 ```bash
-node apps/engine/dist/bin.js debug my-game --start
-node apps/engine/dist/bin.js debug my-game --continue "What is the capital of France?"
-node apps/engine/dist/bin.js debug my-game --state
+kal debug my-game --start
+kal debug my-game --continue "What is the capital of France?"
+kal debug my-game --state
 ```
 
 ## Part 2: Explore the DND Adventure Example
@@ -199,7 +199,7 @@ The `examples/dnd-adventure/` project demonstrates a full-featured game with:
 
 ```bash
 # Run the example
-node apps/engine/dist/bin.js play examples/dnd-adventure
+kal play examples/dnd-adventure
 ```
 
 Key patterns to study:

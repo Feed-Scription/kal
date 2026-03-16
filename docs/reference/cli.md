@@ -38,14 +38,18 @@ Debug session execution with state inspection.
 | `--state` | Print current state |
 | `--list` | List all debug sessions |
 | `--delete --run-id <id>` | Delete a debug session |
+| `--retry` | Retry the current failed step |
+| `--skip` | Skip the current step |
 
 | Option | Description |
 |--------|-------------|
 | `--force-new` | Force a new session (with `--start`) |
 | `--state-dir <path>` | Custom state directory |
 | `--run-id <id>` | Target a specific run |
+| `--latest` | Auto-select the most recent run |
 | `--input <input>` | Provide input value |
-| `--format <json\|pretty>` | Output format |
+| `--format <json\|pretty\|agent>` | Output format |
+| `--verbose` | Include LLM traces in output |
 
 ### `kal lint`
 
@@ -79,3 +83,52 @@ Manage user-level configuration.
 | `get <key>` | Get a config item |
 | `list` | List all config items |
 | `set-key <provider> <key>` | Securely set an API key |
+
+### `kal studio`
+
+Start the integrated editor + API server (serves the visual editor UI alongside the engine HTTP API).
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `[project-path]` | Path to KAL project directory | `.` |
+| `--host <host>` | Host to bind to | `127.0.0.1` |
+| `--port <port>` | Port to listen on | `3000` |
+
+### `kal init`
+
+Scaffold a new KAL project.
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `<project-name>` | Name of the project to create | (required) |
+| `--template <minimal\|game>` | Project template | `minimal` |
+
+### `kal eval`
+
+Prompt evaluation toolkit for systematic A/B testing.
+
+| Subcommand | Description |
+|------------|-------------|
+| `nodes <flow>` | List PromptBuild nodes in a flow |
+| `render <flow> --node <id>` | Render a prompt with given state |
+| `run <flow> --node <id>` | Run eval against a PromptBuild node |
+| `compare <file-a> <file-b>` | Compare two eval result files |
+
+| Option | Description |
+|--------|-------------|
+| `--variant <file>` | Alternative fragments file (for A/B testing) |
+| `--runs N` | Number of eval runs (default: 5) |
+| `--input <json>` | Input data as JSON |
+| `--state <json>` | State data as JSON |
+| `--project <path>` | Project path (when using flow ID instead of file path) |
+| `--format <json\|pretty>` | Output format |
+
+### `kal schema`
+
+Export node and session schema information.
+
+| Subcommand | Description |
+|------------|-------------|
+| `nodes` | List all built-in node types |
+| `node <type>` | Show detailed schema for a node type |
+| `session` | Show session step types and fields |

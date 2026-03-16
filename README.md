@@ -266,7 +266,7 @@ GET  /api/session/state    # Get current state
 | [Core Concepts](./docs/concepts.md) | Node, Flow, State, Session |
 | [Project Structure](./docs/project-structure.md) | File-by-file breakdown |
 | [Reference](./docs/reference/) | API reference docs |
-| [Roadmap](./docs/roadmap.md) | Project roadmap and TODO list |
+| [TODO](./docs/internal/todo.md) | Project TODO list |
 
 ## Project Status
 
@@ -287,13 +287,9 @@ KAL is in early stage. The core runtime works, but APIs and config formats may c
 - Test coverage
 - Onboarding experience
 
-## Roadmap
+## TODO
 
-See [docs/roadmap.md](./docs/roadmap.md) for the full roadmap.
-
-Currently focused on Phase 0 (Foundation): fixing known issues, improving onboarding, adding tests and docs.
-
-Next milestone is Phase 1: build a compelling showcase game with KAL.
+See [docs/internal/todo.md](./docs/internal/todo.md) for the full TODO list.
 
 ## FAQ
 

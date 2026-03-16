@@ -234,10 +234,12 @@ async function startRun(
   runManager: RunManager,
 ): Promise<CommandResult> {
   try {
+    let llmTraces: LLMTrace[] | undefined;
     const created = await runManager.createRun({
       forceNew: parsed.forceNew,
       cleanup: parsed.cleanup,
       mode: 'continue',
+      onRuntimeCreated: parsed.verbose ? (rt) => { llmTraces = registerLLMTraceHooks(rt); } : undefined,
     });
     const diagnostics = await buildDiagnosticsFromResult(created.runtime, created.result, parsed.verbose, undefined);
     return {
@@ -249,6 +251,7 @@ async function startRun(
         diagnostics,
         created.beforeState,
         created.afterState,
+        llmTraces,
       ),
     };
   } catch (error) {
@@ -428,12 +431,14 @@ async function advanceExistingRun(
   }
 
   try {
+    let llmTraces: LLMTrace[] | undefined;
     const advanced = await runManager.advanceRun({
       runId: parsed.runId,
       latest: parsed.latest,
       input: parsed.input,
       cleanup: parsed.cleanup,
       mode: parsed.action as SessionAdvanceMode,
+      onRuntimeCreated: parsed.verbose ? (rt) => { llmTraces = registerLLMTraceHooks(rt); } : undefined,
     });
     const diagnostics = await buildDiagnosticsFromResult(advanced.runtime, advanced.result, parsed.verbose, parsed.input);
     return {
@@ -445,6 +450,7 @@ async function advanceExistingRun(
         diagnostics,
         advanced.beforeState,
         advanced.afterState,
+        llmTraces,
       ),
     };
   } catch (error) {
@@ -763,7 +769,6 @@ interface LLMTrace {
   cached?: boolean;
 }
 
-// @ts-expect-error reserved for verbose trace mode (not yet wired)
 function registerLLMTraceHooks(runtime: EngineRuntime): LLMTrace[] {
   const traces: LLMTrace[] = [];
   const pendingRequests = new Map<string, { model: string; messages: string }>();
@@ -802,6 +807,7 @@ function buildAdvancePayload(
   diagnostics: DiagnosticPayload[],
   beforeState: Record<string, StateValue>,
   afterState: Record<string, StateValue>,
+  llmTraces?: LLMTrace[],
 ): DebugAdvancePayload {
   const waitingFor = toOutputWaitingFor(result.waitingFor);
   const stateSummary = buildStateSummary(afterState, beforeState);
@@ -825,6 +831,7 @@ function buildAdvancePayload(
     diagnostics,
     next_action: observation.suggested_next_action?.command ?? null,
     observation,
+    ...(llmTraces && llmTraces.length > 0 ? { llm_traces: llmTraces } : {}),
   };
 }
 
