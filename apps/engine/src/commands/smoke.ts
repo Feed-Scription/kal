@@ -1,7 +1,8 @@
 import {
   advanceSession,
   createSessionCursor,
-  type SessionAdvanceResult,
+  inspectCurrentSessionStep,
+  previewAdvanceSession,
   type SessionCursor,
   type StateValue,
 } from '@kal-ai/core';
@@ -141,41 +142,44 @@ export async function runSmokeCommand(
     const stepResults: SmokeStepResult[] = [];
     let completedSteps = 0;
     let finalStatus = 'running';
+    let dryRunState = runtime.getState();
 
     for (let step = 0; step < parsed.steps; step++) {
-      const stateBefore = runtime.getState();
-
-      // Check if we need input
+      const stateBefore = parsed.dryRun ? dryRunState : runtime.getState();
       let userInput: string | undefined;
+      const inspection = inspectCurrentSessionStep(session, cursor, stateBefore);
 
-      // Do a dry probe first to see if input is needed
-      const probeResult: SessionAdvanceResult = await advanceSession(
-        session,
-        {
-          executeFlow: (flowId, inputData) => runtime.executeFlow(flowId, inputData ?? {}),
-          getState: () => runtime.getState(),
-          setState: (key, value) => runtime.setState(key, value),
-        },
-        cursor,
-        { mode: 'step' },
-      );
+      if (inspection.status === 'error') {
+        stepResults.push({
+          step,
+          stepId: cursor.currentStepId,
+          status: 'error',
+          error: inspection.diagnostic ? {
+            code: inspection.diagnostic.code,
+            message: inspection.diagnostic.message,
+          } : undefined,
+        });
+        finalStatus = 'error';
+        completedSteps = step + 1;
+        break;
+      }
 
-      if (probeResult.status === 'waiting_input') {
+      if (inspection.status === 'waiting_input') {
         if (inputIndex < parsed.inputs.length) {
           userInput = parsed.inputs[inputIndex++];
-        } else if (probeResult.waitingFor?.kind === 'choice' && probeResult.waitingFor.options?.length) {
+        } else if (inspection.waitingFor?.kind === 'choice' && inspection.waitingFor.options?.length) {
           // Auto-select first option
-          userInput = probeResult.waitingFor.options[0]!.value;
+          userInput = inspection.waitingFor.options[0]!.value;
         } else {
           // No more inputs available, record and stop
           stepResults.push({
             step,
             stepId: cursor.currentStepId,
             status: 'waiting_input',
-            waitingFor: probeResult.waitingFor ? {
-              kind: probeResult.waitingFor.kind,
-              promptText: probeResult.waitingFor.promptText,
-              options: probeResult.waitingFor.options,
+            waitingFor: inspection.waitingFor ? {
+              kind: inspection.waitingFor.kind,
+              promptText: inspection.waitingFor.promptText,
+              options: inspection.waitingFor.options,
             } : undefined,
           });
           finalStatus = 'waiting_input';
@@ -184,18 +188,39 @@ export async function runSmokeCommand(
         }
 
         if (parsed.dryRun) {
+          const previewResult = previewAdvanceSession(session, cursor, dryRunState, {
+            mode: 'step',
+            userInput,
+          });
+
           stepResults.push({
             step,
             stepId: cursor.currentStepId,
-            status: 'dry_run_input',
-            waitingFor: probeResult.waitingFor ? {
-              kind: probeResult.waitingFor.kind,
-              promptText: probeResult.waitingFor.promptText,
-              options: probeResult.waitingFor.options,
+            status: previewResult.status === 'error' ? 'error' : 'dry_run_input',
+            waitingFor: inspection.waitingFor ? {
+              kind: inspection.waitingFor.kind,
+              promptText: inspection.waitingFor.promptText,
+              options: inspection.waitingFor.options,
             } : undefined,
             inputProvided: userInput,
+            error: previewResult.diagnostic ? {
+              code: previewResult.diagnostic.code,
+              message: previewResult.diagnostic.message,
+            } : undefined,
           });
+
+          cursor = previewResult.cursor;
+          dryRunState = previewResult.stateAfter;
           completedSteps = step + 1;
+
+          if (previewResult.status === 'ended') {
+            finalStatus = 'ended';
+            break;
+          }
+          if (previewResult.status === 'error') {
+            finalStatus = 'error';
+            break;
+          }
           continue;
         }
 
@@ -234,40 +259,65 @@ export async function runSmokeCommand(
           finalStatus = 'error';
           break;
         }
-      } else if (probeResult.status === 'ended') {
-        stepResults.push({
-          step,
-          stepId: cursor.currentStepId,
-          status: 'ended',
-        });
-        finalStatus = 'ended';
-        completedSteps = step + 1;
-        cursor = probeResult.cursor;
-        break;
-      } else if (probeResult.status === 'error') {
-        stepResults.push({
-          step,
-          stepId: cursor.currentStepId,
-          status: 'error',
-          error: probeResult.diagnostic ? { code: probeResult.diagnostic.code, message: probeResult.diagnostic.message } : undefined,
-        });
-        finalStatus = 'error';
-        completedSteps = step + 1;
-        break;
       } else {
-        // paused — step executed successfully without needing input
-        const stateAfter = runtime.getState();
-        const stateChanges = diffState(stateBefore, stateAfter);
+        if (parsed.dryRun) {
+          const previewResult = previewAdvanceSession(session, cursor, dryRunState, { mode: 'step' });
+
+          stepResults.push({
+            step,
+            stepId: cursor.currentStepId,
+            status: previewResult.status === 'ended' ? 'ended' : previewResult.status === 'error' ? 'error' : 'dry_run_step',
+            error: previewResult.diagnostic ? {
+              code: previewResult.diagnostic.code,
+              message: previewResult.diagnostic.message,
+            } : undefined,
+          });
+
+          cursor = previewResult.cursor;
+          dryRunState = previewResult.stateAfter;
+          completedSteps = step + 1;
+
+          if (previewResult.status === 'ended') {
+            finalStatus = 'ended';
+            break;
+          }
+          if (previewResult.status === 'error') {
+            finalStatus = 'error';
+            break;
+          }
+          continue;
+        }
+
+        const result = await advanceSession(
+          session,
+          {
+            executeFlow: (flowId, inputData) => runtime.executeFlow(flowId, inputData ?? {}),
+            getState: () => runtime.getState(),
+            setState: (key, value) => runtime.setState(key, value),
+          },
+          cursor,
+          { mode: 'step' },
+        );
 
         stepResults.push({
           step,
           stepId: cursor.currentStepId,
-          status: probeResult.status,
-          stateChanges,
+          status: result.status,
+          stateChanges: diffState(stateBefore, runtime.getState()),
+          error: result.diagnostic ? { code: result.diagnostic.code, message: result.diagnostic.message } : undefined,
         });
 
-        cursor = probeResult.cursor;
+        cursor = result.cursor;
         completedSteps = step + 1;
+
+        if (result.status === 'ended') {
+          finalStatus = 'ended';
+          break;
+        }
+        if (result.status === 'error') {
+          finalStatus = 'error';
+          break;
+        }
       }
     }
 

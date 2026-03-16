@@ -29,4 +29,16 @@ export const SESSION_STEP_DEFAULTS: Record<string, SessionStepDefaults> = {
     label: '选择题',
     config: { flowRef: '', inputChannel: 'choice', stateKey: '', promptText: '', options: [], next: '' },
   },
+  DynamicChoice: {
+    label: '动态选择',
+    config: {
+      flowRef: '',
+      inputChannel: 'choice',
+      stateKey: '',
+      promptText: '',
+      options: [],
+      optionsFromState: undefined,
+      next: '',
+    },
+  },
 };

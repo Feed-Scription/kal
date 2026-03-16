@@ -107,8 +107,6 @@ export const Message: CustomNode = {
     additionalProperties: false,
   },
   defaultConfig: {
-    system: '',
-    user: '',
     format: 'xml',
   },
   async execute(inputs, config, context) {

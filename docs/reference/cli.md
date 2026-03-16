@@ -69,7 +69,7 @@ Run automated smoke tests on a project.
 | `[project-path]` | Path to KAL project directory | `.` |
 | `--steps N` | Number of steps to run | — |
 | `--input value` | Input values (repeatable) | — |
-| `--dry-run` | Validate without executing | — |
+| `--dry-run` | Preview session progression without executing flows or writing state | — |
 | `--format <json\|pretty>` | Output format | `pretty` |
 
 ### `kal config`

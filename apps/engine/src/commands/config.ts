@@ -137,7 +137,7 @@ export class ConfigCommand {
       throw new EngineHttpError('Usage: kal config set <key> <value>', 400, 'CONFIG_SET_ARGS');
     }
 
-    const [key, ...valueParts] = params;
+    const [key, ...valueParts] = params as [string, ...string[]];
     const value = valueParts.join(' ');
 
     // 检查是否是 API 密钥，如果是则需要加密存储
@@ -167,10 +167,11 @@ export class ConfigCommand {
       let current = updates;
 
       for (let i = 0; i < keyParts.length - 1; i++) {
-        current[keyParts[i]] = {};
-        current = current[keyParts[i]];
+        const part = keyParts[i]!;
+        current[part] = {};
+        current = current[part];
       }
-      current[keyParts[keyParts.length - 1]] = value;
+      current[keyParts[keyParts.length - 1]!] = value;
 
       this.configManager.updateUserConfig(updates);
       this.io.stdout(`✅ 配置已更新: ${key} = ${value}\n`);
@@ -184,7 +185,7 @@ export class ConfigCommand {
       throw new EngineHttpError('Usage: kal config get <key>', 400, 'CONFIG_GET_ARGS');
     }
 
-    const key = params[0];
+    const key = params[0]!;
     const config = this.configManager.loadConfig();
 
     // 解析嵌套键
@@ -268,7 +269,7 @@ export class ConfigCommand {
       throw new EngineHttpError('Usage: kal config set-key <provider> [key]', 400, 'CONFIG_SET_KEY_ARGS');
     }
 
-    const provider = params[0].toLowerCase();
+    const provider = params[0]!.toLowerCase();
     let apiKey = params[1];
 
     // 如果没有提供密钥，则提示用户输入
@@ -306,7 +307,7 @@ export class ConfigCommand {
       throw new EngineHttpError('Usage: kal config remove <key>', 400, 'CONFIG_REMOVE_ARGS');
     }
 
-    const key = params[0];
+    const key = params[0]!;
 
     // 检查是否是 API 密钥
     if (key.endsWith('.apiKey')) {
