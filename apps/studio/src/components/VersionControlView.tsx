@@ -1,70 +1,28 @@
 import { useMemo, useState } from "react";
-import { GitCompareArrows, History, RotateCcw, Save } from "lucide-react";
+import { GitBranch, GitCommit, GitCompareArrows, History, RotateCcw, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   useFlowResource,
+  useGitStatus,
   useResourceVersion,
   useStudioCommands,
   useStudioResources,
   useVersionControl,
 } from "@/kernel/hooks";
-import type { FlowDefinition, ProjectData, ResourceId, RestorableSnapshot } from "@/types/project";
+import { compareSnapshot } from "@/kernel/semantic-diff";
+import type { ResourceId } from "@/types/project";
 
 function formatDateTime(timestamp: number) {
   return new Date(timestamp).toLocaleString("zh-CN", { hour12: false });
-}
-
-type SemanticCompareSummary = {
-  addedFlows: string[];
-  removedFlows: string[];
-  changedFlows: Array<{
-    flowName: string;
-    beforeNodes: number;
-    afterNodes: number;
-    beforeEdges: number;
-    afterEdges: number;
-  }>;
-  sessionChanged: boolean;
-  beforeSessionSteps: number;
-  afterSessionSteps: number;
-};
-
-function sameFlow(left: FlowDefinition | undefined, right: FlowDefinition | undefined) {
-  return JSON.stringify(left ?? null) === JSON.stringify(right ?? null);
-}
-
-function compareSnapshot(snapshot: RestorableSnapshot, project: ProjectData): SemanticCompareSummary {
-  const beforeFlowNames = Object.keys(snapshot.flows);
-  const afterFlowNames = Object.keys(project.flows);
-  const addedFlows = afterFlowNames.filter((flowName) => !snapshot.flows[flowName]);
-  const removedFlows = beforeFlowNames.filter((flowName) => !project.flows[flowName]);
-  const changedFlows = beforeFlowNames
-    .filter((flowName) => project.flows[flowName] && !sameFlow(snapshot.flows[flowName], project.flows[flowName]))
-    .map((flowName) => ({
-      flowName,
-      beforeNodes: snapshot.flows[flowName]?.data.nodes.length ?? 0,
-      afterNodes: project.flows[flowName]?.data.nodes.length ?? 0,
-      beforeEdges: snapshot.flows[flowName]?.data.edges.length ?? 0,
-      afterEdges: project.flows[flowName]?.data.edges.length ?? 0,
-    }));
-  const sessionChanged = JSON.stringify(snapshot.session ?? null) !== JSON.stringify(project.session ?? null);
-
-  return {
-    addedFlows,
-    removedFlows,
-    changedFlows,
-    sessionChanged,
-    beforeSessionSteps: snapshot.session?.steps.length ?? 0,
-    afterSessionSteps: project.session?.steps.length ?? 0,
-  };
 }
 
 export function VersionControlView() {
   const { project, session } = useStudioResources();
   const { flowId: activeFlowId } = useFlowResource();
   const { resourceVersions, transactions, checkpoints } = useVersionControl();
-  const { createCheckpoint, restoreCheckpoint } = useStudioCommands();
+  const { createCheckpoint, restoreCheckpoint, refreshGitStatus } = useStudioCommands();
+  const gitState = useGitStatus();
   const [checkpointLabel, setCheckpointLabel] = useState("");
   const [restoringId, setRestoringId] = useState<string | null>(null);
   const [compareCheckpointId, setCompareCheckpointId] = useState<string | null>(null);
@@ -120,7 +78,98 @@ export function VersionControlView() {
 
   return (
     <div className="h-full w-full overflow-auto bg-background p-6">
-      <div className="mx-auto grid max-w-6xl gap-6 xl:grid-cols-[1.1fr_1.2fr_1.7fr]">
+      <div className="mx-auto max-w-6xl space-y-6">
+        {gitState.status?.available ? (
+          <section className="grid gap-6 xl:grid-cols-2">
+            <div className="space-y-4 rounded-2xl border bg-card p-5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <GitBranch className="size-4" />
+                  <div>
+                    <h2 className="text-lg font-semibold">Git Status</h2>
+                    <p className="text-sm text-muted-foreground">
+                      当前分支: <span className="font-mono text-foreground">{gitState.status.branch}</span>
+                    </p>
+                  </div>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => void refreshGitStatus()}>
+                  <RotateCcw className="size-4" />
+                  刷新
+                </Button>
+              </div>
+
+              {gitState.status.clean ? (
+                <div className="rounded-xl border border-dashed p-5 text-sm text-muted-foreground">
+                  工作区干净，没有未提交的变更。
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {gitState.status.staged.length > 0 ? (
+                    <div className="rounded-xl border p-4">
+                      <div className="mb-2 text-xs font-medium text-green-600">已暂存 ({gitState.status.staged.length})</div>
+                      {gitState.status.staged.map((file) => (
+                        <div key={file} className="font-mono text-xs text-muted-foreground">{file}</div>
+                      ))}
+                    </div>
+                  ) : null}
+                  {gitState.status.unstaged.length > 0 ? (
+                    <div className="rounded-xl border p-4">
+                      <div className="mb-2 text-xs font-medium text-yellow-600">未暂存 ({gitState.status.unstaged.length})</div>
+                      {gitState.status.unstaged.map((file) => (
+                        <div key={file} className="font-mono text-xs text-muted-foreground">{file}</div>
+                      ))}
+                    </div>
+                  ) : null}
+                  {gitState.status.untracked.length > 0 ? (
+                    <div className="rounded-xl border p-4">
+                      <div className="mb-2 text-xs font-medium text-red-600">未跟踪 ({gitState.status.untracked.length})</div>
+                      {gitState.status.untracked.map((file) => (
+                        <div key={file} className="font-mono text-xs text-muted-foreground">{file}</div>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-4 rounded-2xl border bg-card p-5">
+              <div className="flex items-center gap-2">
+                <GitCommit className="size-4" />
+                <div>
+                  <h2 className="text-lg font-semibold">最近提交</h2>
+                  <p className="text-sm text-muted-foreground">最近 {gitState.log?.commits.length ?? 0} 条 Git 提交记录。</p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                {(gitState.log?.commits ?? []).length === 0 ? (
+                  <div className="rounded-xl border border-dashed p-5 text-sm text-muted-foreground">
+                    没有提交记录。
+                  </div>
+                ) : (
+                  (gitState.log?.commits ?? []).map((commit) => (
+                    <div key={commit.hash} className="rounded-lg border px-4 py-3">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-sm font-medium">{commit.message}</div>
+                          <div className="text-xs text-muted-foreground">{commit.author}</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-mono text-xs text-muted-foreground">{commit.hash.slice(0, 7)}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {new Date(commit.date).toLocaleDateString("zh-CN")}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </section>
+        ) : null}
+
+        <div className="grid gap-6 xl:grid-cols-[1.1fr_1.2fr_1.7fr]">
         <section className="space-y-4 rounded-2xl border bg-card p-5">
           <div className="flex items-center gap-2">
             <History className="size-4" />
@@ -334,6 +383,7 @@ export function VersionControlView() {
             </div>
           )}
         </section>
+        </div>
       </div>
     </div>
   );

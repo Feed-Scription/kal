@@ -20,4 +20,17 @@ export default defineConfig([
       globals: globals.browser,
     },
   },
+  // 封印 studioStore：禁止 kernel/ 之外直接引用私有 store
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: ['src/kernel/**', 'src/store/**'],
+    rules: {
+      'no-restricted-imports': ['error', {
+        patterns: [{
+          group: ['@/store/studioStore', '../store/studioStore', '*/store/studioStore'],
+          message: 'studioStore 是 Kernel 私有实现，请通过 @/kernel 导出的 hooks 和 service 接口消费。',
+        }],
+      }],
+    },
+  },
 ])

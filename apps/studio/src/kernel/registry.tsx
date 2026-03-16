@@ -1,13 +1,21 @@
-import { Bug, CircleAlert, Database, History, LayoutDashboard, MessageSquareQuote, Route, Settings } from 'lucide-react';
+import { Bug, CircleAlert, ClipboardCheck, Database, History, LayoutDashboard, LayoutTemplate, MessageSquareMore, MessageSquareQuote, MonitorPlay, Package, Route, Settings, Users } from 'lucide-react';
+import { CollaboratorsPanel } from '@/components/CollaboratorsPanel';
+import { CommentsPanel } from '@/components/CommentsPanel';
+import { CommentsView } from '@/components/CommentsView';
 import Flow from '@/Flow';
 import SessionEditor from '@/SessionEditor';
 import { ConfigEditor } from '@/components/ConfigEditor';
 import { DebuggerSummaryView } from '@/components/DebuggerSummaryView';
 import { DebuggerView } from '@/components/DebuggerView';
 import { EventLogPanel } from '@/components/EventLogPanel';
+import { H5PreviewView } from '@/components/H5PreviewView';
+import { PackageManagerView } from '@/components/PackageManagerView';
 import { PromptPreviewView } from '@/components/PromptPreviewView';
 import { ProblemsPanel } from '@/components/ProblemsPanel';
 import { ProblemsView } from '@/components/ProblemsView';
+import { ReviewHistoryPanel } from '@/components/ReviewHistoryPanel';
+import { ReviewView } from '@/components/ReviewView';
+import { TemplateBrowserView } from '@/components/TemplateBrowserView';
 import { StateDiffPanel } from '@/components/StateDiffPanel';
 import { StateInspectorCard } from '@/components/StateInspectorCard';
 import { StateManager } from '@/components/StateManager';
@@ -470,6 +478,107 @@ const registry = createStudioRegistry([
     },
   },
   {
+    id: 'kal.h5-preview',
+    title: 'H5 Preview',
+    description: '官方工作流扩展，承载浏览器内的项目/active run 预览。',
+    kind: 'official-workflow',
+    host: 'browser',
+    activationEvents: ['onView:kal.h5-preview', 'onEvent:run.updated'],
+    capabilities: [
+      { capability: 'project.read' },
+      { capability: 'trace.read', required: false, restrictedMode: 'degrade' },
+    ],
+    contributes: {
+      views: [
+        {
+          id: 'kal.h5-preview',
+          extensionId: 'kal.h5-preview',
+          title: 'H5 预览',
+          shortTitle: 'Preview',
+          description: '查看基于当前项目与 active run 生成的浏览器预览。',
+          icon: MonitorPlay,
+          component: H5PreviewView,
+        },
+      ],
+    },
+  },
+  {
+    id: 'kal.comments',
+    title: 'Comments',
+    description: '官方工作流扩展，承载异步评论线程与 review coordination。',
+    kind: 'official-workflow',
+    host: 'browser',
+    activationEvents: ['onView:kal.comments', 'onEvent:review.changed'],
+    capabilities: [
+      { capability: 'project.read' },
+      { capability: 'comment.write', required: false, restrictedMode: 'degrade' },
+    ],
+    contributes: {
+      views: [
+        {
+          id: 'kal.comments',
+          extensionId: 'kal.comments',
+          title: '评论',
+          shortTitle: 'Comments',
+          description: '查看 proposal/resource/run 上的评论线程。',
+          icon: MessageSquareMore,
+          component: CommentsView,
+        },
+      ],
+      panels: [
+        {
+          id: 'kal.comments.panel',
+          extensionId: 'kal.comments',
+          title: 'Comments Panel',
+          description: '底部 panel slot 中的评论线程摘要。',
+          component: CommentsPanel,
+          slot: 'down',
+          presets: ['review', 'history'],
+          order: 24,
+        },
+      ],
+    },
+  },
+  {
+    id: 'kal.review',
+    title: 'Review',
+    description: '官方工作流扩展，承载 proposal bundle、验证计划与接受/回滚流程。',
+    kind: 'official-workflow',
+    host: 'browser',
+    activationEvents: ['onView:kal.review', 'onEvent:review.changed'],
+    capabilities: [
+      { capability: 'project.read' },
+      { capability: 'project.write', required: false, restrictedMode: 'degrade' },
+      { capability: 'trace.read', required: false, restrictedMode: 'degrade' },
+      { capability: 'review.accept', required: false, restrictedMode: 'degrade' },
+    ],
+    contributes: {
+      views: [
+        {
+          id: 'kal.review',
+          extensionId: 'kal.review',
+          title: '审查',
+          shortTitle: 'Review',
+          description: '查看 proposal bundle、验证结果与接受/回滚操作。',
+          icon: ClipboardCheck,
+          component: ReviewView,
+        },
+      ],
+      panels: [
+        {
+          id: 'kal.review.history-panel',
+          extensionId: 'kal.review',
+          title: 'Review History',
+          description: '底部 panel slot 中的 proposal history。',
+          component: ReviewHistoryPanel,
+          slot: 'down',
+          presets: ['review', 'history'],
+          order: 25,
+        },
+      ],
+    },
+  },
+  {
     id: 'kal.version-control',
     title: 'Version Control',
     description: '官方工作流扩展，承载资源版本、事务历史、checkpoint 与恢复入口。',
@@ -532,6 +641,82 @@ const registry = createStudioRegistry([
       ],
     },
   },
+  {
+    id: 'kal.package-manager',
+    title: 'Package Manager',
+    description: '官方工作流扩展，管理项目本地安装的包、模板和扩展。',
+    kind: 'official-workflow',
+    host: 'browser',
+    activationEvents: ['onView:kal.package-manager'],
+    capabilities: [
+      { capability: 'project.read' },
+      { capability: 'package.install', required: false, restrictedMode: 'degrade' },
+    ],
+    contributes: {
+      views: [
+        {
+          id: 'kal.package-manager',
+          extensionId: 'kal.package-manager',
+          title: '包管理',
+          shortTitle: 'Packages',
+          description: '查看和管理项目本地安装的包。',
+          icon: Package,
+          component: PackageManagerView,
+          presets: ['package'],
+        },
+      ],
+    },
+  },
+  {
+    id: 'kal.template-browser',
+    title: 'Template Browser',
+    description: '官方工作流扩展，浏览和预览已安装包中的模板。',
+    kind: 'official-workflow',
+    host: 'browser',
+    activationEvents: ['onView:kal.template-browser'],
+    capabilities: [
+      { capability: 'project.read' },
+    ],
+    contributes: {
+      views: [
+        {
+          id: 'kal.template-browser',
+          extensionId: 'kal.template-browser',
+          title: '模板浏览',
+          shortTitle: 'Templates',
+          description: '浏览项目本地和已安装包中的模板。',
+          icon: LayoutTemplate,
+          component: TemplateBrowserView,
+          presets: ['package'],
+        },
+      ],
+    },
+  },
+  {
+    id: 'kal.collaborators',
+    title: 'Collaborators',
+    description: '官方工作流扩展，展示当前项目的在线协作者与活动状态。',
+    kind: 'official-workflow',
+    host: 'browser',
+    activationEvents: ['onView:kal.debugger', 'onView:kal.review'],
+    capabilities: [
+      { capability: 'project.read', required: false, restrictedMode: 'degrade' },
+    ],
+    contributes: {
+      panels: [
+        {
+          id: 'kal.collaborators.panel',
+          extensionId: 'kal.collaborators',
+          title: 'Collaborators',
+          description: '底部 panel slot 中的协作者在线状态。',
+          component: CollaboratorsPanel,
+          slot: 'down',
+          presets: ['review', 'debug'],
+          order: 35,
+        },
+      ],
+    },
+  },
 ]);
 
 export const OFFICIAL_STUDIO_EXTENSIONS = registry.extensions;
@@ -576,4 +761,92 @@ export function getStudioDebugViews() {
 
 export function getStudioCapabilityCatalog() {
   return CAPABILITY_CATALOG;
+}
+
+// ── Dynamic Third-party Extension Registration ──
+
+const ALLOWED_THIRD_PARTY_KINDS: Set<string> = new Set([
+  'theme-pack',
+  'node-pack',
+  'template-pack',
+]);
+
+const dynamicExtensions: StudioRegisteredExtensionDescriptor[] = [];
+const dynamicViews: StudioViewDescriptor[] = [];
+const dynamicPanels: StudioPanelDescriptor[] = [];
+
+export type DynamicExtensionInput = {
+  id: StudioExtensionId;
+  title: string;
+  description: string;
+  kind: string;
+  host?: StudioExtensionHost;
+  activationEvents?: StudioActivationEvent[];
+  capabilities?: StudioExtensionCapabilityRequest[];
+  contributes?: StudioExtensionContributions;
+};
+
+export type DynamicRegistrationResult =
+  | { ok: true; extensionId: StudioExtensionId }
+  | { ok: false; reason: string };
+
+/**
+ * 运行时注册第三方扩展。
+ *
+ * 当前仅允许 theme-pack / node-pack / template-pack 三种低风险类型。
+ * studio-extension 等高风险类型需要后续逐步开放。
+ */
+export function registerDynamicExtension(input: DynamicExtensionInput): DynamicRegistrationResult {
+  if (!ALLOWED_THIRD_PARTY_KINDS.has(input.kind)) {
+    return { ok: false, reason: `当前不允许动态注册 ${input.kind} 类型的扩展` };
+  }
+
+  const existing = [...OFFICIAL_STUDIO_EXTENSIONS, ...dynamicExtensions].find((e) => e.id === input.id);
+  if (existing) {
+    return { ok: false, reason: `扩展 ${input.id} 已注册` };
+  }
+
+  const descriptor: StudioExtensionDescriptor = {
+    id: input.id,
+    title: input.title,
+    description: input.description,
+    kind: 'third-party',
+    host: input.host ?? 'browser',
+    activationEvents: input.activationEvents ?? [],
+    capabilities: input.capabilities ?? [],
+    contributes: input.contributes ?? {},
+  };
+
+  const resolved: StudioRegisteredExtensionDescriptor = {
+    ...descriptor,
+    capabilities: resolveCapabilityRequests(descriptor.capabilities),
+    contributes: normalizeContributions(descriptor.id, descriptor.contributes),
+  };
+
+  dynamicExtensions.push(resolved);
+
+  for (const view of resolved.contributes.views ?? []) {
+    dynamicViews.push(view);
+  }
+  for (const panel of resolved.contributes.panels ?? []) {
+    dynamicPanels.push(panel);
+  }
+
+  return { ok: true, extensionId: input.id };
+}
+
+export function getDynamicExtensions(): StudioRegisteredExtensionDescriptor[] {
+  return [...dynamicExtensions];
+}
+
+export function getAllExtensions(): StudioRegisteredExtensionDescriptor[] {
+  return [...OFFICIAL_STUDIO_EXTENSIONS, ...dynamicExtensions];
+}
+
+export function getAllViews(): StudioViewDescriptor[] {
+  return [...STUDIO_VIEWS, ...dynamicViews];
+}
+
+export function getAllPanels(): StudioPanelDescriptor[] {
+  return sortByOrder([...STUDIO_PANELS, ...dynamicPanels]);
 }

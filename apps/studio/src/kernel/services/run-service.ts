@@ -1,10 +1,9 @@
 import { engineApi } from '@/api/engine-client';
 import type { RunStreamEvent } from '@/types/project';
-import { useStudioStore } from '@/store/studioStore';
+import type { RunService } from './types';
+import { getKernelEventRecorder } from './kernel-services';
 
-export interface RunService {
-  subscribe(runId: string, onEvent: (event: RunStreamEvent) => void): () => void;
-}
+export type { RunService };
 
 export const runService: RunService = {
   subscribe(runId, onEvent) {
@@ -17,7 +16,7 @@ export const runService: RunService = {
           ? event.type
           : 'run.updated';
 
-      useStudioStore.getState().recordKernelEvent({
+      getKernelEventRecorder()({
         type: eventType,
         message: `Run ${event.run.run_id} 收到 ${event.type} 事件`,
         runId: event.run.run_id,

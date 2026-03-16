@@ -8,7 +8,7 @@ function formatTime(timestamp: number) {
 }
 
 export function DebuggerSummaryView() {
-  const { runs } = useRunDebug();
+  const { breakpoints, runs } = useRunDebug();
   const { refreshRuns, selectRun, setActiveView } = useStudioCommands();
 
   useEffect(() => {
@@ -33,6 +33,7 @@ export function DebuggerSummaryView() {
       </div>
 
       <div className="space-y-2 text-sm">
+        <div className="text-xs text-muted-foreground">active breakpoints: {breakpoints.length}</div>
         {runs.length === 0 ? (
           <div className="text-muted-foreground">当前没有 active run。</div>
         ) : (

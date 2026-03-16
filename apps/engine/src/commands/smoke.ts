@@ -24,7 +24,7 @@ interface ParsedSmokeArgs {
   format: 'json' | 'pretty';
 }
 
-interface SmokeStepResult {
+export interface SmokeStepResult {
   step: number;
   stepId: string | null;
   status: string;
@@ -34,7 +34,7 @@ interface SmokeStepResult {
   error?: { code: string; message: string };
 }
 
-interface SmokeResult {
+export interface SmokeResult {
   project: string;
   totalSteps: number;
   completedSteps: number;
@@ -130,218 +130,11 @@ export async function runSmokeCommand(
 
   try {
     const runtime = await dependencies.createRuntime(projectRoot);
-
-    if (!runtime.hasSession()) {
-      dependencies.io.stderr('Error: Project has no session.json\n');
-      return 1;
-    }
-
-    const session = runtime.getSession()!;
-    let cursor: SessionCursor = createSessionCursor(session);
-    let inputIndex = 0;
-    const stepResults: SmokeStepResult[] = [];
-    let completedSteps = 0;
-    let finalStatus = 'running';
-    let dryRunState = runtime.getState();
-
-    for (let step = 0; step < parsed.steps; step++) {
-      const stateBefore = parsed.dryRun ? dryRunState : runtime.getState();
-      let userInput: string | undefined;
-      const inspection = inspectCurrentSessionStep(session, cursor, stateBefore);
-
-      if (inspection.status === 'error') {
-        stepResults.push({
-          step,
-          stepId: cursor.currentStepId,
-          status: 'error',
-          error: inspection.diagnostic ? {
-            code: inspection.diagnostic.code,
-            message: inspection.diagnostic.message,
-          } : undefined,
-        });
-        finalStatus = 'error';
-        completedSteps = step + 1;
-        break;
-      }
-
-      if (inspection.status === 'waiting_input') {
-        if (inputIndex < parsed.inputs.length) {
-          userInput = parsed.inputs[inputIndex++];
-        } else if (inspection.waitingFor?.kind === 'choice' && inspection.waitingFor.options?.length) {
-          // Auto-select first option
-          userInput = inspection.waitingFor.options[0]!.value;
-        } else {
-          // No more inputs available, record and stop
-          stepResults.push({
-            step,
-            stepId: cursor.currentStepId,
-            status: 'waiting_input',
-            waitingFor: inspection.waitingFor ? {
-              kind: inspection.waitingFor.kind,
-              promptText: inspection.waitingFor.promptText,
-              options: inspection.waitingFor.options,
-            } : undefined,
-          });
-          finalStatus = 'waiting_input';
-          completedSteps = step;
-          break;
-        }
-
-        if (parsed.dryRun) {
-          const previewResult = previewAdvanceSession(session, cursor, dryRunState, {
-            mode: 'step',
-            userInput,
-          });
-
-          stepResults.push({
-            step,
-            stepId: cursor.currentStepId,
-            status: previewResult.status === 'error' ? 'error' : 'dry_run_input',
-            waitingFor: inspection.waitingFor ? {
-              kind: inspection.waitingFor.kind,
-              promptText: inspection.waitingFor.promptText,
-              options: inspection.waitingFor.options,
-            } : undefined,
-            inputProvided: userInput,
-            error: previewResult.diagnostic ? {
-              code: previewResult.diagnostic.code,
-              message: previewResult.diagnostic.message,
-            } : undefined,
-          });
-
-          cursor = previewResult.cursor;
-          dryRunState = previewResult.stateAfter;
-          completedSteps = step + 1;
-
-          if (previewResult.status === 'ended') {
-            finalStatus = 'ended';
-            break;
-          }
-          if (previewResult.status === 'error') {
-            finalStatus = 'error';
-            break;
-          }
-          continue;
-        }
-
-        // Actually advance with input
-        const result = await advanceSession(
-          session,
-          {
-            executeFlow: (flowId, inputData) => runtime.executeFlow(flowId, inputData ?? {}),
-            getState: () => runtime.getState(),
-            setState: (key, value) => runtime.setState(key, value),
-          },
-          cursor,
-          { mode: 'step', userInput },
-        );
-
-        const stateAfter = runtime.getState();
-        const stateChanges = diffState(stateBefore, stateAfter);
-
-        stepResults.push({
-          step,
-          stepId: cursor.currentStepId,
-          status: result.status,
-          inputProvided: userInput,
-          stateChanges,
-          error: result.diagnostic ? { code: result.diagnostic.code, message: result.diagnostic.message } : undefined,
-        });
-
-        cursor = result.cursor;
-        completedSteps = step + 1;
-
-        if (result.status === 'ended') {
-          finalStatus = 'ended';
-          break;
-        }
-        if (result.status === 'error') {
-          finalStatus = 'error';
-          break;
-        }
-      } else {
-        if (parsed.dryRun) {
-          const previewResult = previewAdvanceSession(session, cursor, dryRunState, { mode: 'step' });
-
-          stepResults.push({
-            step,
-            stepId: cursor.currentStepId,
-            status: previewResult.status === 'ended' ? 'ended' : previewResult.status === 'error' ? 'error' : 'dry_run_step',
-            error: previewResult.diagnostic ? {
-              code: previewResult.diagnostic.code,
-              message: previewResult.diagnostic.message,
-            } : undefined,
-          });
-
-          cursor = previewResult.cursor;
-          dryRunState = previewResult.stateAfter;
-          completedSteps = step + 1;
-
-          if (previewResult.status === 'ended') {
-            finalStatus = 'ended';
-            break;
-          }
-          if (previewResult.status === 'error') {
-            finalStatus = 'error';
-            break;
-          }
-          continue;
-        }
-
-        const result = await advanceSession(
-          session,
-          {
-            executeFlow: (flowId, inputData) => runtime.executeFlow(flowId, inputData ?? {}),
-            getState: () => runtime.getState(),
-            setState: (key, value) => runtime.setState(key, value),
-          },
-          cursor,
-          { mode: 'step' },
-        );
-
-        stepResults.push({
-          step,
-          stepId: cursor.currentStepId,
-          status: result.status,
-          stateChanges: diffState(stateBefore, runtime.getState()),
-          error: result.diagnostic ? { code: result.diagnostic.code, message: result.diagnostic.message } : undefined,
-        });
-
-        cursor = result.cursor;
-        completedSteps = step + 1;
-
-        if (result.status === 'ended') {
-          finalStatus = 'ended';
-          break;
-        }
-        if (result.status === 'error') {
-          finalStatus = 'error';
-          break;
-        }
-      }
-    }
-
-    if (finalStatus === 'running') {
-      finalStatus = completedSteps >= parsed.steps ? 'max_steps_reached' : 'running';
-    }
-
-    const smokeResult: SmokeResult = {
-      project: projectRoot,
-      totalSteps: parsed.steps,
-      completedSteps,
-      finalStatus,
+    const smokeResult = await collectSmokePayload(runtime, {
+      steps: parsed.steps,
+      inputs: parsed.inputs,
       dryRun: parsed.dryRun,
-      steps: stepResults,
-    };
-
-    if (!parsed.dryRun) {
-      const finalState = runtime.getState();
-      const simplifiedState: Record<string, any> = {};
-      for (const [key, sv] of Object.entries(finalState)) {
-        simplifiedState[key] = sv.value;
-      }
-      smokeResult.finalState = simplifiedState;
-    }
+    });
 
     if (parsed.format === 'pretty') {
       writePretty(dependencies.io, smokeResult);
@@ -349,11 +142,248 @@ export async function runSmokeCommand(
       dependencies.io.stdout(JSON.stringify(smokeResult, null, 2) + '\n');
     }
 
-    return finalStatus === 'error' ? 1 : 0;
+    return smokeResult.finalStatus === 'error' ? 1 : 0;
   } catch (error) {
     dependencies.io.stderr(`Error: ${(error as Error).message}\n`);
     return 1;
   }
+}
+
+export async function collectSmokePayload(
+  runtime: EngineRuntime,
+  options: {
+    steps?: number;
+    inputs?: string[];
+    dryRun?: boolean;
+  } = {},
+): Promise<SmokeResult> {
+  if (!runtime.hasSession()) {
+    throw new Error('Project has no session.json');
+  }
+
+  const session = runtime.getSession()!;
+  const totalSteps = options.steps ?? 10;
+  const inputs = [...(options.inputs ?? [])];
+  const dryRun = Boolean(options.dryRun);
+  let cursor: SessionCursor = createSessionCursor(session);
+  let inputIndex = 0;
+  const stepResults: SmokeStepResult[] = [];
+  let completedSteps = 0;
+  let finalStatus = 'running';
+  let dryRunState = runtime.getState();
+
+  for (let step = 0; step < totalSteps; step++) {
+    const stateBefore = dryRun ? dryRunState : runtime.getState();
+    let userInput: string | undefined;
+    const inspection = inspectCurrentSessionStep(session, cursor, stateBefore);
+
+    if (inspection.status === 'error') {
+      stepResults.push({
+        step,
+        stepId: cursor.currentStepId,
+        status: 'error',
+        error: inspection.diagnostic
+          ? {
+              code: inspection.diagnostic.code,
+              message: inspection.diagnostic.message,
+            }
+          : undefined,
+      });
+      finalStatus = 'error';
+      completedSteps = step + 1;
+      break;
+    }
+
+    if (inspection.status === 'waiting_input') {
+      if (inputIndex < inputs.length) {
+        userInput = inputs[inputIndex++];
+      } else if (inspection.waitingFor?.kind === 'choice' && inspection.waitingFor.options?.length) {
+        userInput = inspection.waitingFor.options[0]!.value;
+      } else {
+        stepResults.push({
+          step,
+          stepId: cursor.currentStepId,
+          status: 'waiting_input',
+          waitingFor: inspection.waitingFor
+            ? {
+                kind: inspection.waitingFor.kind,
+                promptText: inspection.waitingFor.promptText,
+                options: inspection.waitingFor.options,
+              }
+            : undefined,
+        });
+        finalStatus = 'waiting_input';
+        completedSteps = step;
+        break;
+      }
+
+      if (dryRun) {
+        const previewResult = previewAdvanceSession(session, cursor, dryRunState, {
+          mode: 'step',
+          userInput,
+        });
+
+        stepResults.push({
+          step,
+          stepId: cursor.currentStepId,
+          status: previewResult.status === 'error' ? 'error' : 'dry_run_input',
+          waitingFor: inspection.waitingFor
+            ? {
+                kind: inspection.waitingFor.kind,
+                promptText: inspection.waitingFor.promptText,
+                options: inspection.waitingFor.options,
+              }
+            : undefined,
+          inputProvided: userInput,
+          error: previewResult.diagnostic
+            ? {
+                code: previewResult.diagnostic.code,
+                message: previewResult.diagnostic.message,
+              }
+            : undefined,
+        });
+
+        cursor = previewResult.cursor;
+        dryRunState = previewResult.stateAfter;
+        completedSteps = step + 1;
+
+        if (previewResult.status === 'ended') {
+          finalStatus = 'ended';
+          break;
+        }
+        if (previewResult.status === 'error') {
+          finalStatus = 'error';
+          break;
+        }
+        continue;
+      }
+
+      const result = await advanceSession(
+        session,
+        {
+          executeFlow: (flowId, inputData) => runtime.executeFlow(flowId, inputData ?? {}),
+          getState: () => runtime.getState(),
+          setState: (key, value) => runtime.setState(key, value),
+        },
+        cursor,
+        { mode: 'step', userInput },
+      );
+
+      const stateAfter = runtime.getState();
+      const stateChanges = diffState(stateBefore, stateAfter);
+
+      stepResults.push({
+        step,
+        stepId: cursor.currentStepId,
+        status: result.status,
+        inputProvided: userInput,
+        stateChanges,
+        error: result.diagnostic ? { code: result.diagnostic.code, message: result.diagnostic.message } : undefined,
+      });
+
+      cursor = result.cursor;
+      completedSteps = step + 1;
+
+      if (result.status === 'ended') {
+        finalStatus = 'ended';
+        break;
+      }
+      if (result.status === 'error') {
+        finalStatus = 'error';
+        break;
+      }
+    } else {
+      if (dryRun) {
+        const previewResult = previewAdvanceSession(session, cursor, dryRunState, { mode: 'step' });
+
+        stepResults.push({
+          step,
+          stepId: cursor.currentStepId,
+          status:
+            previewResult.status === 'ended'
+              ? 'ended'
+              : previewResult.status === 'error'
+                ? 'error'
+                : 'dry_run_step',
+          error: previewResult.diagnostic
+            ? {
+                code: previewResult.diagnostic.code,
+                message: previewResult.diagnostic.message,
+              }
+            : undefined,
+        });
+
+        cursor = previewResult.cursor;
+        dryRunState = previewResult.stateAfter;
+        completedSteps = step + 1;
+
+        if (previewResult.status === 'ended') {
+          finalStatus = 'ended';
+          break;
+        }
+        if (previewResult.status === 'error') {
+          finalStatus = 'error';
+          break;
+        }
+        continue;
+      }
+
+      const result = await advanceSession(
+        session,
+        {
+          executeFlow: (flowId, inputData) => runtime.executeFlow(flowId, inputData ?? {}),
+          getState: () => runtime.getState(),
+          setState: (key, value) => runtime.setState(key, value),
+        },
+        cursor,
+        { mode: 'step' },
+      );
+
+      stepResults.push({
+        step,
+        stepId: cursor.currentStepId,
+        status: result.status,
+        stateChanges: diffState(stateBefore, runtime.getState()),
+        error: result.diagnostic ? { code: result.diagnostic.code, message: result.diagnostic.message } : undefined,
+      });
+
+      cursor = result.cursor;
+      completedSteps = step + 1;
+
+      if (result.status === 'ended') {
+        finalStatus = 'ended';
+        break;
+      }
+      if (result.status === 'error') {
+        finalStatus = 'error';
+        break;
+      }
+    }
+  }
+
+  if (finalStatus === 'running') {
+    finalStatus = completedSteps >= totalSteps ? 'max_steps_reached' : 'running';
+  }
+
+  const smokeResult: SmokeResult = {
+    project: runtime.getProject().projectRoot,
+    totalSteps,
+    completedSteps,
+    finalStatus,
+    dryRun,
+    steps: stepResults,
+  };
+
+  if (!dryRun) {
+    const finalState = runtime.getState();
+    const simplifiedState: Record<string, any> = {};
+    for (const [key, sv] of Object.entries(finalState)) {
+      simplifiedState[key] = sv.value;
+    }
+    smokeResult.finalState = simplifiedState;
+  }
+
+  return smokeResult;
 }
 
 function writePretty(io: EngineCliIO, result: SmokeResult): void {

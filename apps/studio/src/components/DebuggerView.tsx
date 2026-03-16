@@ -9,8 +9,19 @@ function formatTime(timestamp: number) {
 }
 
 export function DebuggerView() {
-  const { runs, selectedRun, selectedRunId, selectedRunState, selectedTimeline, selectedStateDiff } = useRunDebug();
-  const { createRun, refreshRuns, selectRun } = useStudioCommands();
+  const {
+    breakpoints,
+    hasBreakpointAtStep,
+    runs,
+    selectedInputHistory,
+    selectedRun,
+    selectedRunId,
+    selectedRunState,
+    selectedStepId,
+    selectedTimeline,
+    selectedStateDiff,
+  } = useRunDebug();
+  const { advanceRun, createRun, refreshRuns, replayRun, selectRun, stepRun, toggleBreakpoint } = useStudioCommands();
   const [loading, setLoading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [error, setError] = useState("");
@@ -35,17 +46,41 @@ export function DebuggerView() {
     void refresh();
   }, []);
 
-  const startManagedRun = async () => {
+  const startManagedRun = async (mode?: "continue" | "step") => {
     setError("");
+    setLoading(true);
     try {
-      const created = await createRun(false);
+      const created = await createRun(false, mode);
       setDialogOpen(true);
       await selectRun(created.run_id);
       await refresh();
     } catch (err) {
       setError((err as Error).message || "创建 managed run 失败");
+    } finally {
+      setLoading(false);
     }
   };
+
+  const handleSelectedRunAction = async (action: () => Promise<void>) => {
+    setError("");
+    setLoading(true);
+    try {
+      await action();
+      await refresh();
+    } catch (err) {
+      setError((err as Error).message || "更新 run 失败");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const canAdvanceWithoutInput =
+    selectedRun !== null &&
+    !selectedRun.waiting_for &&
+    selectedRun.status !== "ended" &&
+    selectedRun.status !== "error";
+  const canReplay = Boolean(selectedRunId);
+  const selectedStepHasBreakpoint = hasBreakpointAtStep(selectedStepId);
 
   return (
     <>
@@ -67,9 +102,12 @@ export function DebuggerView() {
             </div>
 
             <div className="flex gap-2">
-              <Button onClick={() => void startManagedRun()}>
+              <Button onClick={() => void startManagedRun()} disabled={loading}>
                 <Play className="size-4" />
                 新建 Run
+              </Button>
+              <Button variant="outline" onClick={() => void startManagedRun("step")} disabled={loading}>
+                单步新建
               </Button>
               <Button variant="outline" onClick={() => setDialogOpen(true)}>
                 打开 Runtime 面板
@@ -118,11 +156,68 @@ export function DebuggerView() {
           </section>
 
           <section className="space-y-4 rounded-2xl border bg-card p-5">
-            <div className="flex items-center gap-2">
-              <Clock3 className="size-4" />
-              <div>
-                <h2 className="text-lg font-semibold">Run Snapshot</h2>
-                <p className="text-sm text-muted-foreground">当前选中 run 的等待状态、事件和 state summary。</p>
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-2">
+                <Clock3 className="size-4" />
+                <div>
+                  <h2 className="text-lg font-semibold">Run Snapshot</h2>
+                  <p className="text-sm text-muted-foreground">当前选中 run 的等待状态、事件、输入历史和 state summary。</p>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={!selectedStepId || loading}
+                  onClick={() => {
+                    if (!selectedStepId) return;
+                    toggleBreakpoint(selectedStepId);
+                  }}
+                >
+                  {selectedStepHasBreakpoint ? "移除当前断点" : "当前 Step 设断点"}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={!canAdvanceWithoutInput || loading}
+                  onClick={() => {
+                    if (!selectedRunId) return;
+                    void handleSelectedRunAction(async () => {
+                      await stepRun(selectedRunId);
+                      await selectRun(selectedRunId);
+                    });
+                  }}
+                >
+                  单步
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={!canAdvanceWithoutInput || loading}
+                  onClick={() => {
+                    if (!selectedRunId) return;
+                    void handleSelectedRunAction(async () => {
+                      await advanceRun(selectedRunId);
+                      await selectRun(selectedRunId);
+                    });
+                  }}
+                >
+                  继续
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={!canReplay || loading}
+                  onClick={() => {
+                    if (!selectedRunId) return;
+                    void handleSelectedRunAction(async () => {
+                      const replayed = await replayRun(selectedRunId);
+                      await selectRun(replayed.run_id);
+                    });
+                  }}
+                >
+                  从头重放
+                </Button>
               </div>
             </div>
 
@@ -171,12 +266,42 @@ export function DebuggerView() {
                   </div>
                 </div>
 
+                <div className="rounded-xl border p-4">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <div className="text-sm font-medium">Breakpoints</div>
+                    <div className="text-xs text-muted-foreground">{breakpoints.length} active</div>
+                  </div>
+                  {breakpoints.length === 0 ? (
+                    <div className="text-xs text-muted-foreground">当前还没有断点。可以对当前 selected step 直接加断点。</div>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {breakpoints.map((entry) => (
+                        <button
+                          key={entry.step_id}
+                          type="button"
+                          className={`rounded-full border px-3 py-1 text-xs ${
+                            selectedStepId === entry.step_id ? "border-primary bg-primary/10" : "hover:bg-muted/40"
+                          }`}
+                          onClick={() => toggleBreakpoint(entry.step_id)}
+                        >
+                          {entry.step_id} · hit {entry.hit_count}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 <div className="grid gap-4 xl:grid-cols-2">
                   <div className="rounded-xl border p-4">
                     <div className="mb-3 text-sm font-medium">Trace Timeline</div>
                     <div className="space-y-2">
                       {selectedTimeline.slice(0, 6).map((entry) => (
-                        <div key={entry.id} className="rounded-lg border px-3 py-2 text-xs">
+                        <div
+                          key={entry.id}
+                          className={`rounded-lg border px-3 py-2 text-xs ${
+                            entry.eventType === "run.breakpoint" ? "border-amber-400 bg-amber-50/60" : ""
+                          }`}
+                        >
                           <div className="flex items-center justify-between gap-3">
                             <div className="font-medium">{entry.title}</div>
                             <div className="text-muted-foreground">{formatTime(entry.timestamp)}</div>
@@ -212,6 +337,27 @@ export function DebuggerView() {
                       </div>
                     )}
                   </div>
+                </div>
+
+                <div className="rounded-xl border p-4">
+                  <div className="mb-3 text-sm font-medium">Input History</div>
+                  {selectedInputHistory.length === 0 ? (
+                    <div className="text-xs text-muted-foreground">当前 run 还没有记录任何交互输入。</div>
+                  ) : (
+                    <div className="space-y-2">
+                      {selectedInputHistory.map((entry, index) => (
+                        <div key={`${entry.step_id}:${entry.timestamp}:${index}`} className="rounded-lg border px-3 py-2 text-xs">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="font-medium">
+                              {entry.step_id} · step {entry.step_index}
+                            </div>
+                            <div className="text-muted-foreground">{formatTime(entry.timestamp)}</div>
+                          </div>
+                          <div className="mt-1 break-all text-muted-foreground">{entry.input}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             )}

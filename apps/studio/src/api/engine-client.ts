@@ -6,12 +6,18 @@ import type {
   ExecutionResult,
   NodeManifest,
   DiagnosticsPayload,
+  EngineEvent,
+  EngineEventName,
+  GitLogResult,
+  GitStatusResult,
+  InstalledPackageRecord,
   ProjectState,
   RunStateView,
   RunStreamEvent,
   RunSummary,
   RunView,
   SessionDefinition,
+  SmokeResult,
 } from '@/types/project';
 
 const BASE_URL = import.meta.env.VITE_ENGINE_URL || '';
@@ -19,6 +25,7 @@ const BASE_URL = import.meta.env.VITE_ENGINE_URL || '';
 type EngineSuccessResponse<T> = { success: true; data: T };
 type EngineErrorResponse = { success: false; error: { code: string; message: string } };
 type EngineResponse<T> = EngineSuccessResponse<T> | EngineErrorResponse;
+export type RunAdvanceMode = 'continue' | 'step';
 
 function buildApiUrl(path: string): string {
   if (!BASE_URL) {
@@ -30,6 +37,10 @@ function buildApiUrl(path: string): string {
   } catch {
     return `${BASE_URL}${path}`;
   }
+}
+
+export function getEngineAssetUrl(path: string): string {
+  return buildApiUrl(path);
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -111,6 +122,14 @@ export const engineApi = {
     return request<DiagnosticsPayload>('/api/diagnostics');
   },
 
+  async runSmoke(options: { steps?: number; inputs?: string[]; dryRun?: boolean } = {}): Promise<SmokeResult> {
+    return request<SmokeResult>('/api/tools/smoke', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(options),
+    });
+  },
+
   async getSession(): Promise<SessionDefinition | null> {
     const data = await request<{ session: SessionDefinition | null }>('/api/session');
     return data.session;
@@ -128,11 +147,14 @@ export const engineApi = {
     await request('/api/session', { method: 'DELETE' });
   },
 
-  async createRun(forceNew = false): Promise<RunView> {
+  async createRun(forceNew = false, mode?: RunAdvanceMode): Promise<RunView> {
     const data = await request<{ run: RunView }>('/api/runs', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(forceNew ? { forceNew: true } : {}),
+      body: JSON.stringify({
+        ...(forceNew ? { forceNew: true } : {}),
+        ...(mode ? { mode } : {}),
+      }),
     });
     return data.run;
   },
@@ -152,11 +174,14 @@ export const engineApi = {
     return data.run;
   },
 
-  async advanceRun(runId: string, input?: string): Promise<RunView> {
+  async advanceRun(runId: string, input?: string, mode?: RunAdvanceMode): Promise<RunView> {
     const data = await request<{ run: RunView }>(`/api/runs/${encodeURIComponent(runId)}/advance`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(input === undefined ? {} : { input }),
+      body: JSON.stringify({
+        ...(input === undefined ? {} : { input }),
+        ...(mode ? { mode } : {}),
+      }),
     });
     return data.run;
   },
@@ -191,5 +216,54 @@ export const engineApi = {
     return () => {
       source.close();
     };
+  },
+
+  subscribeEvents(onEvent: (event: EngineEvent) => void): () => void {
+    const source = new EventSource(buildApiUrl('/api/events'));
+    const eventTypes: EngineEventName[] = [
+      'project.reloaded',
+      'resource.changed',
+      'diagnostics.updated',
+      'run.created',
+      'run.updated',
+      'run.ended',
+      'run.cancelled',
+    ];
+
+    for (const eventType of eventTypes) {
+      source.addEventListener(eventType, (event) => {
+        const payload = JSON.parse((event as MessageEvent<string>).data) as EngineEvent;
+        onEvent(payload);
+      });
+    }
+
+    source.onerror = () => {
+      // EventSource will retry automatically.
+    };
+
+    return () => {
+      source.close();
+    };
+  },
+
+  async getGitStatus(): Promise<GitStatusResult> {
+    return request<GitStatusResult>('/api/git/status');
+  },
+
+  async getGitLog(limit = 20): Promise<GitLogResult> {
+    return request<GitLogResult>(`/api/git/log?limit=${limit}`);
+  },
+
+  // ── Package API ──
+
+  async listPackages(): Promise<InstalledPackageRecord[]> {
+    const data = await request<Array<{ manifest: InstalledPackageRecord['manifest']; installPath: string; installedAt: number }>>('/api/packages');
+    return data.map((pkg) => ({
+      manifest: pkg.manifest,
+      installPath: pkg.installPath,
+      installedAt: pkg.installedAt,
+      trustLevel: 'unverified' as const,
+      enabled: true,
+    }));
   },
 };

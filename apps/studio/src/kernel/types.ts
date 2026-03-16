@@ -157,12 +157,14 @@ export type StudioKernelEventName =
   | 'resource.changed'
   | 'diagnostics.updated'
   | 'history.updated'
+  | 'review.changed'
   | 'checkpoint.created'
   | 'checkpoint.restored'
   | 'run.created'
   | 'run.updated'
   | 'run.ended'
   | 'run.cancelled'
+  | 'run.breakpoint.hit'
   | 'capability.updated'
   | 'extension.activated'
   | 'extension.error'
@@ -206,4 +208,90 @@ export interface StudioCommandDescriptor {
   shortcut?: string;
   when?: (context: StudioCommandContext) => boolean;
   run: () => void | Promise<void>;
+}
+
+// ── Third-party Extension System ──
+
+export type ExtensionTrustLevel = 'official' | 'team' | 'third-party' | 'unverified';
+
+export type ExtensionSignatureStatus = 'valid' | 'invalid' | 'missing' | 'expired';
+
+export interface ExtensionHealthRecord {
+  extensionId: StudioExtensionId;
+  crashCount: number;
+  lastCrashAt?: number;
+  lastCrashError?: string;
+  recoveryAttempts: number;
+  healthy: boolean;
+  disabledBySystem: boolean;
+  disableReason?: string;
+}
+
+export type ThirdPartyContributionKind =
+  | 'nodes'
+  | 'views'
+  | 'panels'
+  | 'inspectors'
+  | 'debugViews'
+  | 'commands'
+  | 'templates'
+  | 'starters'
+  | 'themes'
+  | 'exporters'
+  | 'shareTargets'
+  | 'lints'
+  | 'codeActions';
+
+export interface ThirdPartyExtensionManifest {
+  id: StudioExtensionId;
+  title: string;
+  description: string;
+  version: string;
+  author?: string;
+  license?: string;
+  repository?: string;
+  host: StudioExtensionHost;
+  activationEvents: StudioActivationEvent[];
+  capabilities: StudioExtensionCapabilityRequest[];
+  contributes: StudioExtensionContributions;
+  trustLevel: ExtensionTrustLevel;
+  signature?: {
+    status: ExtensionSignatureStatus;
+    signer?: string;
+    signedAt?: number;
+  };
+  sandbox?: {
+    maxMemoryMb?: number;
+    timeoutMs?: number;
+    allowedApis?: string[];
+  };
+}
+
+// ── Presence / Collaboration ──
+
+export type PresenceRole = 'owner' | 'editor' | 'reviewer' | 'viewer';
+
+export interface PresenceUser {
+  id: string;
+  name: string;
+  avatar?: string;
+  role: PresenceRole;
+  color: string;
+  connectedAt: number;
+  lastActiveAt: number;
+}
+
+export interface PresenceActivity {
+  userId: string;
+  resourceId?: string;
+  viewId?: StudioViewId;
+  cursorPosition?: { nodeId?: string; stepId?: string };
+  selection?: string[];
+  updatedAt: number;
+}
+
+export interface PresenceState {
+  users: PresenceUser[];
+  activities: PresenceActivity[];
+  selfId: string | null;
 }

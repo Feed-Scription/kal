@@ -302,6 +302,20 @@ export type RunStateSummary = {
   preview: Record<string, any>;
 };
 
+export type RunInputRecord = {
+  step_id: string;
+  step_index: number;
+  input: string;
+  timestamp: number;
+};
+
+export type RunBreakpointRecord = {
+  step_id: string;
+  created_at: number;
+  hit_count: number;
+  last_hit_at?: number;
+};
+
 export type RunSummary = {
   run_id: string;
   status: 'paused' | 'waiting_input' | 'ended' | 'error';
@@ -318,6 +332,7 @@ export type RunView = RunSummary & {
   };
   state_summary: RunStateSummary;
   recent_events: RunEvent[];
+  input_history: RunInputRecord[];
 };
 
 export type RunStateView = RunView & {
@@ -340,8 +355,8 @@ export type TraceTimelineEntry = {
   id: string;
   run_id: string;
   timestamp: number;
-  source: 'snapshot' | 'stream';
-  eventType: RunStreamEventName | RunEvent['type'] | 'run.state';
+  source: 'snapshot' | 'stream' | 'annotation';
+  eventType: RunStreamEventName | RunEvent['type'] | 'run.state' | 'run.input' | 'run.breakpoint';
   title: string;
   detail?: string;
   status: RunView['status'];
@@ -361,9 +376,31 @@ export type RunTraceRecord = {
   run: RunView;
   state?: RunStateView;
   timeline: TraceTimelineEntry[];
+  annotations: TraceTimelineEntry[];
   stateDiff: StateDiffEntry[];
   updatedAt: number;
   subscribed: boolean;
+  resourceVersion?: number;
+};
+
+export type SmokeStepResult = {
+  step: number;
+  stepId: string | null;
+  status: string;
+  waitingFor?: { kind: string; promptText?: string; options?: Array<{ label: string; value: string }> };
+  inputProvided?: string;
+  stateChanges?: Record<string, { before: any; after: any }>;
+  error?: { code: string; message: string };
+};
+
+export type SmokeResult = {
+  project: string;
+  totalSteps: number;
+  completedSteps: number;
+  finalStatus: string;
+  dryRun: boolean;
+  steps: SmokeStepResult[];
+  finalState?: Record<string, any>;
 };
 
 export type NodeManifest = {
@@ -414,4 +451,180 @@ export type PromptPreviewEntry = {
   subtitle: string;
   promptText: string;
   bindings: PromptPreviewBinding[];
+};
+
+export type ReviewValidationRecord = {
+  lintStatus: 'idle' | 'running' | 'completed' | 'failed';
+  smokeStatus: 'idle' | 'running' | 'completed' | 'failed';
+  diagnostics?: DiagnosticsPayload | null;
+  smoke?: SmokeResult | null;
+  lastValidatedAt?: number;
+  error?: string;
+};
+
+export type ReviewProposalStatus = 'draft' | 'ready' | 'accepted' | 'rolled-back';
+
+export type ReviewProposalRecord = {
+  id: string;
+  title: string;
+  intent: string;
+  status: ReviewProposalStatus;
+  createdAt: number;
+  origin: TransactionOrigin;
+  baseCheckpointId?: string;
+  baseResourceVersion?: number;
+  touchedResources: ResourceId[];
+  semanticSummary: {
+    addedFlows: string[];
+    removedFlows: string[];
+    changedFlows: Array<{
+      flowName: string;
+      beforeNodes: number;
+      afterNodes: number;
+      beforeEdges: number;
+      afterEdges: number;
+    }>;
+    sessionChanged: boolean;
+    beforeSessionSteps: number;
+    afterSessionSteps: number;
+  };
+  expectedDiagnostics: {
+    totalIssues: number;
+    errors: number;
+    warnings: number;
+  };
+  recommendedValidations: string[];
+  riskNotes: string[];
+  relatedRunId?: string;
+  relatedStateKeys: string[];
+  validation: ReviewValidationRecord;
+};
+
+export type CommentAnchor =
+  | { kind: 'proposal'; proposalId: string }
+  | { kind: 'resource'; resourceId: string }
+  | { kind: 'run'; runId: string };
+
+export type CommentRecord = {
+  id: string;
+  author: string;
+  body: string;
+  createdAt: number;
+};
+
+export type CommentThreadStatus = 'open' | 'resolved';
+
+export type CommentThreadRecord = {
+  id: string;
+  title: string;
+  anchor: CommentAnchor;
+  status: CommentThreadStatus;
+  createdAt: number;
+  updatedAt: number;
+  comments: CommentRecord[];
+};
+
+// ── Engine Event Stream ──
+
+export type EngineEventName =
+  | 'project.reloaded'
+  | 'resource.changed'
+  | 'diagnostics.updated'
+  | 'run.created'
+  | 'run.updated'
+  | 'run.ended'
+  | 'run.cancelled';
+
+export type EngineEvent = {
+  type: EngineEventName;
+  timestamp: number;
+  resourceId?: string;
+  flowId?: string;
+  sessionId?: string;
+  runId?: string;
+  message?: string;
+};
+
+// ── Git ──
+
+export type GitStatusResult = {
+  available: boolean;
+  branch: string;
+  clean: boolean;
+  staged: string[];
+  unstaged: string[];
+  untracked: string[];
+};
+
+export type GitCommitEntry = {
+  hash: string;
+  message: string;
+  author: string;
+  date: string;
+};
+
+export type GitLogResult = {
+  available: boolean;
+  commits: GitCommitEntry[];
+};
+
+// ── Package Manifest ──
+
+export type PackageKind =
+  | 'node-pack'
+  | 'studio-extension'
+  | 'template-pack'
+  | 'starter-pack'
+  | 'theme-pack';
+
+export type PackageTrustLevel = 'official' | 'team' | 'third-party' | 'unverified';
+
+export type PackageContributions = {
+  nodes?: NodeManifest[];
+  views?: Array<{ id: string; title: string; icon?: string }>;
+  panels?: Array<{ id: string; title: string; slot?: string }>;
+  commands?: Array<{ id: string; title: string }>;
+  templates?: TemplateEntry[];
+  themes?: Array<{ id: string; name: string }>;
+};
+
+export type TemplateEntry = {
+  id: string;
+  name: string;
+  description?: string;
+  category?: string;
+  tags?: string[];
+  flows?: string[];
+  sessionRef?: string;
+  stateKeys?: string[];
+  previewImage?: string;
+};
+
+export type PackageManifest = {
+  id: string;
+  kind: PackageKind;
+  version: string;
+  name: string;
+  description?: string;
+  author?: string;
+  license?: string;
+  repository?: string;
+  capabilities?: string[];
+  host?: 'browser' | 'workspace' | 'service';
+  activationEvents?: string[];
+  contributes?: PackageContributions;
+  dependencies?: Record<string, string>;
+  main?: string;
+  runtime?: string;
+  studio?: string;
+};
+
+export type InstalledPackageRecord = {
+  manifest: PackageManifest;
+  installPath: string;
+  installedAt: number;
+  trustLevel: PackageTrustLevel;
+  enabled: boolean;
+  signature?: string;
+  provenance?: string;
 };
