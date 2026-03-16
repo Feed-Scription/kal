@@ -31,7 +31,13 @@ import { SessionRunDialog } from './components/SessionRunDialog';
 import { useProjectStore } from '@/store/projectStore';
 import { layoutDag } from '@/utils/graph-layout';
 import { SESSION_STEP_DEFAULTS } from './session-nodes/defaults';
-import type { SessionDefinition, SessionStep, BranchStep, ChoiceStep } from '@/types/project';
+import type {
+  SessionDefinition,
+  SessionStep,
+  BranchStep,
+  ChoiceStep,
+  DynamicChoiceStep,
+} from '@/types/project';
 
 const sessionNodeTypes = {
   RunFlow: RunFlowStepNode,
@@ -39,6 +45,7 @@ const sessionNodeTypes = {
   Branch: BranchStepNode,
   End: EndStepNode,
   Choice: ChoiceStepNode,
+  DynamicChoice: ChoiceStepNode,
 };
 
 const fitViewOptions: FitViewOptions = { padding: 100 };
@@ -54,7 +61,7 @@ function sessionToReactFlow(session: SessionDefinition): { nodes: Node[]; edges:
   // 先构建边
   const edges: Edge[] = [];
   for (const step of session.steps) {
-    if (step.type === 'RunFlow' || step.type === 'Prompt' || step.type === 'Choice') {
+    if (step.type === 'RunFlow' || step.type === 'Prompt' || step.type === 'Choice' || step.type === 'DynamicChoice') {
       if (step.next) {
         edges.push({
           id: `e-${step.id}-next-${step.next}`,
@@ -149,7 +156,7 @@ function stepToConfig(step: SessionStep): Record<string, unknown> {
         next: step.next,
       };
     case 'Branch':
-      return { conditions: step.conditions, default: step.default };
+      return { conditions: step.conditions, default: step.default, defaultSetState: step.defaultSetState };
     case 'End':
       return { message: step.message || '' };
     case 'Choice':
@@ -159,6 +166,16 @@ function stepToConfig(step: SessionStep): Record<string, unknown> {
         flowRef: (step as ChoiceStep).flowRef || '',
         inputChannel: (step as ChoiceStep).inputChannel || 'choice',
         stateKey: (step as ChoiceStep).stateKey || '',
+        next: step.next,
+      };
+    case 'DynamicChoice':
+      return {
+        promptText: step.promptText || '',
+        options: (step as DynamicChoiceStep).options || [],
+        optionsFromState: (step as DynamicChoiceStep).optionsFromState,
+        flowRef: (step as DynamicChoiceStep).flowRef || '',
+        inputChannel: (step as DynamicChoiceStep).inputChannel || 'choice',
+        stateKey: (step as DynamicChoiceStep).stateKey || '',
         next: step.next,
       };
   }
@@ -200,10 +217,10 @@ function reactFlowToSession(
         };
       }
       case 'Branch': {
-        const conditions: { when: string; next: string }[] = (config.conditions || []).map(
-          (cond: { when: string }, i: number) => {
+        const conditions: BranchStep['conditions'] = (config.conditions || []).map(
+          (cond: { when: BranchStep['conditions'][number]['when']; setState?: Record<string, unknown> }, i: number) => {
             const condEdge = outEdges.find((e) => e.sourceHandle === `condition-${i}`);
-            return { when: cond.when, next: condEdge?.target || '' };
+            return { when: cond.when, next: condEdge?.target || '', setState: cond.setState };
           }
         );
         const defaultEdge = outEdges.find((e) => e.sourceHandle === 'default');
@@ -212,6 +229,7 @@ function reactFlowToSession(
           type: 'Branch',
           conditions,
           default: defaultEdge?.target || '',
+          defaultSetState: config.defaultSetState || undefined,
         };
       }
       case 'End':
@@ -227,6 +245,20 @@ function reactFlowToSession(
           type: 'Choice',
           promptText: config.promptText || '',
           options: config.options || [],
+          flowRef: config.flowRef || undefined,
+          inputChannel: config.flowRef ? (config.inputChannel || 'choice') : undefined,
+          stateKey: config.stateKey || undefined,
+          next: nextEdge?.target || '',
+        };
+      }
+      case 'DynamicChoice': {
+        const nextEdge = outEdges.find((e) => e.sourceHandle === 'next');
+        return {
+          id: node.id,
+          type: 'DynamicChoice',
+          promptText: config.promptText || '',
+          options: config.options || [],
+          optionsFromState: config.optionsFromState || undefined,
           flowRef: config.flowRef || undefined,
           inputChannel: config.flowRef ? (config.inputChannel || 'choice') : undefined,
           stateKey: config.stateKey || undefined,

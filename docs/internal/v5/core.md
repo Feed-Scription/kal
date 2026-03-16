@@ -28,7 +28,7 @@ Core 已定义并导出当前运行时使用的基础类型：
 当前已实现的内置节点包括：
 
 - 信号类：`SignalIn`、`SignalOut`、`Timer`
-- State 类：`AddState`、`RemoveState`、`ReadState`、`ModifyState`、`WriteState`
+- State 类：`ReadState`、`WriteState`
 - LLM 类：`PromptBuild`、`Message`、`GenerateText`、`GenerateImage`
 - 处理类：`Regex`、`JSONParse`、`PostProcess`、`SubFlow`
 
@@ -133,6 +133,7 @@ JSON 可序列化校验已实现，防止存入不可序列化的值。
 - 支持 `config.format`（xml / markdown）格式化 system 和 user 消息
 - 支持 `config.summaryKey`，在 history 前插入摘要
 - 支持 `context` 输入，用于把动态上下文前置到 user 消息
+- `system` / `user` 是输入端口，不是 config 字段
 
 `GenerateText` 节点已支持自动管理对话历史：
 

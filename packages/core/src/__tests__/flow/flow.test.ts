@@ -305,4 +305,35 @@ describe('FlowLoader', () => {
 
     expect(() => loader.load('parent', resolver)).toThrow('must match sub-flow');
   });
+
+  it('应该在 manifest 可用时用空 handles 数组回填内置节点接口', () => {
+    const loader = new FlowLoader((nodeType) => {
+      if (nodeType !== 'SignalOut') return undefined;
+      return {
+        inputs: [{ name: 'data', type: 'string' }],
+        outputs: [{ name: 'data', type: 'string' }],
+      };
+    });
+
+    const resolver = (id: string) => {
+      if (id !== 'main') return '{}';
+      return JSON.stringify(createFlow({
+        outputs: [{ name: 'reply', type: 'string' }],
+        nodes: [
+          {
+            id: 'out',
+            type: 'SignalOut',
+            inputs: [],
+            outputs: [],
+            config: { channel: 'reply' },
+          },
+        ],
+        edges: [],
+      }));
+    };
+
+    const flow = loader.load('main', resolver);
+    expect(flow.data.nodes[0]?.inputs).toEqual([{ name: 'data', type: 'string' }]);
+    expect(flow.data.nodes[0]?.outputs).toEqual([{ name: 'data', type: 'string' }]);
+  });
 });
