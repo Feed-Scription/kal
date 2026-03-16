@@ -34,12 +34,12 @@ KAL is a data-driven game engine where game logic is defined in JSON, not code. 
 
 ## Node
 
-A node is the smallest unit of logic. Each node has typed inputs, typed outputs, and optional config. KAL ships with 20 built-in nodes across 5 categories:
+A node is the smallest unit of logic. Each node has typed inputs, typed outputs, and optional config. KAL ships with 16 built-in nodes across 5 categories:
 
 | Category | Nodes | Purpose |
 |----------|-------|---------|
 | Signal | SignalIn, SignalOut, Timer | I/O channels between flows and the outside world |
-| State | AddState, RemoveState, ReadState, ModifyState, ApplyState, ComputeState | Read and write game state |
+| State | ReadState, WriteState, ComputeState | Read and write game state |
 | LLM | PromptBuild, Message, GenerateText, GenerateImage, UpdateHistory, CompactHistory | Build prompts, call LLMs, manage conversation history |
 | Transform | Regex, JSONParse, PostProcess, SubFlow | Parse, transform, and delegate |
 | Utility | Constant | Output fixed values |
@@ -79,7 +79,7 @@ Flows are defined in JSON files under the `flow/` directory:
 A typical LLM flow follows this pattern:
 
 ```
-SignalIn → PromptBuild → Message → GenerateText → JSONParse → ApplyState → SignalOut
+SignalIn → PromptBuild → Message → GenerateText → JSONParse → WriteState → SignalOut
 ```
 
 Flows can call other flows via the `SubFlow` node, keeping each flow focused on a single responsibility.
@@ -98,7 +98,7 @@ State is a flat key-value store that holds all game data. Each key maps to a typ
 
 Supported types: `string`, `number`, `boolean`, `object`, `array`.
 
-State is initialized from `initial_state.json` at the start of a session. Nodes read and write state during flow execution. The `ApplyState` node is the primary way LLM output gets written back to state — it only modifies keys that already exist and supports type coercion, clamping constraints, and allowlists.
+State is initialized from `initial_state.json` at the start of a session. Nodes read and write state during flow execution. The `WriteState` node is the primary way LLM output gets written back to state — it only modifies keys that already exist and supports type coercion, clamping constraints, and allowlists.
 
 Key design rules:
 - State is flat — no nesting inside values
