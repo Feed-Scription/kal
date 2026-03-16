@@ -21,7 +21,7 @@ interface ParsedLintArgs {
   format: 'json' | 'pretty';
 }
 
-interface LintPayload {
+export interface LintPayload {
   project_root: string;
   diagnostics: DiagnosticPayload[];
   summary: {
@@ -31,18 +31,11 @@ interface LintPayload {
   };
 }
 
-export async function runLintCommand(
-  tokens: string[],
-  dependencies: LintCommandDependencies,
-): Promise<number> {
-  const parsed = parseLintArgs(tokens);
-  const projectRoot = resolve(dependencies.cwd, parsed.projectPath ?? '.');
-
+export async function collectLintPayload(projectRoot: string): Promise<LintPayload> {
   try {
     const project = await loadEngineProject(projectRoot, { lenient: true });
     const diagnostics: DiagnosticPayload[] = [];
 
-    // 1. Session validation
     if (project.session) {
       const sessionErrors = validateSessionDefinition(
         project.session,
@@ -63,10 +56,6 @@ export async function runLintCommand(
       }
     }
 
-    // 2. Flow validation (already done by loadEngineProject via FlowLoader)
-    // FlowLoader throws on validation errors, so if we got here, flows are valid
-
-    // 3. Check for unused flows
     if (project.session) {
       const usedFlows = new Set<string>();
       for (const step of project.session.steps) {
@@ -92,13 +81,11 @@ export async function runLintCommand(
       }
     }
 
-    // 4. Check state key coverage in Branch conditions
     if (project.session) {
       const stateKeys = new Set(Object.keys(project.initialState));
       for (const step of project.session.steps) {
         if (step.type === 'Branch') {
           for (const condition of step.conditions) {
-            // Extract state keys from condition (simple regex for state.xxx)
             const matches = typeof condition.when === 'string'
               ? condition.when.match(/state\.(\w+)/g)
               : null;
@@ -126,14 +113,13 @@ export async function runLintCommand(
       }
     }
 
-    // 5. Deep flow node validation
     const nodeManifestMap = await buildNodeManifestMap(projectRoot);
     for (const [flowId, flow] of Object.entries(project.flowsById)) {
       const flowDiags = validateFlowNodesDeep(flow, flowId, nodeManifestMap);
       diagnostics.push(...flowDiags);
     }
 
-    const payload: LintPayload = {
+    return {
       project_root: projectRoot,
       diagnostics,
       summary: {
@@ -142,14 +128,6 @@ export async function runLintCommand(
         warnings: diagnostics.filter((d) => d.code === 'UNUSED_FLOW').length,
       },
     };
-
-    const exitCode = payload.summary.errors > 0 ? 1 : 0;
-    const output = parsed.format === 'json'
-      ? JSON.stringify(payload, null, 2)
-      : renderPretty(payload);
-
-    dependencies.io.stdout(output + '\n');
-    return exitCode;
   } catch (error) {
     const diagnostic = buildCliDiagnostic({
       code: 'LINT_FAILED',
@@ -157,7 +135,7 @@ export async function runLintCommand(
       suggestions: ['Fix the project configuration and try again'],
     });
 
-    const payload: LintPayload = {
+    return {
       project_root: projectRoot,
       diagnostics: [diagnostic],
       summary: {
@@ -166,14 +144,24 @@ export async function runLintCommand(
         warnings: 0,
       },
     };
-
-    const output = parsed.format === 'json'
-      ? JSON.stringify(payload, null, 2)
-      : renderPretty(payload);
-
-    dependencies.io.stderr(output + '\n');
-    return 1;
   }
+}
+
+export async function runLintCommand(
+  tokens: string[],
+  dependencies: LintCommandDependencies,
+): Promise<number> {
+  const parsed = parseLintArgs(tokens);
+  const projectRoot = resolve(dependencies.cwd, parsed.projectPath ?? '.');
+  const payload = await collectLintPayload(projectRoot);
+
+  const exitCode = payload.summary.errors > 0 ? 1 : 0;
+  const output = parsed.format === 'json'
+    ? JSON.stringify(payload, null, 2)
+    : renderPretty(payload);
+
+  dependencies.io.stdout(output + '\n');
+  return exitCode;
 }
 
 function parseLintArgs(tokens: string[]): ParsedLintArgs {

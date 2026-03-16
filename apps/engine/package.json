@@ -20,7 +20,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "pnpm --dir ../.. --filter @kal-ai/core build && pnpm --dir ../editor build && tsup",
+    "build": "pnpm --dir ../.. --filter @kal-ai/core build && pnpm --dir ../studio build && tsup",
     "test": "pnpm --dir ../.. --filter @kal-ai/core build && vitest run",
     "test:watch": "vitest",
     "typecheck": "pnpm --dir ../.. --filter @kal-ai/core build && tsc --noEmit",

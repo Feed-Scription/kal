@@ -117,6 +117,27 @@ describe('Engine HTTP server', () => {
     expect(runtime.getFlow('main').meta.description).toBe('updated');
   });
 
+  it('DELETE /api/flows/:id 应该删除 flow', async () => {
+    const fixture = await createTempProject({
+      flows: {
+        intro: createPassThroughFlow(),
+        main: createPassThroughFlow(),
+      },
+    });
+    cleanups.push(fixture.cleanup);
+
+    const runtime = await EngineRuntime.create(fixture.projectRoot);
+    const server = await startEngineServer({ runtime, host: '127.0.0.1', port: 0 });
+    cleanups.push(server.close);
+
+    const response = await fetch(`${server.url}/api/flows/intro`, {
+      method: 'DELETE',
+    }).then((result) => result.json());
+
+    expect(response.success).toBe(true);
+    expect(runtime.listFlows().map((item) => item.id)).toEqual(['main']);
+  });
+
   it('GET /api/project 应该返回 hasSession 字段', async () => {
     const session: SessionDefinition = {
       schemaVersion: '1.0.0',
@@ -134,6 +155,42 @@ describe('Engine HTTP server', () => {
 
     const project = await fetch(`${server.url}/api/project`).then((r) => r.json());
     expect(project.data.hasSession).toBe(true);
+  });
+
+  it('应该暴露 config 和 state 资源 API', async () => {
+    const fixture = await createTempProject({
+      initialState: {
+        visited: { type: 'boolean', value: false },
+      },
+    });
+    cleanups.push(fixture.cleanup);
+
+    const runtime = await EngineRuntime.create(fixture.projectRoot);
+    const server = await startEngineServer({ runtime, host: '127.0.0.1', port: 0 });
+    cleanups.push(server.close);
+
+    const config = await fetch(`${server.url}/api/config`).then((response) => response.json());
+    expect(config.success).toBe(true);
+    expect(config.data.config.name).toBe('test-project');
+
+    const state = await fetch(`${server.url}/api/state`).then((response) => response.json());
+    expect(state.success).toBe(true);
+    expect(state.data.state.visited.value).toBe(false);
+  });
+
+  it('GET /api/diagnostics 应该返回项目诊断摘要', async () => {
+    const fixture = await createTempProject();
+    cleanups.push(fixture.cleanup);
+
+    const runtime = await EngineRuntime.create(fixture.projectRoot);
+    const server = await startEngineServer({ runtime, host: '127.0.0.1', port: 0 });
+    cleanups.push(server.close);
+
+    const diagnostics = await fetch(`${server.url}/api/diagnostics`).then((response) => response.json());
+    expect(diagnostics.success).toBe(true);
+    expect(diagnostics.data.project_root).toBe(fixture.projectRoot);
+    expect(Array.isArray(diagnostics.data.diagnostics)).toBe(true);
+    expect(diagnostics.data.summary.total_issues).toBeGreaterThanOrEqual(0);
   });
 
   it('GET /api/session 无 session 时返回 null', async () => {
