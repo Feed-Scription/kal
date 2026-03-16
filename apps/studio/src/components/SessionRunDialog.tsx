@@ -79,7 +79,7 @@ function statusClass(run: RunView | null): string {
 }
 
 export function SessionRunDialog({ open, onOpenChange }: SessionRunDialogProps) {
-  const { createRun, listRuns, getRunState, advanceRun, cancelRun, selectRun } = useStudioCommands();
+  const { createRun, listRuns, getRunState, advanceRun, cancelRun, replayRun, selectRun, stepRun } = useStudioCommands();
   const runs = useRunService();
 
   const [loading, setLoading] = useState(false);
@@ -186,11 +186,11 @@ export function SessionRunDialog({ open, onOpenChange }: SessionRunDialogProps) 
     };
   }, [open, run?.run_id, getRunState, runs]);
 
-  const handleStart = async () => {
+  const handleStart = async (mode?: 'continue' | 'step') => {
     setSubmitting(true);
     setError('');
     try {
-      const created = await createRun(Boolean(run));
+      const created = await createRun(Boolean(run), mode);
       setRun(created);
       setHistory(created.recent_events);
       setInputValue('');
@@ -203,7 +203,7 @@ export function SessionRunDialog({ open, onOpenChange }: SessionRunDialogProps) 
     }
   };
 
-  const handleAdvance = async (input?: string) => {
+  const handleAdvance = async (input?: string, mode?: 'continue' | 'step') => {
     if (!run) {
       return;
     }
@@ -211,7 +211,7 @@ export function SessionRunDialog({ open, onOpenChange }: SessionRunDialogProps) 
     setSubmitting(true);
     setError('');
     try {
-      const nextRun = await advanceRun(run.run_id, input);
+      const nextRun = mode === 'step' ? await stepRun(run.run_id, input) : await advanceRun(run.run_id, input);
       setRun(nextRun);
       setHistory((existing) => mergeEvents(existing, nextRun.recent_events));
       setInputValue('');
@@ -219,6 +219,27 @@ export function SessionRunDialog({ open, onOpenChange }: SessionRunDialogProps) 
       await selectRun(nextRun.run_id);
     } catch (err) {
       setError((err as Error).message || '推进 Session run 失败');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleReplay = async () => {
+    if (!run) {
+      return;
+    }
+
+    setSubmitting(true);
+    setError('');
+    try {
+      const replayed = await replayRun(run.run_id);
+      setRun(replayed);
+      setHistory(replayed.recent_events);
+      setInputValue('');
+      await refreshRunState(replayed.run_id);
+      await selectRun(replayed.run_id);
+    } catch (err) {
+      setError((err as Error).message || '重放 Session run 失败');
     } finally {
       setSubmitting(false);
     }
@@ -249,6 +270,7 @@ export function SessionRunDialog({ open, onOpenChange }: SessionRunDialogProps) 
   const waitingFor = run?.waiting_for;
   const statePreview = runState?.state_summary.preview ?? run?.state_summary.preview ?? {};
   const fullState = runState?.state ?? {};
+  const inputHistory = runState?.input_history ?? run?.input_history ?? [];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -342,20 +364,31 @@ export function SessionRunDialog({ open, onOpenChange }: SessionRunDialogProps) 
                             <Button onClick={() => void handleAdvance(inputValue)} disabled={submitting}>
                               {submitting ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
                             </Button>
+                            <Button variant="outline" onClick={() => void handleAdvance(inputValue, 'step')} disabled={submitting}>
+                              单步提交
+                            </Button>
                           </div>
                         )}
 
                         {waitingFor.kind === 'choice' && waitingFor.options && waitingFor.options.length > 0 && (
                           <div className="flex flex-wrap gap-2">
                             {waitingFor.options.map((option) => (
-                              <Button
-                                key={`${option.label}:${option.value}`}
-                                variant="outline"
-                                onClick={() => void handleAdvance(option.value)}
-                                disabled={submitting}
-                              >
-                                {option.label}
-                              </Button>
+                              <div key={`${option.label}:${option.value}`} className="flex gap-2">
+                                <Button
+                                  variant="outline"
+                                  onClick={() => void handleAdvance(option.value)}
+                                  disabled={submitting}
+                                >
+                                  {option.label}
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  onClick={() => void handleAdvance(option.value, 'step')}
+                                  disabled={submitting}
+                                >
+                                  单步
+                                </Button>
+                              </div>
                             ))}
                           </div>
                         )}
@@ -367,10 +400,15 @@ export function SessionRunDialog({ open, onOpenChange }: SessionRunDialogProps) 
                         <div className="mb-3 text-sm text-muted-foreground">
                           Run 已暂停在下一个边界之前，可以继续推进。
                         </div>
-                        <Button onClick={() => void handleAdvance()} disabled={submitting}>
-                          {submitting ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : <Send className="mr-1.5 size-4" />}
-                          继续
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button onClick={() => void handleAdvance()} disabled={submitting}>
+                            {submitting ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : <Send className="mr-1.5 size-4" />}
+                            继续
+                          </Button>
+                          <Button variant="outline" onClick={() => void handleAdvance(undefined, 'step')} disabled={submitting}>
+                            单步
+                          </Button>
+                        </div>
                       </div>
                     )}
 
@@ -458,6 +496,27 @@ export function SessionRunDialog({ open, onOpenChange }: SessionRunDialogProps) 
                 </pre>
               </div>
             </div>
+
+            <div className="rounded-xl border bg-card">
+              <div className="border-b px-4 py-3 text-sm font-semibold">输入历史</div>
+              <div className="max-h-[220px] space-y-3 overflow-auto px-4 py-4">
+                {inputHistory.length === 0 ? (
+                  <div className="text-sm text-muted-foreground">当前 run 还没有用户输入记录。</div>
+                ) : (
+                  inputHistory.map((entry, index) => (
+                    <div key={`${entry.step_id}:${entry.timestamp}:${index}`} className="rounded-lg border p-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="text-sm font-medium">
+                          {entry.step_id} · step {entry.step_index}
+                        </div>
+                        <div className="text-xs text-muted-foreground">{formatTimestamp(entry.timestamp)}</div>
+                      </div>
+                      <div className="mt-2 break-all text-sm text-muted-foreground">{entry.input}</div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -475,9 +534,18 @@ export function SessionRunDialog({ open, onOpenChange }: SessionRunDialogProps) 
           </div>
 
           <div className="flex gap-2">
+            {run && (
+              <Button variant="outline" onClick={() => void handleReplay()} disabled={submitting || loading}>
+                <RotateCcw className="mr-1.5 size-4" />
+                重放
+              </Button>
+            )}
             <Button onClick={() => void handleStart()} disabled={submitting || loading}>
               {run ? <RotateCcw className="mr-1.5 size-4" /> : <Play className="mr-1.5 size-4" />}
               {run ? '重新开始' : '启动 Run'}
+            </Button>
+            <Button variant="outline" onClick={() => void handleStart('step')} disabled={submitting || loading}>
+              单步启动
             </Button>
           </div>
         </DialogFooter>

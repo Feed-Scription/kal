@@ -1,3 +1,12 @@
+/**
+ * Kernel Service API — React Hooks
+ *
+ * 所有 React 组件和扩展应通过这些 hooks 消费 Kernel 数据和命令。
+ * 每个 hook 的返回类型与 `services/types.ts` 中的 service interface 对齐。
+ *
+ * @see {@link ./services/types.ts} for service interface definitions
+ */
+
 import { useStudioStore } from '@/store/studioStore';
 import {
   getStudioDebugViews,
@@ -10,7 +19,7 @@ import {
   STUDIO_VIEWS,
 } from './registry';
 import { runService } from './services/run-service';
-import type { PromptPreviewEntry, ResourceId } from '@/types/project';
+import type { PromptPreviewEntry, ResourceId, ResourceVersionState } from '@/types/project';
 import type {
   ResolvedStudioCapabilityRequest,
   StudioContextValue,
@@ -19,10 +28,36 @@ import type {
   StudioExtensionId,
   StudioExtensionRuntimeRecord,
   StudioInspectorDescriptor,
+  StudioJobRecord,
+  StudioKernelEventRecord,
   StudioPanelDescriptor,
 } from './types';
+import type {
+  WorkbenchServiceState,
+  ResourceServiceState,
+  FlowResourceState,
+  PromptPreviewState,
+  ConnectionServiceState,
+  SaveServiceState,
+  VersionControlServiceState,
+  ReviewServiceState,
+  CommentsServiceState,
+  GitServiceState,
+  PackagesServiceState,
+  PresenceServiceState,
+  KernelEventServiceState,
+  DiagnosticsServiceState,
+  RunDebugServiceState,
+  CapabilityGateResult,
+  WorkbenchContextState,
+  StudioCommandService,
+  RunService,
+  ResolvedPanelContribution,
+  ResolvedInspectorContribution,
+  ResolvedDebugViewContribution,
+} from './services/types';
 
-export function useWorkbench() {
+export function useWorkbench(): WorkbenchServiceState {
   const activeViewId = useStudioStore((state) => state.workbench.activeViewId);
   const openViewIds = useStudioStore((state) => state.workbench.openViewIds);
   const activeFlowId = useStudioStore((state) => state.workbench.activeFlowId);
@@ -54,7 +89,7 @@ export function useWorkbench() {
   };
 }
 
-export function useStudioResources() {
+export function useStudioResources(): ResourceServiceState {
   const project = useStudioStore((state) => state.resources.project);
 
   return {
@@ -66,7 +101,7 @@ export function useStudioResources() {
   };
 }
 
-export function useFlowResource(flowId?: string | null) {
+export function useFlowResource(flowId?: string | null): FlowResourceState {
   const project = useStudioStore((state) => state.resources.project);
   const activeFlowId = useStudioStore((state) => state.workbench.activeFlowId);
   const effectiveFlowId = flowId ?? activeFlowId;
@@ -121,7 +156,7 @@ function collectPromptBindings(
   return bindings;
 }
 
-export function usePromptPreview() {
+export function usePromptPreview(): PromptPreviewState {
   const { project, session } = useStudioResources();
 
   const entries: PromptPreviewEntry[] = [];
@@ -187,16 +222,52 @@ export function usePromptPreview() {
   };
 }
 
-export function useConnectionState() {
+export function useConnectionState(): ConnectionServiceState {
   return useStudioStore((state) => state.connection);
 }
 
-export function useSaveState() {
+export function useSaveState(): SaveServiceState {
   return useStudioStore((state) => state.saveState);
 }
 
-export function useVersionControl() {
+export function useVersionControl(): VersionControlServiceState {
   return useStudioStore((state) => state.versionControl);
+}
+
+export function useGitStatus(): GitServiceState {
+  return useStudioStore((state) => state.git);
+}
+
+export function usePackages(): PackagesServiceState {
+  return useStudioStore((state) => state.packages);
+}
+
+export function usePresence(): PresenceServiceState {
+  return useStudioStore((state) => state.presence);
+}
+
+export function useReviewWorkspace(): ReviewServiceState {
+  const activeProposalId = useStudioStore((state) => state.review.activeProposalId);
+  const proposals = useStudioStore((state) => state.review.proposals);
+  const activeProposal = proposals.find((proposal) => proposal.id === activeProposalId) ?? proposals[0] ?? null;
+
+  return {
+    activeProposalId,
+    activeProposal,
+    proposals,
+  };
+}
+
+export function useCommentsWorkspace(): CommentsServiceState {
+  const activeThreadId = useStudioStore((state) => state.comments.activeThreadId);
+  const threads = useStudioStore((state) => state.comments.threads);
+  const activeThread = threads.find((thread) => thread.id === activeThreadId) ?? threads[0] ?? null;
+
+  return {
+    activeThreadId,
+    activeThread,
+    threads,
+  };
 }
 
 export function useExtensionRuntime(extensionId?: StudioExtensionId | null) {
@@ -209,15 +280,15 @@ export function useExtensionRuntimeMap() {
   return useStudioStore((state) => state.extensions.records);
 }
 
-export function useKernelEvents(limit = 50) {
+export function useKernelEvents(limit = 50): StudioKernelEventRecord[] {
   return useStudioStore((state) => state.kernel.events.slice(0, limit));
 }
 
-export function useKernelJobs() {
+export function useKernelJobs(): StudioJobRecord[] {
   return useStudioStore((state) => state.kernel.jobs);
 }
 
-export function useDiagnostics() {
+export function useDiagnostics(): DiagnosticsServiceState {
   const diagnostics = useStudioStore((state) => state.versionControl.diagnostics);
   const updatedAt = useStudioStore((state) => state.versionControl.diagnosticsUpdatedAt);
 
@@ -227,34 +298,42 @@ export function useDiagnostics() {
   };
 }
 
-export function useRunDebug() {
+export function useRunDebug(): RunDebugServiceState {
   const selectedRunId = useStudioStore((state) => state.runDebug.selectedRunId);
   const runOrder = useStudioStore((state) => state.runDebug.runOrder);
   const records = useStudioStore((state) => state.runDebug.records);
+  const breakpoints = useStudioStore((state) => state.runDebug.breakpoints);
   const selectedRecord = selectedRunId ? records[selectedRunId] ?? null : null;
   const runs = runOrder
     .map((runId) => records[runId] ?? null)
     .filter((record): record is NonNullable<typeof record> => Boolean(record));
+  const selectedStepId = selectedRecord?.run.waiting_for?.step_id ?? selectedRecord?.run.cursor.currentStepId ?? null;
+  const selectedWaitingStepId = selectedRecord?.run.waiting_for?.step_id ?? null;
 
   return {
     selectedRunId,
     selectedRecord,
     selectedRun: selectedRecord?.run ?? null,
     selectedRunState: selectedRecord?.state ?? null,
+    selectedInputHistory: selectedRecord?.state?.input_history ?? selectedRecord?.run.input_history ?? [],
     selectedTimeline: selectedRecord?.timeline ?? [],
     selectedStateDiff: selectedRecord?.stateDiff ?? [],
+    selectedStepId,
+    selectedWaitingStepId,
+    breakpoints,
+    hasBreakpointAtStep: (stepId?: string | null) => Boolean(stepId) && breakpoints.some((entry) => entry.step_id === stepId),
     runs,
     records,
   };
 }
 
-export function useResourceVersion(resourceId?: ResourceId | null) {
+export function useResourceVersion(resourceId?: ResourceId | null): ResourceVersionState | null {
   return useStudioStore((state) =>
     resourceId ? state.versionControl.resourceVersions[resourceId] ?? null : null,
   );
 }
 
-export function useCapabilityGate(capabilities?: ResolvedStudioCapabilityRequest[]) {
+export function useCapabilityGate(capabilities?: ResolvedStudioCapabilityRequest[]): CapabilityGateResult {
   const grants = useStudioStore((state) => state.capabilities.grants);
 
   const resolved = (capabilities ?? []).map((request) => ({
@@ -292,31 +371,38 @@ function resolveContributions<T extends StudioPanelDescriptor | StudioInspectorD
     }));
 }
 
-export function usePanelContributions() {
+export function usePanelContributions(): ResolvedPanelContribution[] {
   const { activePreset } = useWorkbench();
   const runtime = useStudioStore((state) => state.extensions.records);
   return resolveContributions(getStudioPanels(), activePreset, runtime);
 }
 
-export function useInspectorContributions() {
+export function useInspectorContributions(): ResolvedInspectorContribution[] {
   const { activePreset } = useWorkbench();
   const runtime = useStudioStore((state) => state.extensions.records);
   return resolveContributions(getStudioInspectors(), activePreset, runtime);
 }
 
-export function useDebugViewContributions() {
+export function useDebugViewContributions(): ResolvedDebugViewContribution[] {
   const { activePreset } = useWorkbench();
   const runtime = useStudioStore((state) => state.extensions.records);
   return resolveContributions(getStudioDebugViews(), activePreset, runtime);
 }
 
-export function useWorkbenchContext() {
+export function useWorkbenchContext(): WorkbenchContextState {
   const { project, session } = useStudioResources();
   const { engineConnected, connectionError } = useConnectionState();
   const saveState = useSaveState();
   const versionControl = useVersionControl();
+  const { activeProposal } = useReviewWorkspace();
+  const selectedRunId = useStudioStore((state) => state.runDebug.selectedRunId);
+  const selectedRunRecord = useStudioStore((state) =>
+    state.runDebug.selectedRunId ? state.runDebug.records[state.runDebug.selectedRunId] ?? null : null,
+  );
+  const breakpoints = useStudioStore((state) => state.runDebug.breakpoints);
   const { activeExtension, activeExtensionRuntime, activeFlowId, activePreset, activeViewId } = useWorkbench();
   const capabilityGate = useCapabilityGate();
+  const selectedStepId = selectedRunRecord?.run.waiting_for?.step_id ?? selectedRunRecord?.run.cursor.currentStepId ?? null;
 
   const values: Record<string, StudioContextValue> = {
     'project.loaded': Boolean(project),
@@ -332,15 +418,23 @@ export function useWorkbenchContext() {
     'capability.project.write': Boolean(capabilityGate.grants['project.write']),
     'capability.engine.execute': Boolean(capabilityGate.grants['engine.execute']),
     'capability.trace.read': Boolean(capabilityGate.grants['trace.read']),
+    'capability.comment.write': Boolean(capabilityGate.grants['comment.write']),
+    'capability.review.accept': Boolean(capabilityGate.grants['review.accept']),
     'diagnostics.available': Boolean(versionControl.diagnostics),
     'history.undoAvailable': versionControl.undoStack.length > 0,
     'history.redoAvailable': versionControl.redoStack.length > 0,
+    'review.active': Boolean(activeProposal),
+    'run.selected': Boolean(selectedRunId),
+    'run.status': selectedRunRecord?.run.status ?? null,
+    'run.waitingForInput': Boolean(selectedRunRecord?.run.waiting_for),
+    'run.stepId': selectedStepId,
+    'run.stepHasBreakpoint': Boolean(selectedStepId && breakpoints.some((entry) => entry.step_id === selectedStepId)),
   };
 
   return { values };
 }
 
-export function useStudioCommands() {
+export function useStudioCommands(): StudioCommandService {
   const connect = useStudioStore((state) => state.connect);
   const disconnect = useStudioStore((state) => state.disconnect);
   const setActiveView = useStudioStore((state) => state.setActiveView);
@@ -362,10 +456,23 @@ export function useStudioCommands() {
   const refreshRuns = useStudioStore((state) => state.refreshRuns);
   const selectRun = useStudioStore((state) => state.selectRun);
   const advanceRun = useStudioStore((state) => state.advanceRun);
+  const stepRun = useStudioStore((state) => state.stepRun);
+  const replayRun = useStudioStore((state) => state.replayRun);
+  const toggleBreakpoint = useStudioStore((state) => state.toggleBreakpoint);
+  const clearBreakpoint = useStudioStore((state) => state.clearBreakpoint);
   const cancelRun = useStudioStore((state) => state.cancelRun);
   const createCheckpoint = useStudioStore((state) => state.createCheckpoint);
   const restoreCheckpoint = useStudioStore((state) => state.restoreCheckpoint);
   const refreshDiagnostics = useStudioStore((state) => state.refreshDiagnostics);
+  const createReviewProposal = useStudioStore((state) => state.createReviewProposal);
+  const setActiveProposal = useStudioStore((state) => state.setActiveProposal);
+  const validateProposal = useStudioStore((state) => state.validateProposal);
+  const acceptProposal = useStudioStore((state) => state.acceptProposal);
+  const rollbackProposal = useStudioStore((state) => state.rollbackProposal);
+  const createCommentThread = useStudioStore((state) => state.createCommentThread);
+  const addComment = useStudioStore((state) => state.addComment);
+  const resolveCommentThread = useStudioStore((state) => state.resolveCommentThread);
+  const setActiveCommentThread = useStudioStore((state) => state.setActiveCommentThread);
   const undo = useStudioStore((state) => state.undo);
   const redo = useStudioStore((state) => state.redo);
   const setCapabilityGrant = useStudioStore((state) => state.setCapabilityGrant);
@@ -375,6 +482,8 @@ export function useStudioCommands() {
   const clearExtensionError = useStudioStore((state) => state.clearExtensionError);
   const markExtensionError = useStudioStore((state) => state.markExtensionError);
   const recordKernelEvent = useStudioStore((state) => state.recordKernelEvent);
+  const refreshGitStatus = useStudioStore((state) => state.refreshGitStatus);
+  const loadPackages = useStudioStore((state) => state.loadPackages);
 
   return {
     connect,
@@ -398,10 +507,23 @@ export function useStudioCommands() {
     getRunState,
     selectRun,
     advanceRun,
+    stepRun,
+    replayRun,
+    toggleBreakpoint,
+    clearBreakpoint,
     cancelRun,
     createCheckpoint,
     restoreCheckpoint,
     refreshDiagnostics,
+    createReviewProposal,
+    setActiveProposal,
+    validateProposal,
+    acceptProposal,
+    rollbackProposal,
+    createCommentThread,
+    addComment,
+    resolveCommentThread,
+    setActiveCommentThread,
     undo,
     redo,
     setCapabilityGrant,
@@ -411,9 +533,11 @@ export function useStudioCommands() {
     clearExtensionError,
     markExtensionError,
     recordKernelEvent,
+    refreshGitStatus,
+    loadPackages,
   };
 }
 
-export function useRunService() {
+export function useRunService(): RunService {
   return runService;
 }

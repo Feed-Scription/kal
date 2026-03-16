@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useWorkbench, useWorkbenchContext, useStudioCommands } from './hooks';
+import { useReviewWorkspace, useRunDebug, useWorkbench, useWorkbenchContext, useStudioCommands } from './hooks';
 import type { StudioCommandContext, StudioCommandDescriptor, StudioWorkspacePreset } from './types';
 
 const PRESET_LABELS: Record<StudioWorkspacePreset, string> = {
@@ -12,19 +12,29 @@ const PRESET_LABELS: Record<StudioWorkspacePreset, string> = {
 
 export function useCommandRegistry() {
   const { activeViewId, activePreset, views } = useWorkbench();
+  const { activeProposal } = useReviewWorkspace();
+  const { selectedRunId, selectedStepId } = useRunDebug();
   const context = useWorkbenchContext();
-  const {
+    const {
+      advanceRun,
+      createCommentThread,
+      createReviewProposal,
+      createRun,
+    validateProposal,
     disconnect,
     reloadProject,
     createCheckpoint,
     refreshDiagnostics,
-    setActivePreset,
-    setActiveView,
-    setCommandPaletteOpen,
-    undo,
-    redo,
-  } = useStudioCommands();
-
+      replayRun,
+      setActiveProposal,
+      setActivePreset,
+      setActiveView,
+      setCommandPaletteOpen,
+      stepRun,
+      toggleBreakpoint,
+      undo,
+      redo,
+    } = useStudioCommands();
   const commands = useMemo<StudioCommandDescriptor[]>(() => {
     const viewCommands = views.map((view) => ({
       id: `workbench.view.${view.id}`,
@@ -53,6 +63,152 @@ export function useCommandRegistry() {
     );
 
     const projectCommands: StudioCommandDescriptor[] = [
+      {
+        id: 'run.create',
+        title: '创建调试 Run',
+        description: '创建一个新的 managed run 并切换到调试工作区。',
+        section: 'Debug',
+        keywords: ['run', 'debug', 'managed'],
+        when: (ctx) => Boolean(ctx.values['project.loaded']),
+        run: async () => {
+          await createRun(true);
+          setActivePreset('debug');
+          setActiveView('kal.debugger');
+        },
+      },
+      {
+        id: 'run.step',
+        title: '单步推进当前 Run',
+        description: '以 step 模式推进当前选中的 managed run。',
+        section: 'Debug',
+        keywords: ['run', 'debug', 'step'],
+        when: (ctx) =>
+          Boolean(ctx.values['run.selected']) &&
+          ctx.values['run.status'] !== 'ended' &&
+          ctx.values['run.status'] !== 'error' &&
+          !Boolean(ctx.values['run.waitingForInput']),
+        run: async () => {
+          if (!selectedRunId) {
+            return;
+          }
+          await stepRun(selectedRunId);
+          setActivePreset('debug');
+          setActiveView('kal.debugger');
+        },
+      },
+      {
+        id: 'run.continue',
+        title: '继续当前 Run',
+        description: '以 continue 模式推进当前选中的 managed run。',
+        section: 'Debug',
+        keywords: ['run', 'debug', 'continue'],
+        when: (ctx) =>
+          Boolean(ctx.values['run.selected']) &&
+          ctx.values['run.status'] !== 'ended' &&
+          ctx.values['run.status'] !== 'error' &&
+          !Boolean(ctx.values['run.waitingForInput']),
+        run: async () => {
+          if (!selectedRunId) {
+            return;
+          }
+          await advanceRun(selectedRunId);
+          setActivePreset('debug');
+          setActiveView('kal.debugger');
+        },
+      },
+      {
+        id: 'run.replay',
+        title: '重放当前 Run',
+        description: '基于当前 run 的输入历史从头重放。',
+        section: 'Debug',
+        keywords: ['run', 'debug', 'replay'],
+        when: (ctx) => Boolean(ctx.values['run.selected']),
+        run: async () => {
+          if (!selectedRunId) {
+            return;
+          }
+          await replayRun(selectedRunId);
+          setActivePreset('debug');
+          setActiveView('kal.debugger');
+        },
+      },
+      {
+        id: 'run.breakpoint.toggle',
+        title: '切换当前 Step 断点',
+        description: '为当前选中 run 的 step 添加或移除断点。',
+        section: 'Debug',
+        keywords: ['run', 'debug', 'breakpoint'],
+        when: (ctx) => Boolean(ctx.values['run.stepId']),
+        run: () => {
+          if (!selectedStepId) {
+            return;
+          }
+          toggleBreakpoint(selectedStepId);
+          setActivePreset('debug');
+          setActiveView('kal.debugger');
+        },
+      },
+      {
+        id: 'review.comments.open',
+        title: '打开 Comments',
+        description: '查看当前 review/comment 线程。',
+        section: 'Review',
+        keywords: ['comments', 'review', 'thread'],
+        when: (ctx) => Boolean(ctx.values['project.loaded']),
+        run: () => {
+          setActiveView('kal.comments');
+        },
+      },
+      {
+        id: 'review.proposal.create',
+        title: '创建 Proposal Bundle',
+        description: '围绕当前版本、诊断和 selected run 生成 review bundle。',
+        section: 'Review',
+        keywords: ['review', 'proposal', 'bundle'],
+        when: (ctx) => Boolean(ctx.values['project.loaded']),
+        run: () => {
+          const proposalId = createReviewProposal();
+          if (proposalId) {
+            setActiveProposal(proposalId);
+            setActivePreset('review');
+            setActiveView('kal.review');
+          }
+        },
+      },
+      {
+        id: 'review.comments.create',
+        title: '为当前 Proposal 创建评论线程',
+        description: '围绕当前 active proposal 打开异步评论线程。',
+        section: 'Review',
+        keywords: ['comment', 'proposal', 'review'],
+        when: (ctx) => Boolean(ctx.values['review.active']) && Boolean(ctx.values['capability.comment.write']),
+        run: () => {
+          if (!activeProposal) {
+            return;
+          }
+          createCommentThread({
+            title: `Review: ${activeProposal.title}`,
+            body: `针对 proposal ${activeProposal.title} 发起 review 讨论。`,
+            anchor: { kind: 'proposal', proposalId: activeProposal.id },
+          });
+          setActiveView('kal.comments');
+        },
+      },
+      {
+        id: 'review.proposal.validate',
+        title: '验证当前 Proposal',
+        description: '对当前 proposal 执行 lint + smoke 验证。',
+        section: 'Review',
+        keywords: ['review', 'validate', 'lint', 'smoke'],
+        when: (ctx) => Boolean(ctx.values['review.active']),
+        run: async () => {
+          if (!activeProposal) {
+            return;
+          }
+          await validateProposal(activeProposal.id);
+          setActiveView('kal.review');
+        },
+      },
       {
         id: 'project.diagnostics.refresh',
         title: '刷新 Diagnostics',
@@ -136,16 +292,28 @@ export function useCommandRegistry() {
 
     return [...viewCommands, ...presetCommands, ...projectCommands];
   }, [
+    advanceRun,
+    createCommentThread,
     createCheckpoint,
+    createReviewProposal,
+    createRun,
     disconnect,
     redo,
     refreshDiagnostics,
     reloadProject,
+    replayRun,
+    setActiveProposal,
     setActivePreset,
     setActiveView,
     setCommandPaletteOpen,
+    stepRun,
+    toggleBreakpoint,
     undo,
+    validateProposal,
     views,
+    activeProposal,
+    selectedRunId,
+    selectedStepId,
   ]);
 
   return {

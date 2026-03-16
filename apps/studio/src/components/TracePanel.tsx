@@ -7,7 +7,7 @@ function formatTime(timestamp: number) {
 }
 
 export function TracePanel() {
-  const { selectedRun, selectedTimeline } = useRunDebug();
+  const { breakpoints, selectedRun, selectedTimeline } = useRunDebug();
   const { setActiveView } = useStudioCommands();
   const preview = selectedTimeline.slice(0, 6);
 
@@ -33,11 +33,16 @@ export function TracePanel() {
       ) : (
         <>
           <div className="text-xs text-muted-foreground">
-            {selectedRun.run_id} · {selectedRun.status} · {selectedTimeline.length} timeline entries
+            {selectedRun.run_id} · {selectedRun.status} · {selectedTimeline.length} timeline entries · {breakpoints.length} breakpoints
           </div>
           <div className="space-y-2">
             {preview.map((entry) => (
-              <div key={entry.id} className="rounded-lg border px-3 py-2 text-sm">
+              <div
+                key={entry.id}
+                className={`rounded-lg border px-3 py-2 text-sm ${
+                  entry.eventType === 'run.breakpoint' ? 'border-amber-400 bg-amber-50/60' : ''
+                }`}
+              >
                 <div className="flex items-center justify-between gap-3">
                   <div className="font-medium">{entry.title}</div>
                   <div className="text-xs text-muted-foreground">{formatTime(entry.timestamp)}</div>

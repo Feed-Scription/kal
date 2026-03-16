@@ -7,6 +7,7 @@ import type { DebugRunSnapshot, DebugRunSummary } from './debug/types';
 import type {
   RunEndEvent,
   RunEvent,
+  RunInputRecord,
   RunOutputEvent,
   RunStateSummary,
   RunStateView,
@@ -110,6 +111,12 @@ export function buildRunView(
     cursor: snapshot.cursor,
     state_summary: buildRunStateSummary(snapshot.stateSnapshot, options?.beforeState ?? snapshot.stateSnapshot),
     recent_events: snapshot.recentEvents.map(toRunEvent),
+    input_history: snapshot.inputHistory.map<RunInputRecord>((record) => ({
+      step_id: record.stepId,
+      step_index: record.stepIndex,
+      input: record.input,
+      timestamp: record.timestamp,
+    })),
   };
 }
 

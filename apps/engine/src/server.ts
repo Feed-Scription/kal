@@ -3,12 +3,16 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import type { FlowDefinition, SessionDefinition } from '@kal-ai/core';
 import { EngineHttpError, formatEngineError, statusForError } from './errors';
+import { getGitLog, getGitStatus } from './git-service';
+import { loadProjectPackages } from './package-loader';
 import { RunManager } from './run-manager';
 import type {
   AdvanceRunRequest,
   CreateRunRequest,
   DiagnosticsPayload,
   EngineErrorResponse,
+  EngineEvent,
+  EngineEventName,
   EngineResponse,
   ExecuteFlowRequest,
   RunStreamEvent,
@@ -16,6 +20,7 @@ import type {
 } from './types';
 import { EngineRuntime } from './runtime';
 import { collectLintPayload } from './commands/lint';
+import { collectSmokePayload } from './commands/smoke';
 
 function setCorsHeaders(res: ServerResponse): void {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -91,13 +96,148 @@ function setSseHeaders(res: ServerResponse): void {
   res.setHeader('Connection', 'keep-alive');
 }
 
-function writeSseEvent(res: ServerResponse, event: RunStreamEvent): void {
+function writeSseEvent(res: ServerResponse, event: RunStreamEvent | EngineEvent): void {
   res.write(`event: ${event.type}\n`);
   res.write(`data: ${JSON.stringify(event)}\n\n`);
 }
 
+type EngineEventListener = (event: EngineEvent) => void;
+
+class EngineEventBus {
+  private listeners = new Set<EngineEventListener>();
+
+  subscribe(listener: EngineEventListener): () => void {
+    this.listeners.add(listener);
+    return () => { this.listeners.delete(listener); };
+  }
+
+  emit(event: Omit<EngineEvent, 'timestamp'>): void {
+    const full: EngineEvent = { ...event, timestamp: Date.now() };
+    for (const listener of this.listeners) {
+      listener(full);
+    }
+  }
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+async function buildH5PreviewHtml(runtime: EngineRuntime, runs: RunManager): Promise<string> {
+  const project = runtime.getProject();
+  const runSummaries = await runs.listRuns();
+  const activeRun = runSummaries.find((run) => run.active) ?? runSummaries[0] ?? null;
+  const activeRunState = activeRun ? await runs.getRunState({ runId: activeRun.run_id }) : null;
+  const statePreview = activeRunState?.state_summary.preview ?? {};
+  const statePreviewHtml =
+    Object.keys(statePreview).length === 0
+      ? '<div class="empty">No previewable state yet.</div>'
+      : Object.entries(statePreview)
+          .map(
+            ([key, value]) =>
+              `<div class="kv"><span>${escapeHtml(key)}</span><code>${escapeHtml(JSON.stringify(value))}</code></div>`,
+          )
+          .join('');
+  const flowCards = runtime
+    .listFlows()
+    .map(
+      (flow) =>
+        `<div class="card"><div class="label">${escapeHtml(flow.id)}</div><div class="muted">${
+          flow.meta.description ? escapeHtml(flow.meta.description) : 'Flow resource'
+        }</div></div>`,
+    )
+    .join('');
+
+  return `<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>KAL H5 Preview</title>
+    <style>
+      :root { color-scheme: light; --bg:#f4f0e8; --ink:#1e1a17; --muted:#6f665f; --card:#fffaf3; --line:#d9cfc2; --accent:#b85c38; }
+      * { box-sizing: border-box; }
+      body { margin: 0; font-family: "IBM Plex Sans", "Noto Sans SC", sans-serif; background:
+        radial-gradient(circle at top left, #fff6df, transparent 30%),
+        linear-gradient(180deg, #f7f2e8 0%, var(--bg) 100%); color: var(--ink); }
+      .shell { min-height: 100vh; padding: 24px; display: grid; gap: 18px; }
+      .hero, .panel { background: rgba(255,250,243,0.9); border: 1px solid var(--line); border-radius: 20px; padding: 18px; backdrop-filter: blur(8px); }
+      .hero h1 { margin: 0; font-size: 28px; }
+      .hero p { margin: 8px 0 0; color: var(--muted); }
+      .grid { display: grid; gap: 18px; grid-template-columns: 1.1fr 0.9fr; }
+      .stack { display: grid; gap: 12px; }
+      .label { font-weight: 700; }
+      .muted { color: var(--muted); font-size: 13px; }
+      .badge { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: #fff; border-radius: 999px; padding: 6px 10px; font-size: 12px; margin-right: 8px; }
+      .cards { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+      .card { border: 1px solid var(--line); border-radius: 16px; padding: 12px; background: #fff; }
+      .kv { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px dashed var(--line); font-size: 13px; }
+      .kv:last-child { border-bottom: none; }
+      code, pre { font-family: "IBM Plex Mono", monospace; font-size: 12px; }
+      .empty { color: var(--muted); font-size: 13px; }
+      pre { margin: 0; padding: 12px; border-radius: 14px; background: #221d18; color: #f8f1e4; overflow: auto; }
+      @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } body { font-size: 14px; } }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <h1>${escapeHtml(project.config.name)} Preview</h1>
+        <p>这是面向 Studio Phase 3 的 browser preview snapshot，用于把 project / session / active run 收敛到同一预览 surface。</p>
+        <div style="margin-top:12px">
+          <span class="badge">flows ${runtime.listFlows().length}</span>
+          <span class="badge">session ${runtime.hasSession() ? 'ready' : 'missing'}</span>
+          <span class="badge">active run ${activeRun ? escapeHtml(activeRun.run_id) : 'none'}</span>
+        </div>
+      </section>
+      <div class="grid">
+        <section class="panel stack">
+          <div>
+            <div class="label">Project Flows</div>
+            <div class="muted">Engine canonical snapshot</div>
+          </div>
+          <div class="cards">${flowCards || '<div class="empty">No flows.</div>'}</div>
+        </section>
+        <section class="panel stack">
+          <div>
+            <div class="label">Active Run Summary</div>
+            <div class="muted">${activeRun ? escapeHtml(activeRun.status) : 'No managed run'}</div>
+          </div>
+          ${
+            activeRun
+              ? `
+                <div class="card">
+                  <div class="kv"><span>run_id</span><code>${escapeHtml(activeRun.run_id)}</code></div>
+                  <div class="kv"><span>waiting_for</span><code>${escapeHtml(activeRun.waiting_for?.step_id ?? 'none')}</code></div>
+                  <div class="kv"><span>changed keys</span><code>${activeRunState?.state_summary.changed.length ?? 0}</code></div>
+                  <div class="kv"><span>events</span><code>${activeRunState?.recent_events.length ?? 0}</code></div>
+                </div>
+                <div class="card">
+                  <div class="label">State Preview</div>
+                  <div style="margin-top:8px">${statePreviewHtml}</div>
+                </div>
+                <div class="card">
+                  <div class="label">Recent Events</div>
+                  <pre>${escapeHtml(JSON.stringify(activeRunState?.recent_events ?? [], null, 2))}</pre>
+                </div>
+              `
+              : '<div class="empty">Create a managed run in Studio to see runtime preview here.</div>'
+          }
+        </section>
+      </div>
+    </main>
+  </body>
+</html>`;
+}
+
 export interface EngineRequestContext {
   runs?: RunManager;
+  eventBus?: EngineEventBus;
 }
 
 export async function handleEngineRequest(
@@ -110,6 +250,7 @@ export async function handleEngineRequest(
   const method = req.method ?? 'GET';
   const pathname = url.pathname;
   const runs = context.runs ?? RunManager.fromRuntime(runtime);
+  const eventBus = context.eventBus;
   const runMatch = pathname.match(/^\/api\/runs\/([^/]+)(?:\/(state|advance|cancel|stream))?$/);
 
   if (method === 'OPTIONS') {
@@ -127,6 +268,7 @@ export async function handleEngineRequest(
 
     if (method === 'POST' && pathname === '/api/project/reload') {
       await runtime.reload();
+      eventBus?.emit({ type: 'project.reloaded', message: 'Project reloaded' });
       success(res, { reloadedAt: new Date().toISOString() });
       return;
     }
@@ -147,6 +289,19 @@ export async function handleEngineRequest(
       return;
     }
 
+    if (method === 'GET' && pathname === '/api/tools/h5-preview') {
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.end(await buildH5PreviewHtml(runtime, runs));
+      return;
+    }
+
+    if (method === 'POST' && pathname === '/api/tools/smoke') {
+      const payload = await readJsonBody<{ steps?: number; inputs?: string[]; dryRun?: boolean }>(req, { required: false });
+      success(res, await collectSmokePayload(runtime, payload));
+      return;
+    }
+
     if (method === 'GET' && pathname === '/api/flows') {
       success(res, { flows: runtime.listFlows() });
       return;
@@ -162,6 +317,7 @@ export async function handleEngineRequest(
       const flowId = decodeURIComponent(pathname.slice('/api/flows/'.length));
       const flow = await readJsonBody<FlowDefinition>(req);
       await runtime.saveFlow(flowId, flow);
+      eventBus?.emit({ type: 'resource.changed', flowId, message: `Flow saved: ${flowId}` });
       success(res, {
         flowId,
         savedAt: new Date().toISOString(),
@@ -172,6 +328,7 @@ export async function handleEngineRequest(
     if (method === 'DELETE' && pathname.startsWith('/api/flows/')) {
       const flowId = decodeURIComponent(pathname.slice('/api/flows/'.length));
       await runtime.deleteFlow(flowId);
+      eventBus?.emit({ type: 'resource.changed', flowId, message: `Flow deleted: ${flowId}` });
       success(res, {
         flowId,
         deletedAt: new Date().toISOString(),
@@ -276,14 +433,68 @@ export async function handleEngineRequest(
     if (method === 'PUT' && pathname === '/api/session') {
       const session = await readJsonBody<SessionDefinition>(req);
       await runtime.saveSession(session);
+      eventBus?.emit({ type: 'resource.changed', sessionId: 'default', message: 'Session saved' });
       success(res, { savedAt: new Date().toISOString() });
       return;
     }
 
     if (method === 'DELETE' && pathname === '/api/session') {
       await runtime.deleteSession();
+      eventBus?.emit({ type: 'resource.changed', sessionId: 'default', message: 'Session deleted' });
       success(res, { deletedAt: new Date().toISOString() });
       return;
+    }
+
+    if (method === 'GET' && pathname === '/api/events') {
+      if (!eventBus) {
+        throw new EngineHttpError('Event bus not available', 503, 'EVENT_BUS_UNAVAILABLE');
+      }
+      setSseHeaders(res);
+      res.flushHeaders?.();
+      const unsubscribe = eventBus.subscribe((event) => {
+        writeSseEvent(res, event);
+      });
+      const heartbeat = setInterval(() => {
+        res.write(': keepalive\n\n');
+      }, 15000);
+      req.on('close', () => {
+        clearInterval(heartbeat);
+        unsubscribe();
+      });
+      return;
+    }
+
+    if (method === 'GET' && pathname === '/api/git/status') {
+      const status = await getGitStatus(runtime.getProjectRoot());
+      success(res, status);
+      return;
+    }
+
+    if (method === 'GET' && pathname === '/api/git/log') {
+      const limit = Number(url.searchParams.get('limit') ?? '20');
+      const log = await getGitLog(runtime.getProjectRoot(), limit);
+      success(res, log);
+      return;
+    }
+
+    // ── Package API ──
+
+    if (method === 'GET' && pathname === '/api/packages') {
+      const packages = await loadProjectPackages(runtime.getProjectRoot());
+      success(res, packages);
+      return;
+    }
+
+    // ── Registry API (Proxy) ──
+    // Note: Registry client implementation is available but requires configuration.
+    // To enable: set REGISTRY_URL and optionally REGISTRY_TOKEN in environment.
+
+    if (pathname.startsWith('/api/registry/')) {
+      throw new EngineHttpError(
+        'Registry API not configured. Set REGISTRY_URL environment variable to enable.',
+        501,
+        'REGISTRY_NOT_CONFIGURED'
+      );
     }
 
     throw new EngineHttpError(`Route not found: ${method} ${pathname}`, 404, 'ROUTE_NOT_FOUND');
@@ -301,8 +512,19 @@ export async function startEngineServer(params: {
   const host = params.host ?? '127.0.0.1';
   const port = params.port ?? 3000;
   const runs = RunManager.fromRuntime(params.runtime, params.runStateDir);
+  const eventBus = new EngineEventBus();
+
+  // Forward run events to unified event stream
+  runs.subscribe((runEvent) => {
+    eventBus.emit({
+      type: runEvent.type as EngineEventName,
+      runId: runEvent.run.run_id,
+      message: `Run ${runEvent.type.replace('run.', '')}`,
+    });
+  });
+
   const server = createServer((req, res) => {
-    void handleEngineRequest(params.runtime, req, res, { runs });
+    void handleEngineRequest(params.runtime, req, res, { runs, eventBus });
   });
 
   await new Promise<void>((resolve, reject) => {
