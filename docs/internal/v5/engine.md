@@ -58,7 +58,7 @@ Engine 负责：
 - `kal play [project-path]` — 启动交互式 TUI
 - `kal debug [project-path]` — 可恢复、结构化输出的 CLI 调试入口，支持 `--start/--continue/--step/--state/--list/--delete/--retry/--skip`，支持 `--format json|pretty|agent`
 - `kal lint [project-path] [--format json|pretty]` — 项目级静态分析（session 校验、unused flow、state key 检查、deep node validation）
-- `kal smoke [project-path] [--steps N] [--input value]... [--dry-run]` — 最小 smoke test，按步推进 Session 并输出状态变化
+- `kal smoke [project-path] [--steps N] [--input value]... [--dry-run]` — 最小 smoke test；`--dry-run` 只预演 Session 路径，不执行 Flow、不修改 state
 - `kal eval <nodes|render|run|compare>` — Prompt eval 工具链（查看节点、渲染 prompt、执行评估、对比结果）
 - `kal init <project-name> [--template minimal|game]` — 项目脚手架
 - `kal schema <nodes|node <type>|session>` — 导出 node 和 session schema

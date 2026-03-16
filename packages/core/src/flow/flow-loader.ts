@@ -92,10 +92,10 @@ export class FlowLoader {
       if (manifestLookup && node.type !== 'SubFlow') {
         const manifest = manifestLookup(node.type);
         if (manifest) {
-          if (!Array.isArray(node.inputs)) {
+          if (!Array.isArray(node.inputs) || node.inputs.length === 0) {
             node.inputs = manifest.inputs.map((h: HandleDefinition) => ({ ...h }));
           }
-          if (!Array.isArray(node.outputs)) {
+          if (!Array.isArray(node.outputs) || node.outputs.length === 0) {
             node.outputs = manifest.outputs.map((h: HandleDefinition) => ({ ...h }));
           }
         }

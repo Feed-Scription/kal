@@ -105,11 +105,20 @@ export type PromptStep = {
   next: string;
 };
 
+export type ConditionSpec = string | Record<string, unknown>;
+
+export type BranchCondition = {
+  when: ConditionSpec;
+  next: string;
+  setState?: Record<string, unknown>;
+};
+
 export type BranchStep = {
   id: string;
   type: 'Branch';
-  conditions: { when: string; next: string }[];
+  conditions: BranchCondition[];
   default: string;
+  defaultSetState?: Record<string, unknown>;
 };
 
 export type EndStep = {
@@ -129,7 +138,32 @@ export type ChoiceStep = {
   next: string;
 };
 
-export type SessionStep = RunFlowStep | PromptStep | BranchStep | EndStep | ChoiceStep;
+export type OptionsFromState = {
+  stateKey: string;
+  labelField?: string;
+  valueField?: string;
+  whenField?: string;
+};
+
+export type DynamicChoiceOption = {
+  label: string;
+  value: string;
+  when?: ConditionSpec;
+};
+
+export type DynamicChoiceStep = {
+  id: string;
+  type: 'DynamicChoice';
+  promptText: string;
+  options: DynamicChoiceOption[];
+  optionsFromState?: OptionsFromState;
+  flowRef?: string;
+  inputChannel?: string;
+  stateKey?: string;
+  next: string;
+};
+
+export type SessionStep = RunFlowStep | PromptStep | BranchStep | EndStep | ChoiceStep | DynamicChoiceStep;
 
 export type SessionDefinition = {
   schemaVersion: string;
