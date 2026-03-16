@@ -178,7 +178,7 @@ Editor -> Engine -> Core
 
 - Studio 是 Engine 之上的工作台组合，而不是 Engine 的启动前提；`kal studio` 只是“Engine API + Editor 静态资源”的一体化入口，不应改变 `kal serve`、`kal play`、`kal debug` 等无 Studio 路径的最小依赖面
 - Phase 1 中，Flow / Session editor 建议先作为 Studio Kernel 的内置 view 演进，而不是立刻做成插件壳
-- 官方能力如 `problems`、`prompt-preview`、`debugger`、`h5-preview`、`terminal`、`vercel-deploy` 更适合通过一方扩展先行 dogfood
+- 官方能力如 `problems`、`prompt-preview`、`debugger`、`version-control`、`h5-preview`、`terminal`、`vercel-deploy` 更适合通过一方扩展先行 dogfood
 - 这意味着 Engine 需要从“CRUD + run SSE”继续演进为一层更完整的 Studio platform services
 - Query / Command / Event Stream 三通道会比单纯 REST 更适合承接后续的 diagnostics、trace、process、deploy 等能力
 
@@ -191,6 +191,7 @@ Editor -> Engine -> Core
 - LLM trace 接通（hooks 基础设施已就绪，`registerLLMTraceHooks` 已写好但尚未接入 debug 命令输出）
 - Diagnostics 查询服务 / 增量 lint 推送
 - Prompt preview API
+- History / checkpoint / semantic diff / restore 服务
 - Process / terminal service
 - Deploy / package progress service
 - Studio extension workspace host 与 capability gate
@@ -221,7 +222,7 @@ Editor -> Engine -> Core
 
 - 接通 LLM trace（hooks 基础设施已就绪，需要接入 debug 命令输出）
 - 补齐更细粒度的执行 trace / diagnostics 查询能力
-- 补齐 Prompt Preview、Problems、Debugger 等 Studio 官方能力所需的平台接口
+- 补齐 Prompt Preview、Problems、Debugger、Version Control 等 Studio 官方能力所需的平台接口
 - 补齐 process / deploy / package progress 等长任务服务
 - 热重载能力
 - 围绕 managed run runtime 继续压平前端接入复杂度
