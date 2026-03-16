@@ -50,7 +50,7 @@ export {
   SignalIn, SignalOut, Timer,
 } from './node/builtin/signal-nodes';
 export {
-  AddState, RemoveState, ReadState, ModifyState, ApplyState,
+  ReadState, WriteState,
 } from './node/builtin/state-nodes';
 export {
   PromptBuild, Message, GenerateText, GenerateImage, UpdateHistory, CompactHistory,

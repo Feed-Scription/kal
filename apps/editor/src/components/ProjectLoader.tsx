@@ -26,8 +26,8 @@ export function ProjectLoader() {
 
   if (loading && !error) {
     return (
-      <div className="flex h-full w-full items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-3">
+      <div className="flex h-full w-full items-center justify-center bg-background animate-in fade-in-0 duration-300 ease-[var(--ease-apple)]">
+        <div className="flex flex-col items-center gap-3 animate-in fade-in-0 zoom-in-95 duration-500 ease-[var(--ease-apple)]">
           <Loader2 className="size-8 animate-spin text-muted-foreground" />
           <p className="text-sm text-muted-foreground">连接 Engine 中...</p>
         </div>
@@ -37,8 +37,8 @@ export function ProjectLoader() {
 
   if (error) {
     return (
-      <div className="flex h-full w-full items-center justify-center bg-background">
-        <div className="w-full max-w-sm space-y-4 rounded-lg border border-border bg-card p-6 shadow-lg">
+      <div className="flex h-full w-full items-center justify-center bg-background animate-in fade-in-0 duration-300 ease-[var(--ease-apple)]">
+        <div className="w-full max-w-sm space-y-4 rounded-lg border border-border bg-card p-6 shadow-lg animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-400 ease-[var(--ease-apple)]">
           <div className="flex items-start gap-2 rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
             <AlertCircle className="size-4 shrink-0 mt-0.5" />
             <p>{error}</p>

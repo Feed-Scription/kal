@@ -9,9 +9,7 @@
 相关文档：
 
 - [first-principles-architecture.md](./first-principles-architecture.md)
-- [editor.md](./editor.md)
 - [engine.md](./engine.md)
-- [todo.md](./todo.md)
 
 ## 一、定位
 
@@ -75,13 +73,18 @@ Studio 不应该只是“画图器”。
 
 ### 4. 扩展优先，但内核不能空心
 
-P0 功能可以尽量通过扩展机制交付，但以下内容必须由内核提供：
+官方能力应尽量通过一方扩展先行 dogfood，但不是所有核心视图都要在 Phase 1 就插件化。
+
+尤其是当前 `Flow.tsx` 和 `SessionEditor.tsx` 对应的 Flow / Session editor，是现阶段最重的两个视图。它们更适合作为 Studio Kernel 的内置 view 先稳定下来，等 panel / view 注册 API 足够成熟后，再迁移成一方扩展。
+
+以下内容必须由内核提供：
 
 - 文档模型
 - 事务与撤销重做
 - 诊断系统
 - 命令系统
 - 工作台布局
+- view / panel 注册与生命周期
 - 扩展宿主
 - 权限与信任
 - 包管理与安装
@@ -265,13 +268,15 @@ Studio 至少要把下面 7 条主路径打通。
 
 资源类型建议对应不同 editor：
 
-- Flow：图编辑器 + 原始 JSON fallback
-- Session：图编辑器 + 原始 JSON fallback
+- Flow：内置图编辑器 + 原始 JSON fallback
+- Session：内置图编辑器 + 原始 JSON fallback
 - State：schema 表单 + JSON 树 + 文本 fallback
 - Config：schema 表单 + 文本 fallback
 - Trace：时间线 + 详情查看器
 - Package：manifest 编辑器
 - README / docs：Markdown 查看
+
+其中 Flow / Session editor 建议在 Phase 1 先作为 Kernel 内置 view 交付，待 view 注册 API 稳定后，再迁移成一方扩展做完整 dogfooding。
 
 ### 5. Inspector
 
@@ -379,6 +384,11 @@ Project workspace 负责项目总览。
 
 Flow editor 是 Studio 的核心，但不应该只是一张图。
 
+阶段判断：
+
+- Phase 1：作为 Kernel 内置 view 演进，直接承接当前 `Flow.tsx`
+- API 稳定后：迁移为 `kal.flow-editor` 一方扩展，验证 view / inspector / command / diagnostics 接口
+
 必须具备：
 
 - 节点拖拽、连线、框选、复制粘贴
@@ -402,6 +412,11 @@ Flow editor 是 Studio 的核心，但不应该只是一张图。
 ### C. Session Editor
 
 Session editor 的目标是表达交互节奏，不承载过重业务。
+
+阶段判断：
+
+- Phase 1：作为 Kernel 内置 view 演进，直接承接当前 `SessionEditor.tsx`
+- API 稳定后：迁移为 `kal.session-editor` 一方扩展，验证 run / trace / inspector / reference graph 接口
 
 必须具备：
 
@@ -538,7 +553,7 @@ proposal 类型建议包括：
 
 不是“所有东西都是插件”，而是：
 
-`Kernel + First-party Extensions + Third-party Extensions`
+`Kernel + Built-in Core Views + First-party Extensions + Third-party Extensions`
 
 ### 2. Kernel 负责什么
 
@@ -550,24 +565,39 @@ proposal 类型建议包括：
 - 搜索和引用图
 - 包管理
 - 权限与信任
+- view / panel 注册与生命周期
 - 扩展宿主
 - 保存与恢复
 - 同步协议
 
-### 3. First-party Extensions 负责什么
+### 3. Built-in Core Views 负责什么
+
+Phase 1 建议保留为内置 view 的对象：
+
+- `flow-editor`
+- `session-editor`
+
+原因不是它们不该插件化，而是它们是当前最重的两个视图，直接承接现有实现最稳妥。等 view / panel / inspector 注册 API 经过官方能力验证后，再迁移成一方扩展，风险更低。
+
+### 4. First-party Extensions 负责什么
 
 建议把这些都实现为官方扩展，用来压测 API：
 
-- `kal.flow-editor`
-- `kal.session-editor`
 - `kal.state-editor`
 - `kal.config-editor`
+- `kal.problems`
+- `kal.prompt-preview`
 - `kal.debugger`
+- `kal.h5-preview`
+- `kal.terminal`
+- `kal.vercel-deploy`
 - `kal.template-browser`
 - `kal.package-manager`
 - `kal.comments`
 
-### 4. Third-party Extensions 允许贡献什么
+这些能力更适合先作为一方扩展 dogfood，因为它们天然依赖 panel、inspector、command、event stream、process、deploy 等扩展边界，能更早暴露 API 是否足够。
+
+### 5. Third-party Extensions 允许贡献什么
 
 - `nodes`
 - `inspectors`
@@ -585,7 +615,7 @@ proposal 类型建议包括：
 - `debugViews`
 - `commentProviders`
 
-### 5. 双宿主模型
+### 6. 双宿主模型
 
 建议采用双宿主：
 
@@ -598,7 +628,7 @@ proposal 类型建议包括：
 
 这比单一宿主更接近 VS Code 的 `ui/workspace` 分工，也更符合 KAL 现有 browser + engine 结构。
 
-### 6. 权限模型
+### 7. 权限模型
 
 不要只有 trusted / untrusted 两档，建议 capability-based：
 
@@ -613,7 +643,7 @@ proposal 类型建议包括：
 - `comment.write`
 - `ai.invoke`
 
-### 7. 激活模型
+### 8. 激活模型
 
 扩展必须懒激活，例如：
 
@@ -796,18 +826,24 @@ agent 协作也应走同一条通路：
 - 统一 shell、tabs、panel、command palette
 - 建立 resource/document 模型
 - 建立事务、undo/redo、diagnostics
+- 把 Flow / Session 先收敛成 Kernel 内置 core views
+- 提供第一版 view / panel / inspector 注册 API，但暂不要求最重视图立即迁移
 
-### Phase 2: First-party Editors
+### Phase 2: Core Editors + First-party Dogfooding
 
-- 把 Flow / Session / State / Config 都做成一方 editor
+- 把 State / Config 补成稳定 editor
 - 补 rename/delete/reference update
 - 补 problems / code actions / search
+- 让 `problems`、`prompt-preview`、`debugger` 作为一方扩展压测 API
+- 根据 dogfooding 结果收敛 view / panel / inspector contributions
 
 ### Phase 3: Run & Debug
 
 - 增加事件流
 - 增加 trace store
 - 增加 timeline / state diff / breakpoints
+- 让 `h5-preview`、`terminal`、`vercel-deploy` 作为一方扩展接入
+- 在 API 稳定后，评估 Flow / Session editor 迁移为一方扩展的时机
 
 ### Phase 4: Package & Template
 
@@ -894,15 +930,19 @@ agent 协作也应走同一条通路：
 
 ## 十六、参考资料
 
-以下资料在 2026-03-15 查阅，主要来自官方文档：
+以下资料在 2026-03-16 查阅，主要来自官方文档：
 
 - VS Code Extension Host: https://code.visualstudio.com/api/advanced-topics/extension-host
 - VS Code Contribution Points: https://code.visualstudio.com/api/references/contribution-points
 - VS Code Custom Editors: https://code.visualstudio.com/api/extension-guides/custom-editors
 - VS Code Webviews UX: https://code.visualstudio.com/api/ux-guidelines/webviews
+- VS Code Terminal Guide: https://code.visualstudio.com/api/extension-guides/terminal
 - VS Code Workspace Trust: https://code.visualstudio.com/api/extension-guides/workspace-trust
 - VS Code Extension Runtime Security: https://code.visualstudio.com/docs/configure/extensions/extension-runtime-security
 - VS Code Private Marketplace / Enterprise extensions: https://code.visualstudio.com/docs/enterprise/extensions
+- JupyterLab Common Extension Points: https://jupyterlab.readthedocs.io/en/4.0.x/extension/extension_points.html
+- JupyterLab Terminals: https://jupyterlab.readthedocs.io/en/stable/user/terminal.html
+- xterm.js Security Guide: https://xtermjs.org/docs/guides/security/
 - Unity package layout: https://docs.unity3d.com/2019.4/Documentation/Manual/cus-layout.html
 - Unity custom editor window: https://docs.unity3d.com/2023.2/Documentation/Manual/UIE-HowTo-CreateEditorWindow.html
 - Unity custom inspector: https://docs.unity3d.com/2023.1/Documentation/Manual/UIE-HowTo-CreateCustomInspector.html
@@ -910,5 +950,8 @@ agent 协作也应走同一条通路：
 - Godot making plugins: https://docs.godotengine.org/en/stable/tutorials/plugins/editor/making_plugins.html
 - Godot EditorPlugin: https://docs.godotengine.org/en/stable/classes/class_editorplugin.html
 - Godot Asset Library: https://docs.godotengine.org/en/stable/community/asset_library/using_assetlib.html
+- Node-RED edit dialog: https://nodered.org/docs/creating-nodes/edit-dialog
 - Node-RED packaging: https://nodered.org/docs/creating-nodes/packaging.html
 - Node-RED subflow modules: https://nodered.org/docs/creating-nodes/subflow-modules
+- Vercel CLI deploy: https://vercel.com/docs/cli/deploy
+- Vercel deployment events API: https://vercel.com/docs/rest-api/reference/endpoints/deployments/get-deployment-events

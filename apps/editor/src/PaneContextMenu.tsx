@@ -61,7 +61,7 @@ export function PaneContextMenu({ menu, manifests, onClose, onAddNode }: PaneCon
 
   return (
     <div
-      className="fixed z-50 min-w-[220px] max-h-[500px] overflow-y-auto rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md"
+      className="fixed z-50 min-w-[220px] max-h-[500px] overflow-y-auto rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95 slide-in-from-top-1 duration-150 ease-[var(--ease-apple-bounce)]"
       style={{ left: menu.x, top: menu.y }}
       onClick={(e) => e.stopPropagation()}
     >

@@ -4,18 +4,15 @@
 >
 > Source files:
 > - `packages/core/src/node/builtin/*.ts`
-KAL includes 20 built-in nodes across 5 categories.
+KAL includes 17 built-in nodes across 5 categories.
 
 | Node | Category | Description |
 |------|----------|-------------|
 | [`SignalIn`](#signalin) | Signal | 信号输入 |
 | [`SignalOut`](#signalout) | Signal | 信号输出 |
 | [`Timer`](#timer) | Signal | 计时器 |
-| [`AddState`](#addstate) | State | 添加状态 |
-| [`RemoveState`](#removestate) | State | 删除状态 |
 | [`ReadState`](#readstate) | State | 读取状态 |
-| [`ModifyState`](#modifystate) | State | 修改状态 |
-| [`ApplyState`](#applystate) | State | 批量应用状态 |
+| [`WriteState`](#writestate) | State | 写入状态 |
 | [`ComputeState`](#computestate) | State | 计算状态 |
 | [`PromptBuild`](#promptbuild) | LLM | Prompt 构建 |
 | [`Message`](#message) | LLM | 消息组装 |
@@ -127,46 +124,6 @@ KAL includes 20 built-in nodes across 5 categories.
 
 ## State Nodes
 
-### AddState
-
-**Label:** 添加状态  
-**Category:** State
-
-**Inputs:**
-
-| Name | Type | Required | Default |
-|------|------|----------|---------|
-| `key` | `string` | Yes | — |
-| `type` | `string` | Yes | — |
-| `value` | `any` | Yes | — |
-
-**Outputs:**
-
-| Name | Type |
-|------|------|
-| `success` | `boolean` |
-
----
-
-### RemoveState
-
-**Label:** 删除状态  
-**Category:** State
-
-**Inputs:**
-
-| Name | Type | Required | Default |
-|------|------|----------|---------|
-| `key` | `string` | Yes | — |
-
-**Outputs:**
-
-| Name | Type |
-|------|------|
-| `success` | `boolean` |
-
----
-
 ### ReadState
 
 **Label:** 读取状态  
@@ -193,36 +150,18 @@ KAL includes 20 built-in nodes across 5 categories.
 
 ---
 
-### ModifyState
+### WriteState
 
-**Label:** 修改状态  
+**Label:** 写入状态  
 **Category:** State
 
 **Inputs:**
 
 | Name | Type | Required | Default |
 |------|------|----------|---------|
-| `key` | `string` | Yes | — |
-| `value` | `any` | Yes | — |
-
-**Outputs:**
-
-| Name | Type |
-|------|------|
-| `success` | `boolean` |
-
----
-
-### ApplyState
-
-**Label:** 批量应用状态  
-**Category:** State
-
-**Inputs:**
-
-| Name | Type | Required | Default |
-|------|------|----------|---------|
-| `changes` | `object` | Yes | — |
+| `changes` | `object` | No | — |
+| `key` | `string` | No | — |
+| `value` | `any` | No | — |
 
 **Outputs:**
 
@@ -237,7 +176,8 @@ KAL includes 20 built-in nodes across 5 categories.
 |----------|------|-------------|
 | `path` | `string` | — |
 | `allowedKeys` | `array` | — |
-| `operations` | `object` | Operation type for each key: "set" (default), "append", or "appendMany" |
+| `operations` | `object` | Operation type for each key: "set" (default), "append", "appendMany", or "increment" |
+| `deduplicateBy` | `object` | For appendMany keys, deduplicate by a field name. e.g. { "topicCards": "id" } |
 | `constraints` | `object` | Constraints for each key: { min, max } for numbers |
 
 **Default config:**
@@ -247,7 +187,8 @@ KAL includes 20 built-in nodes across 5 categories.
   "path": "",
   "allowedKeys": [],
   "operations": {},
-  "constraints": {}
+  "constraints": {},
+  "deduplicateBy": {}
 }
 ```
 

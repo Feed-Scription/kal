@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import type { SessionDefinition } from '@kal-ai/core';
 import { EngineRuntime } from './runtime';
 import { startEngineServer } from './server';
-import { createPassThroughFlow, createTempProject } from './test-helpers';
+import { createPassThroughFlow, createStateMutationFlow, createTempProject } from './test-helpers';
 
 const cleanups: Array<() => Promise<void>> = [];
 
@@ -11,6 +11,59 @@ afterEach(async () => {
     await cleanups.pop()!();
   }
 });
+
+async function readSseEvent(
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  timeoutMs = 2000,
+): Promise<{ event: string; data: any }> {
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const chunk = await Promise.race([
+      reader.read(),
+      new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Timed out waiting for SSE event')), timeoutMs);
+      }),
+    ]);
+
+    if (chunk.done) {
+      throw new Error('SSE stream closed before an event was received');
+    }
+
+    buffer += decoder.decode(chunk.value, { stream: true });
+    while (true) {
+      const boundary = buffer.indexOf('\n\n');
+      if (boundary < 0) {
+        break;
+      }
+
+      const rawEvent = buffer.slice(0, boundary);
+      buffer = buffer.slice(boundary + 2);
+      if (!rawEvent || rawEvent.startsWith(':')) {
+        continue;
+      }
+
+      const lines = rawEvent.split('\n');
+      let event = 'message';
+      let data = '';
+      for (const line of lines) {
+        if (line.startsWith('event:')) {
+          event = line.slice('event:'.length).trim();
+          continue;
+        }
+        if (line.startsWith('data:')) {
+          data += line.slice('data:'.length).trim();
+        }
+      }
+
+      return {
+        event,
+        data: data ? JSON.parse(data) : null,
+      };
+    }
+  }
+}
 
 describe('Engine HTTP server', () => {
   it('应该暴露项目、flow、执行和节点 API', async () => {
@@ -195,5 +248,147 @@ describe('Engine HTTP server', () => {
     expect(result.success).toBe(true);
     expect(result.data.deletedAt).toBeDefined();
     expect(runtime.hasSession()).toBe(false);
+  });
+
+  it('应该通过 /api/runs 暴露 managed run 生命周期', async () => {
+    const session: SessionDefinition = {
+      schemaVersion: '1.0.0',
+      steps: [
+        { id: 'intro', type: 'RunFlow', flowRef: 'intro', next: 'turn' },
+        { id: 'turn', type: 'Prompt', promptText: '你的行动？', flowRef: 'main', inputChannel: 'message', next: 'end' },
+        { id: 'end', type: 'End', message: 'done' },
+      ],
+    };
+    const fixture = await createTempProject({
+      flows: {
+        intro: createStateMutationFlow(),
+        main: createPassThroughFlow(),
+      },
+      initialState: {
+        visited: { type: 'boolean', value: false },
+      },
+      session,
+    });
+    cleanups.push(fixture.cleanup);
+
+    const runtime = await EngineRuntime.create(fixture.projectRoot);
+    const server = await startEngineServer({ runtime, host: '127.0.0.1', port: 0 });
+    cleanups.push(server.close);
+
+    const createdResponse = await fetch(`${server.url}/api/runs`, {
+      method: 'POST',
+    });
+    expect(createdResponse.status).toBe(201);
+    const created = await createdResponse.json();
+    expect(created.success).toBe(true);
+    expect(created.data.run.status).toBe('waiting_input');
+    expect(created.data.run.waiting_for).toMatchObject({
+      kind: 'prompt',
+      step_id: 'turn',
+    });
+    expect(created.data.run.state_summary.changed_values).toMatchObject({
+      visited: { old: false, new: true },
+    });
+
+    const runId = created.data.run.run_id as string;
+
+    const listed = await fetch(`${server.url}/api/runs`).then((response) => response.json());
+    expect(listed.data.runs).toHaveLength(1);
+    expect(listed.data.runs[0]).toMatchObject({
+      run_id: runId,
+      active: true,
+    });
+
+    const state = await fetch(`${server.url}/api/runs/${runId}/state`).then((response) => response.json());
+    expect(state.data.run.state.visited.value).toBe(true);
+
+    const advanced = await fetch(`${server.url}/api/runs/${runId}/advance`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ input: 'attack' }),
+    }).then((response) => response.json());
+    expect(advanced.data.run.status).toBe('ended');
+    expect(advanced.data.run.recent_events[0]).toMatchObject({
+      type: 'output',
+      raw: { reply: 'attack' },
+    });
+    expect(advanced.data.run.recent_events[1]).toEqual({
+      type: 'end',
+      message: 'done',
+    });
+  });
+
+  it('POST /api/runs/:id/cancel 应该取消并删除 run', async () => {
+    const session: SessionDefinition = {
+      schemaVersion: '1.0.0',
+      steps: [
+        { id: 'turn', type: 'Prompt', promptText: '你的行动？', flowRef: 'main', inputChannel: 'message', next: 'end' },
+        { id: 'end', type: 'End', message: 'done' },
+      ],
+    };
+    const fixture = await createTempProject({ session });
+    cleanups.push(fixture.cleanup);
+
+    const runtime = await EngineRuntime.create(fixture.projectRoot);
+    const server = await startEngineServer({ runtime, host: '127.0.0.1', port: 0 });
+    cleanups.push(server.close);
+
+    const created = await fetch(`${server.url}/api/runs`, { method: 'POST' }).then((response) => response.json());
+    const runId = created.data.run.run_id as string;
+
+    const cancelled = await fetch(`${server.url}/api/runs/${runId}/cancel`, {
+      method: 'POST',
+    }).then((response) => response.json());
+    expect(cancelled.success).toBe(true);
+    expect(cancelled.data).toEqual({
+      cancelled: true,
+      run_id: runId,
+    });
+
+    const missing = await fetch(`${server.url}/api/runs/${runId}`);
+    expect(missing.status).toBe(404);
+  });
+
+  it('GET /api/runs/:id/stream 应该推送 run 更新事件', async () => {
+    const session: SessionDefinition = {
+      schemaVersion: '1.0.0',
+      steps: [
+        { id: 'turn', type: 'Prompt', promptText: '你的行动？', flowRef: 'main', inputChannel: 'message', next: 'end' },
+        { id: 'end', type: 'End', message: 'done' },
+      ],
+    };
+    const fixture = await createTempProject({ session });
+    cleanups.push(fixture.cleanup);
+
+    const runtime = await EngineRuntime.create(fixture.projectRoot);
+    const server = await startEngineServer({ runtime, host: '127.0.0.1', port: 0 });
+    cleanups.push(server.close);
+
+    const created = await fetch(`${server.url}/api/runs`, {
+      method: 'POST',
+    }).then((response) => response.json());
+    const runId = created.data.run.run_id as string;
+
+    const streamResponse = await fetch(`${server.url}/api/runs/${runId}/stream`);
+    expect(streamResponse.status).toBe(200);
+    expect(streamResponse.body).toBeTruthy();
+    const reader = streamResponse.body!.getReader();
+    cleanups.push(async () => {
+      await reader.cancel();
+    });
+
+    const initialEvent = await readSseEvent(reader);
+    expect(initialEvent.event).toBe('run.updated');
+    expect(initialEvent.data.run.run_id).toBe(runId);
+
+    await fetch(`${server.url}/api/runs/${runId}/advance`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ input: 'attack' }),
+    });
+
+    const endedEvent = await readSseEvent(reader);
+    expect(endedEvent.event).toBe('run.ended');
+    expect(endedEvent.data.run.status).toBe('ended');
   });
 });

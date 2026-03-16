@@ -1,5 +1,5 @@
 /**
- * State nodes: AddState, RemoveState, ReadState, ModifyState
+ * State nodes: ReadState, WriteState
  */
 
 import type { CustomNode } from '../../types/node';
@@ -17,64 +17,6 @@ function coerceToNumber(value: unknown): number | null {
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
 }
-
-export const AddState: CustomNode = {
-  type: 'AddState',
-  label: '添加状态',
-  category: 'state',
-  inputs: [
-    { name: 'key', type: 'string', required: true },
-    { name: 'type', type: 'string', required: true },
-    { name: 'value', type: 'any', required: true },
-  ],
-  outputs: [
-    { name: 'success', type: 'boolean' },
-  ],
-  configSchema: {
-    type: 'object',
-    additionalProperties: false,
-  },
-  defaultConfig: {},
-  async execute(inputs, _config, context) {
-    try {
-      context.state.set(inputs.key, { type: inputs.type, value: inputs.value });
-      return { success: true };
-    } catch (error) {
-      context.logger.error('AddState failed', { key: inputs.key, error: (error as Error).message });
-      return { success: false };
-    }
-  },
-};
-
-export const RemoveState: CustomNode = {
-  type: 'RemoveState',
-  label: '删除状态',
-  category: 'state',
-  inputs: [
-    { name: 'key', type: 'string', required: true },
-  ],
-  outputs: [
-    { name: 'success', type: 'boolean' },
-  ],
-  configSchema: {
-    type: 'object',
-    additionalProperties: false,
-  },
-  defaultConfig: {},
-  async execute(inputs, _config, context) {
-    const exists = context.state.get(inputs.key) !== undefined;
-    if (!exists) {
-      return { success: false };
-    }
-    try {
-      context.state.delete(inputs.key);
-      return { success: true };
-    } catch (error) {
-      context.logger.error('RemoveState failed', { key: inputs.key, error: (error as Error).message });
-      return { success: false };
-    }
-  },
-};
 
 export const ReadState: CustomNode = {
   type: 'ReadState',
@@ -120,12 +62,14 @@ export const ReadState: CustomNode = {
   },
 };
 
-export const ApplyState: CustomNode = {
-  type: 'ApplyState',
-  label: '批量应用状态',
+export const WriteState: CustomNode = {
+  type: 'WriteState',
+  label: '写入状态',
   category: 'state',
   inputs: [
-    { name: 'changes', type: 'object', required: true },
+    { name: 'changes', type: 'object' },
+    { name: 'key', type: 'string' },
+    { name: 'value', type: 'any' },
   ],
   outputs: [
     { name: 'applied', type: 'array' },
@@ -159,18 +103,34 @@ export const ApplyState: CustomNode = {
     deduplicateBy: {},
   },
   async execute(inputs, config, context) {
+    // 单 key 快捷路径：inputs 有 key + value 时
+    if (typeof inputs.key === 'string' && 'value' in inputs && inputs.changes === undefined) {
+      const existing = context.state.get(inputs.key);
+      if (existing === undefined) {
+        context.logger.warn('WriteState: key does not exist in state', { key: inputs.key });
+        return { applied: [], success: false };
+      }
+      try {
+        context.state.set(inputs.key, { type: existing.type, value: inputs.value });
+        return { applied: [inputs.key], success: true };
+      } catch (error) {
+        context.logger.error('WriteState failed', { key: inputs.key, error: (error as Error).message });
+        return { applied: [], success: false };
+      }
+    }
+
     let changes = inputs.changes;
 
-    // Allow flows to wire named inputs directly into ApplyState without first packing an object.
+    // Allow flows to wire named inputs directly into WriteState without first packing an object.
     if (changes === undefined) {
-      const namedEntries = Object.entries(inputs).filter(([key]) => key !== 'changes');
+      const namedEntries = Object.entries(inputs).filter(([key]) => key !== 'changes' && key !== 'key' && key !== 'value');
       if (namedEntries.length > 0) {
         changes = Object.fromEntries(namedEntries);
       }
     }
 
     if (!changes || typeof changes !== 'object') {
-      context.logger.warn('ApplyState: changes input is not an object');
+      context.logger.warn('WriteState: changes input is not an object');
       return { applied: [], success: false };
     }
 
@@ -181,14 +141,14 @@ export const ApplyState: CustomNode = {
         if (changes && typeof changes === 'object' && part in changes) {
           changes = changes[part];
         } else {
-          context.logger.warn('ApplyState: path not found in changes', { path: config.path });
+          context.logger.warn('WriteState: path not found in changes', { path: config.path });
           return { applied: [], success: false };
         }
       }
     }
 
     if (!changes || typeof changes !== 'object' || Array.isArray(changes)) {
-      context.logger.warn('ApplyState: resolved changes is not a plain object');
+      context.logger.warn('WriteState: resolved changes is not a plain object');
       return { applied: [], success: false };
     }
 
@@ -204,14 +164,14 @@ export const ApplyState: CustomNode = {
     for (const [key, newValue] of Object.entries(changes)) {
       // Filter by allowedKeys whitelist
       if (allowedKeys && !allowedKeys.includes(key)) {
-        context.logger.debug('ApplyState: key not in allowedKeys, skipping', { key });
+        context.logger.debug('WriteState: key not in allowedKeys, skipping', { key });
         continue;
       }
 
       // Only modify existing state keys
       const existing = context.state.get(key);
       if (existing === undefined) {
-        context.logger.debug('ApplyState: key does not exist in state, skipping', { key });
+        context.logger.debug('WriteState: key does not exist in state, skipping', { key });
         continue;
       }
 
@@ -225,25 +185,25 @@ export const ApplyState: CustomNode = {
           if (existing.type === 'number' && actualType === 'string') {
             const parsed = Number(valueToWrite);
             if (Number.isFinite(parsed)) {
-              context.logger.warn('ApplyState: coerced string to number', { key, original: valueToWrite, coerced: parsed });
+              context.logger.warn('WriteState: coerced string to number', { key, original: valueToWrite, coerced: parsed });
               valueToWrite = parsed;
             }
           } else if (existing.type === 'string' && actualType === 'number') {
-            context.logger.warn('ApplyState: coerced number to string', { key, original: valueToWrite, coerced: String(valueToWrite) });
+            context.logger.warn('WriteState: coerced number to string', { key, original: valueToWrite, coerced: String(valueToWrite) });
             valueToWrite = String(valueToWrite);
           } else if (existing.type === 'boolean' && actualType === 'string') {
             if ((valueToWrite as string).toLowerCase() === 'true') {
-              context.logger.warn('ApplyState: coerced string to boolean', { key, original: valueToWrite, coerced: true });
+              context.logger.warn('WriteState: coerced string to boolean', { key, original: valueToWrite, coerced: true });
               valueToWrite = true;
             } else if ((valueToWrite as string).toLowerCase() === 'false') {
-              context.logger.warn('ApplyState: coerced string to boolean', { key, original: valueToWrite, coerced: false });
+              context.logger.warn('WriteState: coerced string to boolean', { key, original: valueToWrite, coerced: false });
               valueToWrite = false;
             }
           } else if (existing.type === 'array' && actualType === 'string') {
             try {
               const parsed = JSON.parse(valueToWrite as string);
               if (Array.isArray(parsed)) {
-                context.logger.warn('ApplyState: coerced string to array', { key });
+                context.logger.warn('WriteState: coerced string to array', { key });
                 valueToWrite = parsed;
               }
             } catch {
@@ -258,11 +218,11 @@ export const ApplyState: CustomNode = {
           const originalValue = valueToWrite;
           if (constraint.min !== undefined && valueToWrite < constraint.min) {
             valueToWrite = constraint.min;
-            context.logger.warn('ApplyState: clamped value to min', { key, original: originalValue, clamped: valueToWrite, min: constraint.min });
+            context.logger.warn('WriteState: clamped value to min', { key, original: originalValue, clamped: valueToWrite, min: constraint.min });
           }
           if (constraint.max !== undefined && (valueToWrite as number) > constraint.max) {
             valueToWrite = constraint.max;
-            context.logger.warn('ApplyState: clamped value to max', { key, original: originalValue, clamped: valueToWrite, max: constraint.max });
+            context.logger.warn('WriteState: clamped value to max', { key, original: originalValue, clamped: valueToWrite, max: constraint.max });
           }
         }
 
@@ -293,16 +253,16 @@ export const ApplyState: CustomNode = {
             context.state.appendMany(key, items);
             applied.push(key);
           } else {
-            context.logger.error('ApplyState: appendMany requires array value', { key });
+            context.logger.error('WriteState: appendMany requires array value', { key });
           }
         } else if (operation === 'increment') {
           if (existing.type !== 'number') {
-            context.logger.error('ApplyState: increment requires number state key', { key, type: existing.type });
+            context.logger.error('WriteState: increment requires number state key', { key, type: existing.type });
             continue;
           }
           const delta = coerceToNumber(valueToWrite);
           if (delta === null) {
-            context.logger.error('ApplyState: increment value is not a number', { key, value: valueToWrite });
+            context.logger.error('WriteState: increment value is not a number', { key, value: valueToWrite });
             continue;
           }
           const newValue = clampNumber(
@@ -317,42 +277,10 @@ export const ApplyState: CustomNode = {
           applied.push(key);
         }
       } catch (error) {
-        context.logger.error('ApplyState: failed to apply operation', { key, error: (error as Error).message });
+        context.logger.error('WriteState: failed to apply operation', { key, error: (error as Error).message });
       }
     }
 
     return { applied, success: true };
-  },
-};
-
-export const ModifyState: CustomNode = {
-  type: 'ModifyState',
-  label: '修改状态',
-  category: 'state',
-  inputs: [
-    { name: 'key', type: 'string', required: true },
-    { name: 'value', type: 'any', required: true },
-  ],
-  outputs: [
-    { name: 'success', type: 'boolean' },
-  ],
-  configSchema: {
-    type: 'object',
-    additionalProperties: false,
-  },
-  defaultConfig: {},
-  async execute(inputs, _config, context) {
-    const existing = context.state.get(inputs.key);
-    if (existing === undefined) {
-      context.logger.warn('ModifyState failed: key does not exist', { key: inputs.key });
-      return { success: false };
-    }
-    try {
-      context.state.set(inputs.key, { type: existing.type, value: inputs.value });
-      return { success: true };
-    } catch (error) {
-      context.logger.error('ModifyState failed', { key: inputs.key, error: (error as Error).message });
-      return { success: false };
-    }
   },
 };
