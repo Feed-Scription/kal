@@ -4,7 +4,7 @@
 
 相关后续设计：`kal debug` 的 Agent 友好调试方案见 [agent-debug.md](./agent-debug.md)。
 
-Engine 是把 Core 变成"可运行产品能力"的宿主层。当前 `apps/engine` 模块已经落地，覆盖了项目加载、CLI、HTTP API、Session 运行和统一错误模型。
+Engine 是把 Core 变成"可运行产品能力"的宿主层。当前 `apps/engine` 模块已经落地，覆盖了项目加载、CLI、HTTP API、Session 运行和统一错误模型。一个必须持续守住的约束是：Engine 首先是游戏运行时与服务宿主，其次才是 Studio 的平台服务层；Studio 可以组合在 Engine 之上，但 Engine 不应反向依赖 Studio 才能运行。
 
 ## Engine 在架构中的职责
 
@@ -16,6 +16,7 @@ Engine 负责：
 4. 提供 CLI
 5. 提供 HTTP API
 6. 为 TUI、当前 Editor 和未来 Studio Kernel / 官方扩展提供统一服务入口
+7. 在 `kal serve`、`kal play`、`kal debug`、`kal lint`、`kal smoke` 等路径下保持 Studio-optional，不因 Studio 引入额外启动依赖
 
 ## 当前已实现能力
 
@@ -175,6 +176,7 @@ Editor -> Engine -> Core
 
 ### 7.1 与 Studio 的演进关系
 
+- Studio 是 Engine 之上的工作台组合，而不是 Engine 的启动前提；`kal studio` 只是“Engine API + Editor 静态资源”的一体化入口，不应改变 `kal serve`、`kal play`、`kal debug` 等无 Studio 路径的最小依赖面
 - Phase 1 中，Flow / Session editor 建议先作为 Studio Kernel 的内置 view 演进，而不是立刻做成插件壳
 - 官方能力如 `problems`、`prompt-preview`、`debugger`、`h5-preview`、`terminal`、`vercel-deploy` 更适合通过一方扩展先行 dogfood
 - 这意味着 Engine 需要从“CRUD + run SSE”继续演进为一层更完整的 Studio platform services
@@ -202,6 +204,7 @@ Editor -> Engine -> Core
 当前 Engine 已经是一个功能较完整的模块：
 
 - 项目加载、CLI、HTTP API、TUI 四条链路均已打通
+- `kal serve`、`kal play`、`kal debug`、`kal lint`、`kal smoke` 这些运行时路径天然不需要 Studio
 - Editor 已通过 Engine API 工作，完成了从本地模式到服务模式的切换
 - `kal play` 提供基于 Session 的交互式终端运行体验
 - `kal debug` 提供可恢复、结构化输出的 CLI 调试入口，支持 agent 友好的 `--format agent` 输出
@@ -223,3 +226,4 @@ Editor -> Engine -> Core
 - 热重载能力
 - 围绕 managed run runtime 继续压平前端接入复杂度
 - 为未来的一方扩展宿主预留 capability-based 服务边界
+- 在继续服务 Studio 的同时，保持 Engine 最小运行时路径与 Studio 资源、扩展宿主、工作台状态解耦
