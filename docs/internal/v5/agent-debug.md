@@ -1435,7 +1435,7 @@ kal debug . --continue lily
 2. 发现内容缺失问题（如设计中的 NPC 未实现）
 3. 发现系统缺失问题（如设计中的子系统未实现）
 4. 发现数值范围错误（如 state 初始值或变化范围不符合设计）
-5. 提出具体的修复建议（如"AP 消耗应为 1，当前为 2，修改 flow/day-action.json 中的 ApplyState 节点"）
+5. 提出具体的修复建议（如"AP 消耗应为 1，当前为 2，修改 flow/day-action.json 中的 WriteState 节点"）
 
 则认为 Phase 2 达标。
 

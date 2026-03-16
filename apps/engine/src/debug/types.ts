@@ -177,6 +177,14 @@ export interface DebugAdvancePayload {
   diagnostics: DiagnosticPayload[];
   next_action: string | null;
   observation: DebugObservation;
+  llm_traces?: Array<{
+    nodeId: string;
+    model: string;
+    request: string;
+    response: string;
+    latencyMs?: number;
+    cached?: boolean;
+  }>;
 }
 
 export interface DebugStatePayload {

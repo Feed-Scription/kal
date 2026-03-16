@@ -15,7 +15,7 @@ Engine 负责：
 3. 创建并持有 Core 实例
 4. 提供 CLI
 5. 提供 HTTP API
-6. 为 TUI 和 Editor 提供统一服务入口
+6. 为 TUI、当前 Editor 和未来 Studio Kernel / 官方扩展提供统一服务入口
 
 ## 当前已实现能力
 
@@ -54,7 +54,15 @@ Engine 负责：
 `cli.ts` + `bin.ts` 提供了 `kal` 命令行入口，已实现：
 
 - `kal serve [project-path] [--host <host>] [--port <port>]` — 启动 HTTP 服务
+- `kal studio [project-path] [--host <host>] [--port <port>]` — 启动集成 Editor 的一体化服务（Engine API + Editor 静态文件）
 - `kal play [project-path]` — 启动交互式 TUI
+- `kal debug [project-path]` — 可恢复、结构化输出的 CLI 调试入口，支持 `--start/--continue/--step/--state/--list/--delete/--retry/--skip`，支持 `--format json|pretty|agent`
+- `kal lint [project-path] [--format json|pretty]` — 项目级静态分析（session 校验、unused flow、state key 检查、deep node validation）
+- `kal smoke [project-path] [--steps N] [--input value]... [--dry-run]` — 最小 smoke test，按步推进 Session 并输出状态变化
+- `kal eval <nodes|render|run|compare>` — Prompt eval 工具链（查看节点、渲染 prompt、执行评估、对比结果）
+- `kal init <project-name> [--template minimal|game]` — 项目脚手架
+- `kal schema <nodes|node <type>|session>` — 导出 node 和 session schema
+- `kal config <init|set|get|list|remove|set-key>` — 配置管理（API 密钥加密存储、自定义 Base URL 等）
 - `kal help` / `kal --help` / `kal -h` — 打印用法
 - 优雅关闭（监听 SIGINT / SIGTERM）
 - 依赖注入设计（`CliDependencies`），便于测试
@@ -165,14 +173,25 @@ Editor -> Engine -> Core
 - Editor 定位为 Flow / Session 的可视化审查工具，用于查看 agent 生成的逻辑是否合理
 - 支持连接 Engine、查看/编辑 Flow、查看/编辑 Session、单次调试执行
 
+### 7.1 与 Studio 的演进关系
+
+- Phase 1 中，Flow / Session editor 建议先作为 Studio Kernel 的内置 view 演进，而不是立刻做成插件壳
+- 官方能力如 `problems`、`prompt-preview`、`debugger`、`h5-preview`、`terminal`、`vercel-deploy` 更适合通过一方扩展先行 dogfood
+- 这意味着 Engine 需要从“CRUD + run SSE”继续演进为一层更完整的 Studio platform services
+- Query / Command / Event Stream 三通道会比单纯 REST 更适合承接后续的 diagnostics、trace、process、deploy 等能力
+
 ## 当前未完成能力
 
 以下能力尚未实现：
 
-- `kal init` — 项目脚手架命令
-- `kal validate` — 独立校验命令
 - 热重载（文件监听自动 reload，当前只有手动 `POST /api/project/reload`）
 - 低层 Flow/Node 执行 trace 流（当前 SSE 只提供 run 级别更新，不暴露逐节点 trace）
+- LLM trace 接通（hooks 基础设施已就绪，`registerLLMTraceHooks` 已写好但尚未接入 debug 命令输出）
+- Diagnostics 查询服务 / 增量 lint 推送
+- Prompt preview API
+- Process / terminal service
+- Deploy / package progress service
+- Studio extension workspace host 与 capability gate
 - 日志文件输出（当前日志仅 console 输出）
 - Telemetry 查询服务（Core 的 Telemetry 在内存中，未通过 API 暴露）
 - 生产环境 CORS 配置（当前为 `*`）
@@ -180,17 +199,27 @@ Editor -> Engine -> Core
 
 ## 当前最准确的定位
 
-当前 Engine 已经是一个可用模块：
+当前 Engine 已经是一个功能较完整的模块：
 
 - 项目加载、CLI、HTTP API、TUI 四条链路均已打通
 - Editor 已通过 Engine API 工作，完成了从本地模式到服务模式的切换
 - `kal play` 提供基于 Session 的交互式终端运行体验
+- `kal debug` 提供可恢复、结构化输出的 CLI 调试入口，支持 agent 友好的 `--format agent` 输出
+- `kal lint` 提供项目级静态分析（session 校验、unused flow、state key 检查、deep node validation）
+- `kal smoke` 提供最小自动化 smoke test
+- `kal eval` 提供 prompt 评估工具链
+- `kal init` 提供项目脚手架
+- `kal schema` 导出 node 和 session schema 供 agent 消费
+- `kal config` 提供配置管理（含 API 密钥加密存储）
+- `kal studio` 提供集成 Editor 的一体化服务
 - 测试已覆盖 runtime、server、CLI 的核心路径
 
 下一步重点是：
 
+- 接通 LLM trace（hooks 基础设施已就绪，需要接入 debug 命令输出）
 - 补齐更细粒度的执行 trace / diagnostics 查询能力
+- 补齐 Prompt Preview、Problems、Debugger 等 Studio 官方能力所需的平台接口
+- 补齐 process / deploy / package progress 等长任务服务
 - 热重载能力
 - 围绕 managed run runtime 继续压平前端接入复杂度
-
-此外，针对 Claude Code、Cursor、Codex 等 Agent 无法使用 `kal play` 交互式 TUI 的问题，已补充一份 `kal debug` 设计方案，计划提供可恢复、结构化输出的 CLI 调试入口。
+- 为未来的一方扩展宿主预留 capability-based 服务边界

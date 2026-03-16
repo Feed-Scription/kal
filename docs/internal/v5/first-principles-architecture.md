@@ -358,7 +358,7 @@ KAL 现在对模型暴露的 authoring 自由度仍然太高。
 
 - 错误连线模式
 - flow outputs 与 session / subflow 使用不一致
-- `ApplyState` 写不存在 key
+- `WriteState` 写不存在 key
 - docs / recipe 里的 canonical pattern 过期
 
 ### 4. 重构 debug：从全量原始 payload 转向双通道输出
@@ -446,7 +446,13 @@ debug 不该只有一个肥大的 JSON。
 
 ### 1. 暂缓完整 studio 化
 
-可以继续增强 editor，但不要急着把它发展成一个重型创作环境。
+这里要暂缓的是“重型、通用 IDE 化的 Studio”，不是拒绝一个服务于闭环的最小工作台。
+
+更准确的判断是：
+
+- Flow / Session editor 先作为 Kernel 内置 view 演进，不要在 view 注册 API 还不稳定时就强行插件化
+- 官方能力如 `problems`、`prompt-preview`、`debugger`、`terminal`、`h5-preview`、`vercel-deploy` 应作为一方扩展先行 dogfood
+- 等 panel / view / inspector API 被官方能力验证过，再迁移最重的编辑器视图
 
 ### 2. 暂缓完整 MCP 化
 
@@ -482,18 +488,19 @@ MCP 可以成为接入方式，但不应该反客为主，变成架构中心。
 
 ### P0：必须尽快做
 
-- 修正 `build-game` 和相关文档中的错误 canonical pattern
-- 明确 node contract 以 manifest 为准
-- 增加 `kal lint --all`
-- 增加 `kal debug --format agent` 或 `--json-strict`
-- 增加最小 `LLM trace`
+- ~~修正 `build-game` 和相关文档中的错误 canonical pattern~~ ✅ 已完成（`ApplyState` → `WriteState` 全局同步）
+- 明确 node contract 以 manifest 为准（部分完成：lint 已校验 manifest，但 flow schema 仍允许 instance-first）
+- ~~增加 `kal lint --all`~~ ✅ 已实现为 `kal lint`（session 校验、unused flow、state key 检查、deep node validation）
+- ~~增加 `kal debug --format agent` 或 `--json-strict`~~ ✅ 已实现（支持 `--format json|pretty|agent`）
+- 增加最小 `LLM trace`（部分完成：hooks 基础设施已就绪，`registerLLMTraceHooks` 已写好但尚未接入 debug 命令输出）
 
 ### P1：应该尽快跟上
 
-- 推出高频 recipe / scaffold
-- 推出 `kal smoke`
-- 让文档更多从 runtime / manifest 派生
-- 改善 debug run invalidation 粒度
+- 推出高频 recipe / scaffold（最小版本：`kal init --template minimal|game`，但不是完整 recipe 体系）
+- ~~推出 `kal smoke`~~ ✅ 已实现（支持 `--steps N`、`--input`、`--dry-run`、`--format json|pretty`）
+- 让文档更多从 runtime / manifest 派生（未开始）
+- 改善 debug run invalidation 粒度（未确认）
+- 收敛最小 Studio kernel，并让官方能力通过一方扩展 dogfood（`kal studio` 命令已存在，kernel 架构未落地）
 
 ### P2：等主闭环稳定后再做
 
@@ -819,7 +826,7 @@ KAL 现在不是纯粹的 `instance-first`，也还没有真正做到 `manifest-
 
 - `Message` 有哪些输入输出
 - `GenerateText` 支持哪些 config 字段
-- `ApplyState` 的默认行为是什么
+- `WriteState` 的默认行为是什么
 
 如果某个信息回答的是“这个节点实例在当前业务里怎么用”，它应优先属于实例。
 
