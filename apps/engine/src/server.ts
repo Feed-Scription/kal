@@ -7,6 +7,7 @@ import { RunManager } from './run-manager';
 import type {
   AdvanceRunRequest,
   CreateRunRequest,
+  DiagnosticsPayload,
   EngineErrorResponse,
   EngineResponse,
   ExecuteFlowRequest,
@@ -14,6 +15,7 @@ import type {
   StartedEngineServer,
 } from './types';
 import { EngineRuntime } from './runtime';
+import { collectLintPayload } from './commands/lint';
 
 function setCorsHeaders(res: ServerResponse): void {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -129,6 +131,22 @@ export async function handleEngineRequest(
       return;
     }
 
+    if (method === 'GET' && pathname === '/api/config') {
+      success(res, { config: runtime.getProject().config });
+      return;
+    }
+
+    if (method === 'GET' && pathname === '/api/state') {
+      success(res, { state: runtime.getState() });
+      return;
+    }
+
+    if (method === 'GET' && pathname === '/api/diagnostics') {
+      const payload: DiagnosticsPayload = await collectLintPayload(runtime.getProject().projectRoot);
+      success(res, payload);
+      return;
+    }
+
     if (method === 'GET' && pathname === '/api/flows') {
       success(res, { flows: runtime.listFlows() });
       return;
@@ -147,6 +165,16 @@ export async function handleEngineRequest(
       success(res, {
         flowId,
         savedAt: new Date().toISOString(),
+      });
+      return;
+    }
+
+    if (method === 'DELETE' && pathname.startsWith('/api/flows/')) {
+      const flowId = decodeURIComponent(pathname.slice('/api/flows/'.length));
+      await runtime.deleteFlow(flowId);
+      success(res, {
+        flowId,
+        deletedAt: new Date().toISOString(),
       });
       return;
     }

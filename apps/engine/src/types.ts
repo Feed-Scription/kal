@@ -9,6 +9,7 @@ import type {
   SessionDefinition,
   StateValue,
 } from '@kal-ai/core';
+import type { DiagnosticPayload } from './debug/types';
 
 export interface EngineProject {
   projectRoot: string;
@@ -147,4 +148,14 @@ export type RunStreamEventName =
 export interface RunStreamEvent {
   type: RunStreamEventName;
   run: RunView;
+}
+
+export interface DiagnosticsPayload {
+  project_root: string;
+  diagnostics: DiagnosticPayload[];
+  summary: {
+    total_issues: number;
+    errors: number;
+    warnings: number;
+  };
 }
