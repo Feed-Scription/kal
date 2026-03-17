@@ -1,0 +1,367 @@
+{
+  "meta": {
+    "schemaVersion": "1.0.0",
+    "name": "main",
+    "description": "主回合解析与状态写回",
+    "inputs": [
+      {
+        "name": "playerAction",
+        "type": "string",
+        "required": true
+      }
+    ],
+    "outputs": [
+      {
+        "name": "result",
+        "type": "object"
+      }
+    ]
+  },
+  "data": {
+    "nodes": [
+      {
+        "id": "signal-in",
+        "type": "SignalIn",
+        "label": "玩家行动",
+        "inputs": [],
+        "outputs": [
+          {
+            "name": "data",
+            "type": "string"
+          }
+        ],
+        "config": {
+          "channel": "playerAction"
+        }
+      },
+      {
+        "id": "prompt-static",
+        "type": "PromptBuild",
+        "label": "规则与裁判词",
+        "inputs": [
+          {
+            "name": "data",
+            "type": "object",
+            "defaultValue": {}
+          }
+        ],
+        "outputs": [
+          {
+            "name": "messages",
+            "type": "ChatMessage[]"
+          },
+          {
+            "name": "text",
+            "type": "string"
+          },
+          {
+            "name": "estimatedTokens",
+            "type": "number"
+          }
+        ],
+        "config": {
+          "defaultRole": "system",
+          "fragments": [
+            {
+              "type": "base",
+              "id": "director-rules",
+              "content": "你是互动游戏《风暴信标值守》的裁判兼叙事者。玩家正在海岬信标站度过连续四个风暴夜。每回合代表一个夜晚，玩家只做一个具体动作，你要描述结果并更新状态。\n\n硬规则：\n1. `night` 每回合必须恰好 +1。\n2. `fuel`、`towerIntegrity`、`crewMorale` 的范围是 0 到 8。\n3. `stormPressure` 的范围是 0 到 6。\n4. `shipsSaved` 的范围是 0 到 4，单回合最多只增加 1。\n5. `status` 只能是 `active`、`victory`、`defeat`。\n6. 如果 `fuel <= 0` 或 `towerIntegrity <= 0` 或 `crewMorale <= 0`，则 `status = defeat`。\n7. 当回合结算后 `night > maxNights` 时：若 `shipsSaved >= 2` 且 `towerIntegrity >= 1`，则 `status = victory`；否则 `status = defeat`。\n8. `inventory` 是字符串数组。只有在明确消耗或获取物资时才改动，并保持条目简短。\n9. 叙事必须体现海雾、风暴、机械振动和岸边船只的压力，但不要让玩家用超能力直接跳过游戏。\n10. 行动应该有取舍：改善一项资源时，通常会消耗另一项资源或放大风险。\n\n输出要求：\n- 只输出 JSON，不要 markdown，不要额外解释。\n- `narration` 使用第二人称，90 到 160 字。\n- `stateChanges` 必须返回完整状态值，而不是增量。\n- 返回 JSON 结构严格如下：\n{\n  \"narration\": \"...\",\n  \"stateChanges\": {\n    \"night\": 2,\n    \"fuel\": 5,\n    \"towerIntegrity\": 6,\n    \"crewMorale\": 5,\n    \"shipsSaved\": 1,\n    \"stormPressure\": 4,\n    \"weather\": \"海雾裹着咸冷风压向崖顶\",\n    \"beaconMode\": \"sweeping\",\n    \"inventory\": [\"signal flare\", \"repair kit\"],\n    \"status\": \"active\"\n  }\n}",
+              "role": "system"
+            }
+          ]
+        }
+      },
+      {
+        "id": "prompt-dynamic",
+        "type": "PromptBuild",
+        "label": "当前状态",
+        "inputs": [
+          {
+            "name": "data",
+            "type": "object",
+            "defaultValue": {}
+          }
+        ],
+        "outputs": [
+          {
+            "name": "messages",
+            "type": "ChatMessage[]"
+          },
+          {
+            "name": "text",
+            "type": "string"
+          },
+          {
+            "name": "estimatedTokens",
+            "type": "number"
+          }
+        ],
+        "config": {
+          "defaultRole": "system",
+          "fragments": [
+            {
+              "type": "field",
+              "id": "night",
+              "source": "state.night",
+              "template": "当前夜晚: {{items}}",
+              "role": "system"
+            },
+            {
+              "type": "field",
+              "id": "maxNights",
+              "source": "state.maxNights",
+              "template": "总夜晚数: {{items}}",
+              "role": "system"
+            },
+            {
+              "type": "field",
+              "id": "fuel",
+              "source": "state.fuel",
+              "template": "燃料: {{items}}",
+              "role": "system"
+            },
+            {
+              "type": "field",
+              "id": "towerIntegrity",
+              "source": "state.towerIntegrity",
+              "template": "塔体完整度: {{items}}",
+              "role": "system"
+            },
+            {
+              "type": "field",
+              "id": "crewMorale",
+              "source": "state.crewMorale",
+              "template": "士气: {{items}}",
+              "role": "system"
+            },
+            {
+              "type": "field",
+              "id": "shipsSaved",
+              "source": "state.shipsSaved",
+              "template": "已救船只数: {{items}}",
+              "role": "system"
+            },
+            {
+              "type": "field",
+              "id": "stormPressure",
+              "source": "state.stormPressure",
+              "template": "风暴压力: {{items}}",
+              "role": "system"
+            },
+            {
+              "type": "field",
+              "id": "weather",
+              "source": "state.weather",
+              "template": "海况: {{items}}",
+              "role": "system"
+            },
+            {
+              "type": "field",
+              "id": "beaconMode",
+              "source": "state.beaconMode",
+              "template": "主灯模式: {{items}}",
+              "role": "system"
+            },
+            {
+              "type": "field",
+              "id": "inventory",
+              "source": "state.inventory",
+              "template": "库存: {{items}}",
+              "role": "system"
+            }
+          ]
+        }
+      },
+      {
+        "id": "message",
+        "type": "Message",
+        "label": "组装消息",
+        "inputs": [
+          {
+            "name": "system",
+            "type": "string"
+          },
+          {
+            "name": "context",
+            "type": "string"
+          },
+          {
+            "name": "user",
+            "type": "string",
+            "required": true
+          }
+        ],
+        "outputs": [
+          {
+            "name": "messages",
+            "type": "ChatMessage[]"
+          }
+        ],
+        "config": {
+          "format": "xml"
+        }
+      },
+      {
+        "id": "generate-text",
+        "type": "GenerateText",
+        "label": "生成回合结果",
+        "inputs": [
+          {
+            "name": "messages",
+            "type": "ChatMessage[]",
+            "required": true
+          }
+        ],
+        "outputs": [
+          {
+            "name": "text",
+            "type": "string"
+          },
+          {
+            "name": "usage",
+            "type": "object"
+          }
+        ],
+        "config": {
+          "model": "",
+          "temperature": 0.7,
+          "maxTokens": 700,
+          "historyKey": "history",
+          "assistantPath": ""
+        }
+      },
+      {
+        "id": "json-parse",
+        "type": "JSONParse",
+        "label": "解析 JSON",
+        "inputs": [
+          {
+            "name": "text",
+            "type": "string",
+            "required": true
+          }
+        ],
+        "outputs": [
+          {
+            "name": "data",
+            "type": "object"
+          },
+          {
+            "name": "success",
+            "type": "boolean"
+          },
+          {
+            "name": "error",
+            "type": "string"
+          }
+        ],
+        "config": {
+          "extractFromCodeBlock": true,
+          "fixCommonErrors": true,
+          "fixTruncated": true
+        }
+      },
+      {
+        "id": "apply-state",
+        "type": "WriteState",
+        "label": "回写状态",
+        "inputs": [
+          {
+            "name": "changes",
+            "type": "object",
+            "required": true
+          }
+        ],
+        "outputs": [
+          {
+            "name": "applied",
+            "type": "array"
+          },
+          {
+            "name": "success",
+            "type": "boolean"
+          }
+        ],
+        "config": {
+          "path": "stateChanges",
+          "allowedKeys": [
+            "night",
+            "fuel",
+            "towerIntegrity",
+            "crewMorale",
+            "shipsSaved",
+            "stormPressure",
+            "weather",
+            "beaconMode",
+            "inventory",
+            "status"
+          ]
+        }
+      },
+      {
+        "id": "signal-out",
+        "type": "SignalOut",
+        "label": "输出结果",
+        "inputs": [
+          {
+            "name": "data",
+            "type": "object"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "data",
+            "type": "object"
+          }
+        ],
+        "config": {
+          "channel": "result"
+        }
+      }
+    ],
+    "edges": [
+      {
+        "source": "signal-in",
+        "sourceHandle": "data",
+        "target": "message",
+        "targetHandle": "user"
+      },
+      {
+        "source": "prompt-static",
+        "sourceHandle": "text",
+        "target": "message",
+        "targetHandle": "system"
+      },
+      {
+        "source": "prompt-dynamic",
+        "sourceHandle": "text",
+        "target": "message",
+        "targetHandle": "context"
+      },
+      {
+        "source": "message",
+        "sourceHandle": "messages",
+        "target": "generate-text",
+        "targetHandle": "messages"
+      },
+      {
+        "source": "generate-text",
+        "sourceHandle": "text",
+        "target": "json-parse",
+        "targetHandle": "text"
+      },
+      {
+        "source": "json-parse",
+        "sourceHandle": "data",
+        "target": "apply-state",
+        "targetHandle": "changes"
+      },
+      {
+        "source": "json-parse",
+        "sourceHandle": "data",
+        "target": "signal-out",
+        "targetHandle": "data"
+      }
+    ]
+  }
+}

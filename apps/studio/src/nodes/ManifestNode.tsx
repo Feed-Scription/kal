@@ -11,6 +11,10 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import {
+  PromptBuildFragmentsField,
+  StringListField,
+} from "@/components/node-config-editors";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -189,6 +193,7 @@ const JsonField = memo(function JsonField({
 
 function ConfigField({
   nodeId,
+  nodeType,
   name,
   schema,
   required,
@@ -196,6 +201,7 @@ function ConfigField({
   flowNames,
 }: {
   nodeId: string;
+  nodeType?: string;
   name: string;
   schema: Schema;
   required: boolean;
@@ -204,12 +210,37 @@ function ConfigField({
 }) {
   const { updateConfig } = useNodeConfig(nodeId);
   const setValue = (next: unknown) => updateConfig({ [name]: next } as Record<string, unknown>);
+  const label = labelFor(name);
+
+  if (nodeType === "PromptBuild" && name === "fragments") {
+    return (
+      <PromptBuildFragmentsField
+        label={label}
+        required={required}
+        value={value}
+        onCommit={setValue}
+      />
+    );
+  }
+
+  if (nodeType === "WriteState" && name === "allowedKeys") {
+    return (
+      <StringListField
+        label={label}
+        required={required}
+        value={value}
+        placeholder="state key"
+        addLabel="添加 Key"
+        onCommit={setValue}
+      />
+    );
+  }
 
   if (name === "ref" && flowNames.length > 0) {
     return (
       <div>
         <label className="text-xs text-muted-foreground">
-          {labelFor(name)} {required ? "*" : ""}
+          {label} {required ? "*" : ""}
         </label>
         <Select value={String(value ?? "")} onValueChange={(next) => setValue(next)}>
           <SelectTrigger className="mt-1">
@@ -231,7 +262,7 @@ function ConfigField({
     return (
       <div>
         <label className="text-xs text-muted-foreground">
-          {labelFor(name)} {required ? "*" : ""}
+          {label} {required ? "*" : ""}
         </label>
         <Select value={String(value ?? "")} onValueChange={(next) => setValue(next)}>
           <SelectTrigger className="mt-1">
@@ -258,7 +289,7 @@ function ConfigField({
           onCheckedChange={(checked) => setValue(Boolean(checked))}
         />
         <label htmlFor={`${nodeId}-${name}`} className="text-xs text-muted-foreground">
-          {labelFor(name)} {required ? "*" : ""}
+          {label} {required ? "*" : ""}
         </label>
       </div>
     );
@@ -268,7 +299,7 @@ function ConfigField({
     return (
       <div>
         <label className="text-xs text-muted-foreground">
-          {labelFor(name)} {required ? "*" : ""}
+          {label} {required ? "*" : ""}
         </label>
         <Input
           type="number"
@@ -297,7 +328,7 @@ function ConfigField({
   return (
     <div>
       <label className="text-xs text-muted-foreground">
-        {labelFor(name)} {required ? "*" : ""}
+        {label} {required ? "*" : ""}
       </label>
       <Input
         className="mt-1"
@@ -343,6 +374,7 @@ export const ManifestNode = memo(({ id, data, selected }: NodeProps) => {
               <ConfigField
                 key={name}
                 nodeId={id}
+                nodeType={manifest?.type}
                 name={name}
                 schema={schema}
                 required={required.has(name)}

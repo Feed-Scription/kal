@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Info, Save } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useStudioResources } from "@/kernel/hooks";
+import { useStudioCommands, useStudioResources } from "@/kernel/hooks";
 import type { KalConfig } from "@/types/project";
 
 /** 深拷贝 + 按路径设值 */
@@ -24,21 +24,68 @@ function setPath(obj: KalConfig, path: string[], value: unknown): KalConfig {
   return clone as KalConfig;
 }
 
+function sanitizeConfigForSave(draft: KalConfig, current: KalConfig): KalConfig {
+  return {
+    ...draft,
+    llm: {
+      ...draft.llm,
+      apiKey: current.llm.apiKey,
+      baseUrl: current.llm.baseUrl,
+    },
+  };
+}
+
 export function ConfigEditor() {
   const { config } = useStudioResources();
+  const { updateConfig } = useStudioCommands();
   const [draft, setDraft] = useState<KalConfig | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
-  // 首次加载或 config 变化时重置 draft
+  useEffect(() => {
+    setDraft(null);
+    setSaveError(null);
+    setIsSaving(false);
+  }, [config]);
+
   const effective = draft ?? config;
   if (!effective) return null;
 
   const isDirty = draft !== null && JSON.stringify(draft) !== JSON.stringify(config);
+  const sanitizedDraft = useMemo(() => {
+    if (!draft || !config) return null;
+    return sanitizeConfigForSave(draft, config);
+  }, [config, draft]);
+  const hasRestrictedChanges = Boolean(
+    draft &&
+      config &&
+      (draft.llm.apiKey !== config.llm.apiKey || draft.llm.baseUrl !== config.llm.baseUrl)
+  );
+  const hasPersistableChanges = Boolean(
+    sanitizedDraft && config && JSON.stringify(sanitizedDraft) !== JSON.stringify(config)
+  );
 
   const update = (path: string[], value: unknown) => {
     setDraft(setPath(effective, path, value));
   };
 
   const reset = () => setDraft(null);
+
+  const handleSave = async () => {
+    if (!config || !sanitizedDraft || !hasPersistableChanges) {
+      return;
+    }
+    setIsSaving(true);
+    setSaveError(null);
+    try {
+      await updateConfig(sanitizedDraft);
+      setDraft(null);
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "保存配置失败");
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <div className="h-full w-full overflow-auto bg-background p-6">
@@ -53,15 +100,20 @@ export function ConfigEditor() {
             )}
             <Button
               size="sm"
-              disabled={!isDirty}
-              title={isDirty ? "Engine 尚未提供配置写入 API，保存功能即将上线" : "没有修改"}
+              disabled={!hasPersistableChanges || isSaving}
+              title={
+                !isDirty
+                  ? "没有修改"
+                  : !hasPersistableChanges
+                    ? "当前仅修改了暂不支持直接保存的字段"
+                    : undefined
+              }
               onClick={() => {
-                // TODO: 等 Engine 补 saveConfig API 后接入
-                // await saveConfig(draft);
+                void handleSave();
               }}
             >
               <Save className="mr-1.5 size-4" />
-              保存
+              {isSaving ? "保存中..." : "保存"}
             </Button>
           </div>
         </div>
@@ -70,8 +122,27 @@ export function ConfigEditor() {
           <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm">
             <Info className="mt-0.5 size-4 shrink-0 text-amber-600" />
             <p className="text-muted-foreground">
-              配置已修改但尚未保存。Engine 配置写入 API 即将上线，届时可直接在此保存。当前如需生效，请手动编辑项目文件后重载。
+              配置已修改但尚未保存。保存会直接调用 Studio 的配置写入命令，并进入版本记录，可撤销重做。
             </p>
+          </div>
+        )}
+
+        {(hasRestrictedChanges || saveError) && (
+          <div className="space-y-2 rounded-lg border border-border bg-card p-4 text-sm">
+            {hasRestrictedChanges && (
+              <div className="flex items-start gap-2">
+                <Info className="mt-0.5 size-4 shrink-0 text-blue-600" />
+                <p className="text-muted-foreground">
+                  `llm.apiKey` 和 `llm.baseUrl` 目前不能通过 Studio 直接保存。你可以在这里查看或临时编辑，但保存时会保留项目文件中的原值。
+                </p>
+              </div>
+            )}
+            {saveError && (
+              <div className="flex items-start gap-2">
+                <Info className="mt-0.5 size-4 shrink-0 text-destructive" />
+                <p className="text-destructive">{saveError}</p>
+              </div>
+            )}
           </div>
         )}
 

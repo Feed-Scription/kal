@@ -1,5 +1,5 @@
 /**
- * Shared DAG layout algorithm with declaration-order-aware back-edge filtering.
+ * Shared DAG layout algorithm with cycle-aware back-edge filtering.
  * Used by both Flow editor and Session editor.
  */
 
@@ -10,135 +10,205 @@ export interface LayoutOptions {
   gapY: number;
 }
 
-/**
- * Topological-sort-based auto layout with barycenter crossing reduction.
- * Arranges nodes left-to-right by layer, top-to-bottom within each layer.
- *
- * Uses declaration order (the order of `nodeIds`) to identify back edges —
- * edges where the target appears before or at the same position as the source.
- * Back edges are excluded from the topological sort so cycles don't break
- * the layer structure.
- *
- * After layering, applies barycenter heuristic to reorder nodes within each
- * layer, minimizing edge crossings by sorting nodes based on the average
- * position of their connected neighbors in the previous layer.
- *
- * Returns a map of node ID → position, plus a set of back-edge keys
- * ("source->target") for callers that want to style them differently.
- */
 export function layoutDag(
   nodeIds: string[],
   edges: { source: string; target: string }[],
   opts: LayoutOptions,
 ): { positions: Map<string, { x: number; y: number }>; backEdges: Set<string> } {
   const positions = new Map<string, { x: number; y: number }>();
-  const backEdges = new Set<string>();
-  if (nodeIds.length === 0) return { positions, backEdges };
+  if (nodeIds.length === 0) {
+    return { positions, backEdges: new Set() };
+  }
 
-  const orderIndex = new Map(nodeIds.map((id, i) => [id, i]));
+  const orderIndex = new Map(nodeIds.map((id, index) => [id, index]));
   const idSet = new Set(nodeIds);
-
-  // Build adjacency + in-degree, skipping back edges
-  const inDegree = new Map<string, number>();
+  const backEdges = new Set<string>();
   const children = new Map<string, Set<string>>();
   const parents = new Map<string, Set<string>>();
-  for (const id of nodeIds) {
-    inDegree.set(id, 0);
-    children.set(id, new Set());
-    parents.set(id, new Set());
+  const backTargets = new Map<string, Set<string>>();
+  const backSources = new Map<string, Set<string>>();
+  const outgoing = new Map<string, string[]>();
+
+  for (const nodeId of nodeIds) {
+    children.set(nodeId, new Set());
+    parents.set(nodeId, new Set());
+    backTargets.set(nodeId, new Set());
+    backSources.set(nodeId, new Set());
+    outgoing.set(nodeId, []);
   }
-  for (const e of edges) {
-    if (!idSet.has(e.source) || !idSet.has(e.target)) continue;
-    const srcIdx = orderIndex.get(e.source)!;
-    const tgtIdx = orderIndex.get(e.target)!;
-    if (tgtIdx <= srcIdx) {
-      backEdges.add(`${e.source}->${e.target}`);
+
+  for (const edge of edges) {
+    if (!idSet.has(edge.source) || !idSet.has(edge.target)) {
       continue;
     }
-    children.get(e.source)!.add(e.target);
-    parents.get(e.target)!.add(e.source);
-    inDegree.set(e.target, inDegree.get(e.target)! + 1);
+    outgoing.get(edge.source)!.push(edge.target);
   }
 
-  // BFS topological sort → layers
-  const layers: string[][] = [];
-  const visited = new Set<string>();
-  let queue = [...inDegree.entries()].filter(([, d]) => d === 0).map(([id]) => id);
-
-  while (queue.length > 0) {
-    layers.push(queue);
-    for (const id of queue) visited.add(id);
-    const next: string[] = [];
-    for (const id of queue) {
-      for (const child of children.get(id) ?? []) {
-        const newDeg = inDegree.get(child)! - 1;
-        inDegree.set(child, newDeg);
-        if (newDeg === 0 && !visited.has(child)) {
-          next.push(child);
+  for (const [source, targets] of outgoing) {
+    targets.sort((a, b) => (orderIndex.get(a) ?? 0) - (orderIndex.get(b) ?? 0));
+    const seenTargets = new Set<string>();
+    outgoing.set(
+      source,
+      targets.filter((target) => {
+        if (seenTargets.has(target)) {
+          return false;
         }
+        seenTargets.add(target);
+        return true;
+      }),
+    );
+  }
+
+  const addForwardEdge = (source: string, target: string) => {
+    children.get(source)!.add(target);
+    parents.get(target)!.add(source);
+  };
+
+  const addBackEdge = (source: string, target: string) => {
+    const key = `${source}->${target}`;
+    if (backEdges.has(key)) {
+      return;
+    }
+    backEdges.add(key);
+    backTargets.get(source)!.add(target);
+    backSources.get(target)!.add(source);
+  };
+
+  const visiting = new Set<string>();
+  const visited = new Set<string>();
+
+  const visitNode = (nodeId: string) => {
+    visiting.add(nodeId);
+    visited.add(nodeId);
+
+    for (const target of outgoing.get(nodeId) ?? []) {
+      if (target === nodeId || visiting.has(target)) {
+        addBackEdge(nodeId, target);
+        continue;
+      }
+
+      if (!visited.has(target)) {
+        visitNode(target);
+      }
+
+      if (!backEdges.has(`${nodeId}->${target}`)) {
+        addForwardEdge(nodeId, target);
       }
     }
-    queue = next;
-  }
 
-  // Orphan nodes
-  for (const id of nodeIds) {
-    if (!visited.has(id)) {
-      layers.push([id]);
-      visited.add(id);
+    visiting.delete(nodeId);
+  };
+
+  for (const nodeId of nodeIds) {
+    if (!visited.has(nodeId)) {
+      visitNode(nodeId);
     }
   }
 
-  // Barycenter crossing reduction (2 passes: forward + backward)
-  // Build a position index for the current layer ordering
+  const inDegree = new Map<string, number>();
+  for (const nodeId of nodeIds) {
+    inDegree.set(nodeId, parents.get(nodeId)?.size ?? 0);
+  }
+
+  const topoOrder: string[] = [];
+  const queue = [...nodeIds]
+    .filter((nodeId) => (inDegree.get(nodeId) ?? 0) === 0)
+    .sort((a, b) => (orderIndex.get(a) ?? 0) - (orderIndex.get(b) ?? 0));
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    topoOrder.push(current);
+
+    const sortedChildren = [...(children.get(current) ?? [])].sort(
+      (a, b) => (orderIndex.get(a) ?? 0) - (orderIndex.get(b) ?? 0),
+    );
+
+    for (const child of sortedChildren) {
+      const nextDegree = (inDegree.get(child) ?? 0) - 1;
+      inDegree.set(child, nextDegree);
+      if (nextDegree === 0) {
+        queue.push(child);
+        queue.sort((a, b) => (orderIndex.get(a) ?? 0) - (orderIndex.get(b) ?? 0));
+      }
+    }
+  }
+
+  const topoSet = new Set(topoOrder);
+  for (const nodeId of nodeIds) {
+    if (!topoSet.has(nodeId)) {
+      topoOrder.push(nodeId);
+    }
+  }
+
+  const layerByNode = new Map<string, number>();
+  let maxLayer = 0;
+
+  for (const nodeId of topoOrder) {
+    const layer = Math.max(
+      0,
+      ...[...(parents.get(nodeId) ?? [])].map((parentId) => (layerByNode.get(parentId) ?? 0) + 1),
+    );
+    layerByNode.set(nodeId, layer);
+    maxLayer = Math.max(maxLayer, layer);
+  }
+
+  const layers = Array.from({ length: maxLayer + 1 }, () => [] as string[]);
+  for (const nodeId of topoOrder) {
+    layers[layerByNode.get(nodeId) ?? 0].push(nodeId);
+  }
+
   const layerIndex = new Map<string, number>();
-  for (const layer of layers) {
-    for (let i = 0; i < layer.length; i++) {
-      layerIndex.set(layer[i], i);
+  const refreshLayerIndex = () => {
+    layerIndex.clear();
+    for (const layer of layers) {
+      for (let index = 0; index < layer.length; index++) {
+        layerIndex.set(layer[index], index);
+      }
+    }
+  };
+
+  refreshLayerIndex();
+
+  for (let pass = 0; pass < 4; pass++) {
+    for (let col = 1; col < layers.length; col++) {
+      layers[col].sort((a, b) => {
+        const aScore = weightedPosition(parents.get(a), backTargets.get(a), layerIndex);
+        const bScore = weightedPosition(parents.get(b), backTargets.get(b), layerIndex);
+        if (aScore !== bScore) {
+          return aScore - bScore;
+        }
+        return (orderIndex.get(a) ?? 0) - (orderIndex.get(b) ?? 0);
+      });
+      refreshLayerIndex();
+    }
+
+    for (let col = layers.length - 2; col >= 0; col--) {
+      layers[col].sort((a, b) => {
+        const aScore = weightedPosition(children.get(a), backSources.get(a), layerIndex);
+        const bScore = weightedPosition(children.get(b), backSources.get(b), layerIndex);
+        if (aScore !== bScore) {
+          return aScore - bScore;
+        }
+        return (orderIndex.get(a) ?? 0) - (orderIndex.get(b) ?? 0);
+      });
+      refreshLayerIndex();
     }
   }
 
-  // Forward pass: sort each layer by average parent position
-  for (let col = 1; col < layers.length; col++) {
-    layers[col].sort((a, b) => {
-      const aParents = parents.get(a) ?? new Set();
-      const bParents = parents.get(b) ?? new Set();
-      const aAvg = avgPosition(aParents, layerIndex);
-      const bAvg = avgPosition(bParents, layerIndex);
-      if (aAvg !== bAvg) return aAvg - bAvg;
-      // Tie-break: preserve declaration order
-      return (orderIndex.get(a) ?? 0) - (orderIndex.get(b) ?? 0);
-    });
-    // Update index after reorder
-    for (let i = 0; i < layers[col].length; i++) {
-      layerIndex.set(layers[col][i], i);
-    }
-  }
+  const horizontalStride =
+    opts.nodeWidth + opts.gapX + Math.max(24, Math.round(opts.nodeWidth * 0.08));
+  const verticalStride =
+    opts.nodeHeight + opts.gapY + Math.max(24, Math.round(opts.nodeHeight * 0.12));
 
-  // Backward pass: sort each layer by average child position
-  for (let col = layers.length - 2; col >= 0; col--) {
-    layers[col].sort((a, b) => {
-      const aChildren = children.get(a) ?? new Set();
-      const bChildren = children.get(b) ?? new Set();
-      const aAvg = avgPosition(aChildren, layerIndex);
-      const bAvg = avgPosition(bChildren, layerIndex);
-      if (aAvg !== bAvg) return aAvg - bAvg;
-      return (orderIndex.get(a) ?? 0) - (orderIndex.get(b) ?? 0);
-    });
-    for (let i = 0; i < layers[col].length; i++) {
-      layerIndex.set(layers[col][i], i);
-    }
-  }
-
-  // Assign coordinates
   for (let col = 0; col < layers.length; col++) {
     const layer = layers[col];
-    const totalH = layer.length * opts.nodeHeight + (layer.length - 1) * opts.gapY;
+    const totalH = layer.length === 0 ? 0 : opts.nodeHeight + (layer.length - 1) * verticalStride;
     const startY = -totalH / 2;
+
     for (let row = 0; row < layer.length; row++) {
       positions.set(layer[row], {
-        x: col * (opts.nodeWidth + opts.gapX),
-        y: startY + row * (opts.nodeHeight + opts.gapY),
+        x: col * horizontalStride,
+        y: startY + row * verticalStride,
       });
     }
   }
@@ -146,12 +216,29 @@ export function layoutDag(
   return { positions, backEdges };
 }
 
-/** Average position of a set of nodes in their layer, or Infinity if empty */
-function avgPosition(nodeSet: Set<string>, layerIndex: Map<string, number>): number {
-  if (nodeSet.size === 0) return Infinity;
-  let sum = 0;
-  for (const id of nodeSet) {
-    sum += layerIndex.get(id) ?? 0;
+function weightedPosition(
+  primaryNodes: Set<string> | undefined,
+  secondaryNodes: Set<string> | undefined,
+  layerIndex: Map<string, number>,
+): number {
+  const primaryWeight = 1;
+  const secondaryWeight = 0.35;
+  let weightedSum = 0;
+  let totalWeight = 0;
+
+  for (const nodeId of primaryNodes ?? []) {
+    weightedSum += (layerIndex.get(nodeId) ?? 0) * primaryWeight;
+    totalWeight += primaryWeight;
   }
-  return sum / nodeSet.size;
+
+  for (const nodeId of secondaryNodes ?? []) {
+    weightedSum += (layerIndex.get(nodeId) ?? 0) * secondaryWeight;
+    totalWeight += secondaryWeight;
+  }
+
+  if (totalWeight === 0) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  return weightedSum / totalWeight;
 }
