@@ -7,6 +7,7 @@ export { runCli } from './cli';
 export { runDebugCommand } from './commands/debug';
 export { collectLintPayload } from './commands/lint';
 export { runSmokeCommand, collectSmokePayload } from './commands/smoke';
+export { collectSchemaNodesPayload } from './commands/schema';
 export { runTui } from './tui/tui';
 export { renderOutput, renderStateTable, renderWelcome, renderHelp, renderError } from './tui/renderer';
 export { EngineHttpError, formatEngineError, statusForError } from './errors';
