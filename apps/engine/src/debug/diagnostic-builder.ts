@@ -23,6 +23,7 @@ export function buildDebugDiagnostic(params: {
   const diagnostic: DiagnosticPayload = {
     code: error.code,
     message: error.message,
+    severity: 'error',
     phase,
     stepId: error.stepId,
     flowId: error.flowId,
@@ -99,18 +100,32 @@ export function buildCliDiagnostic(params: {
   details?: unknown;
   file?: string;
   jsonPath?: string;
+  flowId?: string;
+  nodeId?: string;
+  stepId?: string;
+  phase?: DiagnosticPayload['phase'];
+  severity?: DiagnosticPayload['severity'];
 }): DiagnosticPayload {
-  const location: DebugLocation | undefined = params.file || params.jsonPath
+  const phase = params.phase ?? 'cli';
+  const severity = params.severity ?? 'error';
+  const location: DebugLocation | undefined = params.file || params.jsonPath || params.flowId || params.nodeId || params.stepId
     ? {
-        phase: 'cli',
+        phase,
         file: params.file,
         json_path: params.jsonPath,
+        flow_id: params.flowId,
+        node_id: params.nodeId,
+        step_id: params.stepId,
       }
     : undefined;
   return {
     code: params.code,
     message: params.message,
-    phase: 'cli',
+    severity,
+    phase,
+    flowId: params.flowId,
+    nodeId: params.nodeId,
+    stepId: params.stepId,
     suggestions: params.suggestions,
     details: params.details,
     file: params.file,
