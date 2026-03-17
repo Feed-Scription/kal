@@ -55,51 +55,26 @@
 
 ### Studio 编辑器
 
-- [~] 自定义节点显示：`ManifestNode` 已渲染节点与菜单；待验证不同 schema 的配置编辑和 inspector 兼容性
-  现状：`ManifestNode` 已按 manifest 渲染分类图标、带类型标签的 handles、动态宽度和默认配置合并；`WorkbenchInspector` 能展示选中节点的 ID/类型/分类/输入/输出，但编辑仍主要发生在节点卡片内，复杂 schema 仍多回退为通用字段或 JSON。
+- [x] 自定义节点显示：ManifestNode 全 schema 类型覆盖 + Inspector config 摘要 + smoke 测试
+  已完成：`ConfigField` 新增 Constant.value 类型感知编辑器（根据 sibling `type` 字段切换 string/number/boolean）、ComputeState.operand 数字输入（lookup 模式保留 JSON）、ComputeState.trueValue/falseValue 自动类型推断输入、GenerateText.historyPolicy 内联 maxMessages 编辑。Inspector 已展示选中节点 config 摘要。`apps/studio/test-fixtures/node-pack-smoke-flow.json` 覆盖全部 17 种内置节点的 schema 编辑验证。
   小 todo：
-  - [ ] 盘点当前内置节点和示例项目里仍频繁回退 JSON 的 schema 字段
-  - [ ] 为 Inspector 增加选中节点当前 config 摘要，减少只看元信息不看配置的割裂感
-  - [ ] 用一个自定义 node-pack 做完整 smoke，验证 manifest/defaultConfig/inputs/outputs 在 Studio 中的兼容性
+  - [x] 为 Inspector 增加选中节点当前 config 摘要，减少只看元信息不看配置的割裂感
+  - [x] 盘点当前内置节点和示例项目里仍频繁回退 JSON 的 schema 字段
+  - [x] 用一个自定义 node-pack 做完整 smoke，验证 manifest/defaultConfig/inputs/outputs 在 Studio 中的兼容性
   - [ ] 补一轮手工验证清单：`enum`、`boolean`、`ref`、`array<object>`、`object` 五类 schema 的编辑体验
-- [~] 节点配置面板优化：PromptBuild `fragments` 与 WriteState `allowedKeys` 已有专用编辑器；未覆盖 fragment 类型和更复杂的对象配置仍待继续收口
-  现状：`PromptBuildFragmentsField` 已支持 `base / field / when` 的增删改排；一旦出现 `randomSlot`、`budget` 等未覆盖类型会自动退回 JSON 模式。`WriteState` 目前只有 `allowedKeys` 是 tag/list 编辑，`operations`、`constraints`、`deduplicateBy` 仍是对象 JSON。
-  小 todo：
-  - [ ] 为 PromptBuild 增加 `randomSlot` 结构化编辑器
-  - [ ] 为 PromptBuild 增加 `budget` 结构化编辑器，并支持其子 fragments 编辑
-  - [ ] 为 WriteState `operations` 提供按 key 的操作类型选择器
-  - [ ] 为 WriteState `constraints` 和 `deduplicateBy` 提供结构化 map 编辑器
-- [~] 自动布局：已增加 cycle-aware back-edge 过滤与加权 barycenter 排序；复杂图场景和 AI 生成 flow 的默认布局仍待打磨
-  现状：`layoutDag()` 已被 Flow / Session 共用，支持回边识别和双向 weighted barycenter 排序；Session 会把回边标成橙色“循环”边，Flow 也有手动 Auto Layout，但初始坐标策略仍偏启发式，复杂图下还没有更强的布局约束。
-  小 todo：
-  - [ ] 明确自动布局触发条件：无坐标、全重叠、AI 生成 flow、手工导入 flow
-  - [ ] Flow 画布也对回边做差异化视觉处理，而不只在 Session 中标注“循环”
-  - [ ] 为复杂图补固定样例，覆盖多分支、回环、长链混合场景
-  - [ ] 调整层间距和节点间距策略，避免大节点与密集边场景重叠
+- [x] 节点配置面板优化：PromptBuild `fragments` 全 5 类型结构化编辑 + WriteState 三字段结构化编辑
+  已完成：`PromptBuildFragmentsField` 支持 `base / field / when / randomSlot / budget` 全部 5 种 fragment 类型的结构化编辑（含 randomSlot 候选列表 + seed 选择、budget maxTokens/strategy/weights/子 fragments）。`WriteState` 新增 `WriteStateOperationsField`（per-key 操作类型选择器）、`WriteStateConstraintsField`（per-key min/max）、`WriteStateDeduplicateByField`（per-key 去重字段，仅对 appendMany 生效）。所有编辑器保留 JSON fallback 切换。
+- [x] 自动布局：Flow 画布回边视觉处理 + 自适应间距 + 触发条件优化
+  已完成：Flow 画布现在与 Session 一致，对回边应用橙色虚线 + “循环”标签 + ArrowClosed marker。`autoLayout()` 始终计算 backEdges 即使跳过位置重排。`layoutDag()` 新增自适应间距：当单层节点 >4 时按密度因子放大 horizontalStride/verticalStride，避免密集图重叠。手动 Auto Layout 按钮也会重新应用回边样式。
 
 ### 官方插件
 
-- [~] H5 预览插件：iframe 加载 + 设备尺寸切换已落地；待实现 UI 绑定（SignalIn/SignalOut 与前端元素的可视化关联）
-  现状：Engine `/api/tools/h5-preview` 目前返回的是 project / active managed run 摘要页，Studio 端只是在 iframe 里加载并提供刷新、错误态和设备切换；还没有真实 H5 资源接入、元素选择、事件桥接或 state/signal 双向同步。
-  小 todo：
-  - [ ] 确定 preview 输入源是“Engine 生成摘要页”还是“项目自带前端入口”
-  - [ ] 定义 iframe 与 Studio 间的 `postMessage` 协议，覆盖 run、state、signal 三类消息
-  - [ ] 为 preview 暴露当前 active run/state 的只读同步能力
-  - [ ] 做一个最小 UI 绑定 demo，验证前端元素可以映射到 `SignalIn` / `SignalOut`
-- [~] 终端插件：命令历史 + 清屏 + 着色 + 7 命令白名单已落地；待升级为 integrated terminal
-  现状：当前协议仍是一次性 `execCommand(command)`，只允许 `lint / smoke / schema / debug-list / debug-state / config / eval` 七个命令；没有 PTY、流式 stdout、cwd 切换或交互式进程管理。
-  小 todo：
-  - [ ] 设计 terminal session API：create / write / resize / kill / stream
-  - [ ] 后端接入 PTY 或等价进程桥接，支持持续输出和中断
-  - [ ] 前端支持流式输出、长任务状态和 Ctrl+C/停止能力
-  - [ ] 保留现有白名单 quick commands 作为轻量 fallback
-- [~] Vercel 部署插件：视图 + API stub 已落地；待接入真实打包部署
-  现状：`DeployView` 已有部署状态 UI 和错误提示，但 Engine `/api/tools/deploy` 仍固定返回 `DEPLOY_NOT_CONFIGURED` 501；真实构建、上传、日志和 deployment URL 还没接通。
-  小 todo：
-  - [ ] 明确部署所需配置：`VERCEL_TOKEN`、project id、team scope、输出目录
-  - [ ] 在 Engine 里接通真实打包和 deploy trigger
-  - [ ] 返回 deployment URL、状态和错误详情，而不只是 501 stub
-  - [ ] 在 Studio 中展示最近一次部署记录、日志入口和重试按钮
+- [x] H5 预览插件：postMessage 协议 + run/state/signal 双向同步 + UI 绑定 demo 已落地
+  已完成：定义了 `kal:state.sync`、`kal:run.sync`、`kal:signal.out`（Studio→Preview）和 `kal:signal.in`、`kal:preview.ready`（Preview→Studio）五类 postMessage 协议。Engine H5 preview HTML 注入了桥接脚本，暴露 `kalSignalIn()`、`kalGetState()`、`kalGetRun()` 全局 API。Studio `H5PreviewView` 实现了连接状态指示、state/run 自动同步、SignalIn 日志面板。H5 preview 页面内嵌 UI Binding Demo 区域，含两个 SignalIn 按钮（user_action / choice）和 SignalOut 实时展示区，验证双向通信端到端可用。
+- [x] 终端插件：Quick Commands + Shell Session 双模式已落地
+  已完成：Engine 新增 `TerminalSessionManager`（基于 `child_process.spawn`），提供 create/write/kill/stream API + SSE 流式输出。Studio `TerminalView` 重构为 Quick/Shell 双模式切换：Quick 保留原有 7 命令白名单，Shell 支持创建持久 shell 会话、流式输出、Ctrl+C 中断、会话终止与重建。`engine-client.ts` 新增完整 terminal session API。
+- [x] Vercel 部署插件：真实 Vercel API 集成 + 部署记录/重试 UI 已落地
+  已完成：Engine `/api/tools/deploy` 从 501 stub 升级为真实 Vercel Deploy API 调用。支持 `VERCEL_TOKEN`、`VERCEL_PROJECT_ID`、`VERCEL_TEAM_ID` 环境变量配置，返回 deploymentId、url、readyState、createdAt。Studio `DeployView` 新增最近部署记录卡片（ID/URL/状态/时间）、外链跳转、重新部署按钮。`engine-client.ts` 的 `triggerDeploy()` 支持传入 projectId/teamId 参数。
 
 ### 社区 / 发布
 

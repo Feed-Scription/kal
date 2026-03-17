@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { ChevronDown, ChevronRight, Crosshair, Layers2, Puzzle, Route } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -47,21 +47,48 @@ export function WorkbenchInspector({ mobile }: { mobile?: boolean } = {}) {
   const activeFlow = activeFlowId ? project?.flows[activeFlowId] : null;
   const { selectedNodeId, selectionContext } = useCanvasSelection();
 
-  // 查找选中节点的 manifest 信息
+  // 查找选中节点的 manifest 信息和 config
   const selectedNodeManifest = (() => {
     if (!selectedNodeId || !project) return null;
     if (selectionContext === 'flow' && activeFlow) {
       const node = activeFlow.data.nodes.find((n) => n.id === selectedNodeId);
       if (!node) return null;
       const manifest = project.nodeManifests.find((m) => m.type === node.type);
-      return { node, manifest: manifest ?? null };
+      return { node, manifest: manifest ?? null, config: node.config ?? null };
     }
     if (selectionContext === 'session' && session) {
       const step = session.steps.find((s) => s.id === selectedNodeId);
-      return step ? { node: { id: step.id, type: step.type, label: step.id }, manifest: null } : null;
+      if (!step) return null;
+      // Extract config-like fields from session step (exclude id/type)
+      const { id, type, ...rest } = step;
+      return { node: { id, type, label: id }, manifest: null, config: Object.keys(rest).length > 0 ? rest : null };
     }
     return null;
   })();
+
+  // Summarize config for display: show top-level keys with short value previews
+  const configSummary = useMemo(() => {
+    const cfg = selectedNodeManifest?.config;
+    if (!cfg || typeof cfg !== 'object') return [];
+    return Object.entries(cfg as Record<string, unknown>)
+      .filter(([, v]) => v !== undefined && v !== null && v !== '')
+      .map(([key, val]) => {
+        let display: string;
+        if (typeof val === 'string') {
+          display = val.length > 40 ? val.slice(0, 40) + '…' : val;
+        } else if (typeof val === 'number' || typeof val === 'boolean') {
+          display = String(val);
+        } else if (Array.isArray(val)) {
+          display = `[${val.length} items]`;
+        } else if (typeof val === 'object') {
+          const keys = Object.keys(val as Record<string, unknown>);
+          display = keys.length === 0 ? '{}' : `{${keys.slice(0, 3).join(', ')}${keys.length > 3 ? ', …' : ''}}`;
+        } else {
+          display = String(val);
+        }
+        return { key, display };
+      });
+  }, [selectedNodeManifest?.config]);
 
   return (
     <aside className={mobile ? "flex flex-col" : "hidden w-80 shrink-0 border-l bg-background/70 xl:flex xl:flex-col"}>
@@ -131,6 +158,18 @@ export function WorkbenchInspector({ mobile }: { mobile?: boolean } = {}) {
                   )}
                 </>
               ) : null}
+              {configSummary.length > 0 && (
+                <CollapsibleSection title="配置摘要" defaultOpen>
+                  <div className="space-y-1 text-xs">
+                    {configSummary.map(({ key, display }) => (
+                      <div key={key} className="flex items-center justify-between gap-2 rounded-md border px-2 py-1">
+                        <span className="font-mono text-muted-foreground">{key}</span>
+                        <span className="truncate text-right">{display}</span>
+                      </div>
+                    ))}
+                  </div>
+                </CollapsibleSection>
+              )}
             </div>
           </section>
         ) : null}

@@ -1,0 +1,181 @@
+{
+  "meta": {
+    "schemaVersion": "1.0.0",
+    "name": "node-pack-smoke",
+    "description": "Smoke test flow exercising all 5 schema types: enum, boolean, ref, array<object>, object",
+    "inputs": [
+      { "name": "playerInput", "type": "string", "required": true }
+    ],
+    "outputs": [
+      { "name": "result", "type": "string" }
+    ]
+  },
+  "data": {
+    "nodes": [
+      {
+        "id": "constant-str",
+        "type": "Constant",
+        "label": "String Constant",
+        "inputs": [],
+        "outputs": [{ "name": "value", "type": "any" }],
+        "config": { "value": "hello", "type": "string" }
+      },
+      {
+        "id": "constant-num",
+        "type": "Constant",
+        "label": "Number Constant",
+        "inputs": [],
+        "outputs": [{ "name": "value", "type": "any" }],
+        "config": { "value": 42, "type": "number" }
+      },
+      {
+        "id": "constant-bool",
+        "type": "Constant",
+        "label": "Boolean Constant",
+        "inputs": [],
+        "outputs": [{ "name": "value", "type": "any" }],
+        "config": { "value": true, "type": "boolean" }
+      },
+      {
+        "id": "compute-inc",
+        "type": "ComputeState",
+        "label": "Increment",
+        "inputs": [{ "name": "value", "type": "any" }],
+        "outputs": [{ "name": "result", "type": "any" }, { "name": "success", "type": "boolean" }],
+        "config": { "operation": "increment", "operand": 5 }
+      },
+      {
+        "id": "compute-cond",
+        "type": "ComputeState",
+        "label": "Conditional",
+        "inputs": [{ "name": "value", "type": "any" }],
+        "outputs": [{ "name": "result", "type": "any" }, { "name": "success", "type": "boolean" }],
+        "config": { "operation": "conditional", "condition": "value > 10", "trueValue": "big", "falseValue": 0 }
+      },
+      {
+        "id": "compute-lookup",
+        "type": "ComputeState",
+        "label": "Lookup",
+        "inputs": [{ "name": "value", "type": "any" }],
+        "outputs": [{ "name": "result", "type": "any" }, { "name": "success", "type": "boolean" }],
+        "config": { "operation": "lookup", "operand": { "a": 1, "b": 2 } }
+      },
+      {
+        "id": "json-parse",
+        "type": "JSONParse",
+        "label": "JSON Parse",
+        "inputs": [{ "name": "text", "type": "string" }],
+        "outputs": [{ "name": "data", "type": "object" }, { "name": "success", "type": "boolean" }, { "name": "error", "type": "string" }],
+        "config": { "extractFromCodeBlock": true, "fixCommonErrors": false, "fixTruncated": true }
+      },
+      {
+        "id": "regex",
+        "type": "Regex",
+        "label": "Regex Match",
+        "inputs": [{ "name": "text", "type": "string" }],
+        "outputs": [{ "name": "matches", "type": "array" }, { "name": "groups", "type": "object" }],
+        "config": { "pattern": "\\d+", "flags": "g" }
+      },
+      {
+        "id": "postprocess",
+        "type": "PostProcess",
+        "label": "Post Process",
+        "inputs": [{ "name": "text", "type": "string" }],
+        "outputs": [{ "name": "text", "type": "string" }],
+        "config": { "processors": [{ "type": "trim" }, { "type": "toLowerCase" }] }
+      },
+      {
+        "id": "subflow",
+        "type": "SubFlow",
+        "label": "Sub Flow",
+        "inputs": [{ "name": "playerInput", "type": "string", "required": true }],
+        "outputs": [{ "name": "result", "type": "object" }],
+        "config": { "ref": "main" }
+      },
+      {
+        "id": "message",
+        "type": "Message",
+        "label": "Message Builder",
+        "inputs": [{ "name": "system", "type": "string" }, { "name": "context", "type": "string" }, { "name": "user", "type": "string" }],
+        "outputs": [{ "name": "messages", "type": "ChatMessage[]" }],
+        "config": { "format": "xml", "historyKey": "history", "maxHistoryMessages": 10, "summaryKey": "" }
+      },
+      {
+        "id": "gen-text",
+        "type": "GenerateText",
+        "label": "Generate Text",
+        "inputs": [{ "name": "messages", "type": "ChatMessage[]" }],
+        "outputs": [{ "name": "text", "type": "string" }, { "name": "usage", "type": "object" }],
+        "config": { "model": "gpt-4", "temperature": 0.7, "maxTokens": 500 }
+      },
+      {
+        "id": "prompt-build",
+        "type": "PromptBuild",
+        "label": "Prompt Build",
+        "inputs": [{ "name": "data", "type": "object" }],
+        "outputs": [{ "name": "messages", "type": "ChatMessage[]" }, { "name": "text", "type": "string" }, { "name": "estimatedTokens", "type": "number" }],
+        "config": {
+          "defaultRole": "system",
+          "fragments": [
+            { "type": "base", "id": "sys", "role": "system", "content": "You are a helpful assistant." },
+            { "type": "field", "id": "ctx", "source": "data.context", "template": "Context: {{items}}" },
+            { "type": "when", "id": "guard", "condition": "state.debug == true", "content": "Debug mode is ON." },
+            { "type": "randomSlot", "id": "greeting", "candidates": [{ "type": "base", "id": "g1", "content": "Hi!" }, { "type": "base", "id": "g2", "content": "Hello!" }], "seed": "random" },
+            { "type": "budget", "id": "budget1", "maxTokens": 500, "strategy": "tail", "fragments": [{ "type": "base", "id": "b1", "content": "Summary here." }] }
+          ]
+        }
+      },
+      {
+        "id": "write-state",
+        "type": "WriteState",
+        "label": "Write State",
+        "inputs": [{ "name": "changes", "type": "object" }],
+        "outputs": [{ "name": "applied", "type": "array" }, { "name": "success", "type": "boolean" }],
+        "config": {
+          "path": "",
+          "allowedKeys": ["score", "items", "name"],
+          "operations": { "score": "increment", "items": "appendMany" },
+          "constraints": { "score": { "min": 0, "max": 100 } },
+          "deduplicateBy": { "items": "id" }
+        }
+      },
+      {
+        "id": "read-state",
+        "type": "ReadState",
+        "label": "Read State",
+        "inputs": [{ "name": "key", "type": "string" }],
+        "outputs": [{ "name": "value", "type": "any" }, { "name": "exists", "type": "boolean" }],
+        "config": { "keys": ["score", "name"] }
+      },
+      {
+        "id": "signal-in",
+        "type": "SignalIn",
+        "label": "Signal In",
+        "inputs": [],
+        "outputs": [{ "name": "data", "type": "string" }],
+        "config": { "channel": "playerInput" }
+      },
+      {
+        "id": "signal-out",
+        "type": "SignalOut",
+        "label": "Signal Out",
+        "inputs": [{ "name": "data", "type": "string" }],
+        "outputs": [{ "name": "data", "type": "string" }],
+        "config": { "channel": "result" }
+      },
+      {
+        "id": "timer",
+        "type": "Timer",
+        "label": "Timer",
+        "inputs": [],
+        "outputs": [{ "name": "timestamp", "type": "number" }],
+        "config": { "delay": 100 }
+      }
+    ],
+    "edges": [
+      { "source": "constant-num", "sourceHandle": "value", "target": "compute-inc", "targetHandle": "value" },
+      { "source": "compute-inc", "sourceHandle": "result", "target": "compute-cond", "targetHandle": "value" },
+      { "source": "signal-in", "sourceHandle": "data", "target": "signal-out", "targetHandle": "data" }
+    ]
+  }
+}

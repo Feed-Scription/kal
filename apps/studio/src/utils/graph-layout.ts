@@ -195,10 +195,14 @@ export function layoutDag(
     }
   }
 
+  // Adaptive spacing: increase gaps when layers are dense
+  const maxLayerSize = Math.max(...layers.map((l) => l.length), 1);
+  const densityFactor = maxLayerSize > 4 ? 1 + (maxLayerSize - 4) * 0.1 : 1;
+
   const horizontalStride =
-    opts.nodeWidth + opts.gapX + Math.max(24, Math.round(opts.nodeWidth * 0.08));
+    Math.round((opts.nodeWidth + opts.gapX + Math.max(24, Math.round(opts.nodeWidth * 0.08))) * densityFactor);
   const verticalStride =
-    opts.nodeHeight + opts.gapY + Math.max(24, Math.round(opts.nodeHeight * 0.12));
+    Math.round((opts.nodeHeight + opts.gapY + Math.max(24, Math.round(opts.nodeHeight * 0.12))) * densityFactor);
 
   for (let col = 0; col < layers.length; col++) {
     const layer = layers[col];
