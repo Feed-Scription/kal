@@ -148,7 +148,7 @@ export function ExtensionSurface({ contribution, runtime, chrome = "card" }: Ext
     if (!runtime || !runtime.enabled || runtime.missingCapabilities.length > 0) {
       return;
     }
-    if (runtime.activated && runtime.activationReason === activationReason) {
+    if (runtime.activated) {
       return;
     }
 
