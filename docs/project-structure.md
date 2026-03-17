@@ -148,3 +148,9 @@ export const DiceRoll: CustomNode = {
 ```
 
 The engine auto-discovers and loads custom nodes from this directory.
+
+## See Also
+
+- [Core Concepts](concepts.md) — Node, Flow, State, Session
+- [Custom Nodes Guide](guides/custom-nodes.md) — create your own nodes
+- [Configuration Reference](reference/config.md) — all config fields
