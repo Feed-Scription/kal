@@ -18,6 +18,10 @@
         "id": "signal-in",
         "type": "SignalIn",
         "label": "信号输入",
+        "position": {
+          "x": 0,
+          "y": -100
+        },
         "inputs": [],
         "outputs": [
           {
@@ -33,6 +37,10 @@
         "id": "preset",
         "type": "PresetCharacter",
         "label": "预设角色",
+        "position": {
+          "x": 400,
+          "y": -100
+        },
         "inputs": [
           {
             "name": "presetId",
@@ -95,6 +103,10 @@
         "id": "apply-state",
         "type": "WriteState",
         "label": "批量应用状态",
+        "position": {
+          "x": 800,
+          "y": -100
+        },
         "inputs": [
           {
             "name": "playerName",
@@ -129,7 +141,10 @@
         ],
         "config": {
           "path": "",
-          "allowedKeys": []
+          "allowedKeys": [],
+          "operations": {},
+          "deduplicateBy": {},
+          "constraints": {}
         }
       }
     ],

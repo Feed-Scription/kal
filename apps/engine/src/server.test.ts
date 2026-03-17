@@ -117,6 +117,27 @@ describe('Engine HTTP server', () => {
     expect(runtime.getFlow('main').meta.description).toBe('updated');
   });
 
+  it('DELETE /api/flows/:id 应该删除 flow', async () => {
+    const fixture = await createTempProject({
+      flows: {
+        intro: createPassThroughFlow(),
+        main: createPassThroughFlow(),
+      },
+    });
+    cleanups.push(fixture.cleanup);
+
+    const runtime = await EngineRuntime.create(fixture.projectRoot);
+    const server = await startEngineServer({ runtime, host: '127.0.0.1', port: 0 });
+    cleanups.push(server.close);
+
+    const response = await fetch(`${server.url}/api/flows/intro`, {
+      method: 'DELETE',
+    }).then((result) => result.json());
+
+    expect(response.success).toBe(true);
+    expect(runtime.listFlows().map((item) => item.id)).toEqual(['main']);
+  });
+
   it('GET /api/project 应该返回 hasSession 字段', async () => {
     const session: SessionDefinition = {
       schemaVersion: '1.0.0',
@@ -134,6 +155,86 @@ describe('Engine HTTP server', () => {
 
     const project = await fetch(`${server.url}/api/project`).then((r) => r.json());
     expect(project.data.hasSession).toBe(true);
+  });
+
+  it('应该暴露 config 和 state 资源 API', async () => {
+    const fixture = await createTempProject({
+      initialState: {
+        visited: { type: 'boolean', value: false },
+      },
+    });
+    cleanups.push(fixture.cleanup);
+
+    const runtime = await EngineRuntime.create(fixture.projectRoot);
+    const server = await startEngineServer({ runtime, host: '127.0.0.1', port: 0 });
+    cleanups.push(server.close);
+
+    const config = await fetch(`${server.url}/api/config`).then((response) => response.json());
+    expect(config.success).toBe(true);
+    expect(config.data.config.name).toBe('test-project');
+
+    const state = await fetch(`${server.url}/api/state`).then((response) => response.json());
+    expect(state.success).toBe(true);
+    expect(state.data.state.visited.value).toBe(false);
+  });
+
+  it('GET /api/diagnostics 应该返回项目诊断摘要', async () => {
+    const fixture = await createTempProject();
+    cleanups.push(fixture.cleanup);
+
+    const runtime = await EngineRuntime.create(fixture.projectRoot);
+    const server = await startEngineServer({ runtime, host: '127.0.0.1', port: 0 });
+    cleanups.push(server.close);
+
+    const diagnostics = await fetch(`${server.url}/api/diagnostics`).then((response) => response.json());
+    expect(diagnostics.success).toBe(true);
+    expect(diagnostics.data.project_root).toBe(fixture.projectRoot);
+    expect(Array.isArray(diagnostics.data.diagnostics)).toBe(true);
+    expect(diagnostics.data.summary.total_issues).toBeGreaterThanOrEqual(0);
+  });
+
+  it('POST /api/tools/smoke 应该返回 smoke 验证结果', async () => {
+    const session: SessionDefinition = {
+      schemaVersion: '1.0.0',
+      steps: [
+        { id: 'prompt', type: 'Prompt', promptText: 'next?', stateKey: 'answer', next: 'end' },
+        { id: 'end', type: 'End', message: 'done' },
+      ],
+    };
+    const fixture = await createTempProject({ session });
+    cleanups.push(fixture.cleanup);
+
+    const runtime = await EngineRuntime.create(fixture.projectRoot);
+    const server = await startEngineServer({ runtime, host: '127.0.0.1', port: 0 });
+    cleanups.push(server.close);
+
+    const smoke = await fetch(`${server.url}/api/tools/smoke`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ steps: 4, inputs: ['attack'], dryRun: true }),
+    }).then((response) => response.json());
+
+    expect(smoke.success).toBe(true);
+    expect(smoke.data.totalSteps).toBe(4);
+    expect(smoke.data.completedSteps).toBeGreaterThan(0);
+    expect(Array.isArray(smoke.data.steps)).toBe(true);
+  });
+
+  it('GET /api/tools/h5-preview 应该返回 HTML preview', async () => {
+    const fixture = await createTempProject();
+    cleanups.push(fixture.cleanup);
+
+    const runtime = await EngineRuntime.create(fixture.projectRoot);
+    const server = await startEngineServer({ runtime, host: '127.0.0.1', port: 0 });
+    cleanups.push(server.close);
+
+    const response = await fetch(`${server.url}/api/tools/h5-preview`);
+    const html = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toContain('text/html');
+    expect(html).toContain('Preview');
+    expect(html).toContain('Project Flows');
   });
 
   it('GET /api/session 无 session 时返回 null', async () => {
@@ -286,6 +387,7 @@ describe('Engine HTTP server', () => {
       kind: 'prompt',
       step_id: 'turn',
     });
+    expect(created.data.run.input_history).toEqual([]);
     expect(created.data.run.state_summary.changed_values).toMatchObject({
       visited: { old: false, new: true },
     });
@@ -301,6 +403,7 @@ describe('Engine HTTP server', () => {
 
     const state = await fetch(`${server.url}/api/runs/${runId}/state`).then((response) => response.json());
     expect(state.data.run.state.visited.value).toBe(true);
+    expect(state.data.run.input_history).toEqual([]);
 
     const advanced = await fetch(`${server.url}/api/runs/${runId}/advance`, {
       method: 'POST',
@@ -316,6 +419,75 @@ describe('Engine HTTP server', () => {
       type: 'end',
       message: 'done',
     });
+    expect(advanced.data.run.input_history).toMatchObject([
+      {
+        step_id: 'turn',
+        step_index: 1,
+        input: 'attack',
+      },
+    ]);
+  });
+
+  it('POST /api/runs 和 /advance 应该支持 step mode', async () => {
+    const session: SessionDefinition = {
+      schemaVersion: '1.0.0',
+      steps: [
+        { id: 'intro', type: 'RunFlow', flowRef: 'intro', next: 'turn' },
+        { id: 'turn', type: 'Prompt', promptText: '你的行动？', flowRef: 'main', inputChannel: 'message', next: 'end' },
+        { id: 'end', type: 'End', message: 'done' },
+      ],
+    };
+    const fixture = await createTempProject({
+      flows: {
+        intro: createStateMutationFlow(),
+        main: createPassThroughFlow(),
+      },
+      initialState: {
+        visited: { type: 'boolean', value: false },
+      },
+      session,
+    });
+    cleanups.push(fixture.cleanup);
+
+    const runtime = await EngineRuntime.create(fixture.projectRoot);
+    const server = await startEngineServer({ runtime, host: '127.0.0.1', port: 0 });
+    cleanups.push(server.close);
+
+    const created = await fetch(`${server.url}/api/runs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode: 'step' }),
+    }).then((response) => response.json());
+    expect(created.success).toBe(true);
+    expect(created.data.run.status).toBe('waiting_input');
+    expect(created.data.run.waiting_for).toMatchObject({
+      kind: 'prompt',
+      step_id: 'turn',
+    });
+
+    const runId = created.data.run.run_id as string;
+    const advanced = await fetch(`${server.url}/api/runs/${runId}/advance`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ input: 'attack', mode: 'step' }),
+    }).then((response) => response.json());
+    expect(advanced.success).toBe(true);
+    expect(advanced.data.run.status).toBe('paused');
+    expect(advanced.data.run.input_history).toMatchObject([
+      {
+        step_id: 'turn',
+        step_index: 1,
+        input: 'attack',
+      },
+    ]);
+
+    const finished = await fetch(`${server.url}/api/runs/${runId}/advance`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode: 'step' }),
+    }).then((response) => response.json());
+    expect(finished.success).toBe(true);
+    expect(finished.data.run.status).toBe('ended');
   });
 
   it('POST /api/runs/:id/cancel 应该取消并删除 run', async () => {
@@ -390,5 +562,49 @@ describe('Engine HTTP server', () => {
     const endedEvent = await readSseEvent(reader);
     expect(endedEvent.event).toBe('run.ended');
     expect(endedEvent.data.run.status).toBe('ended');
+  });
+
+  it('GET /api/references 应该返回项目引用索引', async () => {
+    const session: SessionDefinition = {
+      schemaVersion: '1.0.0',
+      steps: [
+        { id: 'run', type: 'RunFlow', flowRef: 'main', next: 'end' },
+        { id: 'end', type: 'End' },
+      ],
+    };
+    const fixture = await createTempProject({ session });
+    cleanups.push(fixture.cleanup);
+
+    const runtime = await EngineRuntime.create(fixture.projectRoot);
+    const server = await startEngineServer({ runtime, host: '127.0.0.1', port: 0 });
+    cleanups.push(server.close);
+
+    const result = await fetch(`${server.url}/api/references`).then((r) => r.json());
+    expect(result.success).toBe(true);
+    expect(Array.isArray(result.data.entries)).toBe(true);
+    expect(result.data.entries.length).toBeGreaterThan(0);
+
+    const flowRef = result.data.entries.find((e: any) => e.kind === 'session-step->flow');
+    expect(flowRef).toBeDefined();
+    expect(flowRef.targetId).toBe('main');
+
+    // Filter by resource
+    const filtered = await fetch(`${server.url}/api/references?resource=flow://main`).then((r) => r.json());
+    expect(filtered.success).toBe(true);
+    expect(filtered.data.entries.every((e: any) => e.sourceResource === 'flow://main' || e.targetResource === 'flow://main')).toBe(true);
+  });
+
+  it('GET /api/search 应该返回搜索结果', async () => {
+    const fixture = await createTempProject();
+    cleanups.push(fixture.cleanup);
+
+    const runtime = await EngineRuntime.create(fixture.projectRoot);
+    const server = await startEngineServer({ runtime, host: '127.0.0.1', port: 0 });
+    cleanups.push(server.close);
+
+    const result = await fetch(`${server.url}/api/search?q=pass`).then((r) => r.json());
+    expect(result.success).toBe(true);
+    expect(result.data.query).toBe('pass');
+    expect(Array.isArray(result.data.matches)).toBe(true);
   });
 });

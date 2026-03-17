@@ -9,6 +9,7 @@ import type {
   SessionDefinition,
   StateValue,
 } from '@kal-ai/core';
+import type { DiagnosticPayload } from './debug/types';
 
 export interface EngineProject {
   projectRoot: string;
@@ -106,6 +107,13 @@ export interface RunStateSummary {
   preview: Record<string, any>;
 }
 
+export interface RunInputRecord {
+  step_id: string;
+  step_index: number;
+  input: string;
+  timestamp: number;
+}
+
 export interface RunSummary {
   run_id: string;
   status: SessionAdvanceStatus;
@@ -119,6 +127,7 @@ export interface RunView extends RunSummary {
   cursor: SessionCursor;
   state_summary: RunStateSummary;
   recent_events: RunEvent[];
+  input_history: RunInputRecord[];
 }
 
 export interface RunStateView extends RunView {
@@ -147,4 +156,33 @@ export type RunStreamEventName =
 export interface RunStreamEvent {
   type: RunStreamEventName;
   run: RunView;
+}
+
+export interface DiagnosticsPayload {
+  project_root: string;
+  diagnostics: DiagnosticPayload[];
+  summary: {
+    total_issues: number;
+    errors: number;
+    warnings: number;
+  };
+}
+
+export type EngineEventName =
+  | 'project.reloaded'
+  | 'resource.changed'
+  | 'diagnostics.updated'
+  | 'run.created'
+  | 'run.updated'
+  | 'run.ended'
+  | 'run.cancelled';
+
+export interface EngineEvent {
+  type: EngineEventName;
+  timestamp: number;
+  resourceId?: string;
+  flowId?: string;
+  sessionId?: string;
+  runId?: string;
+  message?: string;
 }

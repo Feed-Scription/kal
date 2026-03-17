@@ -28,7 +28,7 @@ KAL (Kal AI Layer) is a flow engine designed for AI-native games. It uses a thre
 - **Session layer** — A lightweight state machine that drives multi-turn interaction
 - **Node layer** — Composable nodes for state I/O, LLM calls, sub-flow reuse, and business rules
 
-Batteries included: runtime, engine host, visual editor, and example games.
+Batteries included: runtime, engine host, Studio workbench, and example games.
 
 ## Use Cases
 
@@ -47,7 +47,7 @@ Batteries included: runtime, engine host, visual editor, and example games.
 ├─────────────────────────────────────────────────────────────┤
 │  apps/                                                      │
 │  ├── engine/     CLI + HTTP API + TUI host                  │
-│  └── editor/     Visual flow editor                         │
+│  └── studio/     Studio workbench                           │
 ├─────────────────────────────────────────────────────────────┤
 │  packages/                                                  │
 │  └── core/       Flow runtime + Session mgmt + Node system  │
@@ -77,7 +77,7 @@ Batteries included: runtime, engine host, visual editor, and example games.
 
 ### Developer Friendly
 - **Custom nodes** — Extend with business logic in `node/` directory
-- **Node manifest** — Engine exports node catalog for the editor
+- **Node manifest** — Engine exports node catalog for the Studio workbench
 - **Hot reload** — Live preview during development
 
 ## Quick Start
@@ -143,12 +143,12 @@ kal config remove openai.apiKey
 ### Launch the Editor
 
 ```bash
-# Option A: Studio mode (engine + editor in one command)
+# Option A: Studio mode (engine + studio in one command)
 kal studio examples/dnd-adventure
 
 # Option B: Separate processes
 kal serve examples/dnd-adventure
-cd apps/editor && pnpm dev
+cd apps/studio && pnpm dev
 ```
 
 ## Examples
@@ -226,7 +226,7 @@ pnpm --filter @kal-ai/engine test
 # Build
 pnpm --filter @kal-ai/core build
 pnpm --filter @kal-ai/engine build
-pnpm --filter editor build
+pnpm --filter studio build
 ```
 
 ### Custom Nodes
@@ -279,7 +279,7 @@ KAL is in early stage. The core runtime works, but APIs and config formats may c
 - Session layer (multi-turn dialogue, state persistence)
 - 20 built-in nodes (State, LLM, Signal, Transform, Utility)
 - CLI tools (play, serve, debug, lint, smoke, eval, studio)
-- Visual editor (flow graph viewer)
+- Studio workbench (flow/session/state/config)
 - 2 example games (dnd-adventure, guess-who)
 
 **In progress:**

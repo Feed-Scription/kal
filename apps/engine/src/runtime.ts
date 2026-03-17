@@ -141,6 +141,51 @@ export class EngineRuntime {
     };
   }
 
+  async deleteFlow(flowId: string): Promise<void> {
+    const project = this.getProject();
+    if (!project.flowsById[flowId]) {
+      throw new EngineHttpError(`Flow not found: ${flowId}`, 404, 'FLOW_NOT_FOUND', { flowId });
+    }
+
+    const nextTexts = { ...project.flowTextsById };
+    const nextFileMap = { ...project.flowFileMap };
+    delete nextTexts[flowId];
+    delete nextFileMap[flowId];
+
+    const resolver = (id: string): string => {
+      const raw = nextTexts[id];
+      if (!raw) {
+        throw new EngineHttpError(`Unknown flow: ${id}`, 404, 'FLOW_NOT_FOUND', { flowId: id });
+      }
+      return raw;
+    };
+
+    const builtinManifest = new Map(BUILTIN_NODES.map((n) => [n.type, { inputs: n.inputs, outputs: n.outputs }]));
+    const loader = new FlowLoader((nodeType) => builtinManifest.get(nodeType));
+    const nextFlows: Record<string, FlowDefinition> = {};
+    for (const id of Object.keys(nextTexts).sort()) {
+      nextFlows[id] = loader.load(id, resolver);
+    }
+
+    const targetFile = project.flowFileMap[flowId];
+    if (targetFile) {
+      try {
+        await unlink(targetFile);
+      } catch (err: any) {
+        if (err.code !== 'ENOENT') {
+          throw err;
+        }
+      }
+    }
+
+    this.project = {
+      ...project,
+      flowTextsById: nextTexts,
+      flowFileMap: nextFileMap,
+      flowsById: nextFlows,
+    };
+  }
+
   async executeFlow(flowId: string, inputData: Record<string, any> = {}): Promise<FlowExecutionResult> {
     const project = this.getProject();
     const core = this.getCore();

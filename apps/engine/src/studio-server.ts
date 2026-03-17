@@ -26,9 +26,9 @@ const MIME_TYPES: Record<string, string> = {
   '.eot': 'application/vnd.ms-fontobject',
 };
 
-function getEditorDistDir(): string {
+function getStudioDistDir(): string {
   const thisDir = fileURLToPath(new URL('.', import.meta.url));
-  return join(thisDir, 'editor');
+  return join(thisDir, 'studio');
 }
 
 function isHashedAsset(filePath: string): boolean {
@@ -38,14 +38,14 @@ function isHashedAsset(filePath: string): boolean {
 
 async function serveStaticFile(
   res: ServerResponse,
-  editorDir: string,
+  studioDir: string,
   pathname: string,
 ): Promise<boolean> {
   const safePath = normalize(pathname).replace(/^(\.\.[/\\])+/, '');
-  const filePath = join(editorDir, safePath);
+  const filePath = join(studioDir, safePath);
 
   // Directory traversal guard
-  if (!filePath.startsWith(editorDir)) {
+  if (!filePath.startsWith(studioDir)) {
     return false;
   }
 
@@ -68,7 +68,7 @@ async function serveStaticFile(
 async function handleStudioRequest(
   runtime: EngineRuntime,
   runs: RunManager,
-  editorDir: string,
+  studioDir: string,
   req: IncomingMessage,
   res: ServerResponse,
 ): Promise<void> {
@@ -82,12 +82,12 @@ async function handleStudioRequest(
   }
 
   // Try serving the exact static file
-  if (await serveStaticFile(res, editorDir, pathname)) {
+  if (await serveStaticFile(res, studioDir, pathname)) {
     return;
   }
 
   // SPA fallback: serve index.html
-  const indexPath = join(editorDir, 'index.html');
+  const indexPath = join(studioDir, 'index.html');
   try {
     const content = await readFile(indexPath);
     res.statusCode = 200;
@@ -97,7 +97,7 @@ async function handleStudioRequest(
     res.statusCode = 503;
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
     res.end(
-      'Editor has not been built yet.\n\n' +
+      'Studio has not been built yet.\n\n' +
       'Run: pnpm --filter @kal-ai/engine build\n',
     );
   }
@@ -111,11 +111,11 @@ export async function startStudioServer(params: {
 }): Promise<StartedEngineServer> {
   const host = params.host ?? '127.0.0.1';
   const port = params.port ?? 3000;
-  const editorDir = getEditorDistDir();
+  const studioDir = getStudioDistDir();
   const runs = RunManager.fromRuntime(params.runtime, params.runStateDir);
 
   const server = createServer((req, res) => {
-    void handleStudioRequest(params.runtime, runs, editorDir, req, res);
+    void handleStudioRequest(params.runtime, runs, studioDir, req, res);
   });
 
   await new Promise<void>((resolve, reject) => {
