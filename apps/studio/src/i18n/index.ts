@@ -1,6 +1,7 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
+import { restoreCachedLocales } from './loader';
 
 import commonEn from './locales/en/common.json';
 import registryEn from './locales/en/registry.json';
@@ -94,5 +95,8 @@ i18n
     },
     initImmediate: false, // synchronous init — critical for registry/store
   });
+
+// Restore any community language packs previously imported by the user
+restoreCachedLocales();
 
 export default i18n;
