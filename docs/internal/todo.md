@@ -40,7 +40,8 @@
   B 线已完成：Engine `saveConfig()` → `PUT /api/config` → `engineApi.saveConfig()` → `studioStore.updateConfig()` → `useStudioCommands().updateConfig()`。安全限制：`llm.apiKey`/`llm.baseUrl` 不可通过此接口修改（防止 env var 引用被覆盖为明文）。保存后自动 diagnostics refresh + version bump + undo 支持。
   A 线待接：在 ConfigEditor 中调用 `updateConfig(patch)` 并移除"只读模式"提示。
 - [ ] 节点配置面板优化：当 configSchema type 为 object/array 时，提供更友好的编辑 UI，替代原始 JSON textarea
-  下一步：先盘点当前哪些节点的 `configSchema` 已经稳定出现 object/array，再优先给高频节点补表单化编辑器，避免一次性做成通用但难维护的大而全方案。
+  B 线已完成审计：17 个内置节点中，PromptBuild（`fragments` array of objects）和 WriteState（`operations`/`constraints`/`deduplicateBy` nested objects + `allowedKeys` array）是最需要表单化编辑器的两个节点。其次是 ComputeState（`operand` 可为 object）、PostProcess（`processors` array）、GenerateText（`historyPolicy` nested object）。其余节点的 configSchema 均为简单 string/number/boolean/enum 字段，现有 JSON textarea 已够用。
+  A 线下一步：优先为 PromptBuild 的 `fragments` 和 WriteState 的 `allowedKeys`/`operations` 提供表单化编辑器。
 - [~] 自动布局：Flow / Session 已接入 DAG 自动布局与手动 Auto Layout；待覆盖 AI 或手写 flow JSON 时的默认布局与更多细节场景
   现状：`layoutDag` 已用于 Flow / Session 的位置计算，Flow 进入画布时会尝试自动补位，工具栏也提供手动 Auto Layout；但仍缺少更稳的默认布局策略和复杂图场景打磨。
 
@@ -137,7 +138,7 @@
 
 - [x] `npx create-kal-game` 脚手架
   已完成：`packages/create-kal-game/bin.mjs` 已实现，支持 `--template minimal|game`，`package.json` 已配置 `bin` 和 `files` 字段。
-  待优化：与 `kal init` 存在模板逻辑重复，后续可抽取共享模板定义。
+  已优化：共享模板定义已抽取到 `apps/engine/src/scaffold-templates.ts`，`kal init` 消费该模块，`create-kal-game` 保持独立但模板内容已同步（含完整 engine/retry/cache config、minimal 模板补 initial_state.json）。
 - [ ] 在线 Playground
   阻塞：依赖更稳定的浏览器侧运行方案、示例资产裁剪和安全边界设计，否则很容易先做出难维护的 demo。
 - [ ] `kal generate` 从自然语言生成 flow JSON
