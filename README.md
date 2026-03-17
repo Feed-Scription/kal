@@ -24,9 +24,9 @@
 
 KAL (Kal AI Layer) is a flow engine designed for AI-native games. It uses a three-layer architecture to make complex AI interactions simple and controllable:
 
+- **Node layer** — Composable nodes for state I/O, LLM calls, sub-flow reuse, and business rules
 - **Flow layer** — Describe DAG workflows in JSON for orchestration
 - **Session layer** — A lightweight state machine that drives multi-turn interaction
-- **Node layer** — Composable nodes for state I/O, LLM calls, sub-flow reuse, and business rules
 
 Batteries included: runtime, engine host, Studio workbench, and example games.
 
