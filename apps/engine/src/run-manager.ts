@@ -7,7 +7,7 @@ import {
 } from '@kal-ai/core';
 import { join } from 'node:path';
 import { DebugSessionManager } from './debug/session-manager';
-import type { DebugRunSnapshot } from './debug/types';
+import type { DebugRunSnapshot, StateChangeLogEntry } from './debug/types';
 import { EngineHttpError } from './errors';
 import { EngineRuntime } from './runtime';
 import {
@@ -64,6 +64,25 @@ export class RunManager {
   private readonly store: DebugSessionManager;
   private readonly createRuntimeFn: () => Promise<EngineRuntime>;
   private readonly listeners = new Set<RunListener>();
+
+  private static computeStateChanges(
+    beforeState: Record<string, StateValue>,
+    afterState: Record<string, StateValue>,
+    stepId: string,
+    stepIndex: number,
+  ): StateChangeLogEntry[] {
+    const entries: StateChangeLogEntry[] = [];
+    const now = Date.now();
+    const allKeys = new Set([...Object.keys(beforeState), ...Object.keys(afterState)]);
+    for (const key of allKeys) {
+      const before = beforeState[key]?.value;
+      const after = afterState[key]?.value;
+      if (JSON.stringify(before) !== JSON.stringify(after)) {
+        entries.push({ stepId, stepIndex, key, before, after, timestamp: now });
+      }
+    }
+    return entries;
+  }
 
   constructor(params: {
     projectRoot: string;
@@ -155,6 +174,7 @@ export class RunManager {
       stateSnapshot: afterState,
       recentEvents: result.events,
       inputHistory: [],
+      stateChangeLog: [],
     });
     snapshot = await this.finalizeSnapshot(snapshot, result, options.cleanup ?? false);
 
@@ -222,6 +242,11 @@ export class RunManager {
     });
     const afterState = runtime.getState();
     const timestamp = Date.now();
+    const stateChanges = RunManager.computeStateChanges(
+      beforeState, afterState,
+      snapshot.cursor.currentStepId ?? '',
+      snapshot.cursor.stepIndex,
+    );
 
     const nextSnapshot: DebugRunSnapshot = {
       ...snapshot,
@@ -231,6 +256,7 @@ export class RunManager {
       stateSnapshot: afterState,
       recentEvents: result.events,
       updatedAt: timestamp,
+      stateChangeLog: [...(snapshot.stateChangeLog ?? []), ...stateChanges],
       inputHistory: options.input === undefined
         ? snapshot.inputHistory
         : [
