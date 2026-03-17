@@ -40,6 +40,7 @@ Debug session execution with state inspection.
 | `--delete --run-id <id>` | Delete a debug session |
 | `--retry` | Retry the current failed step |
 | `--skip` | Skip the current step |
+| `--diff --run-id <a> --diff-run <b>` | Compare state snapshots between two runs |
 
 | Option | Description |
 |--------|-------------|
@@ -50,6 +51,7 @@ Debug session execution with state inspection.
 | `--input <input>` | Provide input value |
 | `--format <json\|pretty\|agent>` | Output format |
 | `--verbose` | Include LLM traces in output |
+| `--diff-run <id>` | Second run ID for `--diff` comparison |
 
 ### `kal lint`
 
@@ -118,6 +120,7 @@ Prompt evaluation toolkit for systematic A/B testing.
 |--------|-------------|
 | `--variant <file>` | Alternative fragments file (for A/B testing) |
 | `--runs N` | Number of eval runs (default: 5) |
+| `--model <name>` | Override LLM model for eval runs |
 | `--input <json>` | Input data as JSON |
 | `--state <json>` | State data as JSON |
 | `--project <path>` | Project path (when using flow ID instead of file path) |
