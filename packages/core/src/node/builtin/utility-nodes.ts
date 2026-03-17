@@ -16,6 +16,13 @@ export const Constant: CustomNode = {
     properties: {
       value: {
         description: 'The constant value to output',
+        oneOf: [
+          { type: 'string' },
+          { type: 'number' },
+          { type: 'boolean' },
+          { type: 'object' },
+          { type: 'array' },
+        ],
       },
       type: {
         type: 'string',
@@ -53,6 +60,10 @@ export const ComputeState: CustomNode = {
       },
       operand: {
         description: 'Operand for arithmetic operations (number) or lookup table (object)',
+        oneOf: [
+          { type: 'number' },
+          { type: 'object' },
+        ],
       },
       condition: {
         type: 'string',
@@ -60,9 +71,19 @@ export const ComputeState: CustomNode = {
       },
       trueValue: {
         description: 'Value to return if condition is true',
+        oneOf: [
+          { type: 'string' },
+          { type: 'number' },
+          { type: 'boolean' },
+        ],
       },
       falseValue: {
         description: 'Value to return if condition is false',
+        oneOf: [
+          { type: 'string' },
+          { type: 'number' },
+          { type: 'boolean' },
+        ],
       },
     },
     required: ['operation'],

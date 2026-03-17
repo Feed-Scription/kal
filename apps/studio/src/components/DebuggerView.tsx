@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Bug, Clock3, Play, RefreshCw } from "lucide-react";
+import { Bug, Clock3, Play, RefreshCw, Rocket } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SessionRunDialog } from "@/components/SessionRunDialog";
 import { EmptyState } from "@/components/EmptyState";
@@ -22,7 +22,7 @@ export function DebuggerView() {
     selectedTimeline,
     selectedStateDiff,
   } = useRunDebug();
-  const { advanceRun, createRun, refreshRuns, replayRun, selectRun, stepRun, toggleBreakpoint } = useStudioCommands();
+  const { advanceRun, createRun, createSmokeRun, refreshRuns, replayRun, selectRun, stepRun, toggleBreakpoint } = useStudioCommands();
   const [loading, setLoading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [error, setError] = useState("");
@@ -57,6 +57,20 @@ export function DebuggerView() {
       await refresh();
     } catch (err) {
       setError((err as Error).message || "创建 managed run 失败");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const startSmokeRun = async () => {
+    setError("");
+    setLoading(true);
+    try {
+      const created = await createSmokeRun();
+      await selectRun(created.run_id);
+      await refresh();
+    } catch (err) {
+      setError((err as Error).message || "Smoke run 失败");
     } finally {
       setLoading(false);
     }
@@ -109,6 +123,10 @@ export function DebuggerView() {
               </Button>
               <Button variant="outline" onClick={() => void startManagedRun("step")} disabled={loading}>
                 单步新建
+              </Button>
+              <Button variant="outline" onClick={() => void startSmokeRun()} disabled={loading}>
+                <Rocket className="size-4" />
+                Smoke Run
               </Button>
               <Button variant="outline" onClick={() => setDialogOpen(true)}>
                 打开 Runtime 面板
