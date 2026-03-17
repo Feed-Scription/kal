@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, CircleCheckBig, Info, RefreshCw } from "lucide-react";
+import { EmptyState } from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
 import { useConnectionState, useDiagnostics, useSaveState, useStudioCommands } from "@/kernel/hooks";
 import type { DiagnosticPayload } from "@/types/project";
@@ -115,9 +116,7 @@ export function ProblemsView() {
         </div>
 
         {!engineConnected ? (
-          <div className="rounded-2xl border border-dashed p-6 text-sm text-muted-foreground">
-            当前未连接 Engine，无法拉取 diagnostics。
-          </div>
+          <EmptyState message="当前未连接 Engine，无法拉取 diagnostics。" />
         ) : null}
 
         <div className="space-y-3">

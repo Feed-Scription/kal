@@ -1,4 +1,5 @@
 import { ScrollText } from 'lucide-react';
+import { EmptyState } from '@/components/EmptyState';
 import { Button } from '@/components/ui/button';
 import { useRunDebug, useStudioCommands } from '@/kernel/hooks';
 
@@ -27,9 +28,7 @@ export function TracePanel() {
       </div>
 
       {!selectedRun ? (
-        <div className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">
-          当前没有选中的 run。
-        </div>
+        <EmptyState message="当前没有选中的 run。" compact />
       ) : (
         <>
           <div className="text-xs text-muted-foreground">

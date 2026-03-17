@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Bug, Clock3, Play, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SessionRunDialog } from "@/components/SessionRunDialog";
+import { EmptyState } from "@/components/EmptyState";
 import { useRunDebug, useStudioCommands } from "@/kernel/hooks";
 
 function formatTime(timestamp: number) {
@@ -122,9 +123,7 @@ export function DebuggerView() {
 
             <div className="space-y-3">
               {runs.length === 0 ? (
-                <div className="rounded-xl border border-dashed p-5 text-sm text-muted-foreground">
-                  当前没有 active run。可以新建一个 managed run，或从 Session 编辑器进入运行面板。
-                </div>
+                <EmptyState message="当前没有 active run。可以新建一个 managed run，或从 Session 编辑器进入运行面板。" />
               ) : (
                 runs.map((record) => (
                   <button
@@ -222,9 +221,7 @@ export function DebuggerView() {
             </div>
 
             {!selectedRun || !selectedRunState ? (
-              <div className="rounded-xl border border-dashed p-6 text-sm text-muted-foreground">
-                选择一个 run 以查看详细状态。
-              </div>
+              <EmptyState message="选择一个 run 以查看详细状态。" />
             ) : (
               <div className="space-y-4">
                 <div className="grid gap-3 md:grid-cols-2">

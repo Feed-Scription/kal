@@ -65,7 +65,7 @@ export async function collectLintPayload(projectRoot: string): Promise<LintPaylo
         }
       }
 
-      // Also collect flows referenced by SubFlow nodes inside other flows
+      // Also collect flows referenced by SubFlow nodes inside other flows.
       for (const flow of Object.values(project.flowsById)) {
         for (const node of flow.data.nodes) {
           if (node.type === 'SubFlow' && node.config?.ref) {
@@ -403,12 +403,13 @@ function validateNodeConfig(
     }
   }
 
-  // Check config field types against schema
+  // Check config value types and enums against schema properties.
   if (schema.properties) {
-    for (const [key, propSchema] of Object.entries(schema.properties) as [string, any][]) {
+    for (const [key, propSchema] of Object.entries(schema.properties) as Array<[string, Record<string, any>]>) {
       const value = config[key];
       if (value === undefined || value === null) continue;
-      const expectedType = propSchema.type;
+
+      const expectedType = propSchema.type as string | undefined;
       if (!expectedType) continue;
 
       const actualType = Array.isArray(value) ? 'array' : typeof value;
@@ -431,6 +432,22 @@ function validateNodeConfig(
             nodeId,
             phase: 'node',
             suggestions: [`Change "${key}" to a ${expectedType} value`],
+          })
+        );
+      }
+
+      // Check enum constraint
+      if (propSchema.enum && Array.isArray(propSchema.enum) && !propSchema.enum.includes(value)) {
+        diagnostics.push(
+          buildCliDiagnostic({
+            code: 'CONFIG_INVALID_ENUM',
+            message: `Node "${nodeId}" (${nodeType}) config field "${key}" value "${value}" is not one of: ${propSchema.enum.join(', ')}`,
+            file: flowFile,
+            jsonPath: `data.nodes[id=${nodeId}].config.${key}`,
+            flowId,
+            nodeId,
+            phase: 'node',
+            suggestions: [`Use one of: ${propSchema.enum.join(', ')}`],
           })
         );
       }
