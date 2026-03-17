@@ -1,13 +1,12 @@
 import { ScrollText } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { EmptyState } from '@/components/EmptyState';
 import { Button } from '@/components/ui/button';
 import { useRunDebug, useStudioCommands } from '@/kernel/hooks';
-
-function formatTime(timestamp: number) {
-  return new Date(timestamp).toLocaleTimeString('zh-CN', { hour12: false });
-}
+import { formatTimeFromTimestamp } from '@/i18n/format';
 
 export function TracePanel() {
+  const { t } = useTranslation('debug');
   const { breakpoints, selectedRun, selectedTimeline } = useRunDebug();
   const { setActiveView } = useStudioCommands();
   const preview = selectedTimeline.slice(0, 6);
@@ -19,16 +18,16 @@ export function TracePanel() {
           <ScrollText className="size-4" />
           <div>
             <h3 className="text-sm font-semibold">Trace Panel</h3>
-            <p className="text-xs text-muted-foreground">围绕 selected run 展示统一 timeline。</p>
+            <p className="text-xs text-muted-foreground">{t('trace.panelSubtitle')}</p>
           </div>
         </div>
         <Button variant="outline" size="sm" onClick={() => setActiveView('kal.debugger')}>
-          打开调试器
+          {t('trace.openDebugger')}
         </Button>
       </div>
 
       {!selectedRun ? (
-        <EmptyState message="当前没有选中的 run。" compact />
+        <EmptyState message={t('trace.noSelectedRun')} compact />
       ) : (
         <>
           <div className="text-xs text-muted-foreground">
@@ -44,7 +43,7 @@ export function TracePanel() {
               >
                 <div className="flex items-center justify-between gap-3">
                   <div className="font-medium">{entry.title}</div>
-                  <div className="text-xs text-muted-foreground">{formatTime(entry.timestamp)}</div>
+                  <div className="text-xs text-muted-foreground">{formatTimeFromTimestamp(entry.timestamp)}</div>
                 </div>
                 <div className="text-xs text-muted-foreground">
                   {entry.eventType} · {entry.cursorStepId ?? 'null'} · {entry.status}

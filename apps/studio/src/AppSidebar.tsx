@@ -16,6 +16,7 @@ import {
 import { Command, LayoutDashboard, Lock, Plus, RefreshCw, Wifi, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
+import { useTranslation } from 'react-i18next';
 import {
   Dialog,
   DialogContent,
@@ -34,6 +35,8 @@ type AppSidebarProps = {
 };
 
 export function AppSidebar({ children }: AppSidebarProps) {
+  const { t } = useTranslation('workbench');
+  const { t: tc } = useTranslation('common');
   const { project, session } = useStudioResources();
   const { flowId: currentFlow } = useFlowResource();
   const { engineConnected } = useConnectionState();
@@ -56,11 +59,11 @@ export function AppSidebar({ children }: AppSidebarProps) {
   const handleSubmit = async () => {
     const name = flowNameInput.trim();
     if (!name) {
-      setError("名称不能为空");
+      setError(tc("nameEmpty"));
       return;
     }
     if (!/^[a-zA-Z0-9_-]+$/.test(name)) {
-      setError("名称只能包含字母、数字、下划线和连字符");
+      setError(tc("nameInvalidChars"));
       return;
     }
     try {
@@ -76,7 +79,7 @@ export function AppSidebar({ children }: AppSidebarProps) {
     try {
       await reloadProject();
     } catch (e: any) {
-      alert("重载失败: " + e.message);
+      alert(tc("reloadFailed", { message: e.message }));
     } finally {
       setReloading(false);
     }
@@ -126,11 +129,11 @@ export function AppSidebar({ children }: AppSidebarProps) {
   };
 
   const workspacePresets: Array<{ id: StudioWorkspacePreset; label: string }> = [
-    { id: "authoring", label: "创作" },
-    { id: "debug", label: "调试" },
-    { id: "review", label: "审查" },
-    { id: "history", label: "历史" },
-    { id: "package", label: "分发" },
+    { id: "authoring", label: t("preset.authoring") },
+    { id: "debug", label: t("preset.debug") },
+    { id: "review", label: t("preset.review") },
+    { id: "history", label: t("preset.history") },
+    { id: "package", label: t("preset.package") },
   ];
 
   return (
@@ -147,7 +150,7 @@ export function AppSidebar({ children }: AppSidebarProps) {
                   <div className="grid flex-1 text-left text-sm leading-tight">
                     <span className="truncate font-semibold">KAL Studio</span>
                     <span className="truncate text-xs text-muted-foreground">
-                      {project?.config.name || "AI-native 工作台"}
+                      {project?.config.name || t("aiWorkbench")}
                     </span>
                   </div>
                 </a>
@@ -160,7 +163,7 @@ export function AppSidebar({ children }: AppSidebarProps) {
           {project && (
             <>
               <SidebarGroup>
-                <SidebarGroupLabel>工作区预设</SidebarGroupLabel>
+                <SidebarGroupLabel>{t("workspacePresets")}</SidebarGroupLabel>
                 <SidebarGroupContent className="px-2">
                   <div className="flex flex-wrap gap-2">
                     {workspacePresets.map((preset) => (
@@ -177,13 +180,13 @@ export function AppSidebar({ children }: AppSidebarProps) {
                 </SidebarGroupContent>
               </SidebarGroup>
 
-              {renderExtensionGroup("官方核心扩展", coreExtensions)}
-              {renderExtensionGroup("官方工作流扩展", workflowExtensions)}
+              {renderExtensionGroup(t("officialCoreExtensions"), coreExtensions)}
+              {renderExtensionGroup(t("officialWorkflowExtensions"), workflowExtensions)}
 
               {(activeViewId === "kal.flow" || activeViewId === "kal.session") && (
                 <SidebarGroup>
                   <div className="flex items-center justify-between px-2">
-                    <SidebarGroupLabel>Flow 资源</SidebarGroupLabel>
+                    <SidebarGroupLabel>{t("flowResources")}</SidebarGroupLabel>
                     <Button
                       variant="ghost"
                       size="icon"
@@ -216,7 +219,7 @@ export function AppSidebar({ children }: AppSidebarProps) {
               )}
 
               <SidebarGroup>
-                <SidebarGroupLabel>项目命令</SidebarGroupLabel>
+                <SidebarGroupLabel>{t("projectCommands")}</SidebarGroupLabel>
                 <SidebarGroupContent>
                   <SidebarMenu>
                     <SidebarMenuItem>
@@ -228,7 +231,7 @@ export function AppSidebar({ children }: AppSidebarProps) {
                         disabled={reloading}
                       >
                         <RefreshCw className={`mr-2 size-4 ${reloading ? "animate-spin" : ""}`} />
-                        {reloading ? "重载中..." : "重载项目"}
+                        {reloading ? t("reloading") : t("reloadProject")}
                       </Button>
                     </SidebarMenuItem>
                     <SidebarMenuItem>
@@ -239,7 +242,7 @@ export function AppSidebar({ children }: AppSidebarProps) {
                         onClick={disconnect}
                       >
                         <X className="mr-2 size-4" />
-                        断开连接
+                        {t("disconnect")}
                       </Button>
                     </SidebarMenuItem>
                   </SidebarMenu>
@@ -254,21 +257,21 @@ export function AppSidebar({ children }: AppSidebarProps) {
             {project && (
               <div className="space-y-1 text-muted-foreground">
                 <div className="flex items-center justify-between">
-                  <span>项目:</span>
+                  <span>{t("projectLabel")}</span>
                   <span className="font-medium text-foreground">{project.config.name}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span>版本:</span>
+                  <span>{t("versionLabel")}</span>
                   <span className="font-medium text-foreground">{project.config.version}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span>Flow:</span>
+                  <span>{t("flowLabel")}</span>
                   <span className="font-medium text-foreground">{Object.keys(project.flows).length}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span>Session:</span>
+                  <span>{t("sessionLabel")}</span>
                   <span className={`font-medium ${session ? "text-green-500" : "text-muted-foreground"}`}>
-                    {session ? "已配置" : "无"}
+                    {session ? tc("configured") : tc("none")}
                   </span>
                 </div>
               </div>
@@ -281,13 +284,9 @@ export function AppSidebar({ children }: AppSidebarProps) {
         <div className="flex h-14 items-center gap-2 border-b px-4">
           <SidebarTrigger />
           <div>
-            <p className="text-sm font-medium">Studio Kernel</p>
+            <p className="text-sm font-medium">{t("studioKernel")}</p>
             <p className="text-xs text-muted-foreground">
-              {activePreset === "authoring" && "Authoring Workspace"}
-              {activePreset === "debug" && "Debug Workspace"}
-              {activePreset === "review" && "Review Workspace"}
-              {activePreset === "history" && "History Workspace"}
-              {activePreset === "package" && "Package Workspace"}
+              {activePreset && t("workspaceLabel", { preset: t(`preset.${activePreset}`) })}
             </p>
           </div>
           <div className="flex-1" />
@@ -298,13 +297,13 @@ export function AppSidebar({ children }: AppSidebarProps) {
             onClick={() => setCommandPaletteOpen(true)}
           >
             <Command className="size-4" />
-            命令面板
+            {t("commandPalette")}
             <span className="rounded border px-1.5 py-0.5 text-[11px] text-muted-foreground">Ctrl K</span>
           </Button>
           {activeExtension ? (
             <div className="hidden items-center gap-2 rounded-full border px-3 py-1 text-xs text-muted-foreground lg:flex">
               <Lock className={`size-3.5 ${capabilityGate.trusted ? "text-green-600" : "text-yellow-600"}`} />
-              <span>{capabilityGate.trusted ? "Trusted" : "Restricted"}</span>
+              <span>{capabilityGate.trusted ? t("trusted") : t("restricted")}</span>
               <span>{activeExtension.id}</span>
             </div>
           ) : null}
@@ -323,12 +322,12 @@ export function AppSidebar({ children }: AppSidebarProps) {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>创建新 Flow</DialogTitle>
-            <DialogDescription>输入新 Flow 的名称</DialogDescription>
+            <DialogTitle>{t("createNewFlow")}</DialogTitle>
+            <DialogDescription>{t("enterFlowName")}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="flowName">Flow 名称</Label>
+              <Label htmlFor="flowName">{t("flowName")}</Label>
               <Input
                 id="flowName"
                 value={flowNameInput}
@@ -336,7 +335,7 @@ export function AppSidebar({ children }: AppSidebarProps) {
                 onKeyDown={(e) => {
                   if (e.key === "Enter") handleSubmit();
                 }}
-                placeholder="例如: main, chat, game"
+                placeholder={t("flowNamePlaceholder")}
                 autoFocus
               />
               {error && <p className="text-sm text-destructive">{error}</p>}
@@ -344,9 +343,9 @@ export function AppSidebar({ children }: AppSidebarProps) {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
-              取消
+              {tc("cancel")}
             </Button>
-            <Button onClick={handleSubmit}>创建</Button>
+            <Button onClick={handleSubmit}>{tc("create")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

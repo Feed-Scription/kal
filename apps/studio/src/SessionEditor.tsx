@@ -33,6 +33,8 @@ import { useSessionNodeOverlay } from '@/hooks/use-node-overlay';
 import { useCanvasSelection } from '@/hooks/use-canvas-selection';
 import { layoutDag } from '@/utils/graph-layout';
 import { SESSION_STEP_DEFAULTS } from './session-nodes/defaults';
+import { useTranslation } from 'react-i18next';
+import i18n from '@/i18n';
 import type {
   SessionDefinition,
   SessionStep,
@@ -130,7 +132,7 @@ function sessionToReactFlow(session: SessionDefinition): { nodes: Node[]; edges:
           type: MarkerType.ArrowClosed,
           color: '#f59e0b',
         },
-        label: '循环',
+        label: i18n.t('cycle', { ns: 'session' }),
         labelStyle: {
           fill: '#f59e0b',
           fontWeight: 600,
@@ -282,6 +284,7 @@ function reactFlowToSession(
 }
 
 function SessionEditorInner() {
+  const { t } = useTranslation('session');
   const { session } = useStudioResources();
   const { saveSession, deleteSession } = useStudioCommands();
   const overlayMap = useSessionNodeOverlay();
@@ -389,7 +392,7 @@ function SessionEditorInner() {
       await saveSession(buildSessionDef());
     } catch (error) {
       console.error('Session save failed:', error);
-      alert('保存失败: ' + (error as Error).message);
+      alert(t('saveFailed', { message: (error as Error).message }));
     }
   }, [buildSessionDef, saveSession]);
 
@@ -412,7 +415,7 @@ function SessionEditorInner() {
       setEdges([]);
       setInitialized(false);
     } catch (error) {
-      alert('删除失败: ' + (error as Error).message);
+      alert(t('deleteFailed', { message: (error as Error).message }));
     }
   }, [deleteSession]);
 

@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Save, Play, Download, LayoutGrid } from "lucide-react";
 import { useFlowResource, useStudioResources } from "@/kernel/hooks";
+import { useTranslation } from "react-i18next";
 
 type FlowToolbarProps = {
   onSave?: () => void;
@@ -12,6 +13,7 @@ type FlowToolbarProps = {
 export function FlowToolbar({ onSave, onExport, onRun, onAutoLayout }: FlowToolbarProps) {
   const { project } = useStudioResources();
   const { flowId: currentFlow } = useFlowResource();
+  const { t } = useTranslation('flow');
 
   if (!project || !currentFlow) return null;
 
@@ -20,7 +22,7 @@ export function FlowToolbar({ onSave, onExport, onRun, onAutoLayout }: FlowToolb
       <div className="flex items-center gap-2 border-r pr-2">
         <span className="text-sm font-medium">{currentFlow}</span>
         <span className="text-xs text-muted-foreground">
-          ({project.flows[currentFlow]?.data.nodes.length || 0} 节点)
+          {t('nodeCount', { count: project.flows[currentFlow]?.data.nodes.length || 0 })}
         </span>
       </div>
 
@@ -28,40 +30,40 @@ export function FlowToolbar({ onSave, onExport, onRun, onAutoLayout }: FlowToolb
         variant="ghost"
         size="sm"
         onClick={onSave}
-        title="保存 Flow (Ctrl+S)"
+        title={t('saveFlow')}
       >
         <Save className="mr-1.5 size-4" />
-        保存
+        {t('save')}
       </Button>
 
       <Button
         variant="ghost"
         size="sm"
         onClick={onExport}
-        title="导出 JSON"
+        title={t('exportJson')}
       >
         <Download className="mr-1.5 size-4" />
-        导出
+        {t('export')}
       </Button>
 
       <Button
         variant="ghost"
         size="sm"
         onClick={onRun}
-        title="运行 Flow"
+        title={t('runFlow')}
       >
         <Play className="mr-1.5 size-4" />
-        运行
+        {t('run')}
       </Button>
 
       <Button
         variant="ghost"
         size="sm"
         onClick={onAutoLayout}
-        title="自动排版"
+        title={t('autoLayout')}
       >
         <LayoutGrid className="mr-1.5 size-4" />
-        排版
+        {t('layout')}
       </Button>
     </div>
   );

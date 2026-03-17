@@ -48,7 +48,7 @@ export function reportExtensionCrash(extensionId: StudioExtensionId, error: stri
   if (record.crashCount >= MAX_CRASH_COUNT) {
     record.healthy = false;
     record.disabledBySystem = true;
-    record.disableReason = `扩展在 ${CRASH_WINDOW_MS / 1000}s 内崩溃 ${record.crashCount} 次，已被自动禁用`;
+    record.disableReason = `Extension crashed ${record.crashCount} times within ${CRASH_WINDOW_MS / 1000}s, auto-disabled`;
   }
 
   healthRecords.set(extensionId, record);

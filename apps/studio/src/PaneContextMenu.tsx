@@ -1,5 +1,6 @@
 import { useEffect, useCallback, useMemo } from "react";
 import { useReactFlow } from "@xyflow/react";
+import { useTranslation } from "react-i18next";
 import type { NodeManifest } from "@/types/project";
 
 export type ContextMenuState = {
@@ -15,15 +16,16 @@ type PaneContextMenuProps = {
   onAddNode: (position: { x: number; y: number }, nodeType: string) => void;
 };
 
-const categoryLabels: Record<string, string> = {
-  signal: "信号节点",
-  state: "状态节点",
-  llm: "LLM 节点",
-  transform: "转换节点",
-};
-
 export function PaneContextMenu({ menu, manifests, onClose, onAddNode }: PaneContextMenuProps) {
   const { screenToFlowPosition } = useReactFlow();
+  const { t } = useTranslation('flow');
+
+  const categoryLabels: Record<string, string> = {
+    signal: t('categoryLabels.signal'),
+    state: t('categoryLabels.state'),
+    llm: t('categoryLabels.llm'),
+    transform: t('categoryLabels.transform'),
+  };
 
   const grouped = useMemo(() => {
     const groups = new Map<string, NodeManifest[]>();

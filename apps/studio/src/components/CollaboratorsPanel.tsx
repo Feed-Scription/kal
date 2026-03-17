@@ -1,26 +1,28 @@
 import { Users } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { EmptyState } from '@/components/EmptyState';
 import { usePresence } from '@/kernel/hooks';
 
-function formatRelativeTime(timestamp: number) {
-  const diff = Date.now() - timestamp;
-  if (diff < 60_000) return '刚刚';
-  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}分钟前`;
-  return `${Math.floor(diff / 3_600_000)}小时前`;
-}
-
 export function CollaboratorsPanel() {
+  const { t } = useTranslation('workbench');
   const { users, activities, selfId } = usePresence();
+
+  const formatRelativeTime = (timestamp: number) => {
+    const diff = Date.now() - timestamp;
+    if (diff < 60_000) return t('collaborators.justNow');
+    if (diff < 3_600_000) return t('collaborators.minutesAgo', { count: Math.floor(diff / 60_000) });
+    return t('collaborators.hoursAgo', { count: Math.floor(diff / 3_600_000) });
+  };
 
   return (
     <div className="flex h-full flex-col overflow-auto p-3">
       <div className="mb-2 flex items-center gap-2 text-sm font-medium">
         <Users className="size-4" />
-        <span>协作者 ({users.length})</span>
+        <span>{t('collaborators.label', { count: users.length })}</span>
       </div>
 
       {users.length === 0 ? (
-        <EmptyState message="当前没有其他协作者在线。协作功能将在多人连接同一项目时启用。" compact />
+        <EmptyState message={t('collaborators.emptyMessage')} compact />
       ) : (
         <div className="space-y-2">
           {users.map((user) => {
@@ -43,7 +45,7 @@ export function CollaboratorsPanel() {
                     <span className="font-medium">{user.name}</span>
                     {isSelf ? (
                       <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary">
-                        你
+                        {t('collaborators.self')}
                       </span>
                     ) : null}
                     <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px]">
@@ -52,9 +54,9 @@ export function CollaboratorsPanel() {
                   </div>
                   <div className="text-xs text-muted-foreground">
                     {activity?.viewId ? (
-                      <span>正在查看 {activity.viewId.replace('kal.', '')}</span>
+                      <span>{t('collaborators.viewing', { viewId: activity.viewId.replace('kal.', '') })}</span>
                     ) : (
-                      <span>活跃于 {formatRelativeTime(user.lastActiveAt)}</span>
+                      <span>{t('collaborators.activeAgo', { time: formatRelativeTime(user.lastActiveAt) })}</span>
                     )}
                     {activity?.resourceId ? (
                       <span className="ml-1 font-mono text-[10px]">· {activity.resourceId}</span>

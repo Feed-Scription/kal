@@ -1,5 +1,6 @@
 import '@xyflow/react/dist/style.css';
 import { useState } from "react";
+import { useTranslation } from 'react-i18next';
 import { Command, Info, Lock, Play, RefreshCw, X } from "lucide-react";
 import { AppSidebar } from "./AppSidebar";
 import { CommandPalette } from "./components/CommandPalette";
@@ -13,6 +14,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "./components/ui/sh
 import { useCapabilityGate, useExtensionRuntimeMap, useStudioCommands, useWorkbench, useStudioResources } from "./kernel/hooks";
 
 export default function App() {
+  const { t } = useTranslation('workbench');
   const { project } = useStudioResources();
   const { activeExtension, activeViewId, openViews, views } = useWorkbench();
   const extensionRuntime = useExtensionRuntimeMap();
@@ -72,10 +74,10 @@ export default function App() {
               </div>
 
               <div className="flex shrink-0 items-center gap-1">
-                <Button variant="ghost" size="icon-sm" onClick={() => setCommandPaletteOpen(true)} title="命令面板">
+                <Button variant="ghost" size="icon-sm" onClick={() => setCommandPaletteOpen(true)} title={t('tooltips.commandPalette')}>
                   <Command className="size-4" />
                 </Button>
-                <Button variant="ghost" size="icon-sm" onClick={() => void refreshDiagnostics()} title="刷新诊断">
+                <Button variant="ghost" size="icon-sm" onClick={() => void refreshDiagnostics()} title={t('tooltips.refreshDiagnostics')}>
                   <RefreshCw className="size-4" />
                 </Button>
                 <Button
@@ -85,13 +87,13 @@ export default function App() {
                     await createRun(false);
                     setActiveView("kal.debugger");
                   }}
-                  title="运行"
+                  title={t('tooltips.run')}
                 >
                   <Play className="size-4" />
                 </Button>
                 <div className="ml-1 flex items-center gap-1 rounded-lg border px-2 py-1 text-xs text-muted-foreground">
                   <Lock className={`size-3.5 ${capabilityGate.trusted ? "text-green-600" : "text-yellow-600"}`} />
-                  {capabilityGate.trusted ? "Trusted" : "Restricted"}
+                  {capabilityGate.trusted ? t("trusted") : t("restricted")}
                 </div>
               </div>
             </div>
@@ -128,7 +130,7 @@ export default function App() {
       <Sheet open={inspectorOpen} onOpenChange={setInspectorOpen}>
         <SheetContent side="right" className="w-80 overflow-auto p-0">
           <SheetHeader className="sr-only">
-            <SheetTitle>Inspector</SheetTitle>
+            <SheetTitle>{t('selectedNode')}</SheetTitle>
           </SheetHeader>
           <WorkbenchInspector mobile />
         </SheetContent>

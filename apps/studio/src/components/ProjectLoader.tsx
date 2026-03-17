@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
 import { Loader2, AlertCircle, RefreshCw } from "lucide-react";
+import { useTranslation } from 'react-i18next';
 import { Button } from "@/components/ui/button";
 import { useStudioCommands } from "@/kernel/hooks";
 
 export function ProjectLoader() {
+  const { t } = useTranslation('workbench');
+  const { t: tc } = useTranslation('common');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const { connect } = useStudioCommands();
@@ -15,7 +18,7 @@ export function ProjectLoader() {
     try {
       await connect();
     } catch (err: any) {
-      setError(err.message || "连接 Engine 失败");
+      setError(err.message || tc("connectEngineFailed"));
       setLoading(false);
     }
   };
@@ -29,7 +32,7 @@ export function ProjectLoader() {
       <div className="flex h-full w-full items-center justify-center bg-background animate-in fade-in-0 duration-300 ease-[var(--ease-apple)]">
         <div className="flex flex-col items-center gap-3 animate-in fade-in-0 zoom-in-95 duration-500 ease-[var(--ease-apple)]">
           <Loader2 className="size-8 animate-spin text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">连接 Studio Kernel 中...</p>
+          <p className="text-sm text-muted-foreground">{t("connectingKernel")}</p>
         </div>
       </div>
     );
@@ -49,7 +52,7 @@ export function ProjectLoader() {
             disabled={loading}
           >
             <RefreshCw className="mr-2 size-4" />
-            重试
+            {tc("retry")}
           </Button>
         </div>
       </div>

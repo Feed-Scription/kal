@@ -1,4 +1,5 @@
 import { memo } from "react";
+import { useTranslation } from "react-i18next";
 import { Position, type NodeProps } from "@xyflow/react";
 import {
   BaseNode,
@@ -26,6 +27,7 @@ import type { NodeOverlayState } from "@/hooks/use-node-overlay";
 type Option = { label: string; value: string };
 
 export const ChoiceStepNode = memo(({ id, data }: NodeProps) => {
+  const { t } = useTranslation('session');
   const config = (data as any).config || {};
   const overlay = (data as any).overlay as NodeOverlayState | undefined;
   const { updateConfig } = useNodeConfig(id);
@@ -51,28 +53,28 @@ export const ChoiceStepNode = memo(({ id, data }: NodeProps) => {
       <NodeOverlayBadge overlay={overlay} />
       <BaseNodeHeader className="border-b bg-teal-50 dark:bg-teal-950/30">
         <ListChecks className="size-4 text-teal-600" />
-        <BaseNodeHeaderTitle>选择题</BaseNodeHeaderTitle>
+        <BaseNodeHeaderTitle>{t('stepTypes.Choice')}</BaseNodeHeaderTitle>
       </BaseNodeHeader>
       <BaseNodeContent>
         <div className="space-y-2">
           <div>
-            <label className="text-xs text-muted-foreground">提示文本</label>
+            <label className="text-xs text-muted-foreground">{t('node.promptText')}</label>
             <Input
-              placeholder="请选择..."
+              placeholder={t('node.choicePromptPlaceholder')}
               className="mt-1"
               value={config.promptText || ""}
               onChange={(e) => updateConfig({ promptText: e.target.value })}
             />
           </div>
           <div>
-            <label className="text-xs text-muted-foreground">Flow 引用</label>
+            <label className="text-xs text-muted-foreground">{t('node.flowRef')}</label>
             {flowNames.length > 0 ? (
               <Select
                 value={config.flowRef || ""}
                 onValueChange={(val) => updateConfig({ flowRef: val })}
               >
                 <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="选择 Flow" />
+                  <SelectValue placeholder={t('node.selectFlow')} />
                 </SelectTrigger>
                 <SelectContent>
                   {flowNames.map((name) => (
@@ -84,7 +86,7 @@ export const ChoiceStepNode = memo(({ id, data }: NodeProps) => {
               </Select>
             ) : (
               <Input
-                placeholder="Flow 名称"
+                placeholder={t('node.flowName')}
                 className="mt-1"
                 value={config.flowRef || ""}
                 onChange={(e) => updateConfig({ flowRef: e.target.value })}
@@ -92,7 +94,7 @@ export const ChoiceStepNode = memo(({ id, data }: NodeProps) => {
             )}
           </div>
           <div>
-            <label className="text-xs text-muted-foreground">输入通道</label>
+            <label className="text-xs text-muted-foreground">{t('node.inputChannel')}</label>
             <Input
               placeholder="choice"
               className="mt-1"
@@ -101,27 +103,27 @@ export const ChoiceStepNode = memo(({ id, data }: NodeProps) => {
             />
           </div>
           <div>
-            <label className="text-xs text-muted-foreground">State Key</label>
+            <label className="text-xs text-muted-foreground">{t('node.stateKey')}</label>
             <Input
-              placeholder="可选，如 race"
+              placeholder={t('node.choiceStateKeyPlaceholder')}
               className="mt-1"
               value={config.stateKey || ""}
               onChange={(e) => updateConfig({ stateKey: e.target.value })}
             />
           </div>
           <div>
-            <label className="text-xs text-muted-foreground">选项列表</label>
+            <label className="text-xs text-muted-foreground">{t('node.optionsList')}</label>
             <div className="mt-1 space-y-1">
               {options.map((opt, i) => (
                 <div key={i} className="flex items-center gap-1">
                   <Input
-                    placeholder="显示文本"
+                    placeholder={t('node.displayText')}
                     className="flex-1 text-xs"
                     value={opt.label}
                     onChange={(e) => updateOption(i, "label", e.target.value)}
                   />
                   <Input
-                    placeholder="值"
+                    placeholder={t('node.value')}
                     className="w-24 text-xs"
                     value={opt.value}
                     onChange={(e) => updateOption(i, "value", e.target.value)}
@@ -143,7 +145,7 @@ export const ChoiceStepNode = memo(({ id, data }: NodeProps) => {
                 onClick={addOption}
               >
                 <Plus className="mr-1 size-3" />
-                添加选项
+                {t('node.addOption')}
               </Button>
             </div>
           </div>
@@ -151,7 +153,7 @@ export const ChoiceStepNode = memo(({ id, data }: NodeProps) => {
       </BaseNodeContent>
       <LabeledHandle
         id="target"
-        title="入口"
+        title={t('node.entry')}
         type="target"
         position={Position.Left}
       />
