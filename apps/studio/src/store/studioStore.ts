@@ -194,6 +194,7 @@ type StudioStore = {
   deleteSession: () => Promise<void>;
   updateConfig: (patch: Partial<KalConfig>) => Promise<void>;
   createRun: (forceNew?: boolean, mode?: RunAdvanceMode) => Promise<RunView>;
+  createSmokeRun: (inputs?: string[]) => Promise<RunView>;
   listRuns: () => Promise<RunSummary[]>;
   refreshRuns: () => Promise<RunSummary[]>;
   getRun: (runId: string) => Promise<RunView>;
@@ -2025,6 +2026,50 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
       await get().selectRun(run.run_id);
     }
 
+    return run;
+  },
+
+  createSmokeRun: async (inputs = []) => {
+    assertCapability(get, 'engine.execute');
+    const { run } = await withJob({
+      set,
+      get,
+      title: 'Smoke Run',
+      detail: '自动推进 session 全流程',
+      action: async (updateProgress) => {
+        updateProgress(20, '请求 Engine 创建 smoke run');
+        const created = await engineApi.createSmokeRun(inputs);
+        updateProgress(90, `Smoke run ${created.run_id} 已完成`);
+        return { run: created };
+      },
+    });
+
+    get().recordKernelEvent({
+      type: 'run.created',
+      message: `Smoke run ${run.run_id}`,
+      runId: run.run_id,
+      data: { status: run.status, active: run.active, smoke: true },
+    });
+    set((state) => {
+      const latestTx = state.versionControl.transactions[0];
+      const currentResourceVersion = latestTx?.nextVersion;
+      return {
+        runDebug: {
+          ...state.runDebug,
+          selectedRunId: run.run_id,
+          runOrder: ensureRunOrder(state.runDebug.runOrder, run.run_id),
+          records: {
+            ...state.runDebug.records,
+            [run.run_id]: mergeRunTraceRecord(state.runDebug.records[run.run_id], run, undefined, {
+              resourceVersion: currentResourceVersion,
+            }),
+          },
+        },
+      };
+    });
+    if (get().capabilities.grants['trace.read']) {
+      await get().selectRun(run.run_id);
+    }
     return run;
   },
 

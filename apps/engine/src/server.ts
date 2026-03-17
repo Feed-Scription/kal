@@ -484,12 +484,21 @@ export async function handleEngineRequest(
     if (method === 'POST' && pathname === '/api/runs') {
       requireCapability(req, 'engine.execute');
       const payload = await readJsonBody<CreateRunRequest>(req, { required: false });
-      const created = await runs.createRun({
-        forceNew: payload.forceNew,
-        cleanup: payload.cleanup,
-        mode: payload.mode,
-      });
-      success(res, { run: created.run }, 201);
+      if (payload.smokeInputs) {
+        const result = await runs.smokeRun({
+          forceNew: payload.forceNew,
+          cleanup: payload.cleanup,
+          smokeInputs: payload.smokeInputs,
+        });
+        success(res, { run: result.run }, 201);
+      } else {
+        const created = await runs.createRun({
+          forceNew: payload.forceNew,
+          cleanup: payload.cleanup,
+          mode: payload.mode,
+        });
+        success(res, { run: created.run }, 201);
+      }
       return;
     }
 

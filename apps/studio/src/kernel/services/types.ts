@@ -250,6 +250,7 @@ export interface StudioCommandService {
   deleteSession: () => Promise<void>;
   updateConfig: (patch: Partial<KalConfig>) => Promise<void>;
   createRun: (forceNew?: boolean, mode?: RunAdvanceMode) => Promise<RunView>;
+  createSmokeRun: (inputs?: string[]) => Promise<RunView>;
   listRuns: () => Promise<RunSummary[]>;
   refreshRuns: () => Promise<RunSummary[]>;
   getRun: (runId: string) => Promise<RunView>;
