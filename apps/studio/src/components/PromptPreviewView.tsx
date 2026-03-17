@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Focus, MessageSquareQuote, Search } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Focus, Loader2, MessageSquareQuote, Search, Sparkles } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/EmptyState";
 import { usePromptPreview, useWorkbench } from "@/kernel/hooks";
 import { useCanvasSelection } from "@/hooks/use-canvas-selection";
+import { engineApi } from "@/api/engine-client";
+import type { PromptRenderResult, RenderedFragment } from "@/types/project";
 
 /** 根据画布选中节点生成匹配的 entry id */
 function selectedEntryId(
@@ -17,6 +19,90 @@ function selectedEntryId(
   return null;
 }
 
+function FragmentCard({ fragment }: { fragment: RenderedFragment }) {
+  return (
+    <div
+      className={`rounded-lg border p-3 text-sm ${
+        fragment.active
+          ? "border-green-500/30 bg-green-500/5"
+          : "border-muted bg-muted/20 opacity-60"
+      }`}
+    >
+      <div className="mb-1 flex items-center gap-2">
+        <span className={`inline-block size-2 rounded-full ${fragment.active ? "bg-green-500" : "bg-muted-foreground/40"}`} />
+        <span className="font-mono text-xs font-medium">{fragment.id || '(anonymous)'}</span>
+        <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">{fragment.type}</span>
+        {fragment.condition && (
+          <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] text-amber-600">
+            when: {fragment.condition}
+          </span>
+        )}
+      </div>
+      {fragment.rendered ? (
+        <pre className="whitespace-pre-wrap text-xs leading-5 text-foreground/80">{fragment.rendered}</pre>
+      ) : (
+        <span className="text-xs italic text-muted-foreground">(inactive)</span>
+      )}
+    </div>
+  );
+}
+
+function RenderResultPanel({
+  result,
+  loading,
+  error,
+}: {
+  result: PromptRenderResult | null;
+  loading: boolean;
+  error: string | null;
+}) {
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2 rounded-xl border border-dashed p-6 text-sm text-muted-foreground">
+        <Loader2 className="size-4 animate-spin" />
+        渲染中…
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+        {error}
+      </div>
+    );
+  }
+
+  if (!result) return null;
+
+  const activeCount = result.fragments.filter((f) => f.active).length;
+
+  return (
+    <div className="space-y-4 rounded-2xl border border-primary/20 bg-primary/[0.02] p-5">
+      <div className="flex items-center gap-2">
+        <Sparkles className="size-4 text-primary" />
+        <span className="text-sm font-medium">最终渲染结果</span>
+        <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] text-primary">
+          {activeCount}/{result.fragments.length} fragments active
+        </span>
+      </div>
+
+      <pre className="whitespace-pre-wrap rounded-xl bg-muted/40 p-4 text-sm leading-6">
+        {result.renderedText || '(empty)'}
+      </pre>
+
+      {result.fragments.length > 0 && (
+        <div className="space-y-2">
+          <div className="text-xs font-medium text-muted-foreground">Fragments</div>
+          {result.fragments.map((fragment, i) => (
+            <FragmentCard key={fragment.id || i} fragment={fragment} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function PromptPreviewView() {
   const { entries, total } = usePromptPreview();
   const { activeFlowId } = useWorkbench();
@@ -24,10 +110,45 @@ export function PromptPreviewView() {
   const [query, setQuery] = useState("");
   const highlightRef = useRef<HTMLElement>(null);
 
+  // Render result state for the selected PromptBuild node
+  const [renderResult, setRenderResult] = useState<PromptRenderResult | null>(null);
+  const [renderLoading, setRenderLoading] = useState(false);
+  const [renderError, setRenderError] = useState<string | null>(null);
+
   const matchedId = useMemo(
     () => selectedEntryId(selectedNodeId, selectionContext, activeFlowId),
     [selectedNodeId, selectionContext, activeFlowId],
   );
+
+  // Fetch render result when a flow node is selected
+  const fetchRender = useCallback(async (flowId: string, nodeId: string) => {
+    setRenderLoading(true);
+    setRenderError(null);
+    try {
+      const result = await engineApi.renderPrompt(flowId, nodeId);
+      setRenderResult(result);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      // Not a PromptBuild node or other expected error — just clear
+      if (msg.includes('INVALID_NODE_TYPE') || msg.includes('NODE_NOT_FOUND')) {
+        setRenderResult(null);
+        setRenderError(null);
+      } else {
+        setRenderError(msg);
+      }
+    } finally {
+      setRenderLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (selectionContext === 'flow' && activeFlowId && selectedNodeId) {
+      fetchRender(activeFlowId, selectedNodeId);
+    } else {
+      setRenderResult(null);
+      setRenderError(null);
+    }
+  }, [selectionContext, activeFlowId, selectedNodeId, fetchRender]);
 
   const filteredEntries = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -72,7 +193,7 @@ export function PromptPreviewView() {
           <div>
             <h1 className="text-2xl font-bold">Prompt Preview</h1>
             <p className="text-sm text-muted-foreground">
-              预览 Session prompts 与 Flow 中的 prompt-like 配置。在画布中选中节点可自动定位。
+              预览 Session prompts 与 Flow 中的 prompt-like 配置。在画布中选中 PromptBuild 节点可查看最终渲染结果。
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -98,7 +219,10 @@ export function PromptPreviewView() {
           />
         </div>
 
-        {sortedEntries.length === 0 ? (
+        {/* Render result panel — shown when a PromptBuild node is selected */}
+        <RenderResultPanel result={renderResult} loading={renderLoading} error={renderError} />
+
+        {sortedEntries.length === 0 && !renderResult ? (
           <EmptyState message="当前没有可预览的 prompt 内容。" />
         ) : (
           <div className="grid gap-4 lg:grid-cols-2">
