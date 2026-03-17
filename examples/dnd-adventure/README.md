@@ -25,14 +25,15 @@ narrate.json (叙事子流程，支持前缀缓存)
   PromptBuild[static: 角色+世界观+规则] → Message(system)   → GenerateText → SignalOut
   PromptBuild[dynamic: 状态字段]        → Message(context)
 
-intro.json / start-adventure.json / outro-*.json (静态或结局叙事)
+intro.json / start-adventure.json / outro.json (静态或结局叙事)
   PromptBuild → Message → GenerateText → SignalOut
 ```
 
 - `session.json`：只负责用户交互和跳转，保留 `RunFlow / Prompt / Choice / Branch / End`
 - `narrate.json`：封装 LLM 交互逻辑，prompt 拆分为 static（固定角色设定、世界观、规则，可缓存）和 dynamic（每轮变化的状态），动态部分通过 Message 的 `context` 输入注入到 user 消息中
 - `main.json`：编排层，调用 narrate 子流程后解析 JSON 并回写状态
-- `intro.json`、`start-adventure.json`、`outro-*.json`：静态文案和结局也下沉到 flow，由 session 统一调用
+- `intro.json`、`start-adventure.json`：静态文案下沉到 flow，由 session 统一调用
+- `outro.json`：统一结局流程，通过 `when` 条件片段根据 `state.questStage` 自动切换胜利/死亡叙事
 
 ## 运行
 

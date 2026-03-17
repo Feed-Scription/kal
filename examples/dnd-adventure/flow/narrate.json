@@ -225,10 +225,7 @@
           }
         ],
         "config": {
-          "system": "",
-          "user": "",
           "format": "xml",
-          "context": "",
           "historyKey": "history",
           "summaryKey": "summary"
         }
