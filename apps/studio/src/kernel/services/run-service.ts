@@ -1,5 +1,4 @@
 import { engineApi } from '@/api/engine-client';
-import type { RunStreamEvent } from '@/types/project';
 import type { RunService } from './types';
 import { getKernelEventRecorder } from './kernel-services';
 

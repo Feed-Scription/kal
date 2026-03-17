@@ -21,6 +21,7 @@ import type {
 import { EngineRuntime } from './runtime';
 import { collectLintPayload } from './commands/lint';
 import { collectSmokePayload } from './commands/smoke';
+import { buildReferenceIndex, buildSearchIndex, searchProject } from './reference-graph';
 
 function setCorsHeaders(res: ServerResponse): void {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -289,11 +290,57 @@ export async function handleEngineRequest(
       return;
     }
 
+    if (method === 'GET' && pathname === '/api/references') {
+      const project = runtime.getProject();
+      const entries = buildReferenceIndex(project);
+      const resourceFilter = url.searchParams.get('resource');
+      const filtered = resourceFilter
+        ? entries.filter((e) => e.sourceResource === resourceFilter || e.targetResource === resourceFilter)
+        : entries;
+      success(res, { entries: filtered });
+      return;
+    }
+
+    if (method === 'GET' && pathname === '/api/search') {
+      const q = url.searchParams.get('q') ?? '';
+      const project = runtime.getProject();
+      const index = buildSearchIndex(project);
+      success(res, searchProject(index, q));
+      return;
+    }
+
     if (method === 'GET' && pathname === '/api/tools/h5-preview') {
       res.statusCode = 200;
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       res.end(await buildH5PreviewHtml(runtime, runs));
       return;
+    }
+
+    if (method === 'POST' && pathname === '/api/terminal/exec') {
+      const payload = await readJsonBody<{ command: string }>(req);
+      const ALLOWED_COMMANDS: Record<string, () => Promise<unknown>> = {
+        lint: () => collectLintPayload(runtime.getProject().projectRoot),
+        smoke: () => collectSmokePayload(runtime, {}),
+      };
+      const cmd = payload.command?.trim().toLowerCase();
+      if (!cmd || !ALLOWED_COMMANDS[cmd]) {
+        throw new EngineHttpError(
+          `Unknown or disallowed command: "${cmd}". Allowed: ${Object.keys(ALLOWED_COMMANDS).join(', ')}`,
+          400,
+          'INVALID_COMMAND'
+        );
+      }
+      const result = await ALLOWED_COMMANDS[cmd]!();
+      success(res, { command: cmd, result });
+      return;
+    }
+
+    if (method === 'POST' && pathname === '/api/tools/deploy') {
+      throw new EngineHttpError(
+        'Deploy not configured. Set VERCEL_TOKEN environment variable to enable.',
+        501,
+        'DEPLOY_NOT_CONFIGURED'
+      );
     }
 
     if (method === 'POST' && pathname === '/api/tools/smoke') {

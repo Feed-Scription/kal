@@ -8,6 +8,8 @@ import type {
   DiagnosticsPayload,
   EngineEvent,
   EngineEventName,
+  ReferenceEntry,
+  SearchResult,
   GitLogResult,
   GitStatusResult,
   InstalledPackageRecord,
@@ -265,5 +267,33 @@ export const engineApi = {
       trustLevel: 'unverified' as const,
       enabled: true,
     }));
+  },
+
+  // ── Reference Graph + Search API ──
+
+  async getReferences(resourceId?: string): Promise<ReferenceEntry[]> {
+    const query = resourceId ? `?resource=${encodeURIComponent(resourceId)}` : '';
+    const data = await request<{ entries: ReferenceEntry[] }>(`/api/references${query}`);
+    return data.entries;
+  },
+
+  async search(query: string): Promise<SearchResult> {
+    return request<SearchResult>(`/api/search?q=${encodeURIComponent(query)}`);
+  },
+
+  // ── Terminal API ──
+
+  async execCommand(command: string): Promise<{ command: string; result: unknown }> {
+    return request<{ command: string; result: unknown }>('/api/terminal/exec', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ command }),
+    });
+  },
+
+  // ── Deploy API ──
+
+  async triggerDeploy(): Promise<unknown> {
+    return request<unknown>('/api/tools/deploy', { method: 'POST' });
   },
 };

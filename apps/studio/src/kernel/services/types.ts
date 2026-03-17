@@ -18,16 +18,16 @@ import type {
   ProjectData,
   ProjectState,
   PromptPreviewEntry,
-  ResourceId,
+  ReferenceEntry,
   ResourceVersionState,
   ReviewProposalRecord,
   RunBreakpointRecord,
-  RunInputRecord,
   RunStateView,
   RunStreamEvent,
   RunSummary,
   RunTraceRecord,
   RunView,
+  SearchResult,
   SessionDefinition,
   StateDiffEntry,
   TraceTimelineEntry,
@@ -204,6 +204,16 @@ export interface DiagnosticsServiceState {
   updatedAt?: number;
 }
 
+// ── Reference Graph Service ──
+
+export interface ReferenceGraphServiceState {
+  entries: ReferenceEntry[];
+  searchResults: SearchResult | null;
+  searchQuery: string;
+  loading: boolean;
+  updatedAt?: number;
+}
+
 // ── Workbench Context ──
 
 export interface WorkbenchContextState {
@@ -286,6 +296,9 @@ export interface StudioCommandService {
   }) => void;
   refreshGitStatus: () => Promise<void>;
   loadPackages: () => Promise<void>;
+  refreshReferences: (resourceId?: string) => Promise<void>;
+  searchProject: (query: string) => Promise<void>;
+  applyTemplate: (templateId: string, packageId: string) => Promise<void>;
 }
 
 // ── Run Service (non-React) ──

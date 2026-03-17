@@ -189,7 +189,8 @@ export type ResourceId =
   | 'config://project'
   | 'state://project'
   | 'session://default'
-  | `flow://${string}`;
+  | `flow://${string}`
+  | `template://${string}`;
 
 export type ResourceVersionState = {
   resourceId: ResourceId;
@@ -483,10 +484,22 @@ export type ReviewProposalRecord = {
       afterNodes: number;
       beforeEdges: number;
       afterEdges: number;
+      addedNodes?: string[];
+      removedNodes?: string[];
+      changedNodes?: Array<{ nodeId: string; changes: string[] }>;
+      addedEdges?: number;
+      removedEdges?: number;
     }>;
     sessionChanged: boolean;
     beforeSessionSteps: number;
     afterSessionSteps: number;
+    sessionDiff?: {
+      addedSteps: string[];
+      removedSteps: string[];
+      changedSteps: Array<{ stepId: string; changes: string[] }>;
+    };
+    configChanged?: boolean;
+    stateChanged?: boolean;
   };
   expectedDiagnostics: {
     totalIssues: number;
@@ -522,6 +535,37 @@ export type CommentThreadRecord = {
   createdAt: number;
   updatedAt: number;
   comments: CommentRecord[];
+};
+
+// ── Reference Graph + Search ──
+
+export type ReferenceKind =
+  | 'session-step->flow'
+  | 'session-step->state-key'
+  | 'flow-node->node-type'
+  | 'flow-edge->node'
+  | 'session-step->step';
+
+export type ReferenceEntry = {
+  kind: ReferenceKind;
+  sourceResource: string;
+  sourceId: string;
+  targetResource: string;
+  targetId: string;
+  location?: string;
+};
+
+export type SearchEntry = {
+  resourceId: string;
+  resourceType: string;
+  id: string;
+  field: string;
+  text: string;
+};
+
+export type SearchResult = {
+  query: string;
+  matches: Array<SearchEntry & { score: number }>;
 };
 
 // ── Engine Event Stream ──

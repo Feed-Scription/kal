@@ -1,4 +1,4 @@
-import { Bug, CircleAlert, ClipboardCheck, Database, History, LayoutDashboard, LayoutTemplate, MessageSquareMore, MessageSquareQuote, MonitorPlay, Package, Route, Settings, Users } from 'lucide-react';
+import { Bug, CircleAlert, ClipboardCheck, Database, History, LayoutDashboard, LayoutTemplate, MessageSquareMore, MessageSquareQuote, MonitorPlay, Package, Rocket, Route, Settings, Terminal } from 'lucide-react';
 import { CollaboratorsPanel } from '@/components/CollaboratorsPanel';
 import { CommentsPanel } from '@/components/CommentsPanel';
 import { CommentsView } from '@/components/CommentsView';
@@ -16,6 +16,8 @@ import { ProblemsView } from '@/components/ProblemsView';
 import { ReviewHistoryPanel } from '@/components/ReviewHistoryPanel';
 import { ReviewView } from '@/components/ReviewView';
 import { TemplateBrowserView } from '@/components/TemplateBrowserView';
+import { TerminalView } from '@/components/TerminalView';
+import { DeployView } from '@/components/DeployView';
 import { StateDiffPanel } from '@/components/StateDiffPanel';
 import { StateInspectorCard } from '@/components/StateInspectorCard';
 import { StateManager } from '@/components/StateManager';
@@ -28,9 +30,11 @@ import type {
   StudioCapabilityId,
   StudioExtensionCapabilityRequest,
   StudioDebugViewDescriptor,
+  StudioActivationEvent,
   StudioExtensionContributions,
   StudioExtensionDescriptor,
   StudioExtensionId,
+  StudioExtensionHost,
   StudioExtensionKind,
   StudioRegisteredExtensionDescriptor,
   StudioInspectorDescriptor,
@@ -713,6 +717,56 @@ const registry = createStudioRegistry([
           slot: 'down',
           presets: ['review', 'debug'],
           order: 35,
+        },
+      ],
+    },
+  },
+  {
+    id: 'kal.terminal',
+    title: 'Terminal',
+    description: '官方工作流扩展，提供轻量命令执行器，支持 lint/smoke 等 kal 子命令。',
+    kind: 'official-workflow',
+    host: 'workspace',
+    activationEvents: ['onView:kal.terminal'],
+    capabilities: [
+      { capability: 'project.read' },
+      { capability: 'process.exec', required: false, restrictedMode: 'degrade' },
+    ],
+    contributes: {
+      views: [
+        {
+          id: 'kal.terminal',
+          extensionId: 'kal.terminal',
+          title: '终端',
+          shortTitle: 'Terminal',
+          description: '执行 kal 子命令（lint, smoke 等）。',
+          icon: Terminal,
+          component: TerminalView,
+        },
+      ],
+    },
+  },
+  {
+    id: 'kal.vercel-deploy',
+    title: 'Vercel Deploy',
+    description: '官方工作流扩展，提供 Vercel 部署触发与状态查看（初始为 stub）。',
+    kind: 'official-workflow',
+    host: 'workspace',
+    activationEvents: ['onView:kal.vercel-deploy'],
+    capabilities: [
+      { capability: 'project.read' },
+      { capability: 'network.fetch', required: false, restrictedMode: 'degrade' },
+    ],
+    contributes: {
+      views: [
+        {
+          id: 'kal.vercel-deploy',
+          extensionId: 'kal.vercel-deploy',
+          title: '部署',
+          shortTitle: 'Deploy',
+          description: '触发 Vercel 部署并查看部署状态。',
+          icon: Rocket,
+          component: DeployView,
         },
       ],
     },

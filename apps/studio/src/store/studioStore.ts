@@ -39,7 +39,9 @@ import type {
   GitStatusResult,
   InstalledPackageRecord,
   ProjectData,
+  ReferenceEntry,
   ResourceId,
+  SearchResult,
   ResourceVersionState,
   RestorableSnapshot,
   ReviewProposalRecord,
@@ -147,6 +149,14 @@ type PresenceStoreState = {
   selfId: string | null;
 };
 
+type ReferenceGraphState = {
+  entries: ReferenceEntry[];
+  searchResults: SearchResult | null;
+  searchQuery: string;
+  loading: boolean;
+  updatedAt?: number;
+};
+
 type SaveScope = 'flow' | 'session' | 'project';
 
 type StudioStore = {
@@ -164,6 +174,7 @@ type StudioStore = {
   git: GitState;
   packages: PackagesState;
   presence: PresenceStoreState;
+  referenceGraph: ReferenceGraphState;
 
   connect: () => Promise<void>;
   disconnect: () => void;
@@ -227,6 +238,9 @@ type StudioStore = {
   }) => void;
   refreshGitStatus: () => Promise<void>;
   loadPackages: () => Promise<void>;
+  refreshReferences: (resourceId?: string) => Promise<void>;
+  searchProject: (query: string) => Promise<void>;
+  applyTemplate: (templateId: string, packageId: string) => Promise<void>;
 };
 
 function updateSaveState(
@@ -1434,6 +1448,12 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     activities: [],
     selfId: null,
   },
+  referenceGraph: {
+    entries: [],
+    searchResults: null,
+    searchQuery: '',
+    loading: false,
+  },
 
   connect: async () => {
     set({
@@ -1520,7 +1540,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
             });
           }
           store.recordKernelEvent({
-            type: 'resource.updated',
+            type: 'resource.changed',
             message: event.message ?? 'Resource changed',
             resourceId: event.flowId ? `flow://${event.flowId}` : event.sessionId ? 'session://default' : undefined,
           });
@@ -3192,6 +3212,71 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
       console.warn('Failed to load packages:', error);
       set((state) => ({ packages: { ...state.packages, loading: false } }));
     }
+  },
+
+  refreshReferences: async (resourceId?: string) => {
+    set((state) => ({ referenceGraph: { ...state.referenceGraph, loading: true } }));
+    try {
+      const entries = await engineApi.getReferences(resourceId);
+      set({ referenceGraph: { entries, searchResults: null, searchQuery: '', loading: false, updatedAt: Date.now() } });
+    } catch (error) {
+      console.warn('Failed to refresh references:', error);
+      set((state) => ({ referenceGraph: { ...state.referenceGraph, loading: false } }));
+    }
+  },
+
+  searchProject: async (query: string) => {
+    set((state) => ({ referenceGraph: { ...state.referenceGraph, loading: true, searchQuery: query } }));
+    try {
+      const searchResults = await engineApi.search(query);
+      set((state) => ({ referenceGraph: { ...state.referenceGraph, searchResults, loading: false, updatedAt: Date.now() } }));
+    } catch (error) {
+      console.warn('Failed to search project:', error);
+      set((state) => ({ referenceGraph: { ...state.referenceGraph, loading: false } }));
+    }
+  },
+
+  applyTemplate: async (templateId: string, packageId: string) => {
+    const packages = get().packages.installed;
+    const pkg = packages.find((p) => p.manifest.id === packageId);
+    if (!pkg) {
+      throw new Error(`Package not found: ${packageId}`);
+    }
+    const template = pkg.manifest.contributes?.templates?.find((t) => t.id === templateId);
+    if (!template) {
+      throw new Error(`Template not found: ${templateId} in package ${packageId}`);
+    }
+
+    // Apply template flows
+    if (template.flows) {
+      for (const flowName of template.flows) {
+        await engineApi.saveFlow(flowName, {
+          meta: { schemaVersion: '1.0.0', name: flowName, description: `From template ${template.name}` },
+          data: { nodes: [], edges: [] },
+        });
+      }
+    }
+
+    // Merge session if template has sessionRef
+    if (template.sessionRef) {
+      const currentSession = get().resources.project?.session;
+      if (!currentSession) {
+        await engineApi.saveSession({
+          schemaVersion: '1.0.0',
+          name: template.name,
+          steps: [{ id: 'end', type: 'End' }],
+        });
+      }
+    }
+
+    // Reload project to pick up changes
+    await get().reloadProject();
+
+    get().recordKernelEvent({
+      type: 'resource.changed',
+      message: `Template "${template.name}" applied from ${pkg.manifest.name}`,
+      resourceId: `template://${templateId}`,
+    });
   },
 }));
 

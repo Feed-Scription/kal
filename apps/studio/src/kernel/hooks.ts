@@ -45,8 +45,8 @@ import type {
   GitServiceState,
   PackagesServiceState,
   PresenceServiceState,
-  KernelEventServiceState,
   DiagnosticsServiceState,
+  ReferenceGraphServiceState,
   RunDebugServiceState,
   CapabilityGateResult,
   WorkbenchContextState,
@@ -240,6 +240,14 @@ export function useGitStatus(): GitServiceState {
 
 export function usePackages(): PackagesServiceState {
   return useStudioStore((state) => state.packages);
+}
+
+export function useReferences(_resourceId?: string): ReferenceGraphServiceState {
+  return useStudioStore((state) => state.referenceGraph);
+}
+
+export function useSearch(): ReferenceGraphServiceState {
+  return useStudioStore((state) => state.referenceGraph);
 }
 
 export function usePresence(): PresenceServiceState {
@@ -484,6 +492,9 @@ export function useStudioCommands(): StudioCommandService {
   const recordKernelEvent = useStudioStore((state) => state.recordKernelEvent);
   const refreshGitStatus = useStudioStore((state) => state.refreshGitStatus);
   const loadPackages = useStudioStore((state) => state.loadPackages);
+  const refreshReferences = useStudioStore((state) => state.refreshReferences);
+  const searchProject = useStudioStore((state) => state.searchProject);
+  const applyTemplate = useStudioStore((state) => state.applyTemplate);
 
   return {
     connect,
@@ -535,6 +546,9 @@ export function useStudioCommands(): StudioCommandService {
     recordKernelEvent,
     refreshGitStatus,
     loadPackages,
+    refreshReferences,
+    searchProject,
+    applyTemplate,
   };
 }
 

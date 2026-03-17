@@ -20,10 +20,11 @@ afterEach(async () => {
   }
 });
 
-async function boot(session: SessionDefinition, flows?: Record<string, any>) {
+async function boot(session: SessionDefinition, flows?: Record<string, any>, initialState?: Record<string, any>) {
   const fixture = await createTempProject({
     flows: flows ?? { main: createPassThroughFlow() },
     session,
+    initialState,
   });
   cleanups.push(fixture.cleanup);
 
@@ -254,7 +255,7 @@ describe('Dogfooding: multi-turn conversations', () => {
     const { server } = await boot(SIMPLE_SESSION, {
       intro: createStateMutationFlow(),
       main: createPassThroughFlow(),
-    });
+    }, { visited: { type: 'boolean', value: false } });
 
     const created = await fetch(`${server.url}/api/runs`, { method: 'POST' }).then(r => r.json());
     expect(created.data.run.status).toBe('waiting_input');
@@ -311,7 +312,7 @@ describe('Dogfooding: auto-run sessions', () => {
     const { server } = await boot(AUTO_RUN_SESSION, {
       intro: createStateMutationFlow(),
       main: createPassThroughFlow(),
-    });
+    }, { visited: { type: 'boolean', value: false } });
 
     const created = await fetch(`${server.url}/api/runs`, { method: 'POST' }).then(r => r.json());
     expect(created.data.run.status).toBe('ended');
@@ -323,7 +324,7 @@ describe('Dogfooding: auto-run sessions', () => {
     const { server } = await boot(AUTO_RUN_SESSION, {
       intro: createStateMutationFlow(),
       main: createPassThroughFlow(),
-    });
+    }, { visited: { type: 'boolean', value: false } });
 
     await fetch(`${server.url}/api/runs`, { method: 'POST' });
 
@@ -553,7 +554,7 @@ describe('Dogfooding: state summary and events', () => {
     const { server } = await boot(SIMPLE_SESSION, {
       intro: createStateMutationFlow(),
       main: createPassThroughFlow(),
-    });
+    }, { visited: { type: 'boolean', value: false } });
 
     const created = await fetch(`${server.url}/api/runs`, { method: 'POST' }).then(r => r.json());
     const summary = created.data.run.state_summary;

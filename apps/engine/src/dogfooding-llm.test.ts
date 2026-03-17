@@ -87,14 +87,13 @@ function createStateMutationFlow(): FlowDefinition {
     data: {
       nodes: [
         {
-          id: 'add-state',
-          type: 'AddState',
+          id: 'write-state',
+          type: 'WriteState',
           inputs: [
             { name: 'key', type: 'string', required: true, defaultValue: 'game_started' },
-            { name: 'type', type: 'string', required: true, defaultValue: 'boolean' },
             { name: 'value', type: 'any', required: true, defaultValue: true },
           ],
-          outputs: [{ name: 'success', type: 'boolean' }],
+          outputs: [{ name: 'applied', type: 'array' }, { name: 'success', type: 'boolean' }],
         },
       ],
       edges: [],
@@ -130,7 +129,7 @@ async function createLLMProject(): Promise<{ projectRoot: string; cleanup(): Pro
   };
 
   await writeFile(join(projectRoot, 'kal_config.json'), JSON.stringify(config, null, 2), 'utf8');
-  await writeFile(join(projectRoot, 'initial_state.json'), '{}', 'utf8');
+  await writeFile(join(projectRoot, 'initial_state.json'), JSON.stringify({ game_started: { type: 'boolean', value: false } }, null, 2), 'utf8');
   await writeFile(join(projectRoot, 'flow', 'llm.json'), JSON.stringify(createLLMFlow(), null, 2), 'utf8');
   await writeFile(join(projectRoot, 'flow', 'intro.json'), JSON.stringify(createStateMutationFlow(), null, 2), 'utf8');
   await writeFile(join(projectRoot, 'session.json'), JSON.stringify(session, null, 2), 'utf8');
