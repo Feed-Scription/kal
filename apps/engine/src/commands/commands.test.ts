@@ -184,6 +184,7 @@ describe('smoke command', () => {
       hasSession: () => true,
       getSession: () => session,
       getState: vi.fn(() => state),
+      getProject: () => ({ projectRoot: '/tmp/project' }),
       executeFlow: vi.fn(async () => ({ executionId: 'exec', flowId: 'intro', outputs: {}, errors: [], durationMs: 0 })),
       setState: vi.fn(),
     };
@@ -230,6 +231,7 @@ describe('smoke command', () => {
       hasSession: () => true,
       getSession: () => session,
       getState: vi.fn(() => state),
+      getProject: () => ({ projectRoot: '/tmp/project' }),
       executeFlow: vi.fn(async () => ({ executionId: 'exec', flowId: 'intro', outputs: { ok: true }, errors: [], durationMs: 0 })),
       setState: vi.fn((key: string, value: string) => {
         state[key] = { ...state[key], value };

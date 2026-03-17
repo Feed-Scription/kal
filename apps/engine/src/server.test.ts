@@ -563,4 +563,48 @@ describe('Engine HTTP server', () => {
     expect(endedEvent.event).toBe('run.ended');
     expect(endedEvent.data.run.status).toBe('ended');
   });
+
+  it('GET /api/references 应该返回项目引用索引', async () => {
+    const session: SessionDefinition = {
+      schemaVersion: '1.0.0',
+      steps: [
+        { id: 'run', type: 'RunFlow', flowRef: 'main', next: 'end' },
+        { id: 'end', type: 'End' },
+      ],
+    };
+    const fixture = await createTempProject({ session });
+    cleanups.push(fixture.cleanup);
+
+    const runtime = await EngineRuntime.create(fixture.projectRoot);
+    const server = await startEngineServer({ runtime, host: '127.0.0.1', port: 0 });
+    cleanups.push(server.close);
+
+    const result = await fetch(`${server.url}/api/references`).then((r) => r.json());
+    expect(result.success).toBe(true);
+    expect(Array.isArray(result.data.entries)).toBe(true);
+    expect(result.data.entries.length).toBeGreaterThan(0);
+
+    const flowRef = result.data.entries.find((e: any) => e.kind === 'session-step->flow');
+    expect(flowRef).toBeDefined();
+    expect(flowRef.targetId).toBe('main');
+
+    // Filter by resource
+    const filtered = await fetch(`${server.url}/api/references?resource=flow://main`).then((r) => r.json());
+    expect(filtered.success).toBe(true);
+    expect(filtered.data.entries.every((e: any) => e.sourceResource === 'flow://main' || e.targetResource === 'flow://main')).toBe(true);
+  });
+
+  it('GET /api/search 应该返回搜索结果', async () => {
+    const fixture = await createTempProject();
+    cleanups.push(fixture.cleanup);
+
+    const runtime = await EngineRuntime.create(fixture.projectRoot);
+    const server = await startEngineServer({ runtime, host: '127.0.0.1', port: 0 });
+    cleanups.push(server.close);
+
+    const result = await fetch(`${server.url}/api/search?q=pass`).then((r) => r.json());
+    expect(result.success).toBe(true);
+    expect(result.data.query).toBe('pass');
+    expect(Array.isArray(result.data.matches)).toBe(true);
+  });
 });

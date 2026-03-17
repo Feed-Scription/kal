@@ -31,6 +31,9 @@ export {
   useWorkbenchContext,
   useStudioCommands,
   useRunService,
+  useReferences,
+  useSearch,
+  usePackages,
 } from './hooks';
 
 // ── Kernel 类型定义 ──

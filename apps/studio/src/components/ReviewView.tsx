@@ -143,11 +143,46 @@ export function ReviewView() {
                         <div className="text-xs text-muted-foreground">
                           nodes {flow.beforeNodes} {'->'} {flow.afterNodes} · edges {flow.beforeEdges} {'->'} {flow.afterEdges}
                         </div>
+                        {flow.addedNodes && flow.addedNodes.length > 0 ? (
+                          <div className="mt-1 text-xs text-green-600">+ nodes: {flow.addedNodes.join(', ')}</div>
+                        ) : null}
+                        {flow.removedNodes && flow.removedNodes.length > 0 ? (
+                          <div className="mt-1 text-xs text-red-600">- nodes: {flow.removedNodes.join(', ')}</div>
+                        ) : null}
+                        {flow.changedNodes && flow.changedNodes.length > 0 ? (
+                          <div className="mt-1 space-y-0.5">
+                            {flow.changedNodes.map((cn) => (
+                              <div key={cn.nodeId} className="text-xs text-amber-600">
+                                ~ {cn.nodeId}: {cn.changes.join(', ')}
+                              </div>
+                            ))}
+                          </div>
+                        ) : null}
+                        {(flow.addedEdges ?? 0) > 0 || (flow.removedEdges ?? 0) > 0 ? (
+                          <div className="mt-1 text-xs text-muted-foreground">
+                            edges: +{flow.addedEdges ?? 0} / -{flow.removedEdges ?? 0}
+                          </div>
+                        ) : null}
                       </div>
                     ))}
                     {activeProposal.semanticSummary.sessionChanged ? (
                       <div className="rounded-lg border px-3 py-2 text-sm">
                         Session steps {activeProposal.semanticSummary.beforeSessionSteps} {'->'} {activeProposal.semanticSummary.afterSessionSteps}
+                        {activeProposal.semanticSummary.sessionDiff ? (
+                          <div className="mt-1 space-y-0.5 text-xs">
+                            {activeProposal.semanticSummary.sessionDiff.addedSteps.length > 0 ? (
+                              <div className="text-green-600">+ steps: {activeProposal.semanticSummary.sessionDiff.addedSteps.join(', ')}</div>
+                            ) : null}
+                            {activeProposal.semanticSummary.sessionDiff.removedSteps.length > 0 ? (
+                              <div className="text-red-600">- steps: {activeProposal.semanticSummary.sessionDiff.removedSteps.join(', ')}</div>
+                            ) : null}
+                            {activeProposal.semanticSummary.sessionDiff.changedSteps.map((cs) => (
+                              <div key={cs.stepId} className="text-amber-600">
+                                ~ {cs.stepId}: {cs.changes.join(', ')}
+                              </div>
+                            ))}
+                          </div>
+                        ) : null}
                       </div>
                     ) : null}
                   </div>

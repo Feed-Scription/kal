@@ -6,21 +6,23 @@ import type { TemplateEntry } from '@/types/project';
 
 export function TemplateBrowserView() {
   const { installed } = usePackages();
-  const { loadPackages } = useStudioCommands();
+  const { loadPackages, applyTemplate } = useStudioCommands();
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [previewTemplate, setPreviewTemplate] = useState<TemplateEntry | null>(null);
+  const [applying, setApplying] = useState<string | null>(null);
 
   useEffect(() => {
     void loadPackages();
   }, [loadPackages]);
 
   // 从已安装的 template-pack 和 starter-pack 中提取模板
-  const allTemplates: Array<TemplateEntry & { packageName: string }> = installed
+  const allTemplates: Array<TemplateEntry & { packageName: string; packageId: string }> = installed
     .filter((pkg) => pkg.manifest.kind === 'template-pack' || pkg.manifest.kind === 'starter-pack')
     .flatMap((pkg) =>
       (pkg.manifest.contributes?.templates ?? []).map((tpl) => ({
         ...tpl,
         packageName: pkg.manifest.name,
+        packageId: pkg.manifest.id,
       })),
     );
 
@@ -124,9 +126,22 @@ export function TemplateBrowserView() {
                       <Eye className="mr-1 size-3" />
                       {previewTemplate?.id === tpl.id ? '收起预览' : '预览'}
                     </Button>
-                    <Button size="sm" disabled>
+                    <Button
+                      size="sm"
+                      disabled={applying === tpl.id}
+                      onClick={async () => {
+                        setApplying(tpl.id);
+                        try {
+                          await applyTemplate(tpl.id, tpl.packageId);
+                        } catch {
+                          // error handled by store
+                        } finally {
+                          setApplying(null);
+                        }
+                      }}
+                    >
                       <FolderInput className="mr-1 size-3" />
-                      应用到项目
+                      {applying === tpl.id ? '应用中...' : '应用到项目'}
                     </Button>
                   </div>
 

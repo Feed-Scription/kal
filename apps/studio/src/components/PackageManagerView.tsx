@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Package, Download, Trash2, CheckCircle, AlertCircle } from 'lucide-react';
+import { Package, Download, CheckCircle, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { usePackages, useStudioCommands } from '@/kernel/hooks';
 
