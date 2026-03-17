@@ -168,13 +168,13 @@
     {
       "id": "death",
       "type": "RunFlow",
-      "flowRef": "outro-death",
+      "flowRef": "outro",
       "next": "end"
     },
     {
       "id": "victory",
       "type": "RunFlow",
-      "flowRef": "outro-win",
+      "flowRef": "outro",
       "next": "end"
     },
     {

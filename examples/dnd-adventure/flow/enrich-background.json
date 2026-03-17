@@ -111,8 +111,6 @@
           }
         ],
         "config": {
-          "system": "",
-          "user": "",
           "format": "xml",
           "historyKey": ""
         }
