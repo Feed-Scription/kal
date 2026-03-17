@@ -1,4 +1,5 @@
 import { MessageSquareMore } from 'lucide-react';
+import { EmptyState } from '@/components/EmptyState';
 import { Button } from '@/components/ui/button';
 import { useCommentsWorkspace, useStudioCommands } from '@/kernel/hooks';
 
@@ -32,9 +33,7 @@ export function CommentsPanel() {
       </div>
 
       {threads.length === 0 ? (
-        <div className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">
-          当前没有评论线程。
-        </div>
+        <EmptyState message="当前没有评论线程。" compact />
       ) : (
         <div className="space-y-2">
           {threads.slice(0, 5).map((thread) => (

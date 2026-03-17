@@ -1,4 +1,5 @@
 import { SplitSquareVertical } from 'lucide-react';
+import { EmptyState } from '@/components/EmptyState';
 import { Button } from '@/components/ui/button';
 import { useRunDebug, useStudioCommands } from '@/kernel/hooks';
 
@@ -30,13 +31,9 @@ export function StateDiffPanel() {
       </div>
 
       {!selectedRun ? (
-        <div className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">
-          当前没有选中的 run。
-        </div>
+        <EmptyState message="当前没有选中的 run。" compact />
       ) : preview.length === 0 ? (
-        <div className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">
-          当前 run 没有 state diff。
-        </div>
+        <EmptyState message="当前 run 没有 state diff。" compact />
       ) : (
         <div className="space-y-2">
           {preview.map((entry) => (
