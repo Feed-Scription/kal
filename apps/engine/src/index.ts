@@ -5,6 +5,8 @@ export { startStudioServer } from './studio-server';
 export { RunManager } from './run-manager';
 export { runCli } from './cli';
 export { runDebugCommand } from './commands/debug';
+export { collectLintPayload } from './commands/lint';
+export { runSmokeCommand, collectSmokePayload } from './commands/smoke';
 export { runTui } from './tui/tui';
 export { renderOutput, renderStateTable, renderWelcome, renderHelp, renderError } from './tui/renderer';
 export { EngineHttpError, formatEngineError, statusForError } from './errors';
@@ -21,6 +23,7 @@ export type {
   ExecuteFlowRequest,
   ExecuteFlowResponse,
   FlowListItem,
+  DiagnosticsPayload,
   ProjectInfo,
   RunEvent,
   RunStateSummary,
@@ -32,6 +35,7 @@ export type {
   RunWaitingFor,
   StartedEngineServer,
 } from './types';
+export type { SmokeResult, SmokeStepResult } from './commands/smoke';
 export type {
   DebugActionDescriptor,
   DebugAdvancePayload,

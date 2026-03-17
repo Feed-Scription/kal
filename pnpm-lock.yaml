@@ -15,7 +15,7 @@ importers:
         specifier: ^5.3.3
         version: 5.9.3
 
-  apps/editor:
+  apps/studio:
     dependencies:
       '@tailwindcss/vite':
         specifier: ^4.2.1

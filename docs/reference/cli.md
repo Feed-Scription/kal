@@ -86,7 +86,7 @@ Manage user-level configuration.
 
 ### `kal studio`
 
-Start the integrated editor + API server (serves the visual editor UI alongside the engine HTTP API).
+Start the integrated Studio + API server (serves the Studio UI alongside the engine HTTP API).
 
 | Option | Description | Default |
 |--------|-------------|---------|

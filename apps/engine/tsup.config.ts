@@ -10,14 +10,14 @@ const shared = {
   external: ['@kal-ai/core'],
 };
 
-function copyEditorDist() {
-  const src = resolve('..', 'editor', 'dist');
-  const dest = resolve('dist', 'editor');
+function copyStudioDist() {
+  const src = resolve('..', 'studio', 'dist');
+  const dest = resolve('dist', 'studio');
   if (existsSync(src)) {
     cpSync(src, dest, { recursive: true });
-    console.log('Copied editor dist → dist/editor');
+    console.log('Copied studio dist → dist/studio');
   } else {
-    console.warn('Editor dist not found, skipping copy');
+    console.warn('Studio dist not found, skipping copy');
   }
 }
 
@@ -31,7 +31,7 @@ export default defineConfig([
     dts: true,
     clean: true,
     onSuccess: async () => {
-      copyEditorDist();
+      copyStudioDist();
     },
   },
   {
