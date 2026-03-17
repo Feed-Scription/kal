@@ -53,3 +53,12 @@ jobs:
         run: |
           pnpm --filter @kal-ai/core test
           pnpm --filter @kal-ai/engine test
+
+      - name: Lint example project
+        run: node apps/engine/dist/bin.js lint examples/dnd-adventure --format json
+
+      - name: Verify package contents
+        run: |
+          cd packages/core && pnpm pack --dry-run
+          cd ../create-kal-game && pnpm pack --dry-run
+          cd ../../apps/engine && pnpm pack --dry-run
