@@ -607,4 +607,98 @@ describe('Engine HTTP server', () => {
     expect(result.data.query).toBe('pass');
     expect(Array.isArray(result.data.matches)).toBe(true);
   });
+
+  it('GET /api/flows/:id/render-prompt 应该渲染 PromptBuild 节点', async () => {
+    const promptFlow: import('@kal-ai/core').FlowDefinition = {
+      meta: { schemaVersion: '1.0.0' },
+      data: {
+        nodes: [
+          {
+            id: 'pb',
+            type: 'PromptBuild',
+            inputs: [{ name: 'data', type: 'object' }],
+            outputs: [
+              { name: 'messages', type: 'ChatMessage[]' },
+              { name: 'text', type: 'string' },
+              { name: 'estimatedTokens', type: 'number' },
+            ],
+            config: {
+              defaultRole: 'system',
+              fragments: [
+                { id: 'intro', type: 'base', content: 'Hello world' },
+                { id: 'cond', type: 'when', condition: 'score > 5', fragments: [{ id: 'bonus', type: 'base', content: 'Bonus!' }] },
+              ],
+            },
+          },
+        ],
+        edges: [],
+      },
+    };
+    const fixture = await createTempProject({
+      flows: { prompt: promptFlow },
+      initialState: { score: { type: 'number', value: 3 } },
+    });
+    cleanups.push(fixture.cleanup);
+
+    const runtime = await EngineRuntime.create(fixture.projectRoot);
+    const server = await startEngineServer({ runtime, host: '127.0.0.1', port: 0 });
+    cleanups.push(server.close);
+
+    const result = await fetch(`${server.url}/api/flows/prompt/render-prompt?nodeId=pb`).then((r) => r.json());
+    expect(result.success).toBe(true);
+    expect(result.data.nodeId).toBe('pb');
+    expect(result.data.renderedText).toContain('Hello world');
+    expect(result.data.fragments).toHaveLength(2);
+    expect(result.data.fragments[0]).toMatchObject({ id: 'intro', type: 'base', active: true });
+    // score=3, condition "score > 5" should be inactive
+    expect(result.data.fragments[1]).toMatchObject({ id: 'cond', type: 'when', active: false });
+
+    // Error: non-PromptBuild node
+    const errResult = await fetch(`${server.url}/api/flows/prompt/render-prompt?nodeId=nonexistent`).then((r) => r.json());
+    expect(errResult.success).toBe(false);
+    expect(errResult.error.code).toBe('NODE_NOT_FOUND');
+
+    // Error: missing nodeId
+    const missingResult = await fetch(`${server.url}/api/flows/prompt/render-prompt`).then((r) => r.json());
+    expect(missingResult.success).toBe(false);
+    expect(missingResult.error.code).toBe('MISSING_PARAM');
+  });
+
+  it('POST /api/runs with smokeInputs 应该自动推进 session', async () => {
+    const session: SessionDefinition = {
+      schemaVersion: '1.0.0',
+      steps: [
+        { id: 'intro', type: 'RunFlow', flowRef: 'intro', next: 'turn' },
+        { id: 'turn', type: 'Prompt', promptText: '你的行动？', flowRef: 'main', inputChannel: 'message', next: 'end' },
+        { id: 'end', type: 'End', message: 'done' },
+      ],
+    };
+    const fixture = await createTempProject({
+      flows: {
+        intro: createStateMutationFlow(),
+        main: createPassThroughFlow(),
+      },
+      initialState: {
+        visited: { type: 'boolean', value: false },
+      },
+      session,
+    });
+    cleanups.push(fixture.cleanup);
+
+    const runtime = await EngineRuntime.create(fixture.projectRoot);
+    const server = await startEngineServer({ runtime, host: '127.0.0.1', port: 0 });
+    cleanups.push(server.close);
+
+    const result = await fetch(`${server.url}/api/runs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ smokeInputs: ['attack'] }),
+    }).then((r) => r.json());
+
+    expect(result.success).toBe(true);
+    expect(result.data.run.status).toBe('ended');
+    // The smoke run should have auto-advanced through all steps
+    expect(result.data.run.input_history.length).toBeGreaterThanOrEqual(1);
+    expect(result.data.run.input_history[0].input).toBe('attack');
+  });
 });
