@@ -82,8 +82,8 @@
   已完成：Studio `engine-client.ts` 的 `request()` 通过 `setCapabilityProvider()` 注入 `X-Studio-Capabilities` header，`studioStore` 初始化时注册 provider。Engine `server.ts` 新增 `parseCapabilities()` / `requireCapability()` 辅助函数，对敏感端点（`PUT /api/config`、`PUT/DELETE /api/flows/*`、`PUT/DELETE /api/session`、`POST /api/terminal/exec`、`POST /api/executions`、`POST /api/runs`、`POST /api/tools/deploy`）执行 capability 检查。无 header 的请求（CLI/curl）放行，仅对 Studio 会话强制执行。
 - [~] H5 预览插件（官方内置）：Studio 内嵌 H5 预览面板已落地；待在预览中实现 UI 绑定（SignalIn/SignalOut 与前端元素的可视化关联）
   现状：`H5PreviewView` 已以内嵌 iframe 方式加载 `/api/tools/h5-preview`，支持刷新和新窗口打开，当前主要用于压测 preview surface，还没有交互式绑定能力。
-- [~] 终端插件（官方内置）：已有轻量命令执行器，当前支持 `lint` / `smoke` / `schema` / `debug-list` / `debug-state`；待升级为类似 VS Code 的 integrated terminal，可直接执行更多 kal CLI 命令
-  现状：Studio 端已有 Terminal 视图和输出面板，Engine 端提供 `/api/terminal/exec`，白名单已扩展到 5 个命令（lint、smoke、schema、debug-list、debug-state）。
+- [~] 终端插件（官方内置）：已有轻量命令执行器，当前支持 7 个命令；待升级为类似 VS Code 的 integrated terminal
+  现状：Studio 端已有 Terminal 视图和输出面板，Engine 端提供 `/api/terminal/exec`，白名单已扩展到 7 个命令（lint、smoke、schema、debug-list、debug-state、config、eval）。
 - [~] Vercel 部署插件（官方内置）：视图与 API stub 已落地；待接入真实打包部署、部署状态监控和日志查看
   现状：Studio 已有 Deploy 视图和触发按钮，Engine 端 `/api/tools/deploy` 目前返回 `DEPLOY_NOT_CONFIGURED`，说明接口骨架已在，实际部署链路尚未接入。
 - [ ] UI 绑定方案：定义 SignalIn/SignalOut 作为 UI 绑定契约的规范，H5 预览插件作为首个落地场景
