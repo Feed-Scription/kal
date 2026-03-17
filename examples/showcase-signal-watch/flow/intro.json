@@ -1,0 +1,124 @@
+{
+  "meta": {
+    "schemaVersion": "1.0.0",
+    "name": "intro",
+    "description": "开场说明",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "result",
+        "type": "string"
+      }
+    ]
+  },
+  "data": {
+    "nodes": [
+      {
+        "id": "prompt-build",
+        "type": "PromptBuild",
+        "label": "开场文本",
+        "inputs": [
+          {
+            "name": "data",
+            "type": "object",
+            "defaultValue": {}
+          }
+        ],
+        "outputs": [
+          {
+            "name": "messages",
+            "type": "ChatMessage[]"
+          },
+          {
+            "name": "text",
+            "type": "string"
+          },
+          {
+            "name": "estimatedTokens",
+            "type": "number"
+          }
+        ],
+        "config": {
+          "defaultRole": "system",
+          "fragments": [
+            {
+              "type": "base",
+              "id": "opening",
+              "content": "海岬信标站的轮值从今夜开始。接下来的四个夜晚里，黑潮、礁石和失控的船只会不断逼近。你的目标很简单：守住信标站，让主灯不要熄灭，并在天亮前至少救下两艘船。每回合只做一个明确动作，系统会根据你的选择更新资源与局势。",
+              "role": "system"
+            },
+            {
+              "type": "field",
+              "id": "night",
+              "source": "state.night",
+              "template": "当前是第 {{items}} 夜。",
+              "role": "system"
+            },
+            {
+              "type": "field",
+              "id": "fuel",
+              "source": "state.fuel",
+              "template": "燃料: {{items}}",
+              "role": "system"
+            },
+            {
+              "type": "field",
+              "id": "towerIntegrity",
+              "source": "state.towerIntegrity",
+              "template": "塔体完整度: {{items}}",
+              "role": "system"
+            },
+            {
+              "type": "field",
+              "id": "crewMorale",
+              "source": "state.crewMorale",
+              "template": "士气: {{items}}",
+              "role": "system"
+            },
+            {
+              "type": "field",
+              "id": "inventory",
+              "source": "state.inventory",
+              "template": "可用物资: {{items}}",
+              "role": "system"
+            },
+            {
+              "type": "base",
+              "id": "hint",
+              "content": "你可以尝试的动作包括：点亮主灯、发射信号弹、修补灯室、安抚值守员、节省燃料、派人接应近岸船只。",
+              "role": "system"
+            }
+          ]
+        }
+      },
+      {
+        "id": "signal-out",
+        "type": "SignalOut",
+        "label": "输出结果",
+        "inputs": [
+          {
+            "name": "data",
+            "type": "string"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "data",
+            "type": "string"
+          }
+        ],
+        "config": {
+          "channel": "result"
+        }
+      }
+    ],
+    "edges": [
+      {
+        "source": "prompt-build",
+        "sourceHandle": "text",
+        "target": "signal-out",
+        "targetHandle": "data"
+      }
+    ]
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "night": {
+    "type": "number",
+    "value": 1
+  },
+  "maxNights": {
+    "type": "number",
+    "value": 4
+  },
+  "fuel": {
+    "type": "number",
+    "value": 6
+  },
+  "towerIntegrity": {
+    "type": "number",
+    "value": 6
+  },
+  "crewMorale": {
+    "type": "number",
+    "value": 5
+  },
+  "shipsSaved": {
+    "type": "number",
+    "value": 0
+  },
+  "stormPressure": {
+    "type": "number",
+    "value": 3
+  },
+  "weather": {
+    "type": "string",
+    "value": "黑潮将至，港外浓雾翻涌"
+  },
+  "beaconMode": {
+    "type": "string",
+    "value": "steady"
+  },
+  "inventory": {
+    "type": "array",
+    "value": [
+      "signal flare",
+      "repair kit",
+      "spare lens"
+    ]
+  },
+  "status": {
+    "type": "string",
+    "value": "active"
+  },
+  "history": {
+    "type": "array",
+    "value": []
+  }
+}
