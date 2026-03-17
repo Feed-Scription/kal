@@ -2,12 +2,13 @@ import { BUILTIN_NODES, FlowLoader, createKalCore, runSession, validateSessionDe
 import type {
   FlowDefinition,
   FlowExecutionResult,
+  KalConfig,
   NodeManifest,
   SessionDefinition,
   SessionEvent,
   StateValue,
 } from '@kal-ai/core';
-import { writeFile, unlink } from 'node:fs/promises';
+import { readFile, writeFile, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { EngineHttpError } from './errors';
 import { loadEngineProject } from './project-loader';
@@ -223,6 +224,43 @@ export class EngineRuntime {
     }
   }
 
+  getConfig(): KalConfig {
+    return this.getProject().config;
+  }
+
+  async saveConfig(patch: Partial<KalConfig>): Promise<void> {
+    const project = this.getProject();
+    const configPath = join(project.projectRoot, 'kal_config.json');
+
+    // Read the raw file to preserve env var references like ${OPENAI_API_KEY}
+    let rawConfig: Record<string, any>;
+    try {
+      rawConfig = JSON.parse(await readFile(configPath, 'utf8'));
+    } catch {
+      rawConfig = {};
+    }
+
+    // Safety: reject modifications to sensitive LLM fields
+    if (patch.llm) {
+      const { apiKey, baseUrl, ...safeLlmPatch } = patch.llm;
+      if (apiKey !== undefined || baseUrl !== undefined) {
+        throw new EngineHttpError(
+          'Cannot modify llm.apiKey or llm.baseUrl via config API — use environment variables instead',
+          400,
+          'CONFIG_SENSITIVE_FIELD',
+        );
+      }
+      patch = { ...patch, llm: safeLlmPatch as KalConfig['llm'] };
+    }
+
+    // Deep merge patch into raw config (preserving env var references in untouched fields)
+    const merged = deepMerge(rawConfig, patch);
+    await writeFile(configPath, JSON.stringify(merged, null, 2), 'utf8');
+
+    // Reload to re-resolve env vars and update in-memory state
+    await this.reload();
+  }
+
   hasSession(): boolean {
     return this.getProject().session != null;
   }
@@ -265,4 +303,21 @@ export class EngineRuntime {
       setState: (key, value) => this.setState(key, value),
     });
   }
+}
+
+function deepMerge(target: Record<string, any>, source: Record<string, any>): Record<string, any> {
+  const result = { ...target };
+  for (const key of Object.keys(source)) {
+    const srcVal = source[key];
+    const tgtVal = target[key];
+    if (
+      srcVal && typeof srcVal === 'object' && !Array.isArray(srcVal) &&
+      tgtVal && typeof tgtVal === 'object' && !Array.isArray(tgtVal)
+    ) {
+      result[key] = deepMerge(tgtVal, srcVal);
+    } else {
+      result[key] = srcVal;
+    }
+  }
+  return result;
 }

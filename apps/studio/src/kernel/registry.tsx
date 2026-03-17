@@ -785,11 +785,11 @@ function sortByOrder<T extends { order?: number }>(items: T[]): T[] {
 }
 
 export function getStudioView(viewId: StudioViewId): StudioViewDescriptor {
-  return STUDIO_VIEWS.find((view) => view.id === viewId) ?? STUDIO_VIEWS[0]!;
+  return getAllViews().find((view) => view.id === viewId) ?? STUDIO_VIEWS[0]!;
 }
 
 export function getStudioExtension(extensionId: StudioExtensionId): StudioRegisteredExtensionDescriptor | null {
-  return OFFICIAL_STUDIO_EXTENSIONS.find((extension) => extension.id === extensionId) ?? null;
+  return getAllExtensions().find((extension) => extension.id === extensionId) ?? null;
 }
 
 export function getStudioExtensionForView(viewId: StudioViewId): StudioRegisteredExtensionDescriptor | null {
@@ -798,7 +798,7 @@ export function getStudioExtensionForView(viewId: StudioViewId): StudioRegistere
 }
 
 export function getStudioExtensionsByKind(kind: StudioExtensionKind): StudioRegisteredExtensionDescriptor[] {
-  return OFFICIAL_STUDIO_EXTENSIONS.filter((extension) => extension.kind === kind);
+  return getAllExtensions().filter((extension) => extension.kind === kind);
 }
 
 export function getStudioPanels() {

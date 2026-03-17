@@ -9,14 +9,14 @@
 
 import { useStudioStore } from '@/store/studioStore';
 import {
+  getAllExtensions,
+  getAllViews,
   getStudioDebugViews,
   getStudioExtensionForView,
   getStudioExtensionsByKind,
   getStudioInspectors,
   getStudioPanels,
   getStudioView,
-  OFFICIAL_STUDIO_EXTENSIONS,
-  STUDIO_VIEWS,
 } from './registry';
 import { runService } from './services/run-service';
 import type { PromptPreviewEntry, ResourceId, ResourceVersionState } from '@/types/project';
@@ -64,12 +64,14 @@ export function useWorkbench(): WorkbenchServiceState {
   const activePreset = useStudioStore((state) => state.workbench.activePreset);
   const commandPaletteOpen = useStudioStore((state) => state.workbench.commandPaletteOpen);
   const extensionRuntime = useStudioStore((state) => state.extensions.records);
+  const allViews = getAllViews();
+  const allExtensions = getAllExtensions();
   const activeView = getStudioView(activeViewId);
   const activeExtension = getStudioExtensionForView(activeViewId);
   const activeExtensionRuntime = activeExtension ? extensionRuntime[activeExtension.id] ?? null : null;
   const openViews = openViewIds
-    .map((viewId) => STUDIO_VIEWS.find((view) => view.id === viewId) ?? null)
-    .filter((view): view is (typeof STUDIO_VIEWS)[number] => Boolean(view));
+    .map((viewId) => allViews.find((view) => view.id === viewId) ?? null)
+    .filter((view): view is NonNullable<typeof view> => Boolean(view));
   const resolvedOpenViews = openViews.length > 0 ? openViews : [activeView];
 
   return {
@@ -82,8 +84,8 @@ export function useWorkbench(): WorkbenchServiceState {
     activeView,
     activeExtension,
     activeExtensionRuntime,
-    views: STUDIO_VIEWS,
-    extensions: OFFICIAL_STUDIO_EXTENSIONS,
+    views: allViews,
+    extensions: allExtensions,
     coreExtensions: getStudioExtensionsByKind('official-core'),
     workflowExtensions: getStudioExtensionsByKind('official-workflow'),
   };
@@ -457,6 +459,7 @@ export function useStudioCommands(): StudioCommandService {
   const reloadProject = useStudioStore((state) => state.reloadProject);
   const saveSession = useStudioStore((state) => state.saveSession);
   const deleteSession = useStudioStore((state) => state.deleteSession);
+  const updateConfig = useStudioStore((state) => state.updateConfig);
   const createRun = useStudioStore((state) => state.createRun);
   const listRuns = useStudioStore((state) => state.listRuns);
   const getRun = useStudioStore((state) => state.getRun);
@@ -511,6 +514,7 @@ export function useStudioCommands(): StudioCommandService {
     reloadProject,
     saveSession,
     deleteSession,
+    updateConfig,
     createRun,
     listRuns,
     refreshRuns,
