@@ -59,6 +59,7 @@ jobs:
 
       - name: Verify package contents
         run: |
-          cd packages/core && pnpm pack --dry-run
-          cd ../create-kal-game && pnpm pack --dry-run
-          cd ../../apps/engine && pnpm pack --dry-run
+          tmpdir="$(mktemp -d)"
+          cd packages/core && pnpm pack --pack-destination "$tmpdir"
+          cd ../create-kal-game && pnpm pack --pack-destination "$tmpdir"
+          cd ../../apps/engine && pnpm pack --pack-destination "$tmpdir"
