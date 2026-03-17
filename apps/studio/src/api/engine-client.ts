@@ -332,9 +332,48 @@ export const engineApi = {
     });
   },
 
+  async createTerminalSession(): Promise<{ session: { id: string; pid: number | null; alive: boolean; createdAt: number; cwd: string } }> {
+    return request('/api/terminal/sessions', { method: 'POST' });
+  },
+
+  async listTerminalSessions(): Promise<{ sessions: Array<{ id: string; pid: number | null; alive: boolean; createdAt: number; cwd: string }> }> {
+    return request('/api/terminal/sessions');
+  },
+
+  async writeTerminalSession(sessionId: string, data: string): Promise<void> {
+    await request(`/api/terminal/sessions/${encodeURIComponent(sessionId)}/write`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data }),
+    });
+  },
+
+  async killTerminalSession(sessionId: string): Promise<void> {
+    await request(`/api/terminal/sessions/${encodeURIComponent(sessionId)}/kill`, { method: 'POST' });
+  },
+
+  subscribeTerminalSession(sessionId: string, onChunk: (chunk: { stream: string; data: string }) => void): () => void {
+    const source = new EventSource(buildApiUrl(`/api/terminal/sessions/${encodeURIComponent(sessionId)}/stream`));
+    source.addEventListener('output', (event) => {
+      const payload = JSON.parse((event as MessageEvent<string>).data);
+      onChunk(payload);
+    });
+    source.onerror = () => { /* EventSource retries automatically */ };
+    return () => { source.close(); };
+  },
+
   // ── Deploy API ──
 
-  async triggerDeploy(): Promise<unknown> {
-    return request<unknown>('/api/tools/deploy', { method: 'POST' });
+  async triggerDeploy(options?: { projectId?: string; teamId?: string }): Promise<{
+    deploymentId?: string;
+    url?: string;
+    readyState?: string;
+    createdAt?: unknown;
+  }> {
+    return request('/api/tools/deploy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(options ?? {}),
+    });
   },
 };

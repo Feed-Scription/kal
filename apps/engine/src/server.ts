@@ -7,6 +7,7 @@ import { EngineHttpError, formatEngineError, statusForError } from './errors';
 import { getGitLog, getGitStatus } from './git-service';
 import { loadProjectPackages } from './package-loader';
 import { RunManager } from './run-manager';
+import { TerminalSessionManager } from './terminal-session';
 import type {
   AdvanceRunRequest,
   CreateRunRequest,
@@ -263,7 +264,101 @@ async function buildH5PreviewHtml(runtime: EngineRuntime, runs: RunManager): Pro
           }
         </section>
       </div>
+      <section class="panel stack" id="kal-binding-demo">
+        <div>
+          <div class="label">UI Binding Demo</div>
+          <div class="muted">验证 SignalIn / SignalOut 双向通信</div>
+        </div>
+        <div style="display:grid;gap:10px;grid-template-columns:1fr 1fr">
+          <div class="card">
+            <div class="label" style="font-size:13px">SignalIn → Studio</div>
+            <button id="demo-btn-action" style="margin-top:8px;padding:6px 14px;border:1px solid var(--line);border-radius:10px;background:#fff;cursor:pointer;font-size:13px" onclick="window.kalSignalIn('user_action',{action:'click',ts:Date.now()})">
+              发送 user_action
+            </button>
+            <button id="demo-btn-choice" style="margin-top:8px;margin-left:6px;padding:6px 14px;border:1px solid var(--line);border-radius:10px;background:#fff;cursor:pointer;font-size:13px" onclick="window.kalSignalIn('choice',{value:'option_a',label:'选项 A'})">
+              发送 choice
+            </button>
+          </div>
+          <div class="card">
+            <div class="label" style="font-size:13px">Studio → SignalOut</div>
+            <div id="demo-signal-out" class="muted" style="margin-top:8px;min-height:40px">等待 SignalOut 数据...</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="label" style="font-size:13px">Live State</div>
+          <pre id="kal-live-state" style="margin-top:8px;font-size:11px;max-height:120px;overflow:auto">等待 state 同步...</pre>
+        </div>
+        <div class="card">
+          <div class="label" style="font-size:13px">Live Run</div>
+          <div id="kal-live-run" class="muted" style="margin-top:4px">等待 run 同步...</div>
+        </div>
+      </section>
     </main>
+    <script>
+      /**
+       * KAL Studio ↔ H5 Preview postMessage Bridge
+       *
+       * Protocol:
+       *   Studio → Preview:
+       *     { type: 'kal:state.sync',   payload: { state: Record<string,any> } }
+       *     { type: 'kal:run.sync',     payload: { run: RunView | null } }
+       *     { type: 'kal:signal.out',   payload: { channel: string, data: any } }
+       *
+       *   Preview → Studio:
+       *     { type: 'kal:signal.in',    payload: { channel: string, data: any } }
+       *     { type: 'kal:preview.ready' }
+       */
+      (function() {
+        var kalState = {};
+        var kalRun = null;
+
+        window.addEventListener('message', function(event) {
+          if (!event.data || typeof event.data.type !== 'string') return;
+          var msg = event.data;
+
+          if (msg.type === 'kal:state.sync' && msg.payload) {
+            kalState = msg.payload.state || {};
+            document.dispatchEvent(new CustomEvent('kal:state', { detail: kalState }));
+            // Update live state preview if element exists
+            var el = document.getElementById('kal-live-state');
+            if (el) el.textContent = JSON.stringify(kalState, null, 2);
+          }
+
+          if (msg.type === 'kal:run.sync' && msg.payload) {
+            kalRun = msg.payload.run;
+            document.dispatchEvent(new CustomEvent('kal:run', { detail: kalRun }));
+            var el = document.getElementById('kal-live-run');
+            if (el) el.textContent = kalRun ? (kalRun.status + ' — step: ' + (kalRun.cursor?.currentStepId || 'none')) : 'No active run';
+          }
+
+          if (msg.type === 'kal:signal.out' && msg.payload) {
+            document.dispatchEvent(new CustomEvent('kal:signal', { detail: msg.payload }));
+            // Update demo UI
+            var demoEl = document.getElementById('demo-signal-out');
+            if (demoEl) {
+              demoEl.innerHTML = '<strong>' + msg.payload.channel + '</strong>: ' + JSON.stringify(msg.payload.data);
+              demoEl.style.color = 'var(--ink)';
+            }
+          }
+        });
+
+        // Notify Studio that preview is ready to receive messages
+        if (window.parent !== window) {
+          window.parent.postMessage({ type: 'kal:preview.ready' }, '*');
+        }
+
+        // Helper: send signal back to Studio
+        window.kalSignalIn = function(channel, data) {
+          if (window.parent !== window) {
+            window.parent.postMessage({ type: 'kal:signal.in', payload: { channel: channel, data: data } }, '*');
+          }
+        };
+
+        // Helper: read current synced state
+        window.kalGetState = function() { return kalState; };
+        window.kalGetRun = function() { return kalRun; };
+      })();
+    </script>
   </body>
 </html>`;
 }
@@ -271,6 +366,7 @@ async function buildH5PreviewHtml(runtime: EngineRuntime, runs: RunManager): Pro
 export interface EngineRequestContext {
   runs?: RunManager;
   eventBus?: EngineEventBus;
+  terminals?: TerminalSessionManager;
 }
 
 export async function handleEngineRequest(
@@ -284,7 +380,9 @@ export async function handleEngineRequest(
   const pathname = url.pathname;
   const runs = context.runs ?? RunManager.fromRuntime(runtime);
   const eventBus = context.eventBus;
+  const terminals = context.terminals;
   const runMatch = pathname.match(/^\/api\/runs\/([^/]+)(?:\/(state|advance|cancel|stream))?$/);
+  const termMatch = pathname.match(/^\/api\/terminal\/sessions\/([^/]+)(?:\/(write|kill|stream))?$/);
 
   if (method === 'OPTIONS') {
     setCorsHeaders(res);
@@ -390,11 +488,127 @@ export async function handleEngineRequest(
 
     if (method === 'POST' && pathname === '/api/tools/deploy') {
       requireCapability(req, 'process.exec');
-      throw new EngineHttpError(
-        'Deploy not configured. Set VERCEL_TOKEN environment variable to enable.',
-        501,
-        'DEPLOY_NOT_CONFIGURED'
-      );
+      const vercelToken = process.env.VERCEL_TOKEN;
+      if (!vercelToken) {
+        throw new EngineHttpError(
+          'Deploy not configured. Set VERCEL_TOKEN environment variable to enable.',
+          501,
+          'DEPLOY_NOT_CONFIGURED'
+        );
+      }
+      const payload = await readJsonBody<{
+        projectId?: string;
+        teamId?: string;
+        outputDir?: string;
+      }>(req, { required: false });
+      const projectId = payload.projectId || process.env.VERCEL_PROJECT_ID;
+      const teamId = payload.teamId || process.env.VERCEL_TEAM_ID;
+      if (!projectId) {
+        throw new EngineHttpError(
+          'Missing projectId. Set VERCEL_PROJECT_ID or pass projectId in request body.',
+          400,
+          'DEPLOY_MISSING_PROJECT_ID'
+        );
+      }
+      // Trigger deploy via Vercel API
+      const deployUrl = teamId
+        ? `https://api.vercel.com/v13/deployments?teamId=${encodeURIComponent(teamId)}`
+        : 'https://api.vercel.com/v13/deployments';
+      const deployRes = await fetch(deployUrl, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${vercelToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: runtime.getProject().config.name,
+          project: projectId,
+          target: 'production',
+          gitSource: undefined,
+        }),
+      });
+      if (!deployRes.ok) {
+        const errBody = await deployRes.text();
+        throw new EngineHttpError(
+          `Vercel deploy failed (${deployRes.status}): ${errBody}`,
+          502,
+          'DEPLOY_FAILED',
+          { status: deployRes.status },
+        );
+      }
+      const deployData = await deployRes.json() as Record<string, unknown>;
+      success(res, {
+        deploymentId: deployData.id,
+        url: deployData.url,
+        readyState: deployData.readyState,
+        createdAt: deployData.createdAt,
+      });
+      return;
+    }
+
+    // ── Terminal Session API ──
+
+    if (method === 'POST' && pathname === '/api/terminal/sessions') {
+      requireCapability(req, 'process.exec');
+      if (!terminals) {
+        throw new EngineHttpError('Terminal sessions not available', 503, 'TERMINAL_UNAVAILABLE');
+      }
+      const info = terminals.create();
+      success(res, { session: info }, 201);
+      return;
+    }
+
+    if (method === 'GET' && pathname === '/api/terminal/sessions') {
+      requireCapability(req, 'process.exec');
+      if (!terminals) {
+        throw new EngineHttpError('Terminal sessions not available', 503, 'TERMINAL_UNAVAILABLE');
+      }
+      success(res, { sessions: terminals.listSessions() });
+      return;
+    }
+
+    if (termMatch) {
+      requireCapability(req, 'process.exec');
+      if (!terminals) {
+        throw new EngineHttpError('Terminal sessions not available', 503, 'TERMINAL_UNAVAILABLE');
+      }
+      const sessionId = decodeURIComponent(termMatch[1]!);
+      const action = termMatch[2];
+
+      if (method === 'GET' && !action) {
+        success(res, { session: terminals.getInfo(sessionId) });
+        return;
+      }
+
+      if (method === 'POST' && action === 'write') {
+        const payload = await readJsonBody<{ data: string }>(req);
+        terminals.write(sessionId, payload.data);
+        success(res, { written: true });
+        return;
+      }
+
+      if (method === 'POST' && action === 'kill') {
+        terminals.kill(sessionId);
+        success(res, { killed: true });
+        return;
+      }
+
+      if (method === 'GET' && action === 'stream') {
+        setSseHeaders(res);
+        res.flushHeaders?.();
+        const unsubscribe = terminals.subscribe(sessionId, (chunk) => {
+          res.write(`event: output\n`);
+          res.write(`data: ${JSON.stringify(chunk)}\n\n`);
+        });
+        const heartbeat = setInterval(() => {
+          res.write(': keepalive\n\n');
+        }, 15000);
+        req.on('close', () => {
+          clearInterval(heartbeat);
+          unsubscribe();
+        });
+        return;
+      }
     }
 
     if (method === 'POST' && pathname === '/api/tools/smoke') {
@@ -656,6 +870,7 @@ export async function startEngineServer(params: {
   const port = params.port ?? 3000;
   const runs = RunManager.fromRuntime(params.runtime, params.runStateDir);
   const eventBus = new EngineEventBus();
+  const terminals = new TerminalSessionManager(params.runtime.getProjectRoot());
 
   // Forward run events to unified event stream
   runs.subscribe((runEvent) => {
@@ -667,7 +882,7 @@ export async function startEngineServer(params: {
   });
 
   const server = createServer((req, res) => {
-    void handleEngineRequest(params.runtime, req, res, { runs, eventBus });
+    void handleEngineRequest(params.runtime, req, res, { runs, eventBus, terminals });
   });
 
   await new Promise<void>((resolve, reject) => {
@@ -684,6 +899,7 @@ export async function startEngineServer(params: {
     port: address.port,
     url: `http://${address.address}:${address.port}`,
     close: async () => {
+      terminals.dispose();
       await new Promise<void>((resolve, reject) => {
         server.close((error) => {
           if (error) {
