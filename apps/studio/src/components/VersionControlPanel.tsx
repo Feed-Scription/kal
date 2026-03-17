@@ -1,4 +1,5 @@
 import { History } from "lucide-react";
+import { EmptyState } from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
 import { useStudioCommands, useVersionControl } from "@/kernel/hooks";
 
@@ -38,9 +39,7 @@ export function VersionControlPanel() {
 
       <div className="space-y-2">
         {recent.length === 0 ? (
-          <div className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">
-            当前还没有事务记录。
-          </div>
+          <EmptyState message="当前还没有事务记录。" compact />
         ) : (
           recent.map((transaction) => (
             <div key={transaction.id} className="rounded-lg border px-3 py-2 text-sm">

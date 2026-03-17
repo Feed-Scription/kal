@@ -13,6 +13,15 @@ export interface DebugInputRecord {
   timestamp: number;
 }
 
+export interface StateChangeLogEntry {
+  stepId: string;
+  stepIndex: number;
+  key: string;
+  before: any;
+  after: any;
+  timestamp: number;
+}
+
 export interface DebugRunSnapshot {
   runId: string;
   projectRoot: string;
@@ -23,6 +32,7 @@ export interface DebugRunSnapshot {
   stateSnapshot: Record<string, StateValue>;
   recentEvents: SessionTraceEvent[];
   inputHistory: DebugInputRecord[];
+  stateChangeLog: StateChangeLogEntry[];
   createdAt: number;
   updatedAt: number;
 }
@@ -40,6 +50,7 @@ export interface DebugRunSummary {
 export interface DiagnosticPayload {
   code: string;
   message: string;
+  severity: 'error' | 'warning' | 'info';
   phase: 'project_load' | 'session' | 'flow' | 'node' | 'cli';
   stepId?: string;
   flowId?: string;
@@ -196,6 +207,7 @@ export interface DebugStatePayload {
   cursor: SessionCursor;
   observation: DebugObservation;
   input_history?: DebugInputRecord[];
+  stateChangeLog?: StateChangeLogEntry[];
   updated_at: number;
 }
 

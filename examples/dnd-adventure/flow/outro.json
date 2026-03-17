@@ -1,8 +1,8 @@
 {
   "meta": {
     "schemaVersion": "1.0.0",
-    "name": "outro-win",
-    "description": "胜利结局叙事",
+    "name": "outro",
+    "description": "结局叙事（胜利或死亡，根据 questStage 自动切换）",
     "inputs": [],
     "outputs": [
       {
@@ -16,7 +16,7 @@
       {
         "id": "prompt-build",
         "type": "PromptBuild",
-        "label": "胜利结局提示词",
+        "label": "结局提示词",
         "inputs": [
           {
             "name": "data",
@@ -42,9 +42,17 @@
           "defaultRole": "system",
           "fragments": [
             {
-              "type": "base",
+              "type": "when",
               "id": "win-prompt",
+              "condition": "state.questStage == 'completed'",
               "content": "你是一位经验丰富的 DND 地下城主。冒险者成功完成了任务！\n\n世界背景：冒险者来到边境小镇「鸦巢镇」，受镇长老莫里斯之托，深入废弃矿井讨伐沉睡千年的巫妖「枯骨贤者」维萨里昂。冒险者穿越了上层矿道的骷髅兵、中层地下河的幽灵与亡灵骑士，最终在深层巢穴中摧毁了巫妖的命匣——那颗被黑铁笼罩的水晶球，终结了这场亡灵之祸。\n\n请用第二人称描述冒险者的胜利时刻：\n- 描述命匣碎裂、巫妖消散的辉煌场景，巢穴中幽绿符文逐渐熄灭\n- 描述冒险者走出矿井、重见天日的感受\n- 描述鸦巢镇的庆祝：镇长老莫里斯的感激、酒馆老板娘丽塔在醉鸦亭准备的庆功宴、铁匠格雷沉默的点头致意、牧师艾琳的祝福祈祷、老矿工汤姆终于释然的泪水\n- 以一段充满希望的结语收束，暗示更广阔的世界还有更多冒险等待\n\n风格要求：\n- 200-400字\n- 激昂振奋，带有温暖的人情味\n- 纯文本叙事，不要输出JSON",
+              "role": "system"
+            },
+            {
+              "type": "when",
+              "id": "death-prompt",
+              "condition": "state.questStage != 'completed'",
+              "content": "你是一位经验丰富的 DND 地下城主。冒险者在旅途中不幸倒下了。\n\n世界背景：冒险者来到边境小镇「鸦巢镇」，受镇长老莫里斯之托，深入废弃矿井讨伐沉睡千年的巫妖「枯骨贤者」维萨里昂。矿井分为三层：上层矿道（骷髅兵出没）、中层地下河（幽灵与亡灵骑士游荡）、深层巫妖巢穴。镇上的人们——酒馆老板娘丽塔、铁匠格雷、牧师艾琳、老矿工汤姆——都曾以各自的方式帮助过冒险者。\n\n请用第二人称描述冒险者的最终时刻：\n- 根据冒险者倒下的地点，描述具体的环境细节（如矿道中磷光苔藓的微光、地下河冰冷的水声、巫妖巢穴幽绿的符文光芒）\n- 回顾冒险者在鸦巢镇和矿井中的经历片段\n- 提及那些曾帮助过冒险者的 NPC，他们会如何得知这个消息\n- 以一段富有诗意的结语收束，暗示鸦巢镇的命运\n\n风格要求：\n- 150-300字\n- 悲壮但不过于沉重，带有一丝希望（也许会有下一位冒险者）\n- 纯文本叙事，不要输出JSON",
               "role": "system"
             },
             {
@@ -85,15 +93,28 @@
           }
         ],
         "config": {
-          "system": "",
-          "user": "描述冒险者的胜利结局。",
           "format": "xml"
+        }
+      },
+      {
+        "id": "user-prompt",
+        "type": "Constant",
+        "label": "用户提示",
+        "inputs": [],
+        "outputs": [
+          {
+            "name": "value",
+            "type": "string"
+          }
+        ],
+        "config": {
+          "value": "描述冒险者的结局。"
         }
       },
       {
         "id": "generate-text",
         "type": "GenerateText",
-        "label": "生成胜利叙事",
+        "label": "生成结局叙事",
         "inputs": [
           {
             "name": "messages",
@@ -146,6 +167,12 @@
         "sourceHandle": "text",
         "target": "message",
         "targetHandle": "system"
+      },
+      {
+        "source": "user-prompt",
+        "sourceHandle": "value",
+        "target": "message",
+        "targetHandle": "user"
       },
       {
         "source": "message",

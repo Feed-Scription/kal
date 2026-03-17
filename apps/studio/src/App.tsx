@@ -1,5 +1,6 @@
 import '@xyflow/react/dist/style.css';
-import { Command, Lock, Play, RefreshCw, X } from "lucide-react";
+import { useState } from "react";
+import { Command, Info, Lock, Play, RefreshCw, X } from "lucide-react";
 import { AppSidebar } from "./AppSidebar";
 import { CommandPalette } from "./components/CommandPalette";
 import { ExtensionSurface } from "./components/ExtensionSurface";
@@ -8,6 +9,7 @@ import { WorkbenchPanels } from "./components/WorkbenchPanels";
 import { ProjectLoader } from "./components/ProjectLoader";
 import { StatusBar } from "./components/StatusBar";
 import { Button } from "./components/ui/button";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "./components/ui/sheet";
 import { useCapabilityGate, useExtensionRuntimeMap, useStudioCommands, useWorkbench, useStudioResources } from "./kernel/hooks";
 
 export default function App() {
@@ -17,6 +19,7 @@ export default function App() {
   const capabilityGate = useCapabilityGate(activeExtension?.capabilities);
   const { closeView, createRun, refreshDiagnostics, setActiveView, setCommandPaletteOpen } = useStudioCommands();
   const activeView = views.find((view) => view.id === activeViewId) ?? views[0] ?? null;
+  const [inspectorOpen, setInspectorOpen] = useState(false);
 
   if (!project) {
     return <ProjectLoader />;
@@ -27,7 +30,7 @@ export default function App() {
       <AppSidebar>
         <div className="flex h-full min-h-0">
           <div className="flex min-w-0 flex-1 flex-col">
-            <div className="flex items-center justify-between gap-3 overflow-x-auto border-b bg-background/80 px-3 py-2 backdrop-blur">
+            <div className="flex items-center justify-between gap-3 border-b bg-background/80 px-3 py-2 backdrop-blur">
               <div className="flex items-center gap-2 overflow-x-auto">
                 {openViews.map((view) => {
                   const Icon = view.icon;
@@ -68,27 +71,25 @@ export default function App() {
                 })}
               </div>
 
-              <div className="flex shrink-0 items-center gap-2">
-                <Button variant="outline" size="sm" onClick={() => setCommandPaletteOpen(true)}>
+              <div className="flex shrink-0 items-center gap-1">
+                <Button variant="ghost" size="icon-sm" onClick={() => setCommandPaletteOpen(true)} title="命令面板">
                   <Command className="size-4" />
-                  Palette
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => void refreshDiagnostics()}>
+                <Button variant="ghost" size="icon-sm" onClick={() => void refreshDiagnostics()} title="刷新诊断">
                   <RefreshCw className="size-4" />
-                  Diagnostics
                 </Button>
                 <Button
-                  variant="outline"
-                  size="sm"
+                  variant="ghost"
+                  size="icon-sm"
                   onClick={async () => {
                     await createRun(false);
                     setActiveView("kal.debugger");
                   }}
+                  title="运行"
                 >
                   <Play className="size-4" />
-                  Run
                 </Button>
-                <div className="flex items-center gap-1 rounded-lg border px-2 py-1 text-xs text-muted-foreground">
+                <div className="ml-1 flex items-center gap-1 rounded-lg border px-2 py-1 text-xs text-muted-foreground">
                   <Lock className={`size-3.5 ${capabilityGate.trusted ? "text-green-600" : "text-yellow-600"}`} />
                   {capabilityGate.trusted ? "Trusted" : "Restricted"}
                 </div>
@@ -111,6 +112,28 @@ export default function App() {
           <WorkbenchInspector />
         </div>
       </AppSidebar>
+
+      {/* xl 以下的 Inspector 触发按钮 */}
+      <Button
+        variant="outline"
+        size="icon-sm"
+        className="fixed right-4 bottom-12 z-40 shadow-md xl:hidden"
+        onClick={() => setInspectorOpen(true)}
+        title="Inspector"
+      >
+        <Info className="size-4" />
+      </Button>
+
+      {/* xl 以下的 Inspector 抽屉 */}
+      <Sheet open={inspectorOpen} onOpenChange={setInspectorOpen}>
+        <SheetContent side="right" className="w-80 overflow-auto p-0">
+          <SheetHeader className="sr-only">
+            <SheetTitle>Inspector</SheetTitle>
+          </SheetHeader>
+          <WorkbenchInspector mobile />
+        </SheetContent>
+      </Sheet>
+
       <CommandPalette />
       <StatusBar />
     </>

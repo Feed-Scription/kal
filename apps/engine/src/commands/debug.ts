@@ -24,6 +24,7 @@ import type {
   DebugStatePayload,
   DebugWaitingForPayload,
   DiagnosticPayload,
+  StateChangeLogEntry,
 } from '../debug/types';
 import { formatEngineError, EngineHttpError } from '../errors';
 import { RunManager } from '../run-manager';
@@ -37,12 +38,13 @@ interface DebugCommandDependencies {
   createRuntime(projectRoot: string): Promise<EngineRuntime>;
 }
 
-type DebugAction = 'start' | 'continue' | 'step' | 'state' | 'list' | 'delete' | 'retry' | 'skip';
+type DebugAction = 'start' | 'continue' | 'step' | 'state' | 'diff' | 'list' | 'delete' | 'retry' | 'skip';
 
 interface ParsedDebugArgs {
   action: DebugAction;
   projectPath?: string;
   runId?: string;
+  diffRunId?: string;
   input?: string;
   inputs?: string[];
   stateDir?: string;
@@ -117,6 +119,9 @@ export async function runDebugCommand(
         break;
       case 'state':
         result = await getState(projectRoot, parsed.runId, parsed.verbose, runManager, parsed.latest);
+        break;
+      case 'diff':
+        result = await diffSnapshots(parsed.runId!, parsed.diffRunId!, runManager);
         break;
       case 'start':
         result = await startRun(projectRoot, parsed, runManager);
@@ -224,7 +229,53 @@ async function getState(
     }),
     updated_at: snapshot.updatedAt,
     ...(verbose ? { input_history: snapshot.inputHistory } : {}),
+    ...(snapshot.stateChangeLog?.length ? { stateChangeLog: snapshot.stateChangeLog } : {}),
   };
+  return { exitCode: 0, payload };
+}
+
+async function diffSnapshots(
+  runIdA: string,
+  runIdB: string,
+  runManager: RunManager,
+): Promise<CommandResult> {
+  const [snapshotA, snapshotB] = await Promise.all([
+    runManager.readSnapshot({ runId: runIdA }),
+    runManager.readSnapshot({ runId: runIdB }),
+  ]);
+
+  const stateA = snapshotA.stateSnapshot;
+  const stateB = snapshotB.stateSnapshot;
+  const allKeys = new Set([...Object.keys(stateA), ...Object.keys(stateB)]);
+
+  const added: string[] = [];
+  const removed: string[] = [];
+  const changed: Array<{ key: string; before: any; after: any }> = [];
+
+  for (const key of allKeys) {
+    const inA = key in stateA;
+    const inB = key in stateB;
+    if (!inA && inB) {
+      added.push(key);
+    } else if (inA && !inB) {
+      removed.push(key);
+    } else if (JSON.stringify(stateA[key]) !== JSON.stringify(stateB[key])) {
+      changed.push({ key, before: stateA[key]?.value, after: stateB[key]?.value });
+    }
+  }
+
+  const payload = {
+    run_a: runIdA,
+    run_b: runIdB,
+    status_a: snapshotA.status,
+    status_b: snapshotB.status,
+    added,
+    removed,
+    changed,
+    total_keys: allKeys.size,
+    unchanged: allKeys.size - added.length - removed.length - changed.length,
+  };
+
   return { exitCode: 0, payload };
 }
 
@@ -461,6 +512,25 @@ async function advanceExistingRun(
   }
 }
 
+function computeStateChanges(
+  beforeState: Record<string, StateValue>,
+  afterState: Record<string, StateValue>,
+  stepId: string,
+  stepIndex: number,
+): StateChangeLogEntry[] {
+  const entries: StateChangeLogEntry[] = [];
+  const now = Date.now();
+  const allKeys = new Set([...Object.keys(beforeState), ...Object.keys(afterState)]);
+  for (const key of allKeys) {
+    const before = beforeState[key]?.value;
+    const after = afterState[key]?.value;
+    if (JSON.stringify(before) !== JSON.stringify(after)) {
+      entries.push({ stepId, stepIndex, key, before, after, timestamp: now });
+    }
+  }
+  return entries;
+}
+
 async function advanceMultiStep(
   projectRoot: string,
   snapshot: DebugRunSnapshot,
@@ -489,6 +559,10 @@ async function advanceMultiStep(
     stepsCompleted++;
 
     const afterState = runtime.getState();
+    const stepChanges = computeStateChanges(
+      currentSnapshot.stateSnapshot, afterState,
+      cursor.currentStepId ?? '', cursor.stepIndex,
+    );
     currentSnapshot = {
       ...currentSnapshot,
       cursor: result.cursor,
@@ -497,6 +571,7 @@ async function advanceMultiStep(
       stateSnapshot: afterState,
       recentEvents: result.events,
       updatedAt: Date.now(),
+      stateChangeLog: [...(currentSnapshot.stateChangeLog ?? []), ...stepChanges],
       inputHistory: [
         ...currentSnapshot.inputHistory,
         {
@@ -1190,6 +1265,7 @@ function parseDebugArgs(tokens: string[]): ParsedDebugArgs {
   let action: DebugAction | undefined;
   let projectPath: string | undefined;
   let runId: string | undefined;
+  let diffRunId: string | undefined;
   let input: string | undefined;
   let inputs: string[] | undefined;
   let stateDir: string | undefined;
@@ -1203,7 +1279,7 @@ function parseDebugArgs(tokens: string[]): ParsedDebugArgs {
   for (let index = 0; index < tokens.length; index += 1) {
     const token = tokens[index]!;
 
-    if (token === '--start' || token === '--continue' || token === '--step' || token === '--state' || token === '--list' || token === '--delete' || token === '--retry' || token === '--skip') {
+    if (token === '--start' || token === '--continue' || token === '--step' || token === '--state' || token === '--diff' || token === '--list' || token === '--delete' || token === '--retry' || token === '--skip') {
       if (action) {
         throw new EngineHttpError('Only one debug action can be specified', 400, 'DEBUG_ACTION_CONFLICT');
       }
@@ -1232,13 +1308,15 @@ function parseDebugArgs(tokens: string[]): ParsedDebugArgs {
       continue;
     }
 
-    if (token === '--run-id' || token === '--run' || token === '--state-dir' || token === '--format' || token === '--input' || token === '--inputs') {
+    if (token === '--run-id' || token === '--run' || token === '--diff-run' || token === '--state-dir' || token === '--format' || token === '--input' || token === '--inputs') {
       const value = tokens[index + 1];
       if (!value || value.startsWith('--')) {
         throw new EngineHttpError(`Missing value for flag ${token}`, 400, 'DEBUG_FLAG_VALUE_REQUIRED', { flag: token });
       }
       if (token === '--run-id' || token === '--run') {
         runId = value;
+      } else if (token === '--diff-run') {
+        diffRunId = value;
       } else if (token === '--state-dir') {
         stateDir = value;
       } else if (token === '--format') {
@@ -1288,7 +1366,10 @@ function parseDebugArgs(tokens: string[]): ParsedDebugArgs {
   if (action === 'delete' && !runId) {
     throw new EngineHttpError('--delete requires --run-id', 400, 'DEBUG_DELETE_RUN_ID_REQUIRED');
   }
-  if ((action === 'state' || action === 'list' || action === 'delete' || action === 'start' || action === 'retry' || action === 'skip') && input !== undefined) {
+  if (action === 'diff' && (!runId || !diffRunId)) {
+    throw new EngineHttpError('--diff requires --run-id and --diff-run', 400, 'DEBUG_DIFF_RUN_IDS_REQUIRED');
+  }
+  if ((action === 'state' || action === 'diff' || action === 'list' || action === 'delete' || action === 'start' || action === 'retry' || action === 'skip') && input !== undefined) {
     throw new EngineHttpError('Input can only be provided with --continue or --step', 400, 'DEBUG_INPUT_INVALID');
   }
   if (inputs && input) {
@@ -1302,6 +1383,7 @@ function parseDebugArgs(tokens: string[]): ParsedDebugArgs {
     action,
     projectPath,
     runId,
+    diffRunId,
     input,
     inputs,
     stateDir,

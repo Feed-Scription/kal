@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Command, CornerDownLeft, Search } from "lucide-react";
+import { EmptyState } from "@/components/EmptyState";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useStudioCommands, useWorkbench } from "@/kernel/hooks";
@@ -138,9 +139,7 @@ export function CommandPalette() {
 
         <div className="max-h-[60vh] overflow-auto p-3">
           {filteredCommands.length === 0 ? (
-            <div className="rounded-xl border border-dashed p-6 text-sm text-muted-foreground">
-              没有匹配的命令。
-            </div>
+            <EmptyState message="没有匹配的命令。" />
           ) : (
             <div className="space-y-2">
               {filteredCommands.map((command, index) => (

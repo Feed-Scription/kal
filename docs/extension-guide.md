@@ -35,7 +35,7 @@ mkdir -p packages/my-extension
 
 ### 目录结构
 
-```
+```text
 packages/battle-nodes/
 ├── manifest.json
 ├── runtime/
@@ -108,7 +108,7 @@ packages/battle-nodes/
 
 ### 目录结构
 
-```
+```text
 packages/rpg-templates/
 ├── manifest.json
 ├── templates/
@@ -178,7 +178,7 @@ packages/rpg-templates/
 
 ### 目录结构
 
-```
+```text
 packages/dark-ocean-theme/
 ├── manifest.json
 └── studio/
@@ -229,7 +229,7 @@ packages/dark-ocean-theme/
 
 ## 开发流程
 
-```
+```text
 1. 创建 packages/<name>/manifest.json
 2. 在 Studio 的 Package Manager 中刷新
 3. 确认包被正确识别

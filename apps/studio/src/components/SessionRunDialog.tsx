@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Loader2, Play, RotateCcw, Send, Square, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/EmptyState';
 import {
   Dialog,
   DialogContent,
@@ -306,9 +307,7 @@ export function SessionRunDialog({ open, onOpenChange }: SessionRunDialogProps) 
                 )}
 
                 {!loading && !run && (
-                  <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-                    当前没有 active run。点击“启动 Run”后，Engine 会自动推进到第一个交互边界。
-                  </div>
+                  <EmptyState message={'当前没有 active run。点击”启动 Run”后，Engine 会自动推进到第一个交互边界。'} compact />
                 )}
 
                 {run && (

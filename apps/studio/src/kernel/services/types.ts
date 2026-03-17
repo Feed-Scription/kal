@@ -248,6 +248,7 @@ export interface StudioCommandService {
   reloadProject: () => Promise<void>;
   saveSession: (session: SessionDefinition) => Promise<void>;
   deleteSession: () => Promise<void>;
+  updateConfig: (patch: Partial<KalConfig>) => Promise<void>;
   createRun: (forceNew?: boolean, mode?: RunAdvanceMode) => Promise<RunView>;
   listRuns: () => Promise<RunSummary[]>;
   refreshRuns: () => Promise<RunSummary[]>;

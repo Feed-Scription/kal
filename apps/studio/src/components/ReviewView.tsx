@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ClipboardCheck, FlaskConical, RotateCcw, ShieldCheck, Sparkles, Eye, AlertCircle } from 'lucide-react';
+import { EmptyState } from "@/components/EmptyState";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useCapabilityGate, useReviewWorkspace, useStudioCommands, useVersionControl, useRunDebug } from '@/kernel/hooks';
@@ -76,9 +77,7 @@ export function ReviewView() {
 
           <div className="space-y-2">
             {proposals.length === 0 ? (
-              <div className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
-                当前还没有 proposal。先创建一个 review bundle。
-              </div>
+              <EmptyState message="当前还没有 proposal。先创建一个 review bundle。" />
             ) : (
               proposals.map((proposal) => (
                 <button
@@ -101,9 +100,7 @@ export function ReviewView() {
 
         <section className="space-y-4 rounded-2xl border bg-card p-5">
           {!activeProposal ? (
-            <div className="rounded-xl border border-dashed p-6 text-sm text-muted-foreground">
-              选择或创建一个 proposal 以开始 review。
-            </div>
+            <EmptyState message="选择或创建一个 proposal 以开始 review。" />
           ) : (
             <>
               <div className="flex items-start justify-between gap-4">

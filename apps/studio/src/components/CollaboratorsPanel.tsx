@@ -1,4 +1,5 @@
 import { Users } from 'lucide-react';
+import { EmptyState } from '@/components/EmptyState';
 import { usePresence } from '@/kernel/hooks';
 
 function formatRelativeTime(timestamp: number) {
@@ -19,9 +20,7 @@ export function CollaboratorsPanel() {
       </div>
 
       {users.length === 0 ? (
-        <div className="rounded-lg border border-dashed p-4 text-center text-xs text-muted-foreground">
-          当前没有其他协作者在线。协作功能将在多人连接同一项目时启用。
-        </div>
+        <EmptyState message="当前没有其他协作者在线。协作功能将在多人连接同一项目时启用。" compact />
       ) : (
         <div className="space-y-2">
           {users.map((user) => {
