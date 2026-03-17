@@ -4,7 +4,7 @@ A KAL project is a directory containing JSON configuration files that define you
 
 ## Directory Layout
 
-```
+```text
 my-game/
 ├── kal_config.json        # Engine + LLM configuration (required)
 ├── initial_state.json     # Game state initialization (required)

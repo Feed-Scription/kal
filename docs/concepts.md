@@ -4,7 +4,7 @@ KAL is a data-driven game engine where game logic is defined in JSON, not code. 
 
 ## The Four Objects
 
-```
+```text
 ┌─────────────────────────────────────────────────┐
 │                   Session                        │
 │  (state machine — controls the player journey)   │
@@ -78,7 +78,7 @@ Flows are defined in JSON files under the `flow/` directory:
 
 A typical LLM flow follows this pattern:
 
-```
+```text
 SignalIn → PromptBuild → Message → GenerateText → JSONParse → WriteState → SignalOut
 ```
 
