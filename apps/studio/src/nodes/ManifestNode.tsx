@@ -13,6 +13,9 @@ import { Button } from "@/components/ui/button";
 import {
   PromptBuildFragmentsField,
   StringListField,
+  WriteStateOperationsField,
+  WriteStateConstraintsField,
+  WriteStateDeduplicateByField,
 } from "@/components/node-config-editors";
 import {
   Select,
@@ -199,6 +202,7 @@ function ConfigField({
   required,
   value,
   flowNames,
+  fullConfig,
 }: {
   nodeId: string;
   nodeType?: string;
@@ -207,6 +211,7 @@ function ConfigField({
   required: boolean;
   value: unknown;
   flowNames: string[];
+  fullConfig: Record<string, unknown>;
 }) {
   const { updateConfig } = useNodeConfig(nodeId);
   const setValue = (next: unknown) => updateConfig({ [name]: next } as Record<string, unknown>);
@@ -233,6 +238,138 @@ function ConfigField({
         addLabel="添加 Key"
         onCommit={setValue}
       />
+    );
+  }
+
+  if (nodeType === "WriteState" && name === "operations") {
+    const allowedKeys = Array.isArray(fullConfig.allowedKeys) ? (fullConfig.allowedKeys as string[]) : [];
+    return (
+      <WriteStateOperationsField
+        label={label}
+        required={required}
+        value={value}
+        allowedKeys={allowedKeys}
+        onCommit={setValue}
+      />
+    );
+  }
+
+  if (nodeType === "WriteState" && name === "constraints") {
+    const allowedKeys = Array.isArray(fullConfig.allowedKeys) ? (fullConfig.allowedKeys as string[]) : [];
+    return (
+      <WriteStateConstraintsField
+        label={label}
+        required={required}
+        value={value}
+        allowedKeys={allowedKeys}
+        onCommit={setValue}
+      />
+    );
+  }
+
+  if (nodeType === "WriteState" && name === "deduplicateBy") {
+    const allowedKeys = Array.isArray(fullConfig.allowedKeys) ? (fullConfig.allowedKeys as string[]) : [];
+    const operations = (fullConfig.operations && typeof fullConfig.operations === "object" && !Array.isArray(fullConfig.operations))
+      ? (fullConfig.operations as Record<string, string>)
+      : {};
+    return (
+      <WriteStateDeduplicateByField
+        label={label}
+        required={required}
+        value={value}
+        allowedKeys={allowedKeys}
+        operations={operations}
+        onCommit={setValue}
+      />
+    );
+  }
+
+  // ── Constant.value: type-aware editor based on sibling `type` field ──
+  if (nodeType === "Constant" && name === "value") {
+    const constType = String(fullConfig.type ?? "string");
+    if (constType === "boolean") {
+      return (
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id={`${nodeId}-${name}`}
+            checked={Boolean(value)}
+            onCheckedChange={(checked) => setValue(Boolean(checked))}
+          />
+          <label htmlFor={`${nodeId}-${name}`} className="text-xs text-muted-foreground">
+            {label} {required ? "*" : ""}
+          </label>
+        </div>
+      );
+    }
+    if (constType === "number") {
+      return (
+        <div>
+          <label className="text-xs text-muted-foreground">{label} {required ? "*" : ""}</label>
+          <Input type="number" className="mt-1" value={value === undefined ? "" : String(value)} onChange={(e) => setValue(e.target.value === "" ? undefined : Number(e.target.value))} />
+        </div>
+      );
+    }
+    if (constType === "string") {
+      return (
+        <div>
+          <label className="text-xs text-muted-foreground">{label} {required ? "*" : ""}</label>
+          <Input className="mt-1" value={String(value ?? "")} onChange={(e) => setValue(e.target.value)} />
+        </div>
+      );
+    }
+    // object / array → fall through to JsonField below
+  }
+
+  // ── ComputeState: inline editors for operand / trueValue / falseValue ──
+  if (nodeType === "ComputeState" && (name === "trueValue" || name === "falseValue")) {
+    return (
+      <div>
+        <label className="text-xs text-muted-foreground">{label} {required ? "*" : ""}</label>
+        <Input className="mt-1" value={value === undefined ? "" : String(value)} onChange={(e) => {
+          const raw = e.target.value;
+          if (raw === "true") setValue(true);
+          else if (raw === "false") setValue(false);
+          else if (raw !== "" && !isNaN(Number(raw))) setValue(Number(raw));
+          else setValue(raw);
+        }} />
+      </div>
+    );
+  }
+
+  if (nodeType === "ComputeState" && name === "operand") {
+    const op = String(fullConfig.operation ?? "increment");
+    if (op === "lookup") {
+      // lookup needs an object → fall through to JsonField
+    } else {
+      return (
+        <div>
+          <label className="text-xs text-muted-foreground">{label} {required ? "*" : ""}</label>
+          <Input type="number" className="mt-1" value={value === undefined ? "" : String(value)} onChange={(e) => setValue(e.target.value === "" ? undefined : Number(e.target.value))} />
+        </div>
+      );
+    }
+  }
+
+  // ── GenerateText.historyPolicy: inline maxMessages ──
+  if (nodeType === "GenerateText" && name === "historyPolicy") {
+    const policy = (value && typeof value === "object" && !Array.isArray(value)) ? value as Record<string, unknown> : {};
+    return (
+      <div>
+        <label className="text-xs text-muted-foreground">{label} {required ? "*" : ""}</label>
+        <div className="mt-1 flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">maxMessages</span>
+          <Input
+            type="number"
+            className="w-24"
+            value={policy.maxMessages === undefined ? "" : String(policy.maxMessages)}
+            min={0}
+            onChange={(e) => {
+              const v = e.target.value;
+              setValue(v === "" ? {} : { maxMessages: Number(v) });
+            }}
+          />
+        </div>
+      </div>
     );
   }
 
@@ -380,6 +517,7 @@ export const ManifestNode = memo(({ id, data, selected }: NodeProps) => {
                 required={required.has(name)}
                 value={config[name]}
                 flowNames={flowNames}
+                fullConfig={config}
               />
             ))}
           </div>
