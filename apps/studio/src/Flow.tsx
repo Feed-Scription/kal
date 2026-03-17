@@ -14,6 +14,7 @@ import {
   type DefaultEdgeOptions,
   Controls,
   MiniMap,
+  MarkerType,
 } from '@xyflow/react';
 
 import { ManifestNode } from "./nodes/ManifestNode";
@@ -80,22 +81,31 @@ function autoLayout(
   nodes: NodeDefinition[],
   edges: EdgeDefinition[],
 ): { positions: Map<string, { x: number; y: number }>; backEdges: Set<string> } {
-  // If all nodes already have valid distinct positions, skip layout
+  if (nodes.length === 0) return { positions: new Map(), backEdges: new Set() };
+
+  // Always compute backEdges for visual differentiation
+  const result = layoutDag(
+    nodes.map((n) => n.id),
+    edges,
+    FLOW_LAYOUT,
+  );
+
+  // Determine whether to apply computed positions:
+  // Skip layout if all nodes already have valid, distinct positions
   const withPos = nodes.filter((n) => n.position);
   if (withPos.length === nodes.length && nodes.length > 1) {
     const allSame = withPos.every(
       (n) => n.position!.x === withPos[0].position!.x && n.position!.y === withPos[0].position!.y,
     );
-    if (!allSame) return { positions: new Map(), backEdges: new Set() };
+    if (!allSame) {
+      // Positions are valid and distinct — keep them, but still return backEdges
+      return { positions: new Map(), backEdges: result.backEdges };
+    }
   } else if (withPos.length === nodes.length) {
-    return { positions: new Map(), backEdges: new Set() };
+    return { positions: new Map(), backEdges: result.backEdges };
   }
 
-  return layoutDag(
-    nodes.map((n) => n.id),
-    edges,
-    FLOW_LAYOUT,
-  );
+  return result;
 }
 
 const fitViewOptions: FitViewOptions = {
@@ -157,7 +167,7 @@ export default function Flow() {
 
       isLoadingRef.current = true;
 
-      const { positions: layoutPositions } = autoLayout(flowDef.data.nodes, flowDef.data.edges);
+      const { positions: layoutPositions, backEdges } = autoLayout(flowDef.data.nodes, flowDef.data.edges);
 
       const reactFlowNodes: Node[] = flowDef.data.nodes.map((node) => {
         const manifest = manifestMap.get(node.type);
@@ -175,13 +185,39 @@ export default function Flow() {
         };
       });
 
-      const reactFlowEdges: Edge[] = flowDef.data.edges.map((edge, idx) => ({
-        id: `e-${edge.source}-${edge.target}-${idx}`,
-        source: edge.source,
-        sourceHandle: edge.sourceHandle,
-        target: edge.target,
-        targetHandle: edge.targetHandle,
-      }));
+      const reactFlowEdges: Edge[] = flowDef.data.edges.map((edge, idx) => {
+        const base: Edge = {
+          id: `e-${edge.source}-${edge.target}-${idx}`,
+          source: edge.source,
+          sourceHandle: edge.sourceHandle,
+          target: edge.target,
+          targetHandle: edge.targetHandle,
+        };
+        const isBack = backEdges.has(`${edge.source}->${edge.target}`);
+        if (isBack) {
+          return {
+            ...base,
+            type: 'smoothstep',
+            style: {
+              stroke: '#f59e0b',
+              strokeWidth: 2,
+              strokeDasharray: '8 4',
+            },
+            animated: true,
+            markerEnd: {
+              type: MarkerType.ArrowClosed,
+              color: '#f59e0b',
+            },
+            label: '循环',
+            labelStyle: {
+              fill: '#f59e0b',
+              fontWeight: 600,
+              fontSize: 12,
+            },
+          };
+        }
+        return base;
+      });
 
       setNodes(reactFlowNodes);
       setEdges(reactFlowEdges);
@@ -352,11 +388,31 @@ export default function Flow() {
   const handleAutoLayout = useCallback(() => {
     const nodeIds = nodes.map((n) => n.id);
     const simpleEdges = edges.map((e) => ({ source: e.source, target: e.target }));
-    const { positions } = layoutDag(nodeIds, simpleEdges, FLOW_LAYOUT);
+    const { positions, backEdges } = layoutDag(nodeIds, simpleEdges, FLOW_LAYOUT);
     setNodes((nds) =>
       nds.map((n) => {
         const pos = positions.get(n.id);
         return pos ? { ...n, position: pos } : n;
+      }),
+    );
+    // Re-apply back-edge styling after layout
+    setEdges((eds) =>
+      eds.map((edge) => {
+        const isBack = backEdges.has(`${edge.source}->${edge.target}`);
+        if (isBack) {
+          return {
+            ...edge,
+            type: 'smoothstep',
+            style: { stroke: '#f59e0b', strokeWidth: 2, strokeDasharray: '8 4' },
+            animated: true,
+            markerEnd: { type: MarkerType.ArrowClosed, color: '#f59e0b' },
+            label: '循环',
+            labelStyle: { fill: '#f59e0b', fontWeight: 600, fontSize: 12 },
+          };
+        }
+        // Reset non-back edges to default
+        const { type: _t, style: _s, label: _l, labelStyle: _ls, ...rest } = edge;
+        return { ...rest, animated: true };
       }),
     );
   }, [nodes, edges]);
