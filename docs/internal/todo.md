@@ -93,7 +93,7 @@
 
 - [x] Eval 跨模型对比：`kal eval run` 新增 `--model <name>` 参数，支持同一 prompt 跑不同模型并对比结果
   已完成：`EvalRunOptions` 新增 `modelOverride`，运行期间临时替换 `config.llm.defaultModel`，运行结束后恢复。`EvalRunResult` 新增 `model` 字段。CLI 解析 `--model` flag 并传入。
-- [~] Lint 增强：severity/location、类型检查、enum 校验、空 flow / 孤立节点检测均已落地；待继续审计过于宽泛的 `configSchema` type 定义
+- [x] Lint 增强：severity/location、类型检查、enum 校验、空 flow / 孤立节点检测、`CONFIG_SCHEMA_MISSING_TYPE` 警告规则均已落地；Constant 和 ComputeState 的 configSchema 已收紧（oneOf 约束）
   现状：`DiagnosticPayload` 已新增 `severity` 字段，lint summary 和 pretty renderer 基于 severity 展示。`validateNodeConfig` 已新增 `CONFIG_TYPE_MISMATCH` 与 `CONFIG_INVALID_ENUM`，并补充 `flowId`/`nodeId`/`phase` 定位信息。另已新增 `ORPHAN_NODE`、`EMPTY_FLOW`，`UNUSED_FLOW` 也会扫描 SubFlow 引用。
 - [x] CI 配置：GitHub Actions 已接通 core/engine build + typecheck + test，并覆盖 studio build
   已完成：`.github/workflows/ci.yml` 已创建，push main / PR 触发，使用 pnpm 9 + Bun + Node，在 CI 中执行安装、core build、core/engine typecheck、studio build、engine build 以及 core/engine tests。
@@ -104,7 +104,8 @@
   下一步：先在四个候选里收敛到一个最适合当前引擎能力的题材，再拆成设计文档、核心 loop、内容实现、playtest 四个阶段推进。
 - [x] 简化 dnd-adventure：减少冗余 flow，合并重复的状态处理逻辑
   已完成：合并 `outro-death` + `outro-win` 为单一 `outro.json`（减少 2 个 flow 文件、10 个节点）。清理 Message 节点冗余 config。lint 零警告通过。剩余 intro/start-adventure/display-character 三个 2 节点静态 flow 已是最小结构，进一步合并收益有限，视为完成。
-- [~] 确保示例项目能用 `kal lint` 零警告通过
+- [x] 确保示例项目能用 `kal lint` 零警告通过
+  已完成：`dnd-adventure` lint 零警告。CI 已添加 `kal lint examples/dnd-adventure` 步骤。
   现状：`dnd-adventure` 已零诊断通过，修复项包括移除 Message 节点 config 中冗余 `system`/`user`/`context` 字段，以及修复 `UNUSED_FLOW` 对 SubFlow 的误报。其他示例仍需逐个复核并固化到 CI/脚本里。
 
 ### 文档
