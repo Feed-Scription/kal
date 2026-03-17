@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { LayoutTemplate, Eye, FolderInput } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/EmptyState';
@@ -6,6 +7,7 @@ import { usePackages, useStudioCommands } from '@/kernel/hooks';
 import type { TemplateEntry } from '@/types/project';
 
 export function TemplateBrowserView() {
+  const { t } = useTranslation('packages');
   const { installed } = usePackages();
   const { loadPackages, applyTemplate } = useStudioCommands();
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -39,9 +41,9 @@ export function TemplateBrowserView() {
           <div className="flex items-center gap-2">
             <LayoutTemplate className="size-4" />
             <div>
-              <h1 className="text-lg font-semibold">Template Browser</h1>
+              <h1 className="text-lg font-semibold">{t('browser.title')}</h1>
               <p className="text-sm text-muted-foreground">
-                浏览项目本地和已安装包中的模板，预览并应用到当前项目。
+                {t('browser.subtitle')}
               </p>
             </div>
           </div>
@@ -74,8 +76,8 @@ export function TemplateBrowserView() {
 
           {filtered.length === 0 ? (
             <EmptyState message={allTemplates.length === 0
-              ? '当前没有可用的模板。安装 template-pack 或 starter-pack 后即可在此浏览。'
-              : '当前分类下没有模板。'} />
+              ? t('browser.noTemplates')
+              : t('browser.noTemplatesInCategory')} />
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
               {filtered.map((tpl) => (
@@ -103,7 +105,7 @@ export function TemplateBrowserView() {
                     {tpl.stateKeys && tpl.stateKeys.length > 0 ? (
                       <span>{tpl.stateKeys.length} state keys</span>
                     ) : null}
-                    <span className="text-muted-foreground/60">from {tpl.packageName}</span>
+                    <span className="text-muted-foreground/60">{t('browser.fromPackage', { package: tpl.packageName })}</span>
                   </div>
 
                   {tpl.tags && tpl.tags.length > 0 ? (
@@ -123,7 +125,7 @@ export function TemplateBrowserView() {
                       onClick={() => setPreviewTemplate(previewTemplate?.id === tpl.id ? null : tpl)}
                     >
                       <Eye className="mr-1 size-3" />
-                      {previewTemplate?.id === tpl.id ? '收起预览' : '预览'}
+                      {previewTemplate?.id === tpl.id ? t('browser.collapsePreview') : t('browser.preview')}
                     </Button>
                     <Button
                       size="sm"
@@ -140,20 +142,20 @@ export function TemplateBrowserView() {
                       }}
                     >
                       <FolderInput className="mr-1 size-3" />
-                      {applying === tpl.id ? '应用中...' : '应用到项目'}
+                      {applying === tpl.id ? t('browser.applying') : t('browser.applyToProject')}
                     </Button>
                   </div>
 
                   {previewTemplate?.id === tpl.id ? (
                     <div className="mt-3 rounded-lg border bg-muted/30 p-3 text-xs">
-                      <div className="font-medium">模板内容预览</div>
+                      <div className="font-medium">{t('browser.templateContentPreview')}</div>
                       <div className="mt-2 space-y-1 text-muted-foreground">
                         {tpl.flows && tpl.flows.length > 0 ? (
-                          <div>Flows: {tpl.flows.join(', ')}</div>
+                          <div>{t('browser.flowsLabel', { list: tpl.flows.join(', ') })}</div>
                         ) : null}
-                        {tpl.sessionRef ? <div>Session: {tpl.sessionRef}</div> : null}
+                        {tpl.sessionRef ? <div>{t('browser.sessionLabel', { name: tpl.sessionRef })}</div> : null}
                         {tpl.stateKeys && tpl.stateKeys.length > 0 ? (
-                          <div>State Keys: {tpl.stateKeys.join(', ')}</div>
+                          <div>{t('browser.stateKeysLabel', { list: tpl.stateKeys.join(', ') })}</div>
                         ) : null}
                       </div>
                     </div>

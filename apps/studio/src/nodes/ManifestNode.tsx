@@ -30,6 +30,7 @@ import { useFlowResource } from "@/kernel/hooks";
 import { overlayClassName } from "@/hooks/use-node-overlay";
 import { NodeOverlayBadge } from "@/components/NodeOverlayBadge";
 import { Code, List, Plus, Radio, Sparkles, Zap, Shuffle, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { NodeOverlayState } from "@/hooks/use-node-overlay";
 import type { NodeManifest } from "@/types/project";
 
@@ -85,6 +86,7 @@ const JsonField = memo(function JsonField({
   required: boolean;
   onCommit: (value: unknown) => void;
 }) {
+  const { t } = useTranslation('flow');
   const isArray = Array.isArray(value) || (!value && name.endsWith("s"));
   const [rawMode, setRawMode] = useState(false);
   const [text, setText] = useState(() => JSON.stringify(value ?? (isArray ? [] : {}), null, 2));
@@ -109,7 +111,7 @@ const JsonField = memo(function JsonField({
             type="button"
             onClick={() => setRawMode(true)}
             className="text-muted-foreground transition-colors hover:text-foreground"
-            title="切换到 JSON 编辑"
+            title={t('switchToJson')}
           >
             <Code className="size-3" />
           </button>
@@ -147,7 +149,7 @@ const JsonField = memo(function JsonField({
             onClick={() => onCommit([...items, ""])}
           >
             <Plus className="mr-1 size-3" />
-            添加
+            {t('add')}
           </Button>
         </div>
       </div>
@@ -166,7 +168,7 @@ const JsonField = memo(function JsonField({
             type="button"
             onClick={() => setRawMode(false)}
             className="text-muted-foreground transition-colors hover:text-foreground"
-            title="切换到列表编辑"
+            title={t('switchToList')}
           >
             <List className="size-3" />
           </button>
@@ -185,7 +187,7 @@ const JsonField = memo(function JsonField({
             onCommit(JSON.parse(text));
             setError(null);
           } catch {
-            setError("JSON 格式错误");
+            setError("JSON format error");
           }
         }}
       />
@@ -214,6 +216,7 @@ function ConfigField({
   fullConfig: Record<string, unknown>;
 }) {
   const { updateConfig } = useNodeConfig(nodeId);
+  const { t } = useTranslation('flow');
   const setValue = (next: unknown) => updateConfig({ [name]: next } as Record<string, unknown>);
   const label = labelFor(name);
 
@@ -235,7 +238,7 @@ function ConfigField({
         required={required}
         value={value}
         placeholder="state key"
-        addLabel="添加 Key"
+        addLabel={t('addKey')}
         onCommit={setValue}
       />
     );
@@ -381,7 +384,7 @@ function ConfigField({
         </label>
         <Select value={String(value ?? "")} onValueChange={(next) => setValue(next)}>
           <SelectTrigger className="mt-1">
-            <SelectValue placeholder="选择 Flow" />
+            <SelectValue placeholder={t('selectFlow')} />
           </SelectTrigger>
           <SelectContent>
             {flowNames.map((flowName) => (
@@ -403,7 +406,7 @@ function ConfigField({
         </label>
         <Select value={String(value ?? "")} onValueChange={(next) => setValue(next)}>
           <SelectTrigger className="mt-1">
-            <SelectValue placeholder={`选择 ${labelFor(name)}`} />
+            <SelectValue placeholder={t('selectField', { field: labelFor(name) })} />
           </SelectTrigger>
           <SelectContent>
             {schema.enum.map((item) => (
@@ -477,6 +480,7 @@ function ConfigField({
 }
 
 export const ManifestNode = memo(({ id, data, selected }: NodeProps) => {
+  const { t } = useTranslation('flow');
   const nodeData = data as {
     label?: string;
     config?: Record<string, unknown>;
@@ -523,7 +527,7 @@ export const ManifestNode = memo(({ id, data, selected }: NodeProps) => {
           </div>
         ) : (
           <div className="text-xs text-muted-foreground">
-            该节点没有可编辑配置。
+            {t('noEditableConfig')}
           </div>
         )}
       </BaseNodeContent>

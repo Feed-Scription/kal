@@ -1,4 +1,5 @@
 import { memo } from "react";
+import { useTranslation } from "react-i18next";
 import { Position, type NodeProps } from "@xyflow/react";
 import {
   BaseNode,
@@ -23,6 +24,7 @@ import { NodeOverlayBadge } from "@/components/NodeOverlayBadge";
 import type { NodeOverlayState } from "@/hooks/use-node-overlay";
 
 export const PromptStepNode = memo(({ id, data }: NodeProps) => {
+  const { t } = useTranslation('session');
   const config = (data as any).config || {};
   const overlay = (data as any).overlay as NodeOverlayState | undefined;
   const { updateConfig } = useNodeConfig(id);
@@ -33,19 +35,19 @@ export const PromptStepNode = memo(({ id, data }: NodeProps) => {
       <NodeOverlayBadge overlay={overlay} />
       <BaseNodeHeader className="border-b bg-green-50 dark:bg-green-950/30">
         <MessageSquare className="size-4 text-green-600" />
-        <BaseNodeHeaderTitle>等待输入</BaseNodeHeaderTitle>
+        <BaseNodeHeaderTitle>{t('stepTypes.Prompt')}</BaseNodeHeaderTitle>
       </BaseNodeHeader>
       <BaseNodeContent>
         <div className="space-y-2">
           <div>
-            <label className="text-xs text-muted-foreground">Flow 引用</label>
+            <label className="text-xs text-muted-foreground">{t('node.flowRef')}</label>
             {flowNames.length > 0 ? (
               <Select
                 value={config.flowRef || ""}
                 onValueChange={(val) => updateConfig({ flowRef: val })}
               >
                 <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="选择 Flow" />
+                  <SelectValue placeholder={t('node.selectFlow')} />
                 </SelectTrigger>
                 <SelectContent>
                   {flowNames.map((name) => (
@@ -57,7 +59,7 @@ export const PromptStepNode = memo(({ id, data }: NodeProps) => {
               </Select>
             ) : (
               <Input
-                placeholder="Flow 名称"
+                placeholder={t('node.flowName')}
                 className="mt-1"
                 value={config.flowRef || ""}
                 onChange={(e) => updateConfig({ flowRef: e.target.value })}
@@ -65,7 +67,7 @@ export const PromptStepNode = memo(({ id, data }: NodeProps) => {
             )}
           </div>
           <div>
-            <label className="text-xs text-muted-foreground">输入通道</label>
+            <label className="text-xs text-muted-foreground">{t('node.inputChannel')}</label>
             <Input
               placeholder="user_input"
               className="mt-1"
@@ -74,18 +76,18 @@ export const PromptStepNode = memo(({ id, data }: NodeProps) => {
             />
           </div>
           <div>
-            <label className="text-xs text-muted-foreground">State Key</label>
+            <label className="text-xs text-muted-foreground">{t('node.stateKey')}</label>
             <Input
-              placeholder="可选，如 playerName"
+              placeholder={t('node.stateKeyPlaceholder')}
               className="mt-1"
               value={config.stateKey || ""}
               onChange={(e) => updateConfig({ stateKey: e.target.value })}
             />
           </div>
           <div>
-            <label className="text-xs text-muted-foreground">提示文本</label>
+            <label className="text-xs text-muted-foreground">{t('node.promptText')}</label>
             <Input
-              placeholder="请输入..."
+              placeholder={t('node.promptTextPlaceholder')}
               className="mt-1"
               value={config.promptText || ""}
               onChange={(e) => updateConfig({ promptText: e.target.value })}
@@ -95,7 +97,7 @@ export const PromptStepNode = memo(({ id, data }: NodeProps) => {
       </BaseNodeContent>
       <LabeledHandle
         id="target"
-        title="入口"
+        title={t('node.entry')}
         type="target"
         position={Position.Left}
       />

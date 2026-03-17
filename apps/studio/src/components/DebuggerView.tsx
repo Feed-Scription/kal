@@ -1,15 +1,14 @@
 import { useEffect, useState } from "react";
 import { Bug, Clock3, Play, RefreshCw, Rocket } from "lucide-react";
+import { useTranslation } from 'react-i18next';
 import { Button } from "@/components/ui/button";
 import { SessionRunDialog } from "@/components/SessionRunDialog";
 import { EmptyState } from "@/components/EmptyState";
 import { useRunDebug, useStudioCommands } from "@/kernel/hooks";
-
-function formatTime(timestamp: number) {
-  return new Date(timestamp).toLocaleString("zh-CN", { hour12: false });
-}
+import { formatDateTime, formatTimeFromTimestamp } from "@/i18n/format";
 
 export function DebuggerView() {
+  const { t } = useTranslation('debug');
   const {
     breakpoints,
     hasBreakpointAtStep,
@@ -37,7 +36,7 @@ export function DebuggerView() {
         await selectRun(preferredRunId);
       }
     } catch (err) {
-      setError((err as Error).message || "加载调试运行状态失败");
+      setError((err as Error).message || t('errors.loadRunsFailed'));
     } finally {
       setLoading(false);
     }
@@ -56,7 +55,7 @@ export function DebuggerView() {
       await selectRun(created.run_id);
       await refresh();
     } catch (err) {
-      setError((err as Error).message || "创建 managed run 失败");
+      setError((err as Error).message || t('errors.createRunFailed'));
     } finally {
       setLoading(false);
     }
@@ -70,7 +69,7 @@ export function DebuggerView() {
       await selectRun(created.run_id);
       await refresh();
     } catch (err) {
-      setError((err as Error).message || "Smoke run 失败");
+      setError((err as Error).message || t('errors.smokeRunFailed'));
     } finally {
       setLoading(false);
     }
@@ -83,7 +82,7 @@ export function DebuggerView() {
       await action();
       await refresh();
     } catch (err) {
-      setError((err as Error).message || "更新 run 失败");
+      setError((err as Error).message || t('errors.updateRunFailed'));
     } finally {
       setLoading(false);
     }
@@ -106,30 +105,30 @@ export function DebuggerView() {
               <div className="flex items-center gap-2">
                 <Bug className="size-4" />
                 <div>
-                  <h1 className="text-lg font-semibold">Debugger</h1>
-                  <p className="text-sm text-muted-foreground">官方工作流扩展，消费 Engine managed run 作为当前调试入口。</p>
+                  <h1 className="text-lg font-semibold">{t('title')}</h1>
+                  <p className="text-sm text-muted-foreground">{t('description')}</p>
                 </div>
               </div>
               <Button variant="outline" size="sm" onClick={() => void refresh()} disabled={loading}>
                 <RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} />
-                刷新
+                {t('refresh')}
               </Button>
             </div>
 
             <div className="flex gap-2">
               <Button onClick={() => void startManagedRun()} disabled={loading}>
                 <Play className="size-4" />
-                新建 Run
+{t('newRun')}
               </Button>
               <Button variant="outline" onClick={() => void startManagedRun("step")} disabled={loading}>
-                单步新建
+                {t('stepNew')}
               </Button>
               <Button variant="outline" onClick={() => void startSmokeRun()} disabled={loading}>
                 <Rocket className="size-4" />
-                Smoke Run
+                {t('smokeRun')}
               </Button>
               <Button variant="outline" onClick={() => setDialogOpen(true)}>
-                打开 Runtime 面板
+                {t('openRuntimePanel')}
               </Button>
             </div>
 
@@ -141,7 +140,7 @@ export function DebuggerView() {
 
             <div className="space-y-3">
               {runs.length === 0 ? (
-                <EmptyState message="当前没有 active run。可以新建一个 managed run，或从 Session 编辑器进入运行面板。" />
+                <EmptyState message={t('noActiveRuns')} />
               ) : (
                 runs.map((record) => (
                   <button
@@ -149,7 +148,7 @@ export function DebuggerView() {
                     type="button"
                     onClick={() => {
                       void selectRun(record.runId).catch((err) => {
-                        setError((err as Error).message || "加载 run state 失败");
+                        setError((err as Error).message || t('errors.loadRunStateFailed'));
                       });
                     }}
                     className={`w-full rounded-xl border px-4 py-3 text-left ${
@@ -163,7 +162,7 @@ export function DebuggerView() {
                       </div>
                       <div className="text-right text-xs text-muted-foreground">
                         <div>{record.run.active ? "active" : "inactive"}</div>
-                        <div>{formatTime(record.run.updated_at)}</div>
+                        <div>{formatDateTime(record.run.updated_at)}</div>
                       </div>
                     </div>
                   </button>
@@ -177,8 +176,8 @@ export function DebuggerView() {
               <div className="flex items-center gap-2">
                 <Clock3 className="size-4" />
                 <div>
-                  <h2 className="text-lg font-semibold">Run Snapshot</h2>
-                  <p className="text-sm text-muted-foreground">当前选中 run 的等待状态、事件、输入历史和 state summary。</p>
+                  <h2 className="text-lg font-semibold">{t('selectRun')}</h2>
+                  <p className="text-sm text-muted-foreground">{t('snapshotDescription')}</p>
                 </div>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -191,7 +190,7 @@ export function DebuggerView() {
                     toggleBreakpoint(selectedStepId);
                   }}
                 >
-                  {selectedStepHasBreakpoint ? "移除当前断点" : "当前 Step 设断点"}
+                  {selectedStepHasBreakpoint ? t('removeBreakpoint') : t('addBreakpointAtStep')}
                 </Button>
                 <Button
                   variant="outline"
@@ -205,7 +204,7 @@ export function DebuggerView() {
                     });
                   }}
                 >
-                  单步
+                  {t('step')}
                 </Button>
                 <Button
                   variant="outline"
@@ -219,7 +218,7 @@ export function DebuggerView() {
                     });
                   }}
                 >
-                  继续
+                  {t('continue')}
                 </Button>
                 <Button
                   variant="outline"
@@ -233,29 +232,29 @@ export function DebuggerView() {
                     });
                   }}
                 >
-                  从头重放
+                  {t('replayFromStart')}
                 </Button>
               </div>
             </div>
 
             {!selectedRun || !selectedRunState ? (
-              <EmptyState message="选择一个 run 以查看详细状态。" />
+              <EmptyState message={t('selectRunToView')} />
             ) : (
               <div className="space-y-4">
                 <div className="grid gap-3 md:grid-cols-2">
                   <div className="rounded-xl border p-4">
-                    <div className="text-sm font-medium">状态</div>
+                    <div className="text-sm font-medium">{t('runStatus')}</div>
                     <div className="mt-2 text-2xl font-semibold">{selectedRun.status}</div>
                     <div className="mt-1 text-xs text-muted-foreground">
-                      创建于 {formatTime(selectedRun.created_at)}
+                      {t('createdAt', { time: formatDateTime(selectedRun.created_at) })}
                     </div>
                   </div>
                   <div className="rounded-xl border p-4">
-                    <div className="text-sm font-medium">等待输入</div>
+                    <div className="text-sm font-medium">{t('waitingFor')}</div>
                     <div className="mt-2 text-sm">
                       {selectedRunState.waiting_for
                         ? `${selectedRunState.waiting_for.kind} @ ${selectedRunState.waiting_for.step_id}`
-                        : "无"}
+                        : t('none')}
                     </div>
                     <div className="mt-1 text-xs text-muted-foreground">
                       cursor: {selectedRunState.cursor.currentStepId ?? "null"} / {selectedRunState.cursor.stepIndex}
@@ -264,18 +263,18 @@ export function DebuggerView() {
                 </div>
 
                 <div className="rounded-xl border p-4">
-                  <div className="mb-3 text-sm font-medium">State Summary</div>
+                  <div className="mb-3 text-sm font-medium">{t('stateDiff.title')}</div>
                   <div className="grid gap-3 md:grid-cols-3">
                     <div>
-                      <div className="text-xs text-muted-foreground">Total Keys</div>
+                      <div className="text-xs text-muted-foreground">{t('stateKeys')}</div>
                       <div className="text-lg font-semibold">{selectedRunState.state_summary.total_keys}</div>
                     </div>
                     <div>
-                      <div className="text-xs text-muted-foreground">Changed Keys</div>
+                      <div className="text-xs text-muted-foreground">{t('changedKeys')}</div>
                       <div className="text-lg font-semibold">{selectedRunState.state_summary.changed.length}</div>
                     </div>
                     <div>
-                      <div className="text-xs text-muted-foreground">Recent Events</div>
+                      <div className="text-xs text-muted-foreground">{t('recentEvents')}</div>
                       <div className="text-lg font-semibold">{selectedTimeline.length}</div>
                     </div>
                   </div>
@@ -283,11 +282,11 @@ export function DebuggerView() {
 
                 <div className="rounded-xl border p-4">
                   <div className="mb-3 flex items-center justify-between gap-3">
-                    <div className="text-sm font-medium">Breakpoints</div>
+                    <div className="text-sm font-medium">{t('breakpoints')}</div>
                     <div className="text-xs text-muted-foreground">{breakpoints.length} active</div>
                   </div>
                   {breakpoints.length === 0 ? (
-                    <div className="text-xs text-muted-foreground">当前还没有断点。可以对当前 selected step 直接加断点。</div>
+                    <div className="text-xs text-muted-foreground">{t('noBreakpointsHint')}</div>
                   ) : (
                     <div className="flex flex-wrap gap-2">
                       {breakpoints.map((entry) => (
@@ -308,7 +307,7 @@ export function DebuggerView() {
 
                 <div className="grid gap-4 xl:grid-cols-2">
                   <div className="rounded-xl border p-4">
-                    <div className="mb-3 text-sm font-medium">Trace Timeline</div>
+                    <div className="mb-3 text-sm font-medium">{t('trace.title')}</div>
                     <div className="space-y-2">
                       {selectedTimeline.slice(0, 6).map((entry) => (
                         <div
@@ -319,7 +318,7 @@ export function DebuggerView() {
                         >
                           <div className="flex items-center justify-between gap-3">
                             <div className="font-medium">{entry.title}</div>
-                            <div className="text-muted-foreground">{formatTime(entry.timestamp)}</div>
+                            <div className="text-muted-foreground">{formatDateTime(entry.timestamp)}</div>
                           </div>
                           <div className="text-muted-foreground">
                             {entry.eventType} · {entry.cursorStepId ?? "null"}
@@ -331,9 +330,9 @@ export function DebuggerView() {
                   </div>
 
                   <div className="rounded-xl border p-4">
-                    <div className="mb-3 text-sm font-medium">State Diff</div>
+                    <div className="mb-3 text-sm font-medium">{t('stateDiff.title')}</div>
                     {selectedStateDiff.length === 0 ? (
-                      <div className="text-xs text-muted-foreground">当前没有 state diff。</div>
+                      <div className="text-xs text-muted-foreground">{t('stateDiff.noChanges')}</div>
                     ) : (
                       <div className="space-y-2">
                         {selectedStateDiff.slice(0, 6).map((entry) => (
@@ -355,9 +354,9 @@ export function DebuggerView() {
                 </div>
 
                 <div className="rounded-xl border p-4">
-                  <div className="mb-3 text-sm font-medium">Input History</div>
+                  <div className="mb-3 text-sm font-medium">{t('stateManager.title')}</div>
                   {selectedInputHistory.length === 0 ? (
-                    <div className="text-xs text-muted-foreground">当前 run 还没有记录任何交互输入。</div>
+                    <div className="text-xs text-muted-foreground">{t('noInputHistory')}</div>
                   ) : (
                     <div className="space-y-2">
                       {selectedInputHistory.map((entry, index) => (
@@ -366,7 +365,7 @@ export function DebuggerView() {
                             <div className="font-medium">
                               {entry.step_id} · step {entry.step_index}
                             </div>
-                            <div className="text-muted-foreground">{formatTime(entry.timestamp)}</div>
+                            <div className="text-muted-foreground">{formatTimeFromTimestamp(entry.timestamp)}</div>
                           </div>
                           <div className="mt-1 break-all text-muted-foreground">{entry.input}</div>
                         </div>

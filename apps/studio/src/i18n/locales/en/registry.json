@@ -1,0 +1,203 @@
+{
+  "capability": {
+    "projectRead": {
+      "title": "Project Read",
+      "description": "Read canonical project graph, resource content and derived indexes.",
+      "prompt": "Allow extension to read flow, session, config and state data in the current project."
+    },
+    "projectWrite": {
+      "title": "Project Write",
+      "description": "Write canonical project resources and enter the unified transaction chain.",
+      "prompt": "Allow extension to modify project resources and persist via transactions."
+    },
+    "engineExecute": {
+      "title": "Engine Execute",
+      "description": "Create, advance and cancel managed runs.",
+      "prompt": "Allow extension to invoke Engine to execute flow or session runs."
+    },
+    "engineDebug": {
+      "title": "Engine Debug",
+      "description": "Access advanced debug and run control interfaces.",
+      "prompt": "Allow extension to access debug controls, trace comparison and advanced run capabilities."
+    },
+    "traceRead": {
+      "title": "Trace Read",
+      "description": "Read run traces, state summaries and recent events.",
+      "prompt": "Allow extension to read run traces and state summaries for the current project."
+    },
+    "networkFetch": {
+      "title": "Network Fetch",
+      "description": "Access external network resources.",
+      "prompt": "Allow extension to make requests to external networks."
+    },
+    "processExec": {
+      "title": "Process Exec",
+      "description": "Execute local processes or shell commands.",
+      "prompt": "Allow extension to execute local processes or shell commands."
+    },
+    "packageInstall": {
+      "title": "Package Install",
+      "description": "Install template packs or studio extensions.",
+      "prompt": "Allow extension to install packages or templates."
+    },
+    "packagePublish": {
+      "title": "Package Publish",
+      "description": "Publish template packs or studio extensions.",
+      "prompt": "Allow extension to publish packages to team distribution paths."
+    },
+    "commentWrite": {
+      "title": "Comment Write",
+      "description": "Write comments or review annotations.",
+      "prompt": "Allow extension to write comments and review annotations."
+    },
+    "reviewAccept": {
+      "title": "Review Accept",
+      "description": "Accept review proposals and apply changes.",
+      "prompt": "Allow extension to accept proposals and apply review conclusions."
+    },
+    "aiInvoke": {
+      "title": "AI Invoke",
+      "description": "Invoke AI-assisted capabilities.",
+      "prompt": "Allow extension to invoke AI capabilities to analyze or generate content."
+    }
+  },
+  "ext": {
+    "flowEditor": {
+      "title": "Flow Editor",
+      "shortTitle": "Flow",
+      "description": "Official core extension for graphical editing and execution entry of Flow resources.",
+      "viewTitle": "Flow Editor",
+      "viewDescription": "View, adjust and execute Flow resources in the project."
+    },
+    "sessionEditor": {
+      "title": "Session Editor",
+      "shortTitle": "Session",
+      "description": "Official core extension for Session pacing, transitions and managed run entry.",
+      "viewTitle": "Session Editor",
+      "viewDescription": "Edit Session pacing, transitions and managed run entry."
+    },
+    "stateEditor": {
+      "title": "State Editor",
+      "shortTitle": "State",
+      "description": "Official workflow extension that consumes canonical state snapshots and provides debug auxiliary views.",
+      "viewTitle": "State View",
+      "viewDescription": "View canonical state snapshots returned by Engine.",
+      "inspectorTitle": "State Inspector",
+      "inspectorDescription": "State summary card in the right inspector slot."
+    },
+    "configEditor": {
+      "title": "Config Editor",
+      "shortTitle": "Config",
+      "description": "Official workflow extension for project configuration and runtime settings editing.",
+      "viewTitle": "Config View",
+      "viewDescription": "View project configuration and runtime settings."
+    },
+    "problems": {
+      "title": "Problems",
+      "shortTitle": "Problems",
+      "description": "Official workflow extension for problem list and diagnostics query entry.",
+      "viewTitle": "Problems",
+      "viewDescription": "View problem entries exposed by Kernel and Engine.",
+      "panelTitle": "Problems Panel",
+      "panelDescription": "Diagnostics summary in the bottom panel slot."
+    },
+    "promptPreview": {
+      "title": "Prompt Preview",
+      "shortTitle": "Prompts",
+      "description": "Official workflow extension for prompt preview and prompt-like configuration queries.",
+      "viewTitle": "Prompt Preview",
+      "viewDescription": "Preview Session prompts and prompt-like configurations in Flows."
+    },
+    "debugger": {
+      "title": "Debugger",
+      "shortTitle": "Debugger",
+      "description": "Official workflow extension that consumes managed runs and debug state snapshots.",
+      "viewTitle": "Debugger",
+      "viewDescription": "View current managed runs and debug state.",
+      "summaryTitle": "Debug Summary",
+      "summaryDescription": "Managed run summary in the right debug view slot.",
+      "tracePanelTitle": "Trace Panel",
+      "tracePanelDescription": "Selected run timeline in the bottom panel slot.",
+      "stateDiffPanelTitle": "State Diff Panel",
+      "stateDiffPanelDescription": "Selected run state diff in the bottom panel slot."
+    },
+    "h5Preview": {
+      "title": "H5 Preview",
+      "shortTitle": "Preview",
+      "description": "Official workflow extension for in-browser project/active run preview.",
+      "viewTitle": "H5 Preview",
+      "viewDescription": "View browser preview generated from the current project and active run."
+    },
+    "comments": {
+      "title": "Comments",
+      "shortTitle": "Comments",
+      "description": "Official workflow extension for async comment threads and review coordination.",
+      "viewTitle": "Comments",
+      "viewDescription": "View comment threads on proposals/resources/runs.",
+      "panelTitle": "Comments Panel",
+      "panelDescription": "Comment thread summary in the bottom panel slot."
+    },
+    "review": {
+      "title": "Review",
+      "shortTitle": "Review",
+      "description": "Official workflow extension for proposal bundles, validation plans and accept/rollback flows.",
+      "viewTitle": "Review",
+      "viewDescription": "View proposal bundles, validation results and accept/rollback operations.",
+      "historyPanelTitle": "Review History",
+      "historyPanelDescription": "Proposal history in the bottom panel slot."
+    },
+    "versionControl": {
+      "title": "Version Control",
+      "shortTitle": "History",
+      "description": "Official workflow extension for resource versions, transaction history, checkpoints and restore entry.",
+      "viewTitle": "Version Control",
+      "viewDescription": "View resource versions, transaction logs and checkpoints.",
+      "panelTitle": "History Panel",
+      "panelDescription": "Transaction/checkpoint summary in the bottom panel slot."
+    },
+    "eventLog": {
+      "title": "Event Log",
+      "description": "Official workflow extension that consumes Kernel event stream and long-running job progress.",
+      "panelTitle": "Event Log",
+      "panelDescription": "Kernel event stream and task progress in the bottom panel slot."
+    },
+    "packageManager": {
+      "title": "Package Manager",
+      "shortTitle": "Packages",
+      "description": "Official workflow extension for managing locally installed packages, templates and extensions.",
+      "viewTitle": "Package Manager",
+      "viewDescription": "View and manage locally installed packages."
+    },
+    "templateBrowser": {
+      "title": "Template Browser",
+      "shortTitle": "Templates",
+      "description": "Official workflow extension for browsing and previewing templates from installed packages.",
+      "viewTitle": "Template Browser",
+      "viewDescription": "Browse templates from local and installed packages."
+    },
+    "collaborators": {
+      "title": "Collaborators",
+      "description": "Official workflow extension showing online collaborators and activity status.",
+      "panelTitle": "Collaborators",
+      "panelDescription": "Collaborator online status in the bottom panel slot."
+    },
+    "terminal": {
+      "title": "Terminal",
+      "shortTitle": "Terminal",
+      "description": "Official workflow extension providing a lightweight command executor for kal subcommands like lint/smoke.",
+      "viewTitle": "Terminal",
+      "viewDescription": "Execute kal subcommands (lint, smoke, etc.)."
+    },
+    "vercelDeploy": {
+      "title": "Vercel Deploy",
+      "shortTitle": "Deploy",
+      "description": "Official workflow extension for Vercel deployment trigger and status viewing (initially a stub).",
+      "viewTitle": "Deploy",
+      "viewDescription": "Trigger Vercel deployments and view deployment status."
+    }
+  },
+  "dynamicRegistration": {
+    "kindNotAllowed": "Dynamic registration of {{kind}} type extensions is not currently allowed",
+    "alreadyRegistered": "Extension {{id}} is already registered"
+  }
+}

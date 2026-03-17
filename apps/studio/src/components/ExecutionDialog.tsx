@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2, Play, AlertCircle, CheckCircle2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useStudioCommands } from "@/kernel/hooks";
 import type { FlowMeta } from "@/types/project";
 
@@ -25,6 +26,7 @@ type ExecutionState = "idle" | "running" | "success" | "error";
 
 export function ExecutionDialog({ open, onOpenChange, flowId, flowMeta }: ExecutionDialogProps) {
   const { executeFlow } = useStudioCommands();
+  const { t } = useTranslation('flow');
   const [inputValues, setInputValues] = useState<Record<string, string>>({});
   const [state, setState] = useState<ExecutionState>("idle");
   const [result, setResult] = useState<any>(null);
@@ -64,7 +66,7 @@ export function ExecutionDialog({ open, onOpenChange, flowId, flowMeta }: Execut
       setResult(res);
       setState("success");
     } catch (err: any) {
-      setError(err.message || "执行失败");
+      setError(err.message || t('executionFailed'));
       setState("error");
     }
   };
@@ -83,9 +85,9 @@ export function ExecutionDialog({ open, onOpenChange, flowId, flowMeta }: Execut
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>运行 Flow: {flowId}</DialogTitle>
+          <DialogTitle>{t('runFlowTitle', { flowId })}</DialogTitle>
           <DialogDescription>
-            {inputs.length > 0 ? "填写输入参数后执行" : "点击运行执行此 Flow"}
+            {inputs.length > 0 ? t('fillInputs') : t('clickToRun')}
           </DialogDescription>
         </DialogHeader>
 
@@ -98,7 +100,7 @@ export function ExecutionDialog({ open, onOpenChange, flowId, flowMeta }: Execut
                   <Input
                     value={inputValues[input.name] ?? (input.defaultValue != null ? String(input.defaultValue) : "")}
                     onChange={(e) => setInputValues({ ...inputValues, [input.name]: e.target.value })}
-                    placeholder={`${input.type}${input.required ? " (必填)" : ""}`}
+                    placeholder={`${input.type}${input.required ? ` ${t('required')}` : ""}`}
                     disabled={state === "running"}
                   />
                 </div>
@@ -109,7 +111,7 @@ export function ExecutionDialog({ open, onOpenChange, flowId, flowMeta }: Execut
           {state === "running" && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="size-4 animate-spin" />
-              执行中...
+              {t('executing')}
             </div>
           )}
 
@@ -117,7 +119,7 @@ export function ExecutionDialog({ open, onOpenChange, flowId, flowMeta }: Execut
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm text-green-600">
                 <CheckCircle2 className="size-4" />
-                执行成功
+                {t('executionSuccess')}
               </div>
               <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-all rounded-lg border bg-muted p-3 text-xs">
                 {JSON.stringify(result, null, 2)}
@@ -135,12 +137,12 @@ export function ExecutionDialog({ open, onOpenChange, flowId, flowMeta }: Execut
 
         <DialogFooter>
           <Button variant="outline" onClick={() => handleClose(false)}>
-            {state === "success" || state === "error" ? "关闭" : "取消"}
+            {state === "success" || state === "error" ? t('close') : t('cancel')}
           </Button>
           {(state === "idle" || state === "error") && (
             <Button onClick={handleExecute}>
               <Play className="mr-1.5 size-4" />
-              运行
+              {t('run')}
             </Button>
           )}
         </DialogFooter>

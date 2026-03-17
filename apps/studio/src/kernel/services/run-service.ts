@@ -17,7 +17,7 @@ export const runService: RunService = {
 
       getKernelEventRecorder()({
         type: eventType,
-        message: `Run ${event.run.run_id} 收到 ${event.type} 事件`,
+        message: `Run ${event.run.run_id} received ${event.type} event`,
         runId: event.run.run_id,
         data: {
           status: event.run.status,

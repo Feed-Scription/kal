@@ -1,5 +1,6 @@
 import { ExternalLink, Loader2, Monitor, Radio, RefreshCw, Smartphone, Tablet } from 'lucide-react';
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { getEngineAssetUrl } from '@/api/engine-client';
 import { useStudioResources, useRunDebug, useStudioCommands } from '@/kernel/hooks';
@@ -31,6 +32,7 @@ type KalMessage =
   | { type: 'kal:signal.in'; payload: { channel: string; data: unknown } };
 
 export function H5PreviewView() {
+  const { t } = useTranslation('preview');
   const [reloadToken, setReloadToken] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -99,15 +101,15 @@ export function H5PreviewView() {
       <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
         <div className="flex items-center gap-3">
           <div>
-            <h1 className="text-lg font-semibold">H5 Preview</h1>
+            <h1 className="text-lg font-semibold">{t('h5.title')}</h1>
             <p className="text-sm text-muted-foreground">
-              Browser preview with run/state/signal sync
+              {t('h5.subtitle')}
             </p>
           </div>
           {previewReady && (
             <span className="flex items-center gap-1 rounded-full border border-green-600/30 bg-green-50 px-2 py-0.5 text-[10px] text-green-700">
               <Radio className="size-3" />
-              已连接
+              {t('h5.connected')}
             </span>
           )}
         </div>
@@ -131,12 +133,12 @@ export function H5PreviewView() {
           </div>
           <Button variant="outline" size="sm" onClick={handleReload}>
             <RefreshCw className="size-4" />
-            重新加载
+            {t('h5.reload')}
           </Button>
           <Button variant="outline" size="sm" asChild>
             <a href={src} target="_blank" rel="noreferrer">
               <ExternalLink className="size-4" />
-              新窗口打开
+              {t('h5.openInNewTab')}
             </a>
           </Button>
         </div>
@@ -147,16 +149,16 @@ export function H5PreviewView() {
           <div className="absolute inset-4 z-10 flex items-center justify-center rounded-2xl border bg-background/80 backdrop-blur-sm">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="size-4 animate-spin" />
-              加载中...
+              {t('h5.loading')}
             </div>
           </div>
         )}
         {error && (
           <div className="absolute inset-4 z-10 flex items-center justify-center rounded-2xl border bg-background/80 backdrop-blur-sm">
             <div className="text-center">
-              <p className="text-sm text-destructive">预览加载失败</p>
+              <p className="text-sm text-destructive">{t('h5.loadFailed')}</p>
               <Button variant="outline" size="sm" className="mt-2" onClick={handleReload}>
-                重试
+                {t('h5.retry')}
               </Button>
             </div>
           </div>
@@ -184,9 +186,9 @@ export function H5PreviewView() {
       {signalLog.length > 0 && (
         <div className="border-t">
           <div className="flex items-center justify-between px-4 py-2">
-            <span className="text-xs font-medium text-muted-foreground">Signal Log ({signalLog.length})</span>
+            <span className="text-xs font-medium text-muted-foreground">{t('h5.signalLog', { count: signalLog.length })}</span>
             <Button variant="ghost" size="sm" onClick={() => setSignalLog([])}>
-              清除
+              {t('h5.clearLog')}
             </Button>
           </div>
           <div className="max-h-32 overflow-auto px-4 pb-2">

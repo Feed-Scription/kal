@@ -1,15 +1,14 @@
 import { useState } from 'react';
 import { ClipboardCheck, FlaskConical, RotateCcw, ShieldCheck, Sparkles, Eye, AlertCircle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { EmptyState } from "@/components/EmptyState";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useCapabilityGate, useReviewWorkspace, useStudioCommands, useVersionControl, useRunDebug } from '@/kernel/hooks';
-
-function formatTime(timestamp: number) {
-  return new Date(timestamp).toLocaleString('zh-CN', { hour12: false });
-}
+import { formatDateTime } from '@/i18n/format';
 
 export function ReviewView() {
+  const { t } = useTranslation('review');
   const { activeProposal, proposals } = useReviewWorkspace();
   const capabilityGate = useCapabilityGate();
   const { checkpoints } = useVersionControl();
@@ -51,7 +50,7 @@ export function ReviewView() {
     try {
       await action();
     } catch (err) {
-      setError((err as Error).message || '执行 review 操作失败');
+      setError((err as Error).message || t('actionError'));
     } finally {
       setSubmitting(false);
     }
@@ -64,20 +63,20 @@ export function ReviewView() {
           <div className="flex items-center gap-2">
             <ClipboardCheck className="size-4" />
             <div>
-              <h1 className="text-lg font-semibold">Review Workspace</h1>
-              <p className="text-sm text-muted-foreground">把当前编辑状态打包成可审查 proposal，并围绕 lint/smoke/debug 做验证。</p>
+              <h1 className="text-lg font-semibold">{t('workspaceTitle')}</h1>
+              <p className="text-sm text-muted-foreground">{t('workspaceSubtitle')}</p>
             </div>
           </div>
 
           <div className="space-y-2">
-            <Input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Proposal 标题" />
-            <Input value={intent} onChange={(event) => setIntent(event.target.value)} placeholder="目标与意图说明" />
-            <Button onClick={handleCreate}>创建 Proposal Bundle</Button>
+            <Input value={title} onChange={(event) => setTitle(event.target.value)} placeholder={t('proposalTitlePlaceholder')} />
+            <Input value={intent} onChange={(event) => setIntent(event.target.value)} placeholder={t('intentPlaceholder')} />
+            <Button onClick={handleCreate}>{t('createProposalBundle')}</Button>
           </div>
 
           <div className="space-y-2">
             {proposals.length === 0 ? (
-              <EmptyState message="当前还没有 proposal。先创建一个 review bundle。" />
+              <EmptyState message={t('noProposalsYet')} />
             ) : (
               proposals.map((proposal) => (
                 <button
@@ -90,7 +89,7 @@ export function ReviewView() {
                 >
                   <div className="font-medium">{proposal.title}</div>
                   <div className="text-xs text-muted-foreground">
-                    {proposal.status} · {formatTime(proposal.createdAt)}
+                    {proposal.status} · {formatDateTime(proposal.createdAt)}
                   </div>
                 </button>
               ))
@@ -100,7 +99,7 @@ export function ReviewView() {
 
         <section className="space-y-4 rounded-2xl border bg-card p-5">
           {!activeProposal ? (
-            <EmptyState message="选择或创建一个 proposal 以开始 review。" />
+            <EmptyState message={t('selectOrCreateProposal')} />
           ) : (
             <>
               <div className="flex items-start justify-between gap-4">
@@ -110,7 +109,7 @@ export function ReviewView() {
                 </div>
                 <div className="text-right text-xs text-muted-foreground">
                   <div>{activeProposal.status}</div>
-                  <div>{formatTime(activeProposal.createdAt)}</div>
+                  <div>{formatDateTime(activeProposal.createdAt)}</div>
                 </div>
               </div>
 
@@ -122,14 +121,14 @@ export function ReviewView() {
 
               <div className="grid gap-4 xl:grid-cols-2">
                 <div className="space-y-4 rounded-xl border p-4">
-                  <div className="text-sm font-medium">Semantic Summary</div>
+                  <div className="text-sm font-medium">{t('semanticSummary')}</div>
                   <div className="grid gap-3 md:grid-cols-2">
                     <div className="rounded-lg border p-3 text-sm">
-                      <div className="text-xs text-muted-foreground">Added Flows</div>
+                      <div className="text-xs text-muted-foreground">{t('touchedResources')}</div>
                       <div className="mt-1 font-semibold">{activeProposal.semanticSummary.addedFlows.length}</div>
                     </div>
                     <div className="rounded-lg border p-3 text-sm">
-                      <div className="text-xs text-muted-foreground">Changed Flows</div>
+                      <div className="text-xs text-muted-foreground">{t('riskNotes')}</div>
                       <div className="mt-1 font-semibold">{activeProposal.semanticSummary.changedFlows.length}</div>
                     </div>
                   </div>
@@ -186,9 +185,9 @@ export function ReviewView() {
                 </div>
 
                 <div className="space-y-4 rounded-xl border p-4">
-                  <div className="text-sm font-medium">Review Context</div>
+                  <div className="text-sm font-medium">{t('reviewContext')}</div>
                   <div className="rounded-lg border p-3 text-sm">
-                    <div className="text-xs text-muted-foreground">Touched Resources</div>
+                    <div className="text-xs text-muted-foreground">{t('touchedResources')}</div>
                     <div className="mt-1 flex flex-wrap gap-2">
                       {activeProposal.touchedResources.map((resourceId) => (
                         <span key={resourceId} className="rounded-full border px-2 py-0.5 font-mono text-xs">
@@ -198,13 +197,13 @@ export function ReviewView() {
                     </div>
                   </div>
                   <div className="rounded-lg border p-3 text-sm">
-                    <div className="text-xs text-muted-foreground">Expected Diagnostics</div>
+                    <div className="text-xs text-muted-foreground">{t('validations')}</div>
                     <div className="mt-1">
                       {activeProposal.expectedDiagnostics.errors} errors / {activeProposal.expectedDiagnostics.warnings} warnings
                     </div>
                   </div>
                   <div className="rounded-lg border p-3 text-sm">
-                    <div className="text-xs text-muted-foreground">Related Run</div>
+                    <div className="text-xs text-muted-foreground">{t('relatedRun')}</div>
                     <div className="mt-1 flex items-center gap-2">
                       <span>{activeProposal.relatedRunId ?? selectedRun?.run_id ?? 'none'}</span>
                       {(activeProposal.relatedRunId ?? selectedRun?.run_id) ? (
@@ -222,7 +221,7 @@ export function ReviewView() {
                           }}
                         >
                           <Eye className="mr-1 size-3" />
-                          查看 Trace
+                          {t('viewTrace')}
                         </Button>
                       ) : null}
                     </div>
@@ -235,7 +234,7 @@ export function ReviewView() {
 
               <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
                 <div className="space-y-3 rounded-xl border p-4">
-                  <div className="text-sm font-medium">Validation Plan</div>
+                  <div className="text-sm font-medium">{t('validationPlan')}</div>
                   <div className="space-y-2 text-sm">
                     {activeProposal.recommendedValidations.map((item) => (
                       <div key={item} className="rounded-lg border px-3 py-2">
@@ -246,11 +245,11 @@ export function ReviewView() {
                   <div className="flex flex-wrap gap-2">
                     <Button disabled={submitting} onClick={() => void runAction(() => validateProposal(activeProposal.id))}>
                       <FlaskConical className="size-4" />
-                      运行 Lint + Smoke
+                      {t('runLintSmoke')}
                     </Button>
                     <Button variant="outline" onClick={() => setActiveView('kal.debugger')}>
                       <Sparkles className="size-4" />
-                      打开 Debugger
+                      {t('openDebugger')}
                     </Button>
                     <Button
                       disabled={!capabilityGate.grants['comment.write']}
@@ -258,7 +257,7 @@ export function ReviewView() {
                       onClick={() => {
                         const threadId = createCommentThread({
                           title: `Review: ${activeProposal.title}`,
-                          body: `针对 proposal ${activeProposal.title} 发起 review 讨论。`,
+                          body: t('commentThreadBody', { title: activeProposal.title }),
                           anchor: { kind: 'proposal', proposalId: activeProposal.id },
                         });
                         if (threadId) {
@@ -266,14 +265,14 @@ export function ReviewView() {
                         }
                       }}
                     >
-                      发起评论线程
+                      {t('startCommentThread')}
                     </Button>
                     <Button variant="outline" onClick={() => setActiveView('kal.version-control')}>
-                      查看历史
+                      {t('viewHistory')}
                     </Button>
                   </div>
                   <div className="rounded-lg border p-3 text-sm">
-                    <div className="text-xs text-muted-foreground">Validation State</div>
+                    <div className="text-xs text-muted-foreground">{t('validationState')}</div>
                     <div className="mt-1">
                       lint: {activeProposal.validation.lintStatus} · smoke: {activeProposal.validation.smokeStatus}
                     </div>
@@ -287,7 +286,7 @@ export function ReviewView() {
                           onClick={() => setActiveView('kal.problems')}
                         >
                           <AlertCircle className="mr-1 size-3" />
-                          查看 Problems
+                          {t('viewProblems')}
                         </Button>
                       </div>
                     ) : null}
@@ -300,7 +299,7 @@ export function ReviewView() {
                 </div>
 
                 <div className="space-y-3 rounded-xl border p-4">
-                  <div className="text-sm font-medium">Accept / Rollback</div>
+                  <div className="text-sm font-medium">{t('acceptRollbackTitle')}</div>
                   <div className="space-y-2 text-sm">
                     {activeProposal.riskNotes.map((note) => (
                       <div key={note} className="rounded-lg border px-3 py-2">
@@ -311,7 +310,7 @@ export function ReviewView() {
                   <div className="flex flex-col gap-2">
                     <Button disabled={submitting} onClick={() => void runAction(() => acceptProposal(activeProposal.id))}>
                       <ShieldCheck className="size-4" />
-                      接受 Proposal
+                      {t('acceptProposal')}
                     </Button>
                     <Button
                       variant="outline"
@@ -319,7 +318,7 @@ export function ReviewView() {
                       onClick={() => void runAction(() => rollbackProposal(activeProposal.id))}
                     >
                       <RotateCcw className="size-4" />
-                      回滚到 Base Checkpoint
+                      {t('rollbackToBase')}
                     </Button>
                   </div>
                 </div>

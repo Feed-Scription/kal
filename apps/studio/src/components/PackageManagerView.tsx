@@ -1,14 +1,13 @@
 import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Package, Download, CheckCircle, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/EmptyState';
 import { usePackages, useStudioCommands } from '@/kernel/hooks';
-
-function formatTime(timestamp: number) {
-  return new Date(timestamp).toLocaleString('zh-CN', { hour12: false });
-}
+import { formatDateTime } from '@/i18n/format';
 
 export function PackageManagerView() {
+  const { t } = useTranslation('packages');
   const { installed, loading } = usePackages();
   const { loadPackages } = useStudioCommands();
 
@@ -24,21 +23,21 @@ export function PackageManagerView() {
             <div className="flex items-center gap-2">
               <Package className="size-4" />
               <div>
-                <h1 className="text-lg font-semibold">Package Manager</h1>
+                <h1 className="text-lg font-semibold">{t('manager.title')}</h1>
                 <p className="text-sm text-muted-foreground">
-                  管理项目本地安装的包、模板和扩展。
+                  {t('manager.subtitle')}
                 </p>
               </div>
             </div>
             <Button onClick={() => void loadPackages()} disabled={loading}>
-              刷新
+              {t('manager.refresh')}
             </Button>
           </div>
 
           {loading ? (
-            <EmptyState message="正在加载包列表..." />
+            <EmptyState message={t('manager.loading')} />
           ) : installed.length === 0 ? (
-            <EmptyState message={<>当前项目没有安装任何包。<br />包应放置在项目的 <code className="rounded bg-muted px-1 py-0.5">packages/</code> 目录下。</>} />
+            <EmptyState message={<>{t('manager.noPackages')}<br />{t('manager.noPackagesDetail')}</>} />
           ) : (
             <div className="space-y-3">
               {installed.map((pkg) => (
@@ -64,12 +63,12 @@ export function PackageManagerView() {
                       ) : null}
                       <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
                         {pkg.manifest.author ? (
-                          <span>作者: {pkg.manifest.author}</span>
+                          <span>{t('manager.author', { name: pkg.manifest.author })}</span>
                         ) : null}
-                        <span>安装于: {formatTime(pkg.installedAt)}</span>
+                        <span>{t('manager.installedTime', { time: formatDateTime(pkg.installedAt) })}</span>
                         {pkg.manifest.capabilities && pkg.manifest.capabilities.length > 0 ? (
                           <span>
-                            权限: {pkg.manifest.capabilities.join(', ')}
+                            {t('manager.capabilities', { list: pkg.manifest.capabilities.join(', ') })}
                           </span>
                         ) : null}
                       </div>
@@ -85,19 +84,19 @@ export function PackageManagerView() {
 
                   {pkg.manifest.contributes ? (
                     <div className="mt-3 rounded-lg border bg-muted/30 p-3 text-xs">
-                      <div className="font-medium">贡献内容:</div>
+                      <div className="font-medium">{t('manager.contributions')}</div>
                       <div className="mt-1 space-y-1 text-muted-foreground">
                         {pkg.manifest.contributes.nodes && pkg.manifest.contributes.nodes.length > 0 ? (
-                          <div>• {pkg.manifest.contributes.nodes.length} 个自定义节点</div>
+                          <div>• {t('manager.customNodes', { count: pkg.manifest.contributes.nodes.length })}</div>
                         ) : null}
                         {pkg.manifest.contributes.views && pkg.manifest.contributes.views.length > 0 ? (
-                          <div>• {pkg.manifest.contributes.views.length} 个视图</div>
+                          <div>• {t('manager.views', { count: pkg.manifest.contributes.views.length })}</div>
                         ) : null}
                         {pkg.manifest.contributes.templates && pkg.manifest.contributes.templates.length > 0 ? (
-                          <div>• {pkg.manifest.contributes.templates.length} 个模板</div>
+                          <div>• {t('manager.templatesCount', { count: pkg.manifest.contributes.templates.length })}</div>
                         ) : null}
                         {pkg.manifest.contributes.themes && pkg.manifest.contributes.themes.length > 0 ? (
-                          <div>• {pkg.manifest.contributes.themes.length} 个主题</div>
+                          <div>• {t('manager.themes', { count: pkg.manifest.contributes.themes.length })}</div>
                         ) : null}
                       </div>
                     </div>
@@ -110,12 +109,12 @@ export function PackageManagerView() {
 
         <section className="space-y-4 rounded-2xl border bg-card p-5">
           <div>
-            <h2 className="text-base font-semibold">安装新包</h2>
+            <h2 className="text-base font-semibold">{t('manager.installNew')}</h2>
             <p className="text-sm text-muted-foreground">
-              将包目录复制到项目的 <code className="rounded bg-muted px-1 py-0.5">packages/</code> 目录，然后点击刷新。
+              {t('manager.installDescription')}
             </p>
           </div>
-          <EmptyState icon={Download} message="从本地路径或 URL 安装包的功能即将推出。" description="当前请手动将包复制到 packages/ 目录。" />
+          <EmptyState icon={Download} message={t('manager.installComingSoon')} description={t('manager.installManual')} />
         </section>
       </div>
     </div>

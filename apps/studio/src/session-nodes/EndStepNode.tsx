@@ -1,4 +1,5 @@
 import { memo } from "react";
+import { useTranslation } from "react-i18next";
 import { Position, type NodeProps } from "@xyflow/react";
 import {
   BaseNode,
@@ -15,6 +16,7 @@ import { NodeOverlayBadge } from "@/components/NodeOverlayBadge";
 import type { NodeOverlayState } from "@/hooks/use-node-overlay";
 
 export const EndStepNode = memo(({ id, data }: NodeProps) => {
+  const { t } = useTranslation('session');
   const config = (data as any).config || {};
   const overlay = (data as any).overlay as NodeOverlayState | undefined;
   const { updateConfig } = useNodeConfig(id);
@@ -24,13 +26,13 @@ export const EndStepNode = memo(({ id, data }: NodeProps) => {
       <NodeOverlayBadge overlay={overlay} />
       <BaseNodeHeader className="border-b bg-red-50 dark:bg-red-950/30">
         <Square className="size-4 text-red-600" />
-        <BaseNodeHeaderTitle>结束</BaseNodeHeaderTitle>
+        <BaseNodeHeaderTitle>{t('stepTypes.End')}</BaseNodeHeaderTitle>
       </BaseNodeHeader>
       <BaseNodeContent>
         <div>
-          <label className="text-xs text-muted-foreground">结束消息</label>
+          <label className="text-xs text-muted-foreground">{t('node.endMessage')}</label>
           <Input
-            placeholder="可选的结束消息"
+            placeholder={t('node.endMessagePlaceholder')}
             className="mt-1"
             value={config.message || ""}
             onChange={(e) => updateConfig({ message: e.target.value })}
@@ -39,7 +41,7 @@ export const EndStepNode = memo(({ id, data }: NodeProps) => {
       </BaseNodeContent>
       <LabeledHandle
         id="target"
-        title="入口"
+        title={t('node.entry')}
         type="target"
         position={Position.Left}
       />

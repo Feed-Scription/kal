@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Save, Download, Trash2, Plus, Play } from "lucide-react";
 import {
@@ -29,6 +30,7 @@ export function SessionToolbar({
   onRun,
   canRun = false,
 }: SessionToolbarProps) {
+  const { t } = useTranslation('session');
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   if (!hasSession) {
@@ -36,7 +38,7 @@ export function SessionToolbar({
       <div className="absolute left-4 top-4 z-10 flex gap-2 rounded-lg border bg-background/95 p-2 shadow-lg backdrop-blur">
         <Button variant="ghost" size="sm" onClick={onCreate}>
           <Plus className="mr-1.5 size-4" />
-          新建 Session
+          {t('newSession')}
         </Button>
       </div>
     );
@@ -49,44 +51,44 @@ export function SessionToolbar({
           <span className="text-sm font-medium">Session</span>
         </div>
 
-        <Button variant="ghost" size="sm" onClick={onSave} title="保存 Session (Ctrl+S)">
+        <Button variant="ghost" size="sm" onClick={onSave} title={t('saveSession')}>
           <Save className="mr-1.5 size-4" />
-          保存
+          {t('save')}
         </Button>
 
-        <Button variant="ghost" size="sm" onClick={onExport} title="导出 JSON">
+        <Button variant="ghost" size="sm" onClick={onExport} title={t('exportJson')}>
           <Download className="mr-1.5 size-4" />
-          导出
+          {t('export')}
         </Button>
 
-        <Button variant="ghost" size="sm" onClick={onRun} title="运行 Session" disabled={!canRun}>
+        <Button variant="ghost" size="sm" onClick={onRun} title={t('runSession')} disabled={!canRun}>
           <Play className="mr-1.5 size-4" />
-          运行
+          {t('run')}
         </Button>
 
         <Button
           variant="ghost"
           size="sm"
           onClick={() => setConfirmOpen(true)}
-          title="删除 Session"
+          title={t('deleteSession')}
           className="text-destructive hover:text-destructive"
         >
           <Trash2 className="mr-1.5 size-4" />
-          删除
+          {t('delete')}
         </Button>
       </div>
 
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>确认删除</DialogTitle>
+            <DialogTitle>{t('confirmDelete')}</DialogTitle>
             <DialogDescription>
-              确定要删除当前 Session 吗？此操作不可撤销。
+              {t('confirmDeleteDesc')}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirmOpen(false)}>
-              取消
+              {t('cancel')}
             </Button>
             <Button
               variant="destructive"
@@ -95,7 +97,7 @@ export function SessionToolbar({
                 onDelete?.();
               }}
             >
-              删除
+              {t('delete')}
             </Button>
           </DialogFooter>
         </DialogContent>

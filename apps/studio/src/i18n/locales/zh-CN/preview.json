@@ -1,0 +1,33 @@
+{
+  "h5": {
+    "title": "H5 预览",
+    "subtitle": "浏览器预览，支持 Run / State / Signal 同步",
+    "noPreview": "暂无可用预览。运行 flow 或 session 以生成预览。",
+    "refresh": "刷新",
+    "reload": "重新加载",
+    "openInNewTab": "新窗口打开",
+    "loading": "加载中...",
+    "loadFailed": "预览加载失败",
+    "retry": "重试",
+    "connected": "已连接",
+    "clearLog": "清除",
+    "signalLog": "信号日志 ({{count}})"
+  },
+  "prompt": {
+    "title": "Prompt 预览",
+    "subtitle": "预览 Session prompts 与 Flow 中的 prompt-like 配置。在画布中选中 PromptBuild 节点可查看最终渲染结果。",
+    "noPrompts": "未找到 prompt 配置。",
+    "noPreviewContent": "当前没有可预览的 prompt 内容。",
+    "source": "来源",
+    "role": "角色",
+    "content": "内容",
+    "fragments": "Fragments",
+    "resolvedPrompt": "解析后的 Prompt",
+    "tokenEstimate": "Token 估算",
+    "rendering": "渲染中…",
+    "finalRenderResult": "最终渲染结果",
+    "fragmentsActive": "{{active}}/{{total}} 个 Fragment 激活",
+    "linked": "已联动",
+    "searchPlaceholder": "搜索 prompt 文本、绑定、Flow 或步骤..."
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "title": "Config Editor",
+  "projectSettings": "Project Settings",
+  "projectName": "Project Name",
+  "projectVersion": "Project Version",
+  "description": "Description",
+  "save": "Save Config",
+  "saving": "Saving...",
+  "reset": "Reset",
+  "undoChanges": "Undo Changes",
+  "noConfig": "No project configuration loaded.",
+  "noChanges": "No changes",
+  "restrictedFieldsOnly": "Only restricted fields have been modified",
+  "unsavedWarning": "Configuration has been modified but not saved. Saving will invoke the Studio config write command and create a version record that can be undone/redone.",
+  "restrictedFieldsNote": "`llm.apiKey` and `llm.baseUrl` cannot be saved directly via Studio. You can view or temporarily edit them here, but the original values from the project file will be preserved on save.",
+  "section": {
+    "general": "General",
+    "basicInfo": "Basic Info",
+    "runtime": "Runtime",
+    "advanced": "Advanced",
+    "engineSettings": "Engine Settings",
+    "llmSettings": "LLM Settings",
+    "retryStrategy": "Retry Strategy"
+  },
+  "field": {
+    "name": "Name",
+    "projectName": "Project Name",
+    "version": "Version",
+    "description": "Description",
+    "entryFlow": "Entry Flow",
+    "defaultModel": "Default Model",
+    "maxTurns": "Max Turns",
+    "temperature": "Temperature",
+    "stateSchema": "State Schema",
+    "logLevel": "Log Level",
+    "maxConcurrentFlows": "Max Concurrent Flows",
+    "timeout": "Timeout (ms)",
+    "provider": "Provider",
+    "baseUrl": "Base URL",
+    "apiKey": "API Key",
+    "maxRetries": "Max Retries",
+    "initialDelay": "Initial Delay (ms)",
+    "maxDelay": "Max Delay (ms)",
+    "backoffMultiplier": "Backoff Multiplier",
+    "enableJitter": "Enable Jitter",
+    "enableCache": "Enable Cache"
+  },
+  "placeholder": {
+    "optional": "Optional",
+    "encryptedStorage": "Encrypted storage"
+  },
+  "validation": {
+    "nameRequired": "Project name is required",
+    "versionRequired": "Version is required"
+  },
+  "saved": "Configuration saved",
+  "saveFailed": "Failed to save configuration"
+}

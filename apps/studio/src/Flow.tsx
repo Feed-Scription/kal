@@ -25,6 +25,7 @@ import { useFlowResource, useStudioCommands, useStudioResources } from "@/kernel
 import { useFlowNodeOverlay } from "@/hooks/use-node-overlay";
 import { useCanvasSelection } from "@/hooks/use-canvas-selection";
 import { layoutDag } from "@/utils/graph-layout";
+import { useTranslation } from "react-i18next";
 import type { FlowDefinition, NodeDefinition, EdgeDefinition, NodeManifest } from "@/types/project";
 
 const FLOW_LAYOUT = { nodeWidth: 320, nodeHeight: 200, gapX: 80, gapY: 40 };
@@ -122,6 +123,7 @@ export default function Flow() {
   const { saveFlow } = useStudioCommands();
   const overlayMap = useFlowNodeOverlay(currentFlow);
   const setSelection = useCanvasSelection((s) => s.setSelection);
+  const { t } = useTranslation('flow');
 
   const onSelectionChange = useCallback(
     ({ nodes: selected }: { nodes: Node[] }) => {
@@ -208,7 +210,7 @@ export default function Flow() {
               type: MarkerType.ArrowClosed,
               color: '#f59e0b',
             },
-            label: '循环',
+            label: t('cycle'),
             labelStyle: {
               fill: '#f59e0b',
               fontWeight: 600,
@@ -367,7 +369,7 @@ export default function Flow() {
       await saveFlow(currentFlow, flowDef);
     } catch (error) {
       console.error('Manual save failed:', error);
-      alert('保存失败: ' + (error as Error).message);
+      alert(t('saveFailed', { message: (error as Error).message }));
     }
   }, [buildFlowDef, project, currentFlow, saveFlow]);
 
@@ -406,7 +408,7 @@ export default function Flow() {
             style: { stroke: '#f59e0b', strokeWidth: 2, strokeDasharray: '8 4' },
             animated: true,
             markerEnd: { type: MarkerType.ArrowClosed, color: '#f59e0b' },
-            label: '循环',
+            label: t('cycle'),
             labelStyle: { fill: '#f59e0b', fontWeight: 600, fontSize: 12 },
           };
         }

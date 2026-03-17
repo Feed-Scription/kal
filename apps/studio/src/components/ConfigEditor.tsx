@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Info, Save } from "lucide-react";
+import { useTranslation } from 'react-i18next';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -36,6 +37,7 @@ function sanitizeConfigForSave(draft: KalConfig, current: KalConfig): KalConfig 
 }
 
 export function ConfigEditor() {
+  const { t } = useTranslation('config');
   const { config } = useStudioResources();
   const { updateConfig } = useStudioCommands();
   const [draft, setDraft] = useState<KalConfig | null>(null);
@@ -81,7 +83,7 @@ export function ConfigEditor() {
       await updateConfig(sanitizedDraft);
       setDraft(null);
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : "保存配置失败");
+      setSaveError(error instanceof Error ? error.message : t('saveFailed'));
     } finally {
       setIsSaving(false);
     }
@@ -91,11 +93,11 @@ export function ConfigEditor() {
     <div className="h-full w-full overflow-auto bg-background p-6">
       <div className="mx-auto max-w-4xl space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold">项目设置</h1>
+          <h1 className="text-2xl font-bold">{t('projectSettings')}</h1>
           <div className="flex items-center gap-2">
             {isDirty && (
               <Button variant="ghost" size="sm" onClick={reset}>
-                撤销修改
+                {t('undoChanges')}
               </Button>
             )}
             <Button
@@ -103,9 +105,9 @@ export function ConfigEditor() {
               disabled={!hasPersistableChanges || isSaving}
               title={
                 !isDirty
-                  ? "没有修改"
+                  ? t('noChanges')
                   : !hasPersistableChanges
-                    ? "当前仅修改了暂不支持直接保存的字段"
+                    ? t('restrictedFieldsOnly')
                     : undefined
               }
               onClick={() => {
@@ -113,7 +115,7 @@ export function ConfigEditor() {
               }}
             >
               <Save className="mr-1.5 size-4" />
-              {isSaving ? "保存中..." : "保存"}
+              {isSaving ? t('saving') : t('save')}
             </Button>
           </div>
         </div>
@@ -122,7 +124,7 @@ export function ConfigEditor() {
           <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm">
             <Info className="mt-0.5 size-4 shrink-0 text-amber-600" />
             <p className="text-muted-foreground">
-              配置已修改但尚未保存。保存会直接调用 Studio 的配置写入命令，并进入版本记录，可撤销重做。
+              {t('unsavedWarning')}
             </p>
           </div>
         )}
@@ -133,7 +135,7 @@ export function ConfigEditor() {
               <div className="flex items-start gap-2">
                 <Info className="mt-0.5 size-4 shrink-0 text-blue-600" />
                 <p className="text-muted-foreground">
-                  `llm.apiKey` 和 `llm.baseUrl` 目前不能通过 Studio 直接保存。你可以在这里查看或临时编辑，但保存时会保留项目文件中的原值。
+                  {t('restrictedFieldsNote')}
                 </p>
               </div>
             )}
@@ -148,24 +150,24 @@ export function ConfigEditor() {
 
         <div className="space-y-6 rounded-lg border bg-card p-6">
           <div>
-            <h2 className="mb-4 text-lg font-semibold">基本信息</h2>
+            <h2 className="mb-4 text-lg font-semibold">{t('section.basicInfo')}</h2>
             <div className="grid gap-4 md:grid-cols-2">
               <div>
-                <label className="mb-2 block text-sm font-medium text-muted-foreground">项目名称</label>
+                <label className="mb-2 block text-sm font-medium text-muted-foreground">{t('field.projectName')}</label>
                 <Input value={effective.name} onChange={(e) => update(['name'], e.target.value)} />
               </div>
               <div>
-                <label className="mb-2 block text-sm font-medium text-muted-foreground">版本</label>
+                <label className="mb-2 block text-sm font-medium text-muted-foreground">{t('field.version')}</label>
                 <Input value={effective.version} onChange={(e) => update(['version'], e.target.value)} />
               </div>
             </div>
           </div>
 
           <div>
-            <h2 className="mb-4 text-lg font-semibold">引擎设置</h2>
+            <h2 className="mb-4 text-lg font-semibold">{t('section.engineSettings')}</h2>
             <div className="grid gap-4 md:grid-cols-3">
               <div>
-                <label className="mb-2 block text-sm font-medium text-muted-foreground">日志级别</label>
+                <label className="mb-2 block text-sm font-medium text-muted-foreground">{t('field.logLevel')}</label>
                 <Select value={effective.engine.logLevel} onValueChange={(v) => update(['engine', 'logLevel'], v)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -176,7 +178,7 @@ export function ConfigEditor() {
                 </Select>
               </div>
               <div>
-                <label className="mb-2 block text-sm font-medium text-muted-foreground">最大并发 Flow</label>
+                <label className="mb-2 block text-sm font-medium text-muted-foreground">{t('field.maxConcurrentFlows')}</label>
                 <Input
                   type="number"
                   value={effective.engine.maxConcurrentFlows}
@@ -184,7 +186,7 @@ export function ConfigEditor() {
                 />
               </div>
               <div>
-                <label className="mb-2 block text-sm font-medium text-muted-foreground">超时 (ms)</label>
+                <label className="mb-2 block text-sm font-medium text-muted-foreground">{t('field.timeout')}</label>
                 <Input
                   type="number"
                   value={effective.engine.timeout}
@@ -195,30 +197,30 @@ export function ConfigEditor() {
           </div>
 
           <div>
-            <h2 className="mb-4 text-lg font-semibold">LLM 设置</h2>
+            <h2 className="mb-4 text-lg font-semibold">{t('section.llmSettings')}</h2>
             <div className="grid gap-4 md:grid-cols-2">
               <div>
-                <label className="mb-2 block text-sm font-medium text-muted-foreground">Provider</label>
+                <label className="mb-2 block text-sm font-medium text-muted-foreground">{t('field.provider')}</label>
                 <Input value={effective.llm.provider} onChange={(e) => update(['llm', 'provider'], e.target.value)} />
               </div>
               <div>
-                <label className="mb-2 block text-sm font-medium text-muted-foreground">默认模型</label>
+                <label className="mb-2 block text-sm font-medium text-muted-foreground">{t('field.defaultModel')}</label>
                 <Input value={effective.llm.defaultModel} onChange={(e) => update(['llm', 'defaultModel'], e.target.value)} />
               </div>
               <div>
-                <label className="mb-2 block text-sm font-medium text-muted-foreground">Base URL</label>
+                <label className="mb-2 block text-sm font-medium text-muted-foreground">{t('field.baseUrl')}</label>
                 <Input
                   value={effective.llm.baseUrl ?? ''}
-                  placeholder="可选"
+                  placeholder={t('placeholder.optional')}
                   onChange={(e) => update(['llm', 'baseUrl'], e.target.value || undefined)}
                 />
               </div>
               <div>
-                <label className="mb-2 block text-sm font-medium text-muted-foreground">API Key</label>
+                <label className="mb-2 block text-sm font-medium text-muted-foreground">{t('field.apiKey')}</label>
                 <Input
                   type="password"
                   value={effective.llm.apiKey ?? ''}
-                  placeholder="已加密存储"
+                  placeholder={t('placeholder.encryptedStorage')}
                   onChange={(e) => update(['llm', 'apiKey'], e.target.value || undefined)}
                 />
               </div>
@@ -226,10 +228,10 @@ export function ConfigEditor() {
           </div>
 
           <div>
-            <h2 className="mb-4 text-lg font-semibold">重试策略</h2>
+            <h2 className="mb-4 text-lg font-semibold">{t('section.retryStrategy')}</h2>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               <div>
-                <label className="mb-2 block text-sm font-medium text-muted-foreground">最大重试次数</label>
+                <label className="mb-2 block text-sm font-medium text-muted-foreground">{t('field.maxRetries')}</label>
                 <Input
                   type="number"
                   value={effective.llm.retry.maxRetries}
@@ -237,7 +239,7 @@ export function ConfigEditor() {
                 />
               </div>
               <div>
-                <label className="mb-2 block text-sm font-medium text-muted-foreground">初始延迟 (ms)</label>
+                <label className="mb-2 block text-sm font-medium text-muted-foreground">{t('field.initialDelay')}</label>
                 <Input
                   type="number"
                   value={effective.llm.retry.initialDelayMs}
@@ -245,7 +247,7 @@ export function ConfigEditor() {
                 />
               </div>
               <div>
-                <label className="mb-2 block text-sm font-medium text-muted-foreground">最大延迟 (ms)</label>
+                <label className="mb-2 block text-sm font-medium text-muted-foreground">{t('field.maxDelay')}</label>
                 <Input
                   type="number"
                   value={effective.llm.retry.maxDelayMs}
@@ -253,7 +255,7 @@ export function ConfigEditor() {
                 />
               </div>
               <div>
-                <label className="mb-2 block text-sm font-medium text-muted-foreground">退避倍数</label>
+                <label className="mb-2 block text-sm font-medium text-muted-foreground">{t('field.backoffMultiplier')}</label>
                 <Input
                   type="number"
                   step="0.1"
@@ -267,7 +269,7 @@ export function ConfigEditor() {
                   checked={effective.llm.retry.jitter}
                   onCheckedChange={(checked) => update(['llm', 'retry', 'jitter'], Boolean(checked))}
                 />
-                <label htmlFor="jitter" className="text-sm text-muted-foreground">启用 Jitter</label>
+                <label htmlFor="jitter" className="text-sm text-muted-foreground">{t('field.enableJitter')}</label>
               </div>
               <div className="flex items-center gap-2 pt-6">
                 <Checkbox
@@ -275,7 +277,7 @@ export function ConfigEditor() {
                   checked={effective.llm.cache.enabled}
                   onCheckedChange={(checked) => update(['llm', 'cache', 'enabled'], Boolean(checked))}
                 />
-                <label htmlFor="cache" className="text-sm text-muted-foreground">启用缓存</label>
+                <label htmlFor="cache" className="text-sm text-muted-foreground">{t('field.enableCache')}</label>
               </div>
             </div>
           </div>

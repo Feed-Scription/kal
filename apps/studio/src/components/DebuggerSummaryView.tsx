@@ -1,13 +1,11 @@
 import { useEffect } from "react";
 import { Bug, Circle, Pause, Play } from "lucide-react";
+import { useTranslation } from 'react-i18next';
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/EmptyState";
 import { useRunDebug, useStudioCommands } from "@/kernel/hooks";
 import { cn } from "@/lib/utils";
-
-function formatTime(timestamp: number) {
-  return new Date(timestamp).toLocaleTimeString("zh-CN", { hour12: false });
-}
+import { formatTimeFromTimestamp } from '@/i18n/format';
 
 const STATUS_CONFIG = {
   running: { icon: Play, color: 'text-blue-600', bg: 'bg-blue-50' },
@@ -17,6 +15,7 @@ const STATUS_CONFIG = {
 } as const;
 
 export function DebuggerSummaryView() {
+  const { t } = useTranslation('debug');
   const { breakpoints, runs } = useRunDebug();
   const { refreshRuns, selectRun, setActiveView } = useStudioCommands();
 
@@ -34,23 +33,23 @@ export function DebuggerSummaryView() {
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 text-sm font-medium">
           <Bug className="size-4" />
-          Debug Summary
+          {t('summary.title')}
         </div>
         <Button variant="outline" size="sm" onClick={() => setActiveView("kal.debugger")}>
-          打开调试器
+          {t('summary.openDebugger')}
         </Button>
       </div>
 
       <div className="space-y-2 text-sm">
         <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <span>Active Breakpoints</span>
+          <span>{t('summary.activeBreakpoints')}</span>
           <span className="font-medium">{breakpoints.length}</span>
         </div>
         {runs.length === 0 ? (
           <EmptyState
             icon={Bug}
-            message="当前没有 active run"
-            description="点击顶部 Run 按钮创建新的调试会话"
+            message={t('summary.noActiveRun')}
+            description={t('summary.noActiveRunDescription')}
             compact
           />
         ) : (
@@ -78,7 +77,7 @@ export function DebuggerSummaryView() {
                 <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
                   <span className={config.color}>{record.run.status}</span>
                   <span>·</span>
-                  <span>{formatTime(record.run.updated_at)}</span>
+                  <span>{formatTimeFromTimestamp(record.run.updated_at)}</span>
                 </div>
               </button>
             );

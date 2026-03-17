@@ -68,13 +68,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   try {
     res = await fetch(buildApiUrl(path), { ...init, headers });
   } catch {
-    throw new Error('无法连接到 Engine 服务，请确认 Engine 已启动');
+    throw new Error('Cannot connect to Engine service, please confirm Engine is running');
   }
   let json: EngineResponse<T>;
   try {
     json = await res.json();
   } catch {
-    throw new Error(`Engine 返回了非预期的响应 (HTTP ${res.status})`);
+    throw new Error(`Engine returned unexpected response (HTTP ${res.status})`);
   }
   if (!json.success) {
     throw new Error(`[${json.error.code}] ${json.error.message}`);

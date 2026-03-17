@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Terminal, Plus, X, Square, TerminalSquare } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useStudioCommands } from '@/kernel/hooks';
@@ -18,6 +19,7 @@ interface SessionState {
 
 /** Quick commands panel — the original lightweight terminal */
 function QuickCommandsPanel() {
+  const { t } = useTranslation('terminal');
   const [command, setCommand] = useState('');
   const [output, setOutput] = useState<Array<{ command: string; result: string; error?: boolean }>>([]);
   const [running, setRunning] = useState(false);
@@ -80,9 +82,7 @@ function QuickCommandsPanel() {
       <div ref={outputRef} className="flex-1 overflow-auto p-4 font-mono text-xs">
         {output.length === 0 ? (
           <div className="text-muted-foreground">
-            输入命令并回车执行。当前支持: {ALLOWED_COMMANDS.join(', ')}
-            <br />
-            使用 ↑↓ 箭头键浏览历史命令。
+            {t('noOutput', { commands: ALLOWED_COMMANDS.join(', ') })}
           </div>
         ) : (
           output.map((entry, i) => (
@@ -100,12 +100,12 @@ function QuickCommandsPanel() {
           value={command}
           onChange={(e) => setCommand(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="输入命令 (lint, smoke)"
+          placeholder={t('inputPlaceholder')}
           className="font-mono text-sm"
           disabled={running}
         />
         <Button size="sm" disabled={running || !command.trim()} onClick={() => void handleExec()}>
-          {running ? '执行中...' : '执行'}
+          {running ? t('executing') : t('execute')}
         </Button>
       </div>
     </>
@@ -114,6 +114,7 @@ function QuickCommandsPanel() {
 
 /** Streaming shell session panel */
 function SessionPanel() {
+  const { t } = useTranslation('terminal');
   const [session, setSession] = useState<SessionState | null>(null);
   const [input, setInput] = useState('');
   const [creating, setCreating] = useState(false);
@@ -183,7 +184,7 @@ function SessionPanel() {
       <div className="flex flex-1 items-center justify-center">
         <Button variant="outline" onClick={() => void createSession()} disabled={creating}>
           <Plus className="mr-1.5 size-4" />
-          {creating ? '创建中...' : '创建终端会话'}
+          {creating ? t('creating') : t('createSession')}
         </Button>
       </div>
     );
@@ -192,7 +193,7 @@ function SessionPanel() {
   return (
     <>
       <div ref={outputRef} className="flex-1 overflow-auto bg-[#1e1e1e] p-4 font-mono text-xs text-[#d4d4d4]">
-        <pre className="whitespace-pre-wrap">{session.output || '等待输出...'}</pre>
+        <pre className="whitespace-pre-wrap">{session.output || t('waitingOutput')}</pre>
       </div>
       <div className="flex gap-2 border-t px-4 py-3">
         <Input
@@ -204,7 +205,7 @@ function SessionPanel() {
               void sendInput();
             }
           }}
-          placeholder="输入命令..."
+          placeholder={t('inputCommandPlaceholder')}
           className="font-mono text-sm"
           disabled={!session.alive}
         />
@@ -213,12 +214,12 @@ function SessionPanel() {
           variant="outline"
           onClick={() => void handleCtrlC()}
           disabled={!session.alive}
-          title="发送 Ctrl+C"
+          title={t('sendCtrlC')}
         >
           <Square className="size-3" />
         </Button>
         {session.alive ? (
-          <Button size="sm" variant="destructive" onClick={() => void killSession()} title="终止会话">
+          <Button size="sm" variant="destructive" onClick={() => void killSession()} title={t('killSession')}>
             <X className="size-3" />
           </Button>
         ) : (
@@ -232,6 +233,7 @@ function SessionPanel() {
 }
 
 export function TerminalView() {
+  const { t } = useTranslation('terminal');
   const [mode, setMode] = useState<TerminalMode>('quick');
 
   return (
@@ -239,26 +241,26 @@ export function TerminalView() {
       <div className="flex items-center justify-between gap-2 border-b px-4 py-3">
         <div className="flex items-center gap-2">
           <Terminal className="size-4" />
-          <h1 className="text-sm font-semibold">Terminal</h1>
+          <h1 className="text-sm font-semibold">{t('title')}</h1>
         </div>
         <div className="flex items-center gap-1">
           <Button
             variant={mode === 'quick' ? 'secondary' : 'ghost'}
             size="sm"
             onClick={() => setMode('quick')}
-            title="快捷命令"
+            title={t('quickCommandsTitle')}
           >
             <TerminalSquare className="mr-1 size-3" />
-            Quick
+            {t('quick')}
           </Button>
           <Button
             variant={mode === 'session' ? 'secondary' : 'ghost'}
             size="sm"
             onClick={() => setMode('session')}
-            title="终端会话"
+            title={t('terminalSessionTitle')}
           >
             <Terminal className="mr-1 size-3" />
-            Shell
+            {t('shell')}
           </Button>
         </div>
       </div>
