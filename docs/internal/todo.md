@@ -28,12 +28,12 @@
 
 ### Studio / 编辑器
 
-- [~] 可视化 Debug：画布节点已展示执行状态高亮（当前 step 蓝色脉冲、等待输入绿色呼吸、已访问灰色、断点红点）；待把 Smoke 回放集成为 Debug 的 "Run All" 模式
-  现状：`DebuggerView` 已能创建 managed run、选择 run、查看状态快照 / timeline / state diff / 输入历史，并对当前 step 做断点、单步、继续和重放操作。A 线新增 `use-node-overlay.ts` 派生 hook，将运行态和断点注入 ReactFlow nodes，画布节点已可显示当前 step、等待输入、已访问与断点状态，但“Run All / Smoke 回放”仍未并入 Debug 工作流。
+- [x] 可视化 Debug（画布执行状态高亮 + Smoke 回放）：画布节点已展示执行状态高亮；DebuggerView 已集成 Smoke Run 按钮，复用现有 run list / timeline / state diff UI
+  现状：Engine `RunManager.smokeRun()` 自动推进 session 全流程，通过 `POST /api/runs { smokeInputs }` 暴露，Studio 端 `createSmokeRun` 命令已接通 DebuggerView。
 - [x] Lint 内联诊断：画布节点已根据 diagnostics 实时标红/标黄，右上角显示诊断数量 badge
   现状：Engine 端 `buildCliDiagnostic()` 已扩展支持 `flowId`/`nodeId`/`stepId`/`phase` 字段，`DiagnosticPayload` 新增 `severity: 'error' | 'warning' | 'info'`。A 线 `useSessionNodeOverlay` / `useFlowNodeOverlay` 已按 `stepId` 或 `flowId + nodeId` 聚合诊断，并通过 `NodeOverlayBadge` 渲染诊断标记。
-- [~] Prompt 预览面板：已有全局搜索、画布选中联动与自动定位；待实现选中 PromptBuild 节点时的最终 prompt 渲染，以及 fragment 激活状态和条件命中展示
-  现状：`PromptPreviewView` 已支持 search、画布选中后的自动置顶、ring 高亮与滚动定位，并显示“已联动”提示；当前仍停留在 prompt-like 文本与 bindings 预览，没有做到最终 prompt/rendered fragments 级别。
+- [x] Prompt 预览面板：选中 PromptBuild 节点时展示最终渲染结果（renderedText + fragment 激活状态 + 条件命中）
+  现状：Engine `GET /api/flows/:id/render-prompt?nodeId=xxx` 复用 `@kal-ai/core renderPrompt()` 解析 fragments + state。`PromptPreviewView` 选中 flow 节点时自动请求渲染结果，展示最终文本、每个 fragment 的 active/inactive 状态、when 条件命中信息。
 - [~] 自定义节点显示：Flow 已基于 `nodeManifests` 渲染节点与菜单；待继续验证 editor 全链路体验，补齐自定义节点的配置编辑与展示细节
   现状：`ManifestNode` 已补 category 图标、handle 类型标签与 Inspector 选中节点信息卡片。当前仍需继续验证不同 schema、配置编辑和 inspector 侧的兼容性。
 - [~] Config 视图编辑能力：B 线写入链已完成，A 线已切到可编辑表单；待把保存按钮真正接到 `updateConfig()`
