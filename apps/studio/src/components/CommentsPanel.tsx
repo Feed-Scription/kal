@@ -1,4 +1,5 @@
 import { MessageSquareMore } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { EmptyState } from '@/components/EmptyState';
 import { Button } from '@/components/ui/button';
 import { useCommentsWorkspace, useStudioCommands } from '@/kernel/hooks';
@@ -14,6 +15,7 @@ function describeAnchor(anchor: { kind: 'proposal'; proposalId: string } | { kin
 }
 
 export function CommentsPanel() {
+  const { t } = useTranslation('review');
   const { threads } = useCommentsWorkspace();
   const { setActiveView, setActiveCommentThread } = useStudioCommands();
 
@@ -23,17 +25,17 @@ export function CommentsPanel() {
         <div className="flex items-center gap-2">
           <MessageSquareMore className="size-4" />
           <div>
-            <h3 className="text-sm font-semibold">Comments</h3>
-            <p className="text-xs text-muted-foreground">评论线程摘要，可用于 review coordination。</p>
+            <h3 className="text-sm font-semibold">{t('comments.panelTitle')}</h3>
+            <p className="text-xs text-muted-foreground">{t('comments.panelSubtitle')}</p>
           </div>
         </div>
         <Button variant="outline" size="sm" onClick={() => setActiveView('kal.comments')}>
-          打开详情
+          {t('comments.openDetails')}
         </Button>
       </div>
 
       {threads.length === 0 ? (
-        <EmptyState message="当前没有评论线程。" compact />
+        <EmptyState message={t('comments.noComments')} compact />
       ) : (
         <div className="space-y-2">
           {threads.slice(0, 5).map((thread) => (
@@ -51,7 +53,7 @@ export function CommentsPanel() {
                 <div className="text-xs text-muted-foreground">{thread.status}</div>
               </div>
               <div className="text-xs text-muted-foreground">
-                {describeAnchor(thread.anchor)} · {thread.comments.length} comments
+                {describeAnchor(thread.anchor)} · {t('comments.commentsCount', { count: thread.comments.length })}
               </div>
             </button>
           ))}

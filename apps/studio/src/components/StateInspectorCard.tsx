@@ -1,8 +1,10 @@
 import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { Database } from "lucide-react";
 import { useStudioResources } from "@/kernel/hooks";
 
 export function StateInspectorCard() {
+  const { t } = useTranslation('debug');
   const { state } = useStudioResources();
   const entries = useMemo(() => Object.entries(state).slice(0, 5), [state]);
 
@@ -10,11 +12,11 @@ export function StateInspectorCard() {
     <section className="space-y-3 rounded-xl border bg-card p-4">
       <div className="flex items-center gap-2 text-sm font-medium">
         <Database className="size-4" />
-        State Inspector
+        {t('stateInspector.title')}
       </div>
       <div className="space-y-2 text-sm">
         {entries.length === 0 ? (
-          <div className="text-muted-foreground">当前项目没有可展示的 state。</div>
+          <div className="text-muted-foreground">{t('stateInspector.noState')}</div>
         ) : (
           entries.map(([key, entry]) => (
             <div key={key} className="rounded-lg border px-3 py-2">

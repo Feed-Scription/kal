@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Command, CornerDownLeft, Search } from "lucide-react";
+import { useTranslation } from 'react-i18next';
 import { EmptyState } from "@/components/EmptyState";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -19,6 +20,8 @@ function isEditableTarget(target: EventTarget | null) {
 }
 
 export function CommandPalette() {
+  const { t } = useTranslation('workbench');
+  const { t: tc } = useTranslation('common');
   const { commandPaletteOpen } = useWorkbench();
   const { commands } = useCommandRegistry();
   const { redo, setCommandPaletteOpen, toggleCommandPalette, undo } = useStudioCommands();
@@ -117,10 +120,10 @@ export function CommandPalette() {
         <DialogHeader className="border-b px-5 py-4">
           <DialogTitle className="flex items-center gap-2 text-base">
             <Command className="size-4" />
-            Command Palette
+            {t("commandPaletteTitle")}
           </DialogTitle>
           <DialogDescription>
-            通过统一 command bus 执行 Studio workbench、project 与 workflow 命令。
+            {t("commandPaletteDescription")}
           </DialogDescription>
         </DialogHeader>
 
@@ -131,7 +134,7 @@ export function CommandPalette() {
               autoFocus
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="搜索命令、视图或工作区..."
+              placeholder={t("searchPlaceholder")}
               className="pl-10"
             />
           </div>
@@ -139,7 +142,7 @@ export function CommandPalette() {
 
         <div className="max-h-[60vh] overflow-auto p-3">
           {filteredCommands.length === 0 ? (
-            <EmptyState message="没有匹配的命令。" />
+            <EmptyState message={tc("noMatchingCommands")} />
           ) : (
             <div className="space-y-2">
               {filteredCommands.map((command, index) => (

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from 'react-i18next';
 import { ArrowDown, ArrowUp, Code, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -147,11 +148,12 @@ function FragmentTypeFields({
   normalized: PromptFragment;
   onUpdate: (patch: Partial<PromptFragment>) => void;
 }) {
+  const { t } = useTranslation('flow');
   if (type === "field") {
     return (
       <div className="grid gap-3">
         <div>
-          <label className="text-xs text-muted-foreground">Source</label>
+          <label className="text-xs text-muted-foreground">{t('nodeLabel.source')}</label>
           <Input
             className="mt-1"
             value={normalized.source ?? ""}
@@ -160,7 +162,7 @@ function FragmentTypeFields({
           />
         </div>
         <div>
-          <label className="text-xs text-muted-foreground">Template</label>
+          <label className="text-xs text-muted-foreground">{t('nodeLabel.template')}</label>
           <Textarea
             className="mt-1 text-xs"
             rows={3}
@@ -179,7 +181,7 @@ function FragmentTypeFields({
       <div className="grid gap-3">
         <div className="grid gap-3 md:grid-cols-2">
           <div>
-            <label className="text-xs text-muted-foreground">Seed</label>
+            <label className="text-xs text-muted-foreground">{t('nodeLabel.seed')}</label>
             <Select
               value={typeof seedValue === "number" ? "fixed" : "random"}
               onValueChange={(v) => onUpdate({ seed: v === "random" ? "random" : 0 })}
@@ -195,7 +197,7 @@ function FragmentTypeFields({
           </div>
           {typeof seedValue === "number" && (
             <div>
-              <label className="text-xs text-muted-foreground">Index</label>
+              <label className="text-xs text-muted-foreground">{t('nodeLabel.index')}</label>
               <Input
                 type="number"
                 className="mt-1"
@@ -249,7 +251,7 @@ function FragmentTypeFields({
               }
             >
               <Plus className="mr-1 size-3" />
-              添加候选
+              {t('addCandidate')}
             </Button>
           </div>
         </div>
@@ -276,7 +278,7 @@ function FragmentTypeFields({
             />
           </div>
           <div>
-            <label className="text-xs text-muted-foreground">Strategy</label>
+            <label className="text-xs text-muted-foreground">{t('nodeLabel.strategy')}</label>
             <Select
               value={normalized.strategy ?? "tail"}
               onValueChange={(v) => onUpdate({ strategy: v as "tail" | "weighted" })}
@@ -419,7 +421,7 @@ function FragmentTypeFields({
               }
             >
               <Plus className="mr-1 size-3" />
-              添加子 fragment
+              {t('addSubFragment')}
             </Button>
           </div>
         </div>
@@ -432,7 +434,7 @@ function FragmentTypeFields({
     <div className="grid gap-3">
       {type === "when" && (
         <div>
-          <label className="text-xs text-muted-foreground">Condition</label>
+          <label className="text-xs text-muted-foreground">{t('nodeLabel.condition')}</label>
           <Input
             className="mt-1"
             value={normalized.condition ?? ""}
@@ -442,7 +444,7 @@ function FragmentTypeFields({
         </div>
       )}
       <div>
-        <label className="text-xs text-muted-foreground">Content</label>
+        <label className="text-xs text-muted-foreground">{t('nodeLabel.content')}</label>
         <Textarea
           className="mt-1 text-xs"
           rows={5}
@@ -465,6 +467,7 @@ export function PromptBuildFragmentsField({
   value: unknown;
   onCommit: (value: unknown) => void;
 }) {
+  const { t } = useTranslation('flow');
   const fragments = useMemo(() => parsePromptFragments(value), [value]);
   const hasUnsupportedFragments = fragments.some((fragment) => !isSupportedPromptFragmentType(fragment.type));
   const [rawMode, setRawMode] = useState(hasUnsupportedFragments);
@@ -495,7 +498,7 @@ export function PromptBuildFragmentsField({
               type="button"
               onClick={() => setRawMode(false)}
               className="text-muted-foreground transition-colors hover:text-foreground"
-              title="切换到结构化编辑"
+              title={t('switchToStructured')}
             >
               <Code className="size-3" />
             </button>
@@ -514,13 +517,13 @@ export function PromptBuildFragmentsField({
               onCommit(JSON.parse(rawText));
               setRawError(null);
             } catch {
-              setRawError("JSON 格式错误");
+              setRawError(t('jsonFormatError'));
             }
           }}
         />
         {hasUnsupportedFragments && (
           <p className="text-xs text-muted-foreground">
-            当前 fragments 中包含未覆盖的类型，已自动切换到 JSON 模式；清理后可回到结构化编辑。
+            {t('unsupportedFragments')}
           </p>
         )}
         {rawError ? <p className="text-xs text-destructive">{rawError}</p> : null}
@@ -538,7 +541,7 @@ export function PromptBuildFragmentsField({
           type="button"
           onClick={() => setRawMode(true)}
           className="text-muted-foreground transition-colors hover:text-foreground"
-          title="切换到 JSON 编辑"
+          title={t('switchToJson')}
         >
           <Code className="size-3" />
         </button>
@@ -589,7 +592,7 @@ export function PromptBuildFragmentsField({
 
             <div className="grid gap-3 md:grid-cols-3">
               <div>
-                <label className="text-xs text-muted-foreground">Type</label>
+                <label className="text-xs text-muted-foreground">{t('nodeLabel.type')}</label>
                 <Select
                   value={type}
                   onValueChange={(nextType: PromptFragmentType) => {
@@ -621,7 +624,7 @@ export function PromptBuildFragmentsField({
               </div>
 
               <div>
-                <label className="text-xs text-muted-foreground">Role</label>
+                <label className="text-xs text-muted-foreground">{t('nodeLabel.role')}</label>
                 <Input
                   className="mt-1"
                   value={normalized.role ?? ""}
@@ -652,7 +655,7 @@ export function PromptBuildFragmentsField({
             onClick={() => onCommit([...fragments, createPromptFragment(type, fragments.length)])}
           >
             <Plus className="mr-1 size-3" />
-            添加 {type}
+            {t('addType', { type })}
           </Button>
         ))}
       </div>
@@ -675,6 +678,7 @@ export function StringListField({
   addLabel?: string;
   onCommit: (value: unknown) => void;
 }) {
+  const { t } = useTranslation('flow');
   const items = useMemo(
     () => (Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : []),
     [value],
@@ -769,7 +773,7 @@ export function StringListField({
         />
         <Button type="button" variant="outline" size="sm" onClick={addItem}>
           <Plus className="mr-1 size-3" />
-          {addLabel ?? "添加"}
+          {addLabel ?? t('add')}
         </Button>
       </div>
     </div>
@@ -797,6 +801,7 @@ export function WriteStateOperationsField({
   allowedKeys: string[];
   onCommit: (value: unknown) => void;
 }) {
+  const { t } = useTranslation('flow');
   const ops = useMemo(
     () => (value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, string>) : {}),
     [value],
@@ -818,7 +823,7 @@ export function WriteStateOperationsField({
         <label className="text-xs text-muted-foreground">
           {label} {required ? "*" : ""}
         </label>
-        <p className="mt-1 text-xs text-muted-foreground">先添加 allowedKeys 后可配置操作类型</p>
+        <p className="mt-1 text-xs text-muted-foreground">{t('addAllowedKeysFirst')}</p>
       </div>
     );
   }
@@ -872,6 +877,7 @@ export function WriteStateConstraintsField({
   allowedKeys: string[];
   onCommit: (value: unknown) => void;
 }) {
+  const { t } = useTranslation('flow');
   const constraints = useMemo(
     () =>
       value && typeof value === "object" && !Array.isArray(value)
@@ -903,7 +909,7 @@ export function WriteStateConstraintsField({
         <label className="text-xs text-muted-foreground">
           {label} {required ? "*" : ""}
         </label>
-        <p className="mt-1 text-xs text-muted-foreground">先添加 allowedKeys 后可配置约束</p>
+        <p className="mt-1 text-xs text-muted-foreground">{t('addAllowedKeysConstraints')}</p>
       </div>
     );
   }
@@ -961,6 +967,7 @@ export function WriteStateDeduplicateByField({
   operations: Record<string, string>;
   onCommit: (value: unknown) => void;
 }) {
+  const { t } = useTranslation('flow');
   const dedup = useMemo(
     () =>
       value && typeof value === "object" && !Array.isArray(value)
@@ -988,7 +995,7 @@ export function WriteStateDeduplicateByField({
         <label className="text-xs text-muted-foreground">
           {label} {required ? "*" : ""}
         </label>
-        <p className="mt-1 text-xs text-muted-foreground">仅对 appendMany 操作的 key 生效</p>
+        <p className="mt-1 text-xs text-muted-foreground">{t('onlyAppendMany')}</p>
       </div>
     );
   }
@@ -1006,7 +1013,7 @@ export function WriteStateDeduplicateByField({
             </span>
             <Input
               className="w-36 text-xs"
-              placeholder="去重字段名 (如 id)"
+              placeholder={t('dedupPlaceholder')}
               value={dedup[key] ?? ""}
               onChange={(e) => update(key, e.target.value)}
             />

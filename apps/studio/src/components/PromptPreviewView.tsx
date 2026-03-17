@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from 'react-i18next';
 import { Focus, Loader2, MessageSquareQuote, Search, Sparkles } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/EmptyState";
@@ -56,11 +57,12 @@ function RenderResultPanel({
   loading: boolean;
   error: string | null;
 }) {
+  const { t } = useTranslation('preview');
   if (loading) {
     return (
       <div className="flex items-center gap-2 rounded-xl border border-dashed p-6 text-sm text-muted-foreground">
         <Loader2 className="size-4 animate-spin" />
-        渲染中…
+        {t('prompt.rendering')}
       </div>
     );
   }
@@ -81,9 +83,9 @@ function RenderResultPanel({
     <div className="space-y-4 rounded-2xl border border-primary/20 bg-primary/[0.02] p-5">
       <div className="flex items-center gap-2">
         <Sparkles className="size-4 text-primary" />
-        <span className="text-sm font-medium">最终渲染结果</span>
+        <span className="text-sm font-medium">{t('prompt.finalRenderResult')}</span>
         <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] text-primary">
-          {activeCount}/{result.fragments.length} fragments active
+          {t('prompt.fragmentsActive', { active: activeCount, total: result.fragments.length })}
         </span>
       </div>
 
@@ -93,7 +95,7 @@ function RenderResultPanel({
 
       {result.fragments.length > 0 && (
         <div className="space-y-2">
-          <div className="text-xs font-medium text-muted-foreground">Fragments</div>
+          <div className="text-xs font-medium text-muted-foreground">{t('prompt.fragments')}</div>
           {result.fragments.map((fragment, i) => (
             <FragmentCard key={fragment.id || i} fragment={fragment} />
           ))}
@@ -104,6 +106,7 @@ function RenderResultPanel({
 }
 
 export function PromptPreviewView() {
+  const { t } = useTranslation('preview');
   const { entries, total } = usePromptPreview();
   const { activeFlowId } = useWorkbench();
   const { selectedNodeId, selectionContext } = useCanvasSelection();
@@ -191,16 +194,16 @@ export function PromptPreviewView() {
       <div className="mx-auto max-w-6xl space-y-6">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold">Prompt Preview</h1>
+            <h1 className="text-2xl font-bold">{t('prompt.title')}</h1>
             <p className="text-sm text-muted-foreground">
-              预览 Session prompts 与 Flow 中的 prompt-like 配置。在画布中选中 PromptBuild 节点可查看最终渲染结果。
+              {t('prompt.subtitle')}
             </p>
           </div>
           <div className="flex items-center gap-3">
             {matchedId && (
               <div className="flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/5 px-3 py-1 text-xs text-primary">
                 <Focus className="size-3" />
-                已联动
+                {t('prompt.linked')}
               </div>
             )}
             <div className="rounded-full border px-3 py-1 text-sm text-muted-foreground">
@@ -214,7 +217,7 @@ export function PromptPreviewView() {
           <Input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="搜索 prompt 文本、绑定、Flow 或步骤..."
+            placeholder={t('prompt.searchPlaceholder')}
             className="pl-10"
           />
         </div>
@@ -223,7 +226,7 @@ export function PromptPreviewView() {
         <RenderResultPanel result={renderResult} loading={renderLoading} error={renderError} />
 
         {sortedEntries.length === 0 && !renderResult ? (
-          <EmptyState message="当前没有可预览的 prompt 内容。" />
+          <EmptyState message={t('prompt.noPreviewContent')} />
         ) : (
           <div className="grid gap-4 lg:grid-cols-2">
             {sortedEntries.map((entry) => {

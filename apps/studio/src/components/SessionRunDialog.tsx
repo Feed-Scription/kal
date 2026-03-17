@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Loader2, Play, RotateCcw, Send, Square, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/EmptyState';
@@ -13,19 +14,12 @@ import {
 import { Input } from '@/components/ui/input';
 import type { RunEvent, RunStateView, RunView } from '@/types/project';
 import { useRunService, useStudioCommands } from '@/kernel/hooks';
+import { formatTime } from '@/i18n/format';
 
 type SessionRunDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 };
-
-function formatTimestamp(timestamp: number): string {
-  return new Date(timestamp).toLocaleTimeString('zh-CN', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  });
-}
 
 function mergeEvents(existing: RunEvent[], incoming: RunEvent[]): RunEvent[] {
   const seen = new Set(existing.map((event) => JSON.stringify(event)));
@@ -41,24 +35,6 @@ function mergeEvents(existing: RunEvent[], incoming: RunEvent[]): RunEvent[] {
   }
 
   return merged;
-}
-
-function statusLabel(run: RunView | null): string {
-  if (!run) {
-    return '未开始';
-  }
-  switch (run.status) {
-    case 'waiting_input':
-      return '等待输入';
-    case 'paused':
-      return '已暂停';
-    case 'ended':
-      return '已结束';
-    case 'error':
-      return '运行错误';
-    default:
-      return run.status;
-  }
 }
 
 function statusClass(run: RunView | null): string {
@@ -79,7 +55,28 @@ function statusClass(run: RunView | null): string {
   }
 }
 
+function useStatusLabel() {
+  const { t } = useTranslation('session');
+  return (run: RunView | null): string => {
+    if (!run) return t('status.notStarted');
+    switch (run.status) {
+      case 'waiting_input':
+        return t('status.waitingInput');
+      case 'paused':
+        return t('status.paused');
+      case 'ended':
+        return t('status.ended');
+      case 'error':
+        return t('status.error');
+      default:
+        return run.status;
+    }
+  };
+}
+
 export function SessionRunDialog({ open, onOpenChange }: SessionRunDialogProps) {
+  const { t } = useTranslation('session');
+  const statusLabel = useStatusLabel();
   const { createRun, listRuns, getRunState, advanceRun, cancelRun, replayRun, selectRun, stepRun } = useStudioCommands();
   const runs = useRunService();
 
@@ -147,7 +144,7 @@ export function SessionRunDialog({ open, onOpenChange }: SessionRunDialogProps) 
         });
       } catch (err) {
         if (!cancelled) {
-          setError((err as Error).message || '加载 Session run 失败');
+          setError((err as Error).message || t('runtime.loadFailed'));
         }
       } finally {
         if (!cancelled) {
@@ -198,7 +195,7 @@ export function SessionRunDialog({ open, onOpenChange }: SessionRunDialogProps) 
       await refreshRunState(created.run_id);
       await selectRun(created.run_id);
     } catch (err) {
-      setError((err as Error).message || '启动 Session run 失败');
+      setError((err as Error).message || t('runtime.startFailed'));
     } finally {
       setSubmitting(false);
     }
@@ -219,7 +216,7 @@ export function SessionRunDialog({ open, onOpenChange }: SessionRunDialogProps) 
       await refreshRunState(nextRun.run_id);
       await selectRun(nextRun.run_id);
     } catch (err) {
-      setError((err as Error).message || '推进 Session run 失败');
+      setError((err as Error).message || t('runtime.advanceFailed'));
     } finally {
       setSubmitting(false);
     }
@@ -240,7 +237,7 @@ export function SessionRunDialog({ open, onOpenChange }: SessionRunDialogProps) 
       await refreshRunState(replayed.run_id);
       await selectRun(replayed.run_id);
     } catch (err) {
-      setError((err as Error).message || '重放 Session run 失败');
+      setError((err as Error).message || t('runtime.replayFailed'));
     } finally {
       setSubmitting(false);
     }
@@ -262,7 +259,7 @@ export function SessionRunDialog({ open, onOpenChange }: SessionRunDialogProps) 
       setInputValue('');
       await selectRun(null);
     } catch (err) {
-      setError((err as Error).message || '取消 Session run 失败');
+      setError((err as Error).message || t('runtime.cancelFailed'));
     } finally {
       setSubmitting(false);
     }
@@ -277,9 +274,9 @@ export function SessionRunDialog({ open, onOpenChange }: SessionRunDialogProps) 
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-5xl">
         <DialogHeader>
-          <DialogTitle>Session Runtime</DialogTitle>
+          <DialogTitle>{t('runtime.title')}</DialogTitle>
           <DialogDescription>
-            Studio 只负责展示和输入采集；Session 推进、状态恢复和交互边界都由 Engine managed run 负责。
+            {t('runtime.description')}
           </DialogDescription>
         </DialogHeader>
 
@@ -288,9 +285,9 @@ export function SessionRunDialog({ open, onOpenChange }: SessionRunDialogProps) 
             <div className="rounded-xl border bg-card">
               <div className="flex items-center justify-between border-b px-4 py-3">
                 <div>
-                  <div className="text-sm font-semibold">当前 Run</div>
+                  <div className="text-sm font-semibold">{t('runtime.currentRun')}</div>
                   <div className="text-xs text-muted-foreground">
-                    {run ? `${run.run_id} · 更新于 ${formatTimestamp(run.updated_at)}` : '尚未启动'}
+                    {run ? t('runtime.updatedAt', { runId: run.run_id, time: formatTime(new Date(run.updated_at)) }) : t('runtime.notStarted')}
                   </div>
                 </div>
                 <span className={`rounded-full border px-2.5 py-1 text-xs font-medium ${statusClass(run)}`}>
@@ -302,31 +299,31 @@ export function SessionRunDialog({ open, onOpenChange }: SessionRunDialogProps) 
                 {loading && (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Loader2 className="size-4 animate-spin" />
-                    正在连接 Session runtime...
+                    {t('runtime.connecting')}
                   </div>
                 )}
 
                 {!loading && !run && (
-                  <EmptyState message={'当前没有 active run。点击”启动 Run”后，Engine 会自动推进到第一个交互边界。'} compact />
+                  <EmptyState message={t('runtime.noActiveRun')} compact />
                 )}
 
                 {run && (
                   <>
                     <div className="grid gap-3 rounded-lg bg-muted/50 p-3 md:grid-cols-3">
                       <div>
-                        <div className="text-xs uppercase tracking-wide text-muted-foreground">Step</div>
+                        <div className="text-xs uppercase tracking-wide text-muted-foreground">{t('runDialog.step')}</div>
                         <div className="mt-1 text-sm font-medium">
                           {run.cursor.currentStepId ?? 'end'}
                         </div>
                       </div>
                       <div>
-                        <div className="text-xs uppercase tracking-wide text-muted-foreground">Changed</div>
+                        <div className="text-xs uppercase tracking-wide text-muted-foreground">{t('runDialog.changed')}</div>
                         <div className="mt-1 text-sm font-medium">
-                          {run.state_summary.changed.length > 0 ? run.state_summary.changed.join(', ') : 'No changes'}
+                          {run.state_summary.changed.length > 0 ? run.state_summary.changed.join(', ') : t('runDialog.noChanges')}
                         </div>
                       </div>
                       <div>
-                        <div className="text-xs uppercase tracking-wide text-muted-foreground">Keys</div>
+                        <div className="text-xs uppercase tracking-wide text-muted-foreground">{t('runDialog.keys')}</div>
                         <div className="mt-1 text-sm font-medium">{run.state_summary.total_keys}</div>
                       </div>
                     </div>
@@ -334,9 +331,9 @@ export function SessionRunDialog({ open, onOpenChange }: SessionRunDialogProps) 
                     {waitingFor && (
                       <div className="space-y-3 rounded-lg border p-4">
                         <div>
-                          <div className="text-sm font-semibold">等待输入</div>
+                          <div className="text-sm font-semibold">{t('runtime.waitingInput')}</div>
                           <div className="text-xs text-muted-foreground">
-                            {waitingFor.step_id} · {waitingFor.kind === 'choice' ? '选择行动' : '文本输入'}
+                            {waitingFor.step_id} · {waitingFor.kind === 'choice' ? t('runtime.chooseAction') : t('runtime.textInput')}
                           </div>
                         </div>
 
@@ -351,7 +348,7 @@ export function SessionRunDialog({ open, onOpenChange }: SessionRunDialogProps) 
                             <Input
                               value={inputValue}
                               onChange={(event) => setInputValue(event.target.value)}
-                              placeholder="输入要提交给 Session 的内容"
+                              placeholder={t('runtime.inputPlaceholder')}
                               disabled={submitting}
                               onKeyDown={(event) => {
                                 if (event.key === 'Enter') {
@@ -364,7 +361,7 @@ export function SessionRunDialog({ open, onOpenChange }: SessionRunDialogProps) 
                               {submitting ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
                             </Button>
                             <Button variant="outline" onClick={() => void handleAdvance(inputValue, 'step')} disabled={submitting}>
-                              单步提交
+                              {t('runtime.stepSubmit')}
                             </Button>
                           </div>
                         )}
@@ -385,7 +382,7 @@ export function SessionRunDialog({ open, onOpenChange }: SessionRunDialogProps) 
                                   onClick={() => void handleAdvance(option.value, 'step')}
                                   disabled={submitting}
                                 >
-                                  单步
+                                  {t('runtime.step')}
                                 </Button>
                               </div>
                             ))}
@@ -397,15 +394,15 @@ export function SessionRunDialog({ open, onOpenChange }: SessionRunDialogProps) 
                     {run.status === 'paused' && (
                       <div className="rounded-lg border p-4">
                         <div className="mb-3 text-sm text-muted-foreground">
-                          Run 已暂停在下一个边界之前，可以继续推进。
+                          {t('runtime.runPaused')}
                         </div>
                         <div className="flex gap-2">
                           <Button onClick={() => void handleAdvance()} disabled={submitting}>
                             {submitting ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : <Send className="mr-1.5 size-4" />}
-                            继续
+                            {t('runtime.continue')}
                           </Button>
                           <Button variant="outline" onClick={() => void handleAdvance(undefined, 'step')} disabled={submitting}>
-                            单步
+                            {t('runtime.step')}
                           </Button>
                         </div>
                       </div>
@@ -413,7 +410,7 @@ export function SessionRunDialog({ open, onOpenChange }: SessionRunDialogProps) 
 
                     {(run.status === 'ended' || run.status === 'error') && (
                       <div className="rounded-lg border p-4 text-sm text-muted-foreground">
-                        当前 run 已停止。可以直接重新启动一个新的 run。
+                        {t('runtime.runStopped')}
                       </div>
                     )}
                   </>
@@ -429,12 +426,12 @@ export function SessionRunDialog({ open, onOpenChange }: SessionRunDialogProps) 
 
             <div className="rounded-xl border bg-card">
               <div className="flex items-center justify-between border-b px-4 py-3">
-                <div className="text-sm font-semibold">最近事件</div>
-                <div className="text-xs text-muted-foreground">{history.length} 条</div>
+                <div className="text-sm font-semibold">{t('runtime.recentEvents')}</div>
+                <div className="text-xs text-muted-foreground">{t('runtime.eventCount', { count: history.length })}</div>
               </div>
               <div className="max-h-[320px] space-y-3 overflow-auto px-4 py-4">
                 {history.length === 0 && (
-                  <div className="text-sm text-muted-foreground">尚无事件输出。</div>
+                  <div className="text-sm text-muted-foreground">{t('runtime.noEvents')}</div>
                 )}
                 {history.map((event, index) => (
                   <div key={`${event.type}-${index}`} className="rounded-lg border p-3">
@@ -457,8 +454,8 @@ export function SessionRunDialog({ open, onOpenChange }: SessionRunDialogProps) 
                       </div>
                     ) : (
                       <div className="text-sm">
-                        <span className="font-medium">End</span>
-                        <span className="ml-2 text-muted-foreground">{event.message ?? 'Session ended'}</span>
+                        <span className="font-medium">{t('runDialog.end')}</span>
+                        <span className="ml-2 text-muted-foreground">{event.message ?? t('runDialog.sessionEnded')}</span>
                       </div>
                     )}
                   </div>
@@ -471,11 +468,11 @@ export function SessionRunDialog({ open, onOpenChange }: SessionRunDialogProps) 
             <div className="rounded-xl border bg-card">
               <div className="flex items-center gap-2 border-b px-4 py-3">
                 <Sparkles className="size-4 text-amber-500" />
-                <div className="text-sm font-semibold">状态预览</div>
+                <div className="text-sm font-semibold">{t('runtime.statePreview')}</div>
               </div>
               <div className="space-y-3 px-4 py-4">
                 {Object.keys(statePreview).length === 0 ? (
-                  <div className="text-sm text-muted-foreground">暂无可展示的状态预览。</div>
+                  <div className="text-sm text-muted-foreground">{t('runtime.noStatePreview')}</div>
                 ) : (
                   Object.entries(statePreview).map(([key, value]) => (
                     <div key={key} className="rounded-lg bg-muted/50 px-3 py-2">
@@ -488,7 +485,7 @@ export function SessionRunDialog({ open, onOpenChange }: SessionRunDialogProps) 
             </div>
 
             <div className="rounded-xl border bg-card">
-              <div className="border-b px-4 py-3 text-sm font-semibold">完整 State</div>
+              <div className="border-b px-4 py-3 text-sm font-semibold">{t('runtime.fullState')}</div>
               <div className="max-h-[320px] overflow-auto px-4 py-4">
                 <pre className="rounded-lg bg-muted/60 p-3 text-xs">
                   {JSON.stringify(fullState, null, 2)}
@@ -497,10 +494,10 @@ export function SessionRunDialog({ open, onOpenChange }: SessionRunDialogProps) 
             </div>
 
             <div className="rounded-xl border bg-card">
-              <div className="border-b px-4 py-3 text-sm font-semibold">输入历史</div>
+              <div className="border-b px-4 py-3 text-sm font-semibold">{t('runtime.inputHistory')}</div>
               <div className="max-h-[220px] space-y-3 overflow-auto px-4 py-4">
                 {inputHistory.length === 0 ? (
-                  <div className="text-sm text-muted-foreground">当前 run 还没有用户输入记录。</div>
+                  <div className="text-sm text-muted-foreground">{t('runtime.noInputHistory')}</div>
                 ) : (
                   inputHistory.map((entry, index) => (
                     <div key={`${entry.step_id}:${entry.timestamp}:${index}`} className="rounded-lg border p-3">
@@ -508,7 +505,7 @@ export function SessionRunDialog({ open, onOpenChange }: SessionRunDialogProps) 
                         <div className="text-sm font-medium">
                           {entry.step_id} · step {entry.step_index}
                         </div>
-                        <div className="text-xs text-muted-foreground">{formatTimestamp(entry.timestamp)}</div>
+                        <div className="text-xs text-muted-foreground">{formatTime(new Date(entry.timestamp))}</div>
                       </div>
                       <div className="mt-2 break-all text-sm text-muted-foreground">{entry.input}</div>
                     </div>
@@ -522,12 +519,12 @@ export function SessionRunDialog({ open, onOpenChange }: SessionRunDialogProps) 
         <DialogFooter className="justify-between">
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>
-              关闭
+              {t('runtime.close')}
             </Button>
             {run && (
               <Button variant="outline" onClick={() => void handleCancel()} disabled={submitting}>
                 <Square className="mr-1.5 size-4" />
-                取消 Run
+                {t('runtime.cancelRun')}
               </Button>
             )}
           </div>
@@ -536,15 +533,15 @@ export function SessionRunDialog({ open, onOpenChange }: SessionRunDialogProps) 
             {run && (
               <Button variant="outline" onClick={() => void handleReplay()} disabled={submitting || loading}>
                 <RotateCcw className="mr-1.5 size-4" />
-                重放
+                {t('runtime.replay')}
               </Button>
             )}
             <Button onClick={() => void handleStart()} disabled={submitting || loading}>
               {run ? <RotateCcw className="mr-1.5 size-4" /> : <Play className="mr-1.5 size-4" />}
-              {run ? '重新开始' : '启动 Run'}
+              {run ? t('runtime.restart') : t('runtime.startRun')}
             </Button>
             <Button variant="outline" onClick={() => void handleStart('step')} disabled={submitting || loading}>
-              单步启动
+              {t('runtime.stepStart')}
             </Button>
           </div>
         </DialogFooter>

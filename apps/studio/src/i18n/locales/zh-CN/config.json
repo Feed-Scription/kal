@@ -1,0 +1,58 @@
+{
+  "title": "配置编辑器",
+  "projectSettings": "项目设置",
+  "projectName": "项目名称",
+  "projectVersion": "项目版本",
+  "description": "描述",
+  "save": "保存",
+  "saving": "保存中...",
+  "reset": "重置",
+  "undoChanges": "撤销修改",
+  "noConfig": "未加载项目配置。",
+  "noChanges": "没有修改",
+  "restrictedFieldsOnly": "当前仅修改了暂不支持直接保存的字段",
+  "unsavedWarning": "配置已修改但尚未保存。保存会直接调用 Studio 的配置写入命令，并进入版本记录，可撤销重做。",
+  "restrictedFieldsNote": "`llm.apiKey` 和 `llm.baseUrl` 目前不能通过 Studio 直接保存。你可以在这里查看或临时编辑，但保存时会保留项目文件中的原值。",
+  "section": {
+    "general": "基本",
+    "basicInfo": "基本信息",
+    "runtime": "运行时",
+    "advanced": "高级",
+    "engineSettings": "引擎设置",
+    "llmSettings": "LLM 设置",
+    "retryStrategy": "重试策略"
+  },
+  "field": {
+    "name": "名称",
+    "projectName": "项目名称",
+    "version": "版本",
+    "description": "描述",
+    "entryFlow": "入口 Flow",
+    "defaultModel": "默认模型",
+    "maxTurns": "最大轮次",
+    "temperature": "温度",
+    "stateSchema": "State Schema",
+    "logLevel": "日志级别",
+    "maxConcurrentFlows": "最大并发 Flow",
+    "timeout": "超时 (ms)",
+    "provider": "Provider",
+    "baseUrl": "Base URL",
+    "apiKey": "API Key",
+    "maxRetries": "最大重试次数",
+    "initialDelay": "初始延迟 (ms)",
+    "maxDelay": "最大延迟 (ms)",
+    "backoffMultiplier": "退避倍数",
+    "enableJitter": "启用 Jitter",
+    "enableCache": "启用缓存"
+  },
+  "placeholder": {
+    "optional": "可选",
+    "encryptedStorage": "已加密存储"
+  },
+  "validation": {
+    "nameRequired": "项目名称不能为空",
+    "versionRequired": "版本号不能为空"
+  },
+  "saved": "配置已保存",
+  "saveFailed": "保存配置失败"
+}

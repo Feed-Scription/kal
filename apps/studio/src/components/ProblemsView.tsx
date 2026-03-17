@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, CircleCheckBig, Info, RefreshCw } from "lucide-react";
+import { useTranslation } from 'react-i18next';
 import { EmptyState } from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
 import { useConnectionState, useDiagnostics, useSaveState, useStudioCommands } from "@/kernel/hooks";
+import { formatDateTime } from '@/i18n/format';
 import type { DiagnosticPayload } from "@/types/project";
 
 type ProblemItem = {
@@ -24,6 +26,7 @@ function severityOf(diagnostic: DiagnosticPayload): "error" | "warning" | "info"
 }
 
 export function ProblemsView() {
+  const { t } = useTranslation('workbench');
   const { engineConnected, connectionError } = useConnectionState();
   const { diagnostics: report, updatedAt } = useDiagnostics();
   const saveState = useSaveState();
@@ -56,7 +59,7 @@ export function ProblemsView() {
       entries.push({
         id: "engine-connection",
         severity: "error",
-        title: "Engine 连接失败",
+        title: t("problems.engineConnectionFailed"),
         detail: connectionError,
       });
     }
@@ -65,7 +68,7 @@ export function ProblemsView() {
       entries.push({
         id: "save-error",
         severity: "error",
-        title: "保存失败",
+        title: t("problems.saveFailed"),
         detail: saveState.message,
       });
     }
@@ -74,7 +77,7 @@ export function ProblemsView() {
   }, [connectionError, saveState.message, saveState.status]);
 
   const formatTimestamp = (timestamp: number) =>
-    new Date(timestamp).toLocaleString("zh-CN", { hour12: false });
+    formatDateTime(timestamp);
 
   const allProblems: ProblemItem[] = [
     ...kernelProblems,
@@ -94,29 +97,29 @@ export function ProblemsView() {
       <div className="mx-auto max-w-5xl space-y-6">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold">Problems</h1>
-            <p className="text-sm text-muted-foreground">官方工作流扩展，消费 Kernel 托管的 diagnostics 与问题状态。</p>
+            <h1 className="text-2xl font-bold">{t('problems.title')}</h1>
+            <p className="text-sm text-muted-foreground">{t('problems.subtitle')}</p>
           </div>
           <div className="flex items-center gap-3">
             {updatedAt ? (
               <div className="rounded-full border px-3 py-1 text-sm text-muted-foreground">
-                更新于 {formatTimestamp(updatedAt)}
+                {t('problems.updatedAt', { time: formatTimestamp(updatedAt) })}
               </div>
             ) : null}
             {report ? (
               <div className="rounded-full border px-3 py-1 text-sm text-muted-foreground">
-                {report.summary.errors} errors / {report.summary.warnings} warnings
+                {t('problems.panelSummary', { errors: report.summary.errors, warnings: report.summary.warnings })}
               </div>
             ) : null}
             <Button variant="outline" size="sm" onClick={() => void refresh()} disabled={loading || !engineConnected}>
               <RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} />
-              刷新
+              {t('problems.refresh')}
             </Button>
           </div>
         </div>
 
         {!engineConnected ? (
-          <EmptyState message="当前未连接 Engine，无法拉取 diagnostics。" />
+          <EmptyState message={t('problems.engineDisconnected')} />
         ) : null}
 
         <div className="space-y-3">
@@ -124,7 +127,7 @@ export function ProblemsView() {
             <div className="flex items-start gap-3 rounded-2xl border border-green-600/20 bg-green-600/5 p-4 text-sm">
               <CircleCheckBig className="mt-0.5 size-4 text-green-600" />
               <p className="text-muted-foreground">
-                当前没有发现问题。Problems 视图已经完全接入 Kernel diagnostics。
+                {t('problems.noProblemsDetail')}
               </p>
             </div>
           ) : (

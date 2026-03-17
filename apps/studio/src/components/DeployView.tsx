@@ -1,9 +1,11 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { CheckCircle2, ExternalLink, Loader2, RefreshCw, Rocket, Settings, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/EmptyState';
 import { engineApi } from '@/api/engine-client';
 import { useStudioCommands } from '@/kernel/hooks';
+import { formatDateTime } from '@/i18n/format';
 
 interface DeployRecord {
   deploymentId: string;
@@ -13,6 +15,7 @@ interface DeployRecord {
 }
 
 export function DeployView() {
+  const { t } = useTranslation('deploy');
   const [status, setStatus] = useState<'idle' | 'deploying' | 'success' | 'error'>('idle');
   const [error, setError] = useState('');
   const [lastDeploy, setLastDeploy] = useState<DeployRecord | null>(null);
@@ -53,9 +56,9 @@ export function DeployView() {
           <div className="flex items-center gap-2">
             <Rocket className="size-4" />
             <div>
-              <h1 className="text-lg font-semibold">Vercel Deploy</h1>
+              <h1 className="text-lg font-semibold">{t('vercelDeploy')}</h1>
               <p className="text-sm text-muted-foreground">
-                将当前项目部署到 Vercel。需要配置 VERCEL_TOKEN 环境变量。
+                {t('subtitle')}
               </p>
             </div>
           </div>
@@ -63,22 +66,22 @@ export function DeployView() {
           <div className="rounded-xl border p-4">
             <div className="flex items-center gap-2 text-sm">
               <Settings className="size-4 text-muted-foreground" />
-              <span className="font-medium">部署状态</span>
+              <span className="font-medium">{t('deployStatus')}</span>
             </div>
             <div className="mt-2 flex items-center gap-2 text-sm">
               {status === 'idle' && !lastDeploy ? (
-                <span className="text-muted-foreground">未部署 — 点击下方按钮触发首次部署。</span>
+                <span className="text-muted-foreground">{t('notDeployed')}</span>
               ) : null}
               {status === 'deploying' ? (
                 <>
                   <Loader2 className="size-4 animate-spin text-blue-500" />
-                  <span className="text-blue-600">正在触发部署...</span>
+                  <span className="text-blue-600">{t('triggeringDeploy')}</span>
                 </>
               ) : null}
               {status === 'success' ? (
                 <>
                   <CheckCircle2 className="size-4 text-green-500" />
-                  <span className="text-green-600">部署已触发</span>
+                  <span className="text-green-600">{t('deployTriggered')}</span>
                 </>
               ) : null}
               {status === 'error' ? (
@@ -93,7 +96,7 @@ export function DeployView() {
           {lastDeploy && (
             <div className="rounded-xl border p-4">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">最近部署</span>
+                <span className="text-sm font-medium">{t('lastDeploy')}</span>
                 <span className="rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase">
                   {lastDeploy.readyState}
                 </span>
@@ -118,8 +121,8 @@ export function DeployView() {
                   </div>
                 )}
                 <div className="flex items-center justify-between gap-4">
-                  <span className="text-muted-foreground">时间</span>
-                  <span className="text-xs">{new Date(lastDeploy.createdAt).toLocaleString()}</span>
+                  <span className="text-muted-foreground">{t('time')}</span>
+                  <span className="text-xs">{formatDateTime(lastDeploy.createdAt)}</span>
                 </div>
               </div>
             </div>
@@ -127,13 +130,13 @@ export function DeployView() {
 
           <EmptyState
             icon={Settings}
-            message="配置说明"
+            message={t('configInstructions')}
             description={
               <ol className="mt-1 list-inside list-decimal space-y-1 text-left">
-                <li>在 Vercel 控制台创建 Deploy Token</li>
-                <li>设置环境变量 VERCEL_TOKEN、VERCEL_PROJECT_ID</li>
-                <li>可选设置 VERCEL_TEAM_ID（团队项目）</li>
-                <li>重启 Engine 后即可使用部署功能</li>
+                <li>{t('configStep1')}</li>
+                <li>{t('configStep2')}</li>
+                <li>{t('configStep3')}</li>
+                <li>{t('configStep4')}</li>
               </ol>
             }
           />
@@ -148,12 +151,12 @@ export function DeployView() {
               ) : (
                 <Rocket className="mr-1 size-4" />
               )}
-              {status === 'deploying' ? '部署中...' : '触发部署'}
+              {status === 'deploying' ? t('deploying') : t('triggerDeploy')}
             </Button>
             {lastDeploy && status !== 'deploying' && (
               <Button variant="outline" onClick={() => void handleDeploy()}>
                 <RefreshCw className="mr-1 size-4" />
-                重新部署
+                {t('redeploy')}
               </Button>
             )}
           </div>
