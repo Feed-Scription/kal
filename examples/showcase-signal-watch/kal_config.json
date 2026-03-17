@@ -1,0 +1,25 @@
+{
+  "name": "showcase-signal-watch",
+  "version": "0.1.0",
+  "engine": {
+    "logLevel": "warn",
+    "maxConcurrentFlows": 1,
+    "timeout": 60000
+  },
+  "llm": {
+    "provider": "openai",
+    "apiKey": "${OPENAI_API_KEY}",
+    "baseUrl": "${OPENAI_BASE_URL}",
+    "defaultModel": "gpt-4o-mini",
+    "retry": {
+      "maxRetries": 2,
+      "initialDelayMs": 1000,
+      "maxDelayMs": 10000,
+      "backoffMultiplier": 2,
+      "jitter": true
+    },
+    "cache": {
+      "enabled": false
+    }
+  }
+}

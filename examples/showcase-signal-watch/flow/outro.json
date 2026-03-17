@@ -1,0 +1,139 @@
+{
+  "meta": {
+    "schemaVersion": "1.0.0",
+    "name": "outro",
+    "description": "根据胜负状态输出结局",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "result",
+        "type": "string"
+      }
+    ]
+  },
+  "data": {
+    "nodes": [
+      {
+        "id": "prompt-build",
+        "type": "PromptBuild",
+        "label": "结局文本",
+        "inputs": [
+          {
+            "name": "data",
+            "type": "object",
+            "defaultValue": {}
+          }
+        ],
+        "outputs": [
+          {
+            "name": "messages",
+            "type": "ChatMessage[]"
+          },
+          {
+            "name": "text",
+            "type": "string"
+          },
+          {
+            "name": "estimatedTokens",
+            "type": "number"
+          }
+        ],
+        "config": {
+          "defaultRole": "system",
+          "fragments": [
+            {
+              "type": "base",
+              "id": "closing-header",
+              "content": "黎明终于抵达海岬，风暴信标站的轮值结束了。",
+              "role": "system"
+            },
+            {
+              "type": "when",
+              "id": "victory",
+              "condition": "state.status == 'victory'",
+              "content": "主灯熬过了最后一道黑潮。你站在还带着盐霜的铜梯旁，看见海面上两艘以上的船安全穿过礁带，港口回灯一盏接一盏亮起。值守员们虽然疲惫，却在晨光里终于笑了出来。你守住的不只是塔，而是整段海岸在暴风夜里的秩序。",
+              "role": "system"
+            },
+            {
+              "type": "when",
+              "id": "defeat",
+              "condition": "state.status != 'victory'",
+              "content": "黎明到了，但代价比你预想更重。也许是燃料先枯了，也许是塔身在狂风里被撕开裂口，又或者你终究没能把足够多的船从雾墙里引出来。海面渐亮时，信标站仍立在崖顶，而你会记住这一夜每一次迟疑与每一道浪声。",
+              "role": "system"
+            },
+            {
+              "type": "field",
+              "id": "shipsSaved",
+              "source": "state.shipsSaved",
+              "template": "最终救下船只数: {{items}}",
+              "role": "system"
+            },
+            {
+              "type": "field",
+              "id": "fuel",
+              "source": "state.fuel",
+              "template": "剩余燃料: {{items}}",
+              "role": "system"
+            },
+            {
+              "type": "field",
+              "id": "towerIntegrity",
+              "source": "state.towerIntegrity",
+              "template": "塔体完整度: {{items}}",
+              "role": "system"
+            },
+            {
+              "type": "field",
+              "id": "crewMorale",
+              "source": "state.crewMorale",
+              "template": "士气: {{items}}",
+              "role": "system"
+            },
+            {
+              "type": "field",
+              "id": "weather",
+              "source": "state.weather",
+              "template": "最后的海况: {{items}}",
+              "role": "system"
+            },
+            {
+              "type": "field",
+              "id": "inventory",
+              "source": "state.inventory",
+              "template": "结局时仍在手边的物资: {{items}}",
+              "role": "system"
+            }
+          ]
+        }
+      },
+      {
+        "id": "signal-out",
+        "type": "SignalOut",
+        "label": "输出结果",
+        "inputs": [
+          {
+            "name": "data",
+            "type": "string"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "data",
+            "type": "string"
+          }
+        ],
+        "config": {
+          "channel": "result"
+        }
+      }
+    ],
+    "edges": [
+      {
+        "source": "prompt-build",
+        "sourceHandle": "text",
+        "target": "signal-out",
+        "targetHandle": "data"
+      }
+    ]
+  }
+}
