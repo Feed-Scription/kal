@@ -92,14 +92,22 @@ function getFormat(tokens: string[]): 'json' | 'pretty' {
   return 'json';
 }
 
+export function collectSchemaNodesPayload() {
+  return {
+    nodes: BUILTIN_NODES.map((n) => ({
+      type: n.type,
+      label: n.label,
+      category: n.category ?? '',
+      inputs: n.inputs.map((i) => ({ name: i.name, type: i.type, required: i.required ?? false })),
+      outputs: n.outputs.map((o) => ({ name: o.name, type: o.type })),
+      configSchema: n.configSchema ?? null,
+      defaultConfig: n.defaultConfig ?? null,
+    })),
+  };
+}
+
 function handleNodes(io: EngineCliIO, format: 'json' | 'pretty'): number {
-  const nodes = BUILTIN_NODES.map((n) => ({
-    type: n.type,
-    label: n.label,
-    category: n.category ?? '',
-    inputs: n.inputs.map((i) => ({ name: i.name, type: i.type, required: i.required ?? false })),
-    outputs: n.outputs.map((o) => ({ name: o.name, type: o.type })),
-  }));
+  const { nodes } = collectSchemaNodesPayload();
 
   if (format === 'pretty') {
     io.stdout(`Built-in nodes (${nodes.length}):\n\n`);

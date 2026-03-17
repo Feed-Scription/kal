@@ -119,6 +119,13 @@ export function compareSnapshot(snapshot: RestorableSnapshot, project: ProjectDa
   const sessionChanged = JSON.stringify(snapshot.session ?? null) !== JSON.stringify(project.session ?? null);
   const sessionDiff = sessionChanged ? diffSession(snapshot.session, project.session) : undefined;
 
+  const configChanged = snapshot.config
+    ? JSON.stringify(snapshot.config) !== JSON.stringify(project.config)
+    : false;
+  const stateChanged = snapshot.state
+    ? JSON.stringify(snapshot.state) !== JSON.stringify(project.state)
+    : false;
+
   return {
     addedFlows,
     removedFlows,
@@ -127,7 +134,7 @@ export function compareSnapshot(snapshot: RestorableSnapshot, project: ProjectDa
     beforeSessionSteps: snapshot.session?.steps.length ?? 0,
     afterSessionSteps: project.session?.steps.length ?? 0,
     sessionDiff,
-    configChanged: false,
-    stateChanged: false,
+    configChanged,
+    stateChanged,
   };
 }

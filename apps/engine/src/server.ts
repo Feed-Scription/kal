@@ -21,12 +21,13 @@ import type {
 import { EngineRuntime } from './runtime';
 import { collectLintPayload } from './commands/lint';
 import { collectSmokePayload } from './commands/smoke';
+import { collectSchemaNodesPayload } from './commands/schema';
 import { buildReferenceIndex, buildSearchIndex, searchProject } from './reference-graph';
 
 function setCorsHeaders(res: ServerResponse): void {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Studio-Capabilities');
 }
 
 function sendJson<T>(res: ServerResponse, status: number, payload: EngineResponse<T> | EngineErrorResponse): void {
@@ -80,6 +81,36 @@ async function readJsonBody<T>(
 
 function success<T>(res: ServerResponse, data: T, status = 200): void {
   sendJson(res, status, { success: true, data });
+}
+
+/**
+ * Parse the X-Studio-Capabilities header into a set of granted capability IDs.
+ * Returns an empty set when the header is absent (e.g. direct CLI / curl usage),
+ * which means "no capability context" — callers decide whether to enforce.
+ */
+function parseCapabilities(req: IncomingMessage): Set<string> {
+  const raw = req.headers['x-studio-capabilities'];
+  if (!raw || typeof raw !== 'string') return new Set();
+  return new Set(raw.split(',').map((s) => s.trim()).filter(Boolean));
+}
+
+/**
+ * Require a specific capability when the request originates from Studio
+ * (i.e. the X-Studio-Capabilities header is present). Requests without
+ * the header (CLI, curl) are allowed through — the gate only applies to
+ * Studio sessions that have an explicit capability context.
+ */
+function requireCapability(req: IncomingMessage, capability: string): void {
+  const caps = parseCapabilities(req);
+  if (caps.size === 0) return; // no capability context → allow (non-Studio caller)
+  if (!caps.has(capability)) {
+    throw new EngineHttpError(
+      `Missing required capability: ${capability}`,
+      403,
+      'CAPABILITY_DENIED',
+      { required: capability, granted: [...caps] },
+    );
+  }
 }
 
 function failure(res: ServerResponse, error: unknown): void {
@@ -279,6 +310,15 @@ export async function handleEngineRequest(
       return;
     }
 
+    if (method === 'PUT' && pathname === '/api/config') {
+      requireCapability(req, 'project.write');
+      const patch = await readJsonBody<Record<string, any>>(req);
+      await runtime.saveConfig(patch);
+      eventBus?.emit({ type: 'resource.changed', message: 'Config saved' });
+      success(res, { savedAt: new Date().toISOString() });
+      return;
+    }
+
     if (method === 'GET' && pathname === '/api/state') {
       success(res, { state: runtime.getState() });
       return;
@@ -317,10 +357,17 @@ export async function handleEngineRequest(
     }
 
     if (method === 'POST' && pathname === '/api/terminal/exec') {
+      requireCapability(req, 'process.exec');
       const payload = await readJsonBody<{ command: string }>(req);
       const ALLOWED_COMMANDS: Record<string, () => Promise<unknown>> = {
         lint: () => collectLintPayload(runtime.getProject().projectRoot),
         smoke: () => collectSmokePayload(runtime, {}),
+        schema: () => Promise.resolve(collectSchemaNodesPayload()),
+        'debug-list': () => runs.listRuns(),
+        'debug-state': async () => {
+          const run = await runs.getRunState({ latest: true });
+          return run;
+        },
       };
       const cmd = payload.command?.trim().toLowerCase();
       if (!cmd || !ALLOWED_COMMANDS[cmd]) {
@@ -336,6 +383,7 @@ export async function handleEngineRequest(
     }
 
     if (method === 'POST' && pathname === '/api/tools/deploy') {
+      requireCapability(req, 'process.exec');
       throw new EngineHttpError(
         'Deploy not configured. Set VERCEL_TOKEN environment variable to enable.',
         501,
@@ -361,6 +409,7 @@ export async function handleEngineRequest(
     }
 
     if (method === 'PUT' && pathname.startsWith('/api/flows/')) {
+      requireCapability(req, 'project.write');
       const flowId = decodeURIComponent(pathname.slice('/api/flows/'.length));
       const flow = await readJsonBody<FlowDefinition>(req);
       await runtime.saveFlow(flowId, flow);
@@ -373,6 +422,7 @@ export async function handleEngineRequest(
     }
 
     if (method === 'DELETE' && pathname.startsWith('/api/flows/')) {
+      requireCapability(req, 'project.write');
       const flowId = decodeURIComponent(pathname.slice('/api/flows/'.length));
       await runtime.deleteFlow(flowId);
       eventBus?.emit({ type: 'resource.changed', flowId, message: `Flow deleted: ${flowId}` });
@@ -384,6 +434,7 @@ export async function handleEngineRequest(
     }
 
     if (method === 'POST' && pathname === '/api/executions') {
+      requireCapability(req, 'engine.execute');
       const payload = await readJsonBody<ExecuteFlowRequest>(req);
       if (!payload.flowId) {
         throw new EngineHttpError('flowId is required', 400, 'FLOW_ID_REQUIRED');
@@ -398,6 +449,7 @@ export async function handleEngineRequest(
     }
 
     if (method === 'POST' && pathname === '/api/runs') {
+      requireCapability(req, 'engine.execute');
       const payload = await readJsonBody<CreateRunRequest>(req, { required: false });
       const created = await runs.createRun({
         forceNew: payload.forceNew,
@@ -478,6 +530,7 @@ export async function handleEngineRequest(
     }
 
     if (method === 'PUT' && pathname === '/api/session') {
+      requireCapability(req, 'project.write');
       const session = await readJsonBody<SessionDefinition>(req);
       await runtime.saveSession(session);
       eventBus?.emit({ type: 'resource.changed', sessionId: 'default', message: 'Session saved' });
@@ -486,6 +539,7 @@ export async function handleEngineRequest(
     }
 
     if (method === 'DELETE' && pathname === '/api/session') {
+      requireCapability(req, 'project.write');
       await runtime.deleteSession();
       eventBus?.emit({ type: 'resource.changed', sessionId: 'default', message: 'Session deleted' });
       success(res, { deletedAt: new Date().toISOString() });
