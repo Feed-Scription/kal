@@ -1,4 +1,5 @@
 import { Activity, Loader2 } from 'lucide-react';
+import { EmptyState } from '@/components/EmptyState';
 import { useKernelEvents, useKernelJobs } from '@/kernel/hooks';
 
 function formatTime(timestamp: number) {
@@ -23,9 +24,7 @@ export function EventLogPanel() {
             Jobs
           </div>
           {jobs.length === 0 ? (
-            <div className="rounded-lg border border-dashed p-3 text-xs text-muted-foreground">
-              当前没有记录到长任务。
-            </div>
+            <EmptyState message="当前没有记录到长任务。" compact />
           ) : (
             jobs.slice(0, 4).map((job) => (
               <div key={job.id} className="rounded-lg border p-3">
@@ -69,9 +68,7 @@ export function EventLogPanel() {
             Recent Events
           </div>
           {events.length === 0 ? (
-            <div className="rounded-lg border border-dashed p-3 text-xs text-muted-foreground">
-              当前还没有 kernel 事件。
-            </div>
+            <EmptyState message="当前还没有 kernel 事件。" compact />
           ) : (
             <div className="space-y-2">
               {events.map((event) => (

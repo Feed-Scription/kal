@@ -21,6 +21,8 @@ import { PaneContextMenu, type ContextMenuState } from "./PaneContextMenu";
 import { FlowToolbar } from "./components/FlowToolbar";
 import { ExecutionDialog } from "./components/ExecutionDialog";
 import { useFlowResource, useStudioCommands, useStudioResources } from "@/kernel/hooks";
+import { useFlowNodeOverlay } from "@/hooks/use-node-overlay";
+import { useCanvasSelection } from "@/hooks/use-canvas-selection";
 import { layoutDag } from "@/utils/graph-layout";
 import type { FlowDefinition, NodeDefinition, EdgeDefinition, NodeManifest } from "@/types/project";
 
@@ -108,6 +110,15 @@ export default function Flow() {
   const { project } = useStudioResources();
   const { flowId: currentFlow } = useFlowResource();
   const { saveFlow } = useStudioCommands();
+  const overlayMap = useFlowNodeOverlay(currentFlow);
+  const setSelection = useCanvasSelection((s) => s.setSelection);
+
+  const onSelectionChange = useCallback(
+    ({ nodes: selected }: { nodes: Node[] }) => {
+      setSelection(selected.length === 1 ? selected[0].id : null, 'flow');
+    },
+    [setSelection],
+  );
 
   const manifestMap = useMemo(() => {
     const map = new Map<string, NodeManifest>();
@@ -350,6 +361,17 @@ export default function Flow() {
     );
   }, [nodes, edges]);
 
+  // 将 overlay state 注入到每个 node 的 data 中
+  const nodesWithOverlay = useMemo(
+    () =>
+      nodes.map((node) => {
+        const overlay = overlayMap.get(node.id);
+        if (!overlay) return node;
+        return { ...node, data: { ...node.data, overlay } };
+      }),
+    [nodes, overlayMap],
+  );
+
   return (
     <div className="relative h-full w-full">
       <FlowToolbar
@@ -359,11 +381,12 @@ export default function Flow() {
         onAutoLayout={handleAutoLayout}
       />
       <ReactFlow
-        nodes={nodes}
+        nodes={nodesWithOverlay}
         edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        onSelectionChange={onSelectionChange}
         onPaneContextMenu={onPaneContextMenu}
         nodeTypes={nodeTypes}
         fitView

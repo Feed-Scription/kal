@@ -22,6 +22,7 @@ export interface EvalRunOptions {
   state?: Record<string, StateValue>;
   resolver?: (id: string) => string;
   variantLabel?: string;
+  modelOverride?: string;
 }
 
 /**
@@ -76,7 +77,7 @@ export async function runEval(
   stateStore: StateStore,
   options: EvalRunOptions,
 ): Promise<EvalRunResult> {
-  const { flow, flowId, nodeId, variantFragments, runs, input, state, resolver } = options;
+  const { flow, flowId, nodeId, variantFragments, runs, input, state, resolver, modelOverride } = options;
 
   // Validate the target node exists
   findPromptBuildNode(flow, nodeId);
@@ -85,6 +86,12 @@ export async function runEval(
   const effectiveFlow = variantFragments
     ? cloneFlowWithVariant(flow, nodeId, variantFragments)
     : flow;
+
+  // Apply model override if specified
+  const originalModel = core.config.llm.defaultModel;
+  if (modelOverride) {
+    core.config.llm.defaultModel = modelOverride;
+  }
 
   // Save original state for restoration between runs
   const originalState = stateStore.getAll();
@@ -160,6 +167,11 @@ export async function runEval(
   // Restore original state after all runs
   stateStore.restore(originalState);
 
+  // Restore original model after all runs
+  if (modelOverride) {
+    core.config.llm.defaultModel = originalModel;
+  }
+
   const totalCost = perRun.reduce((sum, r) => sum + r.cost, 0);
   const avgLatency = runs > 0
     ? Math.round(perRun.reduce((sum, r) => sum + r.latency, 0) / runs)
@@ -170,6 +182,7 @@ export async function runEval(
     flowPath: flowId,
     nodeId,
     variant: options.variantLabel ?? (variantFragments ? 'variant' : 'baseline'),
+    model: modelOverride ?? originalModel,
     runs,
     result: {
       outputs,

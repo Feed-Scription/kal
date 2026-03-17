@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Rocket, Settings } from 'lucide-react';
+import { CheckCircle2, Loader2, Rocket, Settings, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/EmptyState';
 import { engineApi } from '@/api/engine-client';
 import { useStudioCommands } from '@/kernel/hooks';
 
 export function DeployView() {
-  const [status, setStatus] = useState<'idle' | 'deploying' | 'error'>('idle');
+  const [status, setStatus] = useState<'idle' | 'deploying' | 'success' | 'error'>('idle');
   const [error, setError] = useState('');
   const { recordKernelEvent } = useStudioCommands();
 
@@ -14,7 +15,7 @@ export function DeployView() {
     setError('');
     try {
       await engineApi.triggerDeploy();
-      setStatus('idle');
+      setStatus('success');
     } catch (err) {
       const message = (err as Error).message;
       setError(message);
@@ -45,29 +46,52 @@ export function DeployView() {
               <Settings className="size-4 text-muted-foreground" />
               <span className="font-medium">部署状态</span>
             </div>
-            <div className="mt-2 text-sm text-muted-foreground">
-              {status === 'idle' && !error ? '未配置 — 请设置 VERCEL_TOKEN 环境变量以启用部署。' : null}
-              {status === 'deploying' ? '正在触发部署...' : null}
+            <div className="mt-2 flex items-center gap-2 text-sm">
+              {status === 'idle' ? (
+                <span className="text-muted-foreground">未配置 — 请设置 VERCEL_TOKEN 环境变量以启用部署。</span>
+              ) : null}
+              {status === 'deploying' ? (
+                <>
+                  <Loader2 className="size-4 animate-spin text-blue-500" />
+                  <span className="text-blue-600">正在触发部署...</span>
+                </>
+              ) : null}
+              {status === 'success' ? (
+                <>
+                  <CheckCircle2 className="size-4 text-green-500" />
+                  <span className="text-green-600">部署已触发</span>
+                </>
+              ) : null}
               {status === 'error' ? (
-                <span className="text-destructive">{error}</span>
+                <>
+                  <XCircle className="size-4 text-destructive" />
+                  <span className="text-destructive">{error}</span>
+                </>
               ) : null}
             </div>
           </div>
 
-          <div className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
-            <div className="font-medium">配置说明</div>
-            <ol className="mt-2 list-inside list-decimal space-y-1">
-              <li>在 Vercel 控制台创建 Deploy Token</li>
-              <li>在项目 .kal/config.env 中设置 VERCEL_TOKEN=your_token</li>
-              <li>重启 Engine 后即可使用部署功能</li>
-            </ol>
-          </div>
+          <EmptyState
+            icon={Settings}
+            message="配置说明"
+            description={
+              <ol className="mt-1 list-inside list-decimal space-y-1 text-left">
+                <li>在 Vercel 控制台创建 Deploy Token</li>
+                <li>在项目 .kal/config.env 中设置 VERCEL_TOKEN=your_token</li>
+                <li>重启 Engine 后即可使用部署功能</li>
+              </ol>
+            }
+          />
 
           <Button
             disabled={status === 'deploying'}
             onClick={() => void handleDeploy()}
           >
-            <Rocket className="mr-1 size-4" />
+            {status === 'deploying' ? (
+              <Loader2 className="mr-1 size-4 animate-spin" />
+            ) : (
+              <Rocket className="mr-1 size-4" />
+            )}
             {status === 'deploying' ? '部署中...' : '触发部署'}
           </Button>
         </section>

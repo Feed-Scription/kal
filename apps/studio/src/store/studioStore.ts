@@ -9,6 +9,7 @@
 
 import { create } from 'zustand';
 import { engineApi } from '@/api/engine-client';
+import { setCapabilityProvider } from '@/api/engine-client';
 import type { RunAdvanceMode } from '@/api/engine-client';
 import {
   DEFAULT_STUDIO_VIEW_ID,
@@ -38,6 +39,7 @@ import type {
   GitLogResult,
   GitStatusResult,
   InstalledPackageRecord,
+  KalConfig,
   ProjectData,
   ReferenceEntry,
   ResourceId,
@@ -190,6 +192,7 @@ type StudioStore = {
   reloadProject: () => Promise<void>;
   saveSession: (session: SessionDefinition) => Promise<void>;
   deleteSession: () => Promise<void>;
+  updateConfig: (patch: Partial<KalConfig>) => Promise<void>;
   createRun: (forceNew?: boolean, mode?: RunAdvanceMode) => Promise<RunView>;
   listRuns: () => Promise<RunSummary[]>;
   refreshRuns: () => Promise<RunSummary[]>;
@@ -412,13 +415,12 @@ function getFlowResourceId(flowName: string): ResourceId {
   return `flow://${flowName}`;
 }
 
-function captureRestorableSnapshot(project: ProjectData | null): {
-  flows: Record<string, FlowDefinition>;
-  session: SessionDefinition | null;
-} {
+function captureRestorableSnapshot(project: ProjectData | null): RestorableSnapshot {
   return {
     flows: cloneValue(project?.flows ?? {}),
     session: project?.session ? cloneValue(project.session) : null,
+    config: project?.config ? cloneValue(project.config) : undefined,
+    state: project?.state ? cloneValue(project.state) : undefined,
   };
 }
 
@@ -938,6 +940,10 @@ async function restoreProjectSnapshot(snapshot: RestorableSnapshot, currentProje
     await engineApi.saveSession(snapshot.session);
   } else if (currentProject.session) {
     await engineApi.deleteSession();
+  }
+
+  if (snapshot.config) {
+    await engineApi.saveConfig(snapshot.config);
   }
 
   return loadProjectSnapshot(previousFlow);
@@ -1924,6 +1930,32 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
       updateProject: (currentProject) => ({
         ...currentProject,
         session: null,
+      }),
+    });
+  },
+
+  updateConfig: async (patch) => {
+    const project = get().resources.project;
+    if (!project) return;
+    assertCapability(get, 'project.write');
+
+    await commitTransaction({
+      set,
+      get,
+      scope: 'project',
+      resource: 'config://project',
+      saveLabel: 'config',
+      operations: [
+        {
+          type: 'config.save',
+          resourceId: 'config://project',
+          summary: '保存 Config',
+        },
+      ],
+      action: () => engineApi.saveConfig(patch),
+      updateProject: (currentProject) => ({
+        ...currentProject,
+        config: { ...currentProject.config, ...patch } as typeof currentProject.config,
       }),
     });
   },
@@ -3285,4 +3317,12 @@ useStudioStore.subscribe((state) => {
   persistExtensionPreferences(state.extensions.records);
   persistCommentThreads(state.comments.threads);
   persistBreakpoints(state.runDebug.breakpoints);
+});
+
+// Wire capability grants into engine API request headers
+setCapabilityProvider(() => {
+  const grants = useStudioStore.getState().capabilities.grants;
+  return Object.entries(grants)
+    .filter(([, granted]) => granted)
+    .map(([cap]) => cap);
 });

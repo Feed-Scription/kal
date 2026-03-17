@@ -217,5 +217,5 @@ Key patterns to study:
 
 - [Core Concepts](concepts.md) — understand Node, Flow, State, Session
 - [Project Structure](project-structure.md) — file-by-file reference
-- [Built-in Nodes Reference](reference/nodes.md) — all 20 nodes
+- [Built-in Nodes Reference](reference/nodes.md) — all 17 built-in nodes
 - [CLI Reference](reference/cli.md) — all commands and options

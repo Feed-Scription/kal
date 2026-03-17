@@ -213,6 +213,7 @@ export type TransactionOperation = {
     | 'flow.delete'
     | 'session.save'
     | 'session.delete'
+    | 'config.save'
     | 'diagnostics.refresh'
     | 'checkpoint.restore'
     | 'transaction.undo'
@@ -234,6 +235,8 @@ export type TransactionRecord = {
 export type RestorableSnapshot = {
   flows: Record<string, FlowDefinition>;
   session: SessionDefinition | null;
+  config?: KalConfig;
+  state?: ProjectState;
 };
 
 export type CheckpointRecord = {
@@ -417,6 +420,7 @@ export type NodeManifest = {
 export type DiagnosticPayload = {
   code: string;
   message: string;
+  severity?: 'error' | 'warning' | 'info';
   phase: 'project_load' | 'session' | 'flow' | 'node' | 'cli';
   stepId?: string;
   flowId?: string;

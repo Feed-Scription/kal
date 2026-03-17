@@ -1,0 +1,24 @@
+{
+  "name": "create-kal-game",
+  "version": "0.1.0",
+  "description": "Scaffold a new KAL-AI game project",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Feed-Scription/kal.git",
+    "directory": "packages/create-kal-game"
+  },
+  "homepage": "https://github.com/Feed-Scription/kal#readme",
+  "keywords": ["ai", "game-engine", "scaffold", "create", "kal"],
+  "type": "module",
+  "bin": {
+    "create-kal-game": "./bin.mjs"
+  },
+  "files": [
+    "bin.mjs",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

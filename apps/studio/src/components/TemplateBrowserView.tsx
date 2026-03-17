@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { LayoutTemplate, Eye, FolderInput } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/EmptyState';
 import { usePackages, useStudioCommands } from '@/kernel/hooks';
 import type { TemplateEntry } from '@/types/project';
 
@@ -72,11 +73,9 @@ export function TemplateBrowserView() {
           ) : null}
 
           {filtered.length === 0 ? (
-            <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
-              {allTemplates.length === 0
-                ? '当前没有可用的模板。安装 template-pack 或 starter-pack 后即可在此浏览。'
-                : '当前分类下没有模板。'}
-            </div>
+            <EmptyState message={allTemplates.length === 0
+              ? '当前没有可用的模板。安装 template-pack 或 starter-pack 后即可在此浏览。'
+              : '当前分类下没有模板。'} />
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
               {filtered.map((tpl) => (

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { MessageSquareMore } from 'lucide-react';
+import { EmptyState } from "@/components/EmptyState";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -86,9 +87,7 @@ export function CommentsView() {
 
           <div className="space-y-2">
             {threads.length === 0 ? (
-              <div className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
-                当前还没有评论线程。
-              </div>
+              <EmptyState message="当前还没有评论线程。" />
             ) : (
               threads.map((thread) => (
                 <button
@@ -114,9 +113,7 @@ export function CommentsView() {
 
         <section className="space-y-4 rounded-2xl border bg-card p-5">
           {!activeThread ? (
-            <div className="rounded-xl border border-dashed p-6 text-sm text-muted-foreground">
-              选择一个线程以查看讨论内容。
-            </div>
+            <EmptyState message="选择一个线程以查看讨论内容。" />
           ) : (
             <>
               <div className="flex items-start justify-between gap-4">

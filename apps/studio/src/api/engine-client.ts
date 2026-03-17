@@ -29,6 +29,16 @@ type EngineErrorResponse = { success: false; error: { code: string; message: str
 type EngineResponse<T> = EngineSuccessResponse<T> | EngineErrorResponse;
 export type RunAdvanceMode = 'continue' | 'step';
 
+/**
+ * Optional callback to retrieve granted capabilities for the X-Studio-Capabilities header.
+ * Set by the store after initialization to avoid circular imports.
+ */
+let capabilityProvider: (() => string[]) | null = null;
+
+export function setCapabilityProvider(provider: () => string[]): void {
+  capabilityProvider = provider;
+}
+
 function buildApiUrl(path: string): string {
   if (!BASE_URL) {
     return path;
@@ -46,9 +56,16 @@ export function getEngineAssetUrl(path: string): string {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const headers = new Headers(init?.headers);
+  if (capabilityProvider) {
+    const caps = capabilityProvider();
+    if (caps.length > 0) {
+      headers.set('X-Studio-Capabilities', caps.join(','));
+    }
+  }
   let res: Response;
   try {
-    res = await fetch(buildApiUrl(path), init);
+    res = await fetch(buildApiUrl(path), { ...init, headers });
   } catch {
     throw new Error('无法连接到 Engine 服务，请确认 Engine 已启动');
   }
@@ -113,6 +130,14 @@ export const engineApi = {
   async getConfig(): Promise<KalConfig> {
     const data = await request<{ config: KalConfig }>('/api/config');
     return data.config;
+  },
+
+  async saveConfig(patch: Partial<KalConfig>): Promise<void> {
+    await request('/api/config', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch),
+    });
   },
 
   async getState(): Promise<ProjectState> {
