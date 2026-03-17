@@ -368,6 +368,11 @@ export async function handleEngineRequest(
           const run = await runs.getRunState({ latest: true });
           return run;
         },
+        config: () => Promise.resolve(runtime.getConfig()),
+        eval: () => Promise.resolve({
+          hint: 'Use kal eval from CLI for full evaluation. This returns the current prompt eval config.',
+          nodes: collectSchemaNodesPayload().nodes.filter((n) => n.type === 'PromptBuild'),
+        }),
       };
       const cmd = payload.command?.trim().toLowerCase();
       if (!cmd || !ALLOWED_COMMANDS[cmd]) {
