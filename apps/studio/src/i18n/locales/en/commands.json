@@ -49,5 +49,7 @@
   "disconnectEngine": "Disconnect Engine",
   "disconnectEngineDesc": "Disconnect the current Studio from Engine.",
   "closeCommandPalette": "Close Command Palette",
-  "closeCommandPaletteDesc": "Close the current command palette."
+  "closeCommandPaletteDesc": "Close the current command palette.",
+  "switchLanguage": "Switch Language",
+  "switchLanguageDesc": "Change Studio display language"
 }

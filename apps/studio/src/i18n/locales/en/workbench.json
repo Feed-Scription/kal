@@ -130,5 +130,21 @@
     "commandPalette": "Command Palette",
     "refreshDiagnostics": "Refresh Diagnostics",
     "run": "Run"
+  },
+  "language": {
+    "label": "Language",
+    "importFromUrl": "Import from URL...",
+    "importFromFile": "Import from file...",
+    "importTitle": "Import Language Pack",
+    "urlPlaceholder": "https://...",
+    "import": "Import",
+    "importing": "Importing...",
+    "importSuccess": "{{label}} loaded successfully",
+    "importFailed": "Failed to load: {{message}}",
+    "remove": "Remove",
+    "builtIn": "Built-in",
+    "community": "Community",
+    "switchLanguage": "Switch Language",
+    "switchLanguageDesc": "Change Studio display language"
   }
 }

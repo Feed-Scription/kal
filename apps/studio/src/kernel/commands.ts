@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import i18n from '@/i18n';
 import { useReviewWorkspace, useRunDebug, useWorkbench, useWorkbenchContext, useStudioCommands } from './hooks';
 import type { StudioCommandContext, StudioCommandDescriptor, StudioWorkspacePreset } from './types';
 
@@ -278,6 +279,20 @@ export function useCommandRegistry() {
         when: (ctx) => Boolean(ctx.values['engine.connected']),
         run: () => {
           disconnect();
+        },
+      },
+      {
+        id: 'workbench.language',
+        title: t('switchLanguage'),
+        description: t('switchLanguageDesc'),
+        section: 'Workbench',
+        keywords: ['language', 'locale', 'i18n', '语言'],
+        run: () => {
+          const builtIn = ['en', 'zh-CN'];
+          const current = i18n.language;
+          const idx = builtIn.indexOf(current);
+          const next = builtIn[(idx + 1) % builtIn.length];
+          i18n.changeLanguage(next);
         },
       },
       {

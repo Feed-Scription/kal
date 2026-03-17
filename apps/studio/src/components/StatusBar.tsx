@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useCapabilityGate, useConnectionState, useFlowResource, useKernelJobs, useResourceVersion, useSaveState, useStudioResources, useWorkbench } from "@/kernel/hooks";
 import { formatTime as formatTimeI18n } from '@/i18n/format';
 import type { ResourceId } from "@/types/project";
+import { LanguageSwitcher } from "./LanguageSwitcher";
 
 export function StatusBar() {
   const { t } = useTranslation('workbench');
@@ -101,6 +102,7 @@ export function StatusBar() {
             </span>
           )}
         </div>
+        <LanguageSwitcher />
       </div>
     </div>
   );
