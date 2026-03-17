@@ -218,7 +218,7 @@
 
 ## 扩展生命周期
 
-```
+```text
 注册 → 激活 → 运行 → 停用/崩溃恢复
 ```
 
@@ -238,7 +238,7 @@
 
 ## 包目录结构
 
-```
+```text
 my-package/
 ├── manifest.json      # 必须：包 manifest
 ├── runtime/           # 可选：运行时代码（node-pack）
@@ -255,7 +255,7 @@ my-package/
 
 将包目录复制到项目的 `packages/` 目录：
 
-```
+```text
 my-project/
 ├── packages/
 │   ├── my-custom-nodes/
