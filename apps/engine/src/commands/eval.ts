@@ -4,7 +4,7 @@
  * Subcommands:
  *   kal eval nodes <flow> [--format json|pretty]
  *   kal eval render <flow> --node <id> [--state <json>] [--format json|pretty]
- *   kal eval run <flow> --node <id> [--variant <file>] [--runs N] [--input <json>] [--state <json>] [--format json|pretty]
+ *   kal eval run <flow> --node <id> [--variant <file>] [--runs N] [--model <name>] [--input <json>] [--state <json>] [--format json|pretty]
  *   kal eval compare <file-a> <file-b> [--format json|pretty]
  */
 
@@ -36,6 +36,7 @@ interface ParsedEvalArgs {
   format: 'json' | 'pretty';
   projectPath?: string;
   compareFileB?: string;
+  model?: string;
 }
 
 function parseEvalArgs(tokens: string[]): ParsedEvalArgs {
@@ -60,6 +61,7 @@ function parseEvalArgs(tokens: string[]): ParsedEvalArgs {
   let format: 'json' | 'pretty' = 'json';
   let projectPath: string | undefined;
   let compareFileB: string | undefined;
+  let model: string | undefined;
 
   for (let i = 1; i < tokens.length; i++) {
     const token = tokens[i]!;
@@ -102,6 +104,11 @@ function parseEvalArgs(tokens: string[]): ParsedEvalArgs {
       if (!projectPath) throw new Error('--project requires a path');
       continue;
     }
+    if (token === '--model') {
+      model = tokens[++i];
+      if (!model) throw new Error('--model requires a model name');
+      continue;
+    }
     if (token.startsWith('--')) {
       throw new Error(`Unknown flag: ${token}`);
     }
@@ -125,7 +132,7 @@ function parseEvalArgs(tokens: string[]): ParsedEvalArgs {
   if (!flowPath) throw new Error('Missing flow path');
   if (subcommand !== 'nodes' && !node) throw new Error('Missing --node <id>');
 
-  return { subcommand, flowPath, node: node ?? '', variant, runs, input, state, format, projectPath };
+  return { subcommand, flowPath, node: node ?? '', variant, runs, input, state, format, projectPath, model };
 }
 
 /**
@@ -365,6 +372,7 @@ async function handleRun(
     state: stateOverrides,
     resolver,
     variantLabel: parsed.variant ? parsed.variant : undefined,
+    modelOverride: parsed.model,
   });
 
   // Fix flowPath to use the original path
@@ -396,7 +404,8 @@ function writePrettyRender(io: EngineCliIO, result: any): void {
 }
 
 function writePrettyRun(io: EngineCliIO, result: any): void {
-  io.stdout(`Flow: ${result.flowPath} | Node: ${result.nodeId} | Variant: ${result.variant}\n`);
+  const modelStr = result.model ? ` | Model: ${result.model}` : '';
+  io.stdout(`Flow: ${result.flowPath} | Node: ${result.nodeId} | Variant: ${result.variant}${modelStr}\n`);
   io.stdout(`Runs: ${result.runs} | Total cost: $${result.result.cost} | Avg latency: ${result.result.avgLatency}ms\n`);
   io.stdout('---\n');
 
@@ -573,7 +582,7 @@ export async function runEvalCommand(
         'Usage:\n' +
         '  kal eval nodes   <flow> [--format json|pretty]\n' +
         '  kal eval render  <flow> --node <id> [--state <json>] [--format json|pretty]\n' +
-        '  kal eval run     <flow> --node <id> [--variant <file>] [--runs N] [--input <json>] [--state <json>] [--format json|pretty]\n' +
+        '  kal eval run     <flow> --node <id> [--variant <file>] [--runs N] [--model <name>] [--input <json>] [--state <json>] [--format json|pretty]\n' +
         '  kal eval compare <file-a> <file-b> [--format json|pretty]\n'
       );
       return 0;
@@ -583,7 +592,7 @@ export async function runEvalCommand(
       'Usage:\n' +
       '  kal eval nodes   <flow> [--format json|pretty]\n' +
       '  kal eval render  <flow> --node <id> [--state <json>] [--format json|pretty]\n' +
-      '  kal eval run     <flow> --node <id> [--variant <file>] [--runs N] [--input <json>] [--state <json>] [--format json|pretty]\n' +
+      '  kal eval run     <flow> --node <id> [--variant <file>] [--runs N] [--model <name>] [--input <json>] [--state <json>] [--format json|pretty]\n' +
       '  kal eval compare <file-a> <file-b> [--format json|pretty]\n'
     );
     return 2;
