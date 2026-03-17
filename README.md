@@ -277,7 +277,7 @@ KAL is in early stage. The core runtime works, but APIs and config formats may c
 **Implemented:**
 - Core Flow runtime (DAG execution, conditional branching, SubFlow)
 - Session layer (multi-turn dialogue, state persistence)
-- 20 built-in nodes (State, LLM, Signal, Transform, Utility)
+- 17 built-in nodes (State, LLM, Signal, Transform, Utility)
 - CLI tools (play, serve, debug, lint, smoke, eval, studio)
 - Studio workbench (flow/session/state/config)
 - 2 example games (dnd-adventure, guess-who)

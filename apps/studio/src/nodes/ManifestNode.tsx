@@ -9,6 +9,7 @@ import {
 import { LabeledHandle } from "@/components/labeled-handle";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -19,6 +20,10 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { useNodeConfig } from "@/hooks/use-node-config";
 import { useFlowResource } from "@/kernel/hooks";
+import { overlayClassName } from "@/hooks/use-node-overlay";
+import { NodeOverlayBadge } from "@/components/NodeOverlayBadge";
+import { Code, List, Plus, Radio, Sparkles, Zap, Shuffle, X } from "lucide-react";
+import type { NodeOverlayState } from "@/hooks/use-node-overlay";
 import type { NodeManifest } from "@/types/project";
 
 type Schema = {
@@ -30,6 +35,21 @@ type Schema = {
 
 function labelFor(key: string) {
   return key.replace(/([A-Z])/g, " $1").replace(/^./, (c) => c.toUpperCase());
+}
+
+function categoryIcon(category?: string) {
+  switch (category) {
+    case "signal":
+      return <Radio className="size-4 text-sky-600" />;
+    case "state":
+      return <Sparkles className="size-4 text-emerald-600" />;
+    case "llm":
+      return <Zap className="size-4 text-amber-600" />;
+    case "transform":
+      return <Shuffle className="size-4 text-fuchsia-600" />;
+    default:
+      return null;
+  }
 }
 
 function categoryClass(category?: string) {
@@ -58,19 +78,93 @@ const JsonField = memo(function JsonField({
   required: boolean;
   onCommit: (value: unknown) => void;
 }) {
-  const [text, setText] = useState(() => JSON.stringify(value ?? (name.endsWith("s") ? [] : {}), null, 2));
+  const isArray = Array.isArray(value) || (!value && name.endsWith("s"));
+  const [rawMode, setRawMode] = useState(false);
+  const [text, setText] = useState(() => JSON.stringify(value ?? (isArray ? [] : {}), null, 2));
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    setText(JSON.stringify(value ?? (name.endsWith("s") ? [] : {}), null, 2));
+    setText(JSON.stringify(value ?? (isArray ? [] : {}), null, 2));
     setError(null);
-  }, [name, value]);
+  }, [name, value, isArray]);
 
+  const items = Array.isArray(value) ? value : [];
+
+  // 结构化 array 编辑模式
+  if (isArray && !rawMode) {
+    return (
+      <div>
+        <div className="flex items-center justify-between">
+          <label className="text-xs text-muted-foreground">
+            {labelFor(name)} {required ? "*" : ""} ({items.length})
+          </label>
+          <button
+            type="button"
+            onClick={() => setRawMode(true)}
+            className="text-muted-foreground transition-colors hover:text-foreground"
+            title="切换到 JSON 编辑"
+          >
+            <Code className="size-3" />
+          </button>
+        </div>
+        <div className="mt-1 space-y-1">
+          {items.map((item, i) => (
+            <div key={i} className="flex items-start gap-1">
+              <Input
+                className="flex-1 font-mono text-xs"
+                value={typeof item === "string" ? item : JSON.stringify(item)}
+                onChange={(e) => {
+                  const next = [...items];
+                  try {
+                    next[i] = JSON.parse(e.target.value);
+                  } catch {
+                    next[i] = e.target.value;
+                  }
+                  onCommit(next);
+                }}
+              />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 shrink-0"
+                onClick={() => onCommit(items.filter((_, idx) => idx !== i))}
+              >
+                <X className="size-3" />
+              </Button>
+            </div>
+          ))}
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full"
+            onClick={() => onCommit([...items, ""])}
+          >
+            <Plus className="mr-1 size-3" />
+            添加
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // JSON 原始编辑模式
   return (
     <div>
-      <label className="text-xs text-muted-foreground">
-        {labelFor(name)} {required ? "*" : ""}
-      </label>
+      <div className="flex items-center justify-between">
+        <label className="text-xs text-muted-foreground">
+          {labelFor(name)} {required ? "*" : ""}
+        </label>
+        {isArray && (
+          <button
+            type="button"
+            onClick={() => setRawMode(false)}
+            className="text-muted-foreground transition-colors hover:text-foreground"
+            title="切换到列表编辑"
+          >
+            <List className="size-3" />
+          </button>
+        )}
+      </div>
       <Textarea
         className="mt-1 font-mono text-xs"
         rows={4}
@@ -221,17 +315,26 @@ export const ManifestNode = memo(({ id, data, selected }: NodeProps) => {
     inputs?: Array<{ name: string; type: string }>;
     outputs?: Array<{ name: string; type: string }>;
     manifest?: NodeManifest;
+    overlay?: NodeOverlayState;
   };
   const manifest = nodeData.manifest;
+  const overlay = nodeData.overlay;
   const config = nodeData.config || {};
   const { flowNames } = useFlowResource();
   const properties = ((manifest?.configSchema as Schema | undefined)?.properties || {}) as Record<string, Schema>;
   const required = new Set((manifest?.configSchema as Schema | undefined)?.required || []);
+  const fieldCount = Object.keys(properties).length;
+  const widthClass = fieldCount <= 1 ? 'w-64' : fieldCount <= 3 ? 'w-80' : 'w-96';
 
   return (
-    <BaseNode className={`w-96 ${selected ? "ring-2 ring-primary" : ""} ${categoryClass(manifest?.category)}`}>
+    <BaseNode className={`${widthClass} ${selected ? "ring-2 ring-primary" : ""} ${categoryClass(manifest?.category)} ${overlayClassName(overlay)}`}>
+      <NodeOverlayBadge overlay={overlay} />
       <BaseNodeHeader className="border-b">
+        {categoryIcon(manifest?.category)}
         <BaseNodeHeaderTitle>{nodeData.label || manifest?.label || "Node"}</BaseNodeHeaderTitle>
+        {manifest?.category && (
+          <span className="ml-auto text-[10px] uppercase text-muted-foreground">{manifest.category}</span>
+        )}
       </BaseNodeHeader>
       <BaseNodeContent>
         {Object.keys(properties).length > 0 ? (
@@ -258,7 +361,7 @@ export const ManifestNode = memo(({ id, data, selected }: NodeProps) => {
         <LabeledHandle
           key={`in-${input.name}`}
           id={input.name}
-          title={input.name}
+          title={`${input.name}${input.type ? ` (${input.type})` : ''}`}
           type="target"
           position={Position.Left}
         />
@@ -267,7 +370,7 @@ export const ManifestNode = memo(({ id, data, selected }: NodeProps) => {
         <LabeledHandle
           key={`out-${output.name}`}
           id={output.name}
-          title={output.name}
+          title={`${output.name}${output.type ? ` (${output.type})` : ''}`}
           type="source"
           position={Position.Right}
           labelClassName="flex-1 text-right"

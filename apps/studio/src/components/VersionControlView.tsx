@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { GitBranch, GitCommit, GitCompareArrows, History, RotateCcw, Save } from "lucide-react";
+import { EmptyState } from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -99,9 +100,7 @@ export function VersionControlView() {
               </div>
 
               {gitState.status.clean ? (
-                <div className="rounded-xl border border-dashed p-5 text-sm text-muted-foreground">
-                  工作区干净，没有未提交的变更。
-                </div>
+                <EmptyState message="工作区干净，没有未提交的变更。" />
               ) : (
                 <div className="space-y-3">
                   {gitState.status.staged.length > 0 ? (
@@ -143,9 +142,7 @@ export function VersionControlView() {
 
               <div className="space-y-2">
                 {(gitState.log?.commits ?? []).length === 0 ? (
-                  <div className="rounded-xl border border-dashed p-5 text-sm text-muted-foreground">
-                    没有提交记录。
-                  </div>
+                  <EmptyState message="没有提交记录。" />
                 ) : (
                   (gitState.log?.commits ?? []).map((commit) => (
                     <div key={commit.hash} className="rounded-lg border px-4 py-3">
@@ -233,9 +230,7 @@ export function VersionControlView() {
 
           <div className="space-y-3">
             {checkpoints.length === 0 ? (
-              <div className="rounded-xl border border-dashed p-5 text-sm text-muted-foreground">
-                还没有 checkpoint。先创建一个，再进行语义编辑和恢复验证。
-              </div>
+              <EmptyState message="还没有 checkpoint。先创建一个，再进行语义编辑和恢复验证。" />
             ) : (
               checkpoints.map((checkpoint) => (
                 <div key={checkpoint.id} className="rounded-xl border p-4">
@@ -347,9 +342,7 @@ export function VersionControlView() {
           ) : (
             <div className="space-y-3">
               {transactions.length === 0 ? (
-                <div className="rounded-xl border border-dashed p-5 text-sm text-muted-foreground">
-                  还没有事务记录。
-                </div>
+                <EmptyState message="还没有事务记录。" />
               ) : (
                 transactions.map((transaction) => (
                   <div key={transaction.id} className="rounded-xl border p-4">

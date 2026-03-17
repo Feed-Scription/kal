@@ -1,4 +1,5 @@
 import { ClipboardList } from 'lucide-react';
+import { EmptyState } from '@/components/EmptyState';
 import { Button } from '@/components/ui/button';
 import { useReviewWorkspace, useStudioCommands } from '@/kernel/hooks';
 
@@ -26,9 +27,7 @@ export function ReviewHistoryPanel() {
       </div>
 
       {proposals.length === 0 ? (
-        <div className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">
-          当前还没有 proposal history。
-        </div>
+        <EmptyState message="当前还没有 proposal history。" compact />
       ) : (
         <div className="space-y-2">
           {proposals.slice(0, 5).map((proposal) => (

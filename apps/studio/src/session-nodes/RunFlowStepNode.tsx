@@ -18,14 +18,19 @@ import { Input } from "@/components/ui/input";
 import { useNodeConfig } from "@/hooks/use-node-config";
 import { useFlowResource } from "@/kernel/hooks";
 import { Play } from "lucide-react";
+import { overlayClassName } from "@/hooks/use-node-overlay";
+import { NodeOverlayBadge } from "@/components/NodeOverlayBadge";
+import type { NodeOverlayState } from "@/hooks/use-node-overlay";
 
 export const RunFlowStepNode = memo(({ id, data }: NodeProps) => {
   const config = (data as any).config || {};
+  const overlay = (data as any).overlay as NodeOverlayState | undefined;
   const { updateConfig } = useNodeConfig(id);
   const { flowNames } = useFlowResource();
 
   return (
-    <BaseNode className="w-72">
+    <BaseNode className={`w-72 ${overlayClassName(overlay)}`}>
+      <NodeOverlayBadge overlay={overlay} />
       <BaseNodeHeader className="border-b bg-blue-50 dark:bg-blue-950/30">
         <Play className="size-4 text-blue-600" />
         <BaseNodeHeaderTitle>执行 Flow</BaseNodeHeaderTitle>

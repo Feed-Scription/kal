@@ -1,11 +1,20 @@
 import { useEffect } from "react";
-import { Bug } from "lucide-react";
+import { Bug, Circle, Pause, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/EmptyState";
 import { useRunDebug, useStudioCommands } from "@/kernel/hooks";
+import { cn } from "@/lib/utils";
 
 function formatTime(timestamp: number) {
   return new Date(timestamp).toLocaleTimeString("zh-CN", { hour12: false });
 }
+
+const STATUS_CONFIG = {
+  running: { icon: Play, color: 'text-blue-600', bg: 'bg-blue-50' },
+  waiting_input: { icon: Pause, color: 'text-amber-600', bg: 'bg-amber-50' },
+  completed: { icon: Circle, color: 'text-green-600', bg: 'bg-green-50' },
+  error: { icon: Circle, color: 'text-destructive', bg: 'bg-red-50' },
+} as const;
 
 export function DebuggerSummaryView() {
   const { breakpoints, runs } = useRunDebug();
@@ -33,23 +42,47 @@ export function DebuggerSummaryView() {
       </div>
 
       <div className="space-y-2 text-sm">
-        <div className="text-xs text-muted-foreground">active breakpoints: {breakpoints.length}</div>
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <span>Active Breakpoints</span>
+          <span className="font-medium">{breakpoints.length}</span>
+        </div>
         {runs.length === 0 ? (
-          <div className="text-muted-foreground">当前没有 active run。</div>
+          <EmptyState
+            icon={Bug}
+            message="当前没有 active run"
+            description="点击顶部 Run 按钮创建新的调试会话"
+            compact
+          />
         ) : (
-          runs.slice(0, 4).map((record) => (
-            <button
-              key={record.runId}
-              type="button"
-              onClick={() => void selectRun(record.runId)}
-              className="w-full rounded-lg border px-3 py-2 text-left"
-            >
-              <div className="font-medium">{record.run.run_id}</div>
-              <div className="text-xs text-muted-foreground">
-                {record.run.status} · {formatTime(record.run.updated_at)}
-              </div>
-            </button>
-          ))
+          runs.slice(0, 4).map((record) => {
+            const status = record.run.status as keyof typeof STATUS_CONFIG;
+            const config = STATUS_CONFIG[status] ?? STATUS_CONFIG.completed;
+            const Icon = config.icon;
+
+            return (
+              <button
+                key={record.runId}
+                type="button"
+                onClick={() => void selectRun(record.runId)}
+                className={cn(
+                  "w-full rounded-lg border px-3 py-2 text-left transition-colors hover:bg-muted/50",
+                  record.run.active && "ring-2 ring-primary",
+                )}
+              >
+                <div className="flex items-center gap-2">
+                  <div className={cn("rounded-full p-1", config.bg)}>
+                    <Icon className={cn("size-3", config.color)} />
+                  </div>
+                  <div className="flex-1 truncate font-medium">{record.run.run_id}</div>
+                </div>
+                <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                  <span className={config.color}>{record.run.status}</span>
+                  <span>·</span>
+                  <span>{formatTime(record.run.updated_at)}</span>
+                </div>
+              </button>
+            );
+          })
         )}
       </div>
     </section>
