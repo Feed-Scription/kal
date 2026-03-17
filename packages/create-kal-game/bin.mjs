@@ -5,9 +5,12 @@
  *
  * Usage:
  *   npx create-kal-game <project-name> [--template minimal|game]
+ *
+ * NOTE: Template definitions here mirror apps/engine/src/scaffold-templates.ts.
+ * When updating templates, keep both in sync.
  */
 
-import { resolve, join } from 'node:path';
+import { resolve, join, dirname } from 'node:path';
 import { mkdir, writeFile, access } from 'node:fs/promises';
 
 const args = process.argv.slice(2);
@@ -58,117 +61,156 @@ try {
   // doesn't exist — good
 }
 
-const created = [];
+// ── Template definitions (synced with apps/engine/src/scaffold-templates.ts) ──
 
-await mkdir(projectRoot, { recursive: true });
-await mkdir(join(projectRoot, 'flow'), { recursive: true });
-
-// kal_config.json
-const config = {
-  name: projectName,
-  version: '0.1.0',
-  llm: {
-    provider: 'openai',
-    defaultModel: 'gpt-4o-mini',
-    apiKey: '${OPENAI_API_KEY}',
-  },
-};
-await writeFile(join(projectRoot, 'kal_config.json'), JSON.stringify(config, null, 2) + '\n');
-created.push('kal_config.json');
-
-if (template === 'game') {
-  // initial_state.json
-  const initialState = {
-    playerName: { type: 'string', value: '' },
-    score: { type: 'number', value: 0 },
-    turn: { type: 'number', value: 1 },
-  };
-  await writeFile(join(projectRoot, 'initial_state.json'), JSON.stringify(initialState, null, 2) + '\n');
-  created.push('initial_state.json');
-
-  // intro flow
-  const introFlow = {
-    meta: {
-      schemaVersion: '1.0',
-      inputs: [],
-      outputs: [{ name: 'narration', type: 'string' }],
+function buildConfig(name) {
+  return {
+    name,
+    version: '0.1.0',
+    engine: {
+      logLevel: 'info',
+      maxConcurrentFlows: 5,
+      timeout: 30000,
     },
-    data: {
-      nodes: [
-        {
-          id: 'prompt',
-          type: 'PromptBuild',
-          config: {
-            defaultRole: 'system',
-            fragments: [
-              { id: 'intro', type: 'base', content: 'Welcome to the game! Introduce the player.' },
+    llm: {
+      provider: 'openai',
+      defaultModel: 'gpt-4o-mini',
+      apiKey: '${OPENAI_API_KEY}',
+      retry: {
+        maxRetries: 3,
+        initialDelayMs: 1000,
+        maxDelayMs: 10000,
+        backoffMultiplier: 2,
+        jitter: true,
+      },
+      cache: {
+        enabled: true,
+      },
+    },
+  };
+}
+
+function getTemplateFiles(tmpl, name) {
+  const files = [
+    { path: 'kal_config.json', content: buildConfig(name) },
+  ];
+
+  if (tmpl === 'game') {
+    files.push(
+      {
+        path: 'initial_state.json',
+        content: {
+          playerName: { type: 'string', value: '' },
+          score: { type: 'number', value: 0 },
+          turn: { type: 'number', value: 1 },
+        },
+      },
+      {
+        path: 'flow/intro.json',
+        content: {
+          meta: {
+            schemaVersion: '1.0',
+            inputs: [],
+            outputs: [{ name: 'narration', type: 'string' }],
+          },
+          data: {
+            nodes: [
+              {
+                id: 'prompt',
+                type: 'PromptBuild',
+                config: {
+                  defaultRole: 'system',
+                  fragments: [
+                    { id: 'intro', type: 'base', content: 'Welcome to the game! Introduce the player.' },
+                  ],
+                },
+              },
+              { id: 'llm', type: 'GenerateText', config: {} },
+              {
+                id: 'signal-out',
+                type: 'SignalOut',
+                inputs: [{ name: 'data', type: 'string' }],
+                outputs: [{ name: 'data', type: 'string' }],
+                config: { channel: 'narration' },
+              },
+            ],
+            edges: [
+              { source: 'prompt', sourceHandle: 'messages', target: 'llm', targetHandle: 'messages' },
+              { source: 'llm', sourceHandle: 'text', target: 'signal-out', targetHandle: 'data' },
             ],
           },
         },
-        { id: 'llm', type: 'GenerateText', config: {} },
-        {
-          id: 'signal-out',
-          type: 'SignalOut',
-          inputs: [{ name: 'data', type: 'string' }],
-          outputs: [{ name: 'data', type: 'string' }],
-          config: { channel: 'narration' },
+      },
+      {
+        path: 'session.json',
+        content: {
+          schemaVersion: '1.0',
+          entryStep: 'intro',
+          steps: [
+            { id: 'intro', type: 'RunFlow', flowRef: 'intro', next: 'end' },
+            { id: 'end', type: 'End', message: 'Game over!' },
+          ],
         },
-      ],
-      edges: [
-        { source: 'prompt', sourceHandle: 'messages', target: 'llm', targetHandle: 'messages' },
-        { source: 'llm', sourceHandle: 'text', target: 'signal-out', targetHandle: 'data' },
-      ],
-    },
-  };
-  await writeFile(join(projectRoot, 'flow/intro.json'), JSON.stringify(introFlow, null, 2) + '\n');
-  created.push('flow/intro.json');
+      },
+    );
+  } else {
+    files.push(
+      { path: 'initial_state.json', content: {} },
+      {
+        path: 'flow/example.json',
+        content: {
+          meta: {
+            schemaVersion: '1.0',
+            inputs: [{ name: 'input', type: 'string' }],
+            outputs: [{ name: 'output', type: 'string' }],
+          },
+          data: {
+            nodes: [
+              {
+                id: 'signal-in',
+                type: 'SignalIn',
+                inputs: [],
+                outputs: [{ name: 'data', type: 'string' }],
+                config: { channel: 'input' },
+              },
+              {
+                id: 'signal-out',
+                type: 'SignalOut',
+                inputs: [{ name: 'data', type: 'string' }],
+                outputs: [{ name: 'data', type: 'string' }],
+                config: { channel: 'output' },
+              },
+            ],
+            edges: [
+              {
+                source: 'signal-in',
+                sourceHandle: 'data',
+                target: 'signal-out',
+                targetHandle: 'data',
+              },
+            ],
+          },
+        },
+      },
+    );
+  }
 
-  // session.json
-  const session = {
-    schemaVersion: '1.0',
-    entryStep: 'intro',
-    steps: [
-      { id: 'intro', type: 'RunFlow', flowRef: 'intro', next: 'end' },
-      { id: 'end', type: 'End', message: 'Game over!' },
-    ],
-  };
-  await writeFile(join(projectRoot, 'session.json'), JSON.stringify(session, null, 2) + '\n');
-  created.push('session.json');
-} else {
-  // minimal: single example flow
-  const exampleFlow = {
-    meta: {
-      schemaVersion: '1.0',
-      inputs: [{ name: 'input', type: 'string' }],
-      outputs: [{ name: 'output', type: 'string' }],
-    },
-    data: {
-      nodes: [
-        {
-          id: 'signal-in',
-          type: 'SignalIn',
-          config: { channel: 'input' },
-        },
-        {
-          id: 'signal-out',
-          type: 'SignalOut',
-          inputs: [{ name: 'data', type: 'string' }],
-          outputs: [{ name: 'data', type: 'string' }],
-          config: { channel: 'output' },
-        },
-      ],
-      edges: [
-        { source: 'signal-in', sourceHandle: 'data', target: 'signal-out', targetHandle: 'data' },
-      ],
-    },
-  };
-  await writeFile(join(projectRoot, 'flow/example.json'), JSON.stringify(exampleFlow, null, 2) + '\n');
-  created.push('flow/example.json');
+  return files;
+}
+
+// ── Scaffold ──
+
+const files = getTemplateFiles(template, projectName);
+
+for (const file of files) {
+  const fullPath = join(projectRoot, file.path);
+  await mkdir(dirname(fullPath), { recursive: true });
+  await writeFile(fullPath, JSON.stringify(file.content, null, 2) + '\n');
 }
 
 console.log(`\nCreated project "${projectName}" (${template} template):\n`);
-for (const f of created) {
-  console.log(`  ${projectName}/${f}`);
+for (const f of files) {
+  console.log(`  ${projectName}/${f.path}`);
 }
 console.log(`\nNext steps:`);
 console.log(`  cd ${projectName}`);

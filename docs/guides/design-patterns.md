@@ -137,7 +137,7 @@ The LLM can output state changes as JSON, which `JSONParse` + `WriteState` appli
 
 Extract reusable logic into separate flows and call them via `SubFlow` nodes:
 
-```
+```text
 main.json:  SignalIn → SubFlow(narrate) → JSONParse → WriteState → SignalOut
 narrate.json:  SignalIn → PromptBuild → Message → GenerateText → SignalOut
 ```

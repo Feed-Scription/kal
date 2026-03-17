@@ -43,6 +43,9 @@
     "vitest": "^1.2.0",
     "@vitest/coverage-v8": "^1.2.0"
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "engines": {
     "node": ">=18.0.0"
   }
