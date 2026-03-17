@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { GitBranch, GitCommit, GitCompareArrows, History, RotateCcw, Save } from "lucide-react";
+import { useTranslation } from 'react-i18next';
 import { EmptyState } from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,12 +14,10 @@ import {
 } from "@/kernel/hooks";
 import { compareSnapshot } from "@/kernel/semantic-diff";
 import type { ResourceId } from "@/types/project";
-
-function formatDateTime(timestamp: number) {
-  return new Date(timestamp).toLocaleString("zh-CN", { hour12: false });
-}
+import { formatDateTime, formatDate } from '@/i18n/format';
 
 export function VersionControlView() {
+  const { t } = useTranslation('vcs');
   const { project, session } = useStudioResources();
   const { flowId: activeFlowId } = useFlowResource();
   const { resourceVersions, transactions, checkpoints } = useVersionControl();
@@ -43,21 +42,24 @@ export function VersionControlView() {
     return [
       {
         id: "project://current" as ResourceId,
-        title: "项目快照",
-        subtitle: `${Object.keys(project.flows).length} flows / ${session ? "有 session" : "无 session"}`,
+        title: t('projectSnapshot'),
+        subtitle: t('flowsSessionSummary', {
+          flowCount: Object.keys(project.flows).length,
+          sessionStatus: session ? t('hasSession') : t('noSession'),
+        }),
       },
       ...Object.keys(project.flows).map((flowName) => ({
         id: `flow://${flowName}` as ResourceId,
         title: flowName,
-        subtitle: "Flow 资源",
+        subtitle: t('flowResource'),
       })),
       {
         id: "session://default" as ResourceId,
         title: "default",
-        subtitle: session ? "Session 资源" : "Session 未配置",
+        subtitle: session ? t('sessionResource') : t('sessionNotConfigured'),
       },
     ];
-  }, [project, session]);
+  }, [project, session, t]);
 
   const handleCreateCheckpoint = () => {
     createCheckpoint(checkpointLabel.trim() || undefined);
@@ -87,25 +89,25 @@ export function VersionControlView() {
                 <div className="flex items-center gap-2">
                   <GitBranch className="size-4" />
                   <div>
-                    <h2 className="text-lg font-semibold">Git Status</h2>
+                    <h2 className="text-lg font-semibold">{t('git.title')}</h2>
                     <p className="text-sm text-muted-foreground">
-                      当前分支: <span className="font-mono text-foreground">{gitState.status.branch}</span>
+                      {t('git.currentBranch')} <span className="font-mono text-foreground">{gitState.status.branch}</span>
                     </p>
                   </div>
                 </div>
                 <Button variant="outline" size="sm" onClick={() => void refreshGitStatus()}>
                   <RotateCcw className="size-4" />
-                  刷新
+                  {t('git.refresh')}
                 </Button>
               </div>
 
               {gitState.status.clean ? (
-                <EmptyState message="工作区干净，没有未提交的变更。" />
+                <EmptyState message={t('git.cleanMessage')} />
               ) : (
                 <div className="space-y-3">
                   {gitState.status.staged.length > 0 ? (
                     <div className="rounded-xl border p-4">
-                      <div className="mb-2 text-xs font-medium text-green-600">已暂存 ({gitState.status.staged.length})</div>
+                      <div className="mb-2 text-xs font-medium text-green-600">{t('git.staged')} ({gitState.status.staged.length})</div>
                       {gitState.status.staged.map((file) => (
                         <div key={file} className="font-mono text-xs text-muted-foreground">{file}</div>
                       ))}
@@ -113,7 +115,7 @@ export function VersionControlView() {
                   ) : null}
                   {gitState.status.unstaged.length > 0 ? (
                     <div className="rounded-xl border p-4">
-                      <div className="mb-2 text-xs font-medium text-yellow-600">未暂存 ({gitState.status.unstaged.length})</div>
+                      <div className="mb-2 text-xs font-medium text-yellow-600">{t('git.unstaged')} ({gitState.status.unstaged.length})</div>
                       {gitState.status.unstaged.map((file) => (
                         <div key={file} className="font-mono text-xs text-muted-foreground">{file}</div>
                       ))}
@@ -121,7 +123,7 @@ export function VersionControlView() {
                   ) : null}
                   {gitState.status.untracked.length > 0 ? (
                     <div className="rounded-xl border p-4">
-                      <div className="mb-2 text-xs font-medium text-red-600">未跟踪 ({gitState.status.untracked.length})</div>
+                      <div className="mb-2 text-xs font-medium text-red-600">{t('git.untracked')} ({gitState.status.untracked.length})</div>
                       {gitState.status.untracked.map((file) => (
                         <div key={file} className="font-mono text-xs text-muted-foreground">{file}</div>
                       ))}
@@ -135,14 +137,14 @@ export function VersionControlView() {
               <div className="flex items-center gap-2">
                 <GitCommit className="size-4" />
                 <div>
-                  <h2 className="text-lg font-semibold">最近提交</h2>
-                  <p className="text-sm text-muted-foreground">最近 {gitState.log?.commits.length ?? 0} 条 Git 提交记录。</p>
+                  <h2 className="text-lg font-semibold">{t('git.commits')}</h2>
+                  <p className="text-sm text-muted-foreground">{t('git.commitsSubtitle', { count: gitState.log?.commits.length ?? 0 })}</p>
                 </div>
               </div>
 
               <div className="space-y-2">
                 {(gitState.log?.commits ?? []).length === 0 ? (
-                  <EmptyState message="没有提交记录。" />
+                  <EmptyState message={t('git.noCommits')} />
                 ) : (
                   (gitState.log?.commits ?? []).map((commit) => (
                     <div key={commit.hash} className="rounded-lg border px-4 py-3">
@@ -154,7 +156,7 @@ export function VersionControlView() {
                         <div className="text-right">
                           <div className="font-mono text-xs text-muted-foreground">{commit.hash.slice(0, 7)}</div>
                           <div className="text-xs text-muted-foreground">
-                            {new Date(commit.date).toLocaleDateString("zh-CN")}
+                            {formatDate(new Date(commit.date).getTime())}
                           </div>
                         </div>
                       </div>
@@ -171,8 +173,8 @@ export function VersionControlView() {
           <div className="flex items-center gap-2">
             <History className="size-4" />
             <div>
-              <h1 className="text-lg font-semibold">资源版本</h1>
-              <p className="text-sm text-muted-foreground">Kernel 持有的本地 resource/version 索引。</p>
+              <h1 className="text-lg font-semibold">{t('resourceVersions')}</h1>
+              <p className="text-sm text-muted-foreground">{t('resourceVersionsSubtitle')}</p>
             </div>
           </div>
 
@@ -194,7 +196,7 @@ export function VersionControlView() {
                     <div className="text-right">
                       <div className="font-mono text-sm">v{version?.version ?? 0}</div>
                       <div className="text-xs text-muted-foreground">
-                        {version ? formatDateTime(version.updatedAt) : "未写入"}
+                        {version ? formatDateTime(version.updatedAt) : t('notWritten')}
                       </div>
                     </div>
                   </div>
@@ -204,9 +206,9 @@ export function VersionControlView() {
           </div>
 
           <div className="rounded-xl border bg-muted/30 p-4 text-sm text-muted-foreground">
-            当前聚焦资源:
+            {t('focusedResource')}
             <span className="ml-2 font-mono text-foreground">{activeResourceId}</span>
-            <span className="ml-2">版本 {activeVersion?.version ?? 0}</span>
+            <span className="ml-2">{t('versionLabel')} {activeVersion?.version ?? 0}</span>
           </div>
         </section>
 
@@ -214,8 +216,8 @@ export function VersionControlView() {
           <div className="flex items-center gap-2">
             <Save className="size-4" />
             <div>
-              <h2 className="text-lg font-semibold">Checkpoints</h2>
-              <p className="text-sm text-muted-foreground">围绕 flows + session 的本地 checkpoint 与恢复入口。</p>
+              <h2 className="text-lg font-semibold">{t('checkpoints')}</h2>
+              <p className="text-sm text-muted-foreground">{t('checkpointsSubtitle')}</p>
             </div>
           </div>
 
@@ -223,14 +225,14 @@ export function VersionControlView() {
             <Input
               value={checkpointLabel}
               onChange={(event) => setCheckpointLabel(event.target.value)}
-              placeholder="输入 checkpoint 名称"
+              placeholder={t('checkpointPlaceholder')}
             />
-            <Button onClick={handleCreateCheckpoint}>创建</Button>
+            <Button onClick={handleCreateCheckpoint}>{t('create')}</Button>
           </div>
 
           <div className="space-y-3">
             {checkpoints.length === 0 ? (
-              <EmptyState message="还没有 checkpoint。先创建一个，再进行语义编辑和恢复验证。" />
+              <EmptyState message={t('noCheckpointsDetail')} />
             ) : (
               checkpoints.map((checkpoint) => (
                 <div key={checkpoint.id} className="rounded-xl border p-4">
@@ -249,7 +251,7 @@ export function VersionControlView() {
                       onClick={() => void handleRestore(checkpoint.id)}
                     >
                       <RotateCcw className="size-4" />
-                      {restoringId === checkpoint.id ? "恢复中..." : "恢复"}
+                      {restoringId === checkpoint.id ? t('restoring') : t('restore')}
                     </Button>
                   </div>
                   <div className="mt-3 flex gap-2">
@@ -261,12 +263,12 @@ export function VersionControlView() {
                       }
                     >
                       <GitCompareArrows className="size-4" />
-                      {compareCheckpointId === checkpoint.id ? "取消对比" : "对比当前"}
+                      {compareCheckpointId === checkpoint.id ? t('cancelCompare') : t('compareCurrent')}
                     </Button>
                   </div>
                   <div className="mt-3 text-xs text-muted-foreground">
-                    覆盖 {Object.keys(checkpoint.snapshot.flows).length} 个 Flow，
-                    {checkpoint.snapshot.session ? "包含 Session 快照" : "Session 为空"}
+                    {t('coversFlows', { count: Object.keys(checkpoint.snapshot.flows).length })}
+                    {checkpoint.snapshot.session ? t('includesSession') : t('sessionEmpty')}
                   </div>
                 </div>
               ))
@@ -277,12 +279,12 @@ export function VersionControlView() {
         <section className="space-y-4 rounded-2xl border bg-card p-5">
           <div className="space-y-1">
             <h2 className="text-lg font-semibold">
-              {compareSummary ? "Semantic Compare" : "Transactions"}
+              {compareSummary ? t('semanticCompare') : t('transactions')}
             </h2>
             <p className="text-sm text-muted-foreground">
               {compareSummary
-                ? "对比 checkpoint 与当前工作区的语义差异。"
-                : "所有 Flow / Session / Project 写入都通过统一事务日志进入 Studio。"}
+                ? t('semanticCompareSubtitle')
+                : t('transactionsSubtitle')}
             </p>
           </div>
 
@@ -297,17 +299,17 @@ export function VersionControlView() {
 
               <div className="grid gap-3 md:grid-cols-2">
                 <div className="rounded-xl border p-4">
-                  <div className="text-xs text-muted-foreground">新增 Flows</div>
+                  <div className="text-xs text-muted-foreground">{t('addedFlows')}</div>
                   <div className="mt-2 text-lg font-semibold">{compareSummary.addedFlows.length}</div>
                   <div className="mt-2 text-sm text-muted-foreground">
-                    {compareSummary.addedFlows.length > 0 ? compareSummary.addedFlows.join(", ") : "无"}
+                    {compareSummary.addedFlows.length > 0 ? compareSummary.addedFlows.join(", ") : t('none')}
                   </div>
                 </div>
                 <div className="rounded-xl border p-4">
-                  <div className="text-xs text-muted-foreground">删除 Flows</div>
+                  <div className="text-xs text-muted-foreground">{t('removedFlows')}</div>
                   <div className="mt-2 text-lg font-semibold">{compareSummary.removedFlows.length}</div>
                   <div className="mt-2 text-sm text-muted-foreground">
-                    {compareSummary.removedFlows.length > 0 ? compareSummary.removedFlows.join(", ") : "无"}
+                    {compareSummary.removedFlows.length > 0 ? compareSummary.removedFlows.join(", ") : t('none')}
                   </div>
                 </div>
               </div>
@@ -315,7 +317,7 @@ export function VersionControlView() {
               <div className="rounded-xl border p-4">
                 <div className="mb-3 text-sm font-medium">Changed Flows</div>
                 {compareSummary.changedFlows.length === 0 ? (
-                  <div className="text-sm text-muted-foreground">没有 Flow 语义变化。</div>
+                  <div className="text-sm text-muted-foreground">{t('noFlowChanges')}</div>
                 ) : (
                   <div className="space-y-2">
                     {compareSummary.changedFlows.map((flow) => (
@@ -335,14 +337,14 @@ export function VersionControlView() {
                 <div className="mt-2 text-sm text-muted-foreground">
                   {compareSummary.sessionChanged
                     ? `steps ${compareSummary.beforeSessionSteps} → ${compareSummary.afterSessionSteps}`
-                    : "Session 没有变化。"}
+                    : t('sessionNoChanges')}
                 </div>
               </div>
             </div>
           ) : (
             <div className="space-y-3">
               {transactions.length === 0 ? (
-                <EmptyState message="还没有事务记录。" />
+                <EmptyState message={t('noTransactions')} />
               ) : (
                 transactions.map((transaction) => (
                   <div key={transaction.id} className="rounded-xl border p-4">

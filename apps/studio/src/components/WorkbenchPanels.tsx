@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { ChevronDown, ChevronUp, PanelBottomClose } from "lucide-react";
+import { useTranslation } from 'react-i18next';
 import { usePanelContributions } from "@/kernel/hooks";
 import { ExtensionSurface } from "./ExtensionSurface";
 
 export function WorkbenchPanels() {
+  const { t } = useTranslation('workbench');
   const panels = usePanelContributions();
   const [collapsed, setCollapsed] = useState(false);
 
@@ -20,7 +22,7 @@ export function WorkbenchPanels() {
       >
         <span className="flex items-center gap-1.5">
           <PanelBottomClose className="size-3.5" />
-          面板 ({panels.length})
+          {t("panels", { count: panels.length })}
         </span>
         {collapsed ? <ChevronUp className="size-3.5" /> : <ChevronDown className="size-3.5" />}
       </button>

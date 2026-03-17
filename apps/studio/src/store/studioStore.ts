@@ -8,6 +8,8 @@
  */
 
 import { create } from 'zustand';
+import i18n from '@/i18n';
+import { formatTimeShort } from '@/i18n/format';
 import { engineApi } from '@/api/engine-client';
 import { setCapabilityProvider } from '@/api/engine-client';
 import type { RunAdvanceMode } from '@/api/engine-client';
@@ -632,14 +634,14 @@ function createJobRecord(id: string, title: string, detail?: string): StudioJobR
 function summarizeRunEvent(event: RunView['recent_events'][number]): { title: string; detail?: string; changedKeys: string[] } {
   if (event.type === 'output') {
     return {
-      title: `${event.step_id} 输出`,
+      title: i18n.t('store:stepOutput', { stepId: event.step_id }),
       detail: event.normalized.narration ?? event.flow_id ?? 'run output',
       changedKeys: Object.keys(event.normalized.state_changes ?? {}),
     };
   }
 
   return {
-    title: 'Run 结束',
+    title: i18n.t('store:runEnded'),
     detail: event.message ?? 'Session ended',
     changedKeys: [],
   };
@@ -647,7 +649,7 @@ function summarizeRunEvent(event: RunView['recent_events'][number]): { title: st
 
 function summarizeRunInput(input: RunView['input_history'][number]) {
   return {
-    title: `${input.step_id} 输入`,
+    title: i18n.t('store:stepInput', { stepId: input.step_id }),
     detail: input.input,
   };
 }
@@ -677,7 +679,7 @@ function createBreakpointTimelineEntry(
     source: 'annotation',
     eventType: 'run.breakpoint',
     title: `Breakpoint Hit · ${stepId}`,
-    detail: 'continue 流程在该 step 停下',
+    detail: i18n.t('store:breakpointHitDetail'),
     status,
     cursorStepId: stepId,
     waitingFor: stepId,
@@ -851,7 +853,7 @@ async function continueRunWithBreakpoints(options: {
     iterations += 1;
     updateProgress?.(
       Math.min(90, 25 + iterations * 6),
-      `单步推进 ${iterations}${pendingInput !== undefined ? '（含输入）' : ''}`,
+      i18n.t('store:stepAdvancing', { iterations, withInput: pendingInput !== undefined ? i18n.t('store:withInput') : '' }),
     );
     currentRun = await engineApi.advanceRun(runId, pendingInput, 'step');
     pendingInput = undefined;
@@ -867,7 +869,7 @@ async function continueRunWithBreakpoints(options: {
     previousStepId = resolveRunStepId(currentRun);
   }
 
-  throw new Error('continue 命中了断点保护上限，可能存在过长的无输入循环');
+  throw new Error(i18n.t('store:continueBreakpointLimit'));
 }
 
 function ensureRunOrder(runOrder: string[], runId: string): string[] {
@@ -901,19 +903,19 @@ function deriveRiskNotes(options: {
 }) {
   const notes: string[] = [];
   if (options.summary.changedFlows.length > 0) {
-    notes.push(`涉及 ${options.summary.changedFlows.length} 个已存在 Flow 的语义变化。`);
+    notes.push(i18n.t('store:riskNotes.flowChanges', { count: options.summary.changedFlows.length }));
   }
   if (options.summary.sessionChanged) {
-    notes.push('Session 结构发生变化，可能影响 run 路径和等待输入行为。');
+    notes.push(i18n.t('store:riskNotes.sessionChanged'));
   }
   if ((options.diagnostics?.summary.errors ?? 0) > 0) {
-    notes.push('当前仍有 diagnostics errors，需要先通过 lint 再接受 proposal。');
+    notes.push(i18n.t('store:riskNotes.diagnosticsErrors'));
   }
   if (options.selectedRun?.stateDiff.length) {
-    notes.push(`最近一次调试 run 修改了 ${options.selectedRun.stateDiff.length} 个 state key。`);
+    notes.push(i18n.t('store:riskNotes.stateDiffKeys', { count: options.selectedRun.stateDiff.length }));
   }
   if (notes.length === 0) {
-    notes.push('当前 proposal 主要是局部结构调整，回滚成本较低。');
+    notes.push(i18n.t('store:riskNotes.lowRisk'));
   }
   return notes;
 }
@@ -1070,12 +1072,12 @@ async function commitTransaction<T>(options: {
     });
     get().recordKernelEvent({
       type: 'history.updated',
-      message: `事务已写入: ${operationSummary}`,
+          message: i18n.t('store:transactionWritten', { summary: operationSummary }),
       resourceId: resource,
     });
     get().recordKernelEvent({
       type: 'diagnostics.updated',
-      message: '资源变更后 diagnostics 已刷新',
+      message: i18n.t('store:diagnosticsRefreshed'),
       resourceId: 'project://current',
     });
 
@@ -1135,7 +1137,7 @@ async function withJob<T>(options: {
           id: createId('evt'),
           type: 'job.updated' as const,
           timestamp: started.startedAt,
-          message: `${title} 已开始`,
+          message: i18n.t('store:jobStarted', { title }),
           jobId: id,
           data: { progress: started.progress, status: started.status },
         },
@@ -1163,7 +1165,7 @@ async function withJob<T>(options: {
               id: createId('evt'),
               type: 'job.updated' as const,
               timestamp: nextJob.updatedAt,
-              message: `${title} 进度 ${progress}%`,
+              message: i18n.t('store:jobProgress', { title, progress }),
               jobId: id,
               data: { progress, status: nextJob.status, detail: nextDetail },
             },
@@ -1197,7 +1199,7 @@ async function withJob<T>(options: {
               id: createId('evt'),
               type: 'job.updated' as const,
               timestamp: completedAt,
-              message: `${title} 已完成`,
+              message: i18n.t('store:jobCompleted', { title }),
               jobId: id,
               data: { progress: 100, status: 'completed' },
             },
@@ -1228,7 +1230,7 @@ async function withJob<T>(options: {
               id: createId('evt'),
               type: 'job.updated' as const,
               timestamp: failedAt,
-              message: `${title} 失败: ${(error as Error).message}`,
+              message: i18n.t('store:jobFailed', { title, message: (error as Error).message }),
               jobId: id,
               data: { progress: nextJob.progress, status: 'failed' },
             },
@@ -1322,7 +1324,7 @@ function attachRunSubscription(
 
     get().recordKernelEvent({
       type: event.type === 'run.invalidated' ? 'run.updated' : event.type,
-      message: `Run ${runId} 收到 ${event.type}`,
+      message: i18n.t('store:runReceived', { runId, eventType: event.type }),
       runId,
       data: { status: event.run.status, recentEvents: event.run.recent_events.length },
     });
@@ -1391,7 +1393,7 @@ function recordBreakpointHit(options: {
 
   get().recordKernelEvent({
     type: 'run.breakpoint.hit',
-    message: `Run ${runId} 命中断点 ${stepId}`,
+    message: i18n.t('store:breakpointHit', { runId, stepId }),
     runId,
     data: { stepId },
   });
@@ -1475,14 +1477,14 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
       await withJob({
         set,
         get,
-        title: '连接 Engine',
-        detail: '拉取 project snapshot 与 diagnostics',
+        title: i18n.t('store:connectEngine'),
+        detail: i18n.t('store:connectEngineDetail'),
         action: async (updateProgress) => {
-          updateProgress(25, '拉取 canonical project snapshot');
+          updateProgress(25, i18n.t('store:fetchSnapshot'));
           const projectTask = loadProjectSnapshot(get().workbench.activeFlowId);
           const diagnosticsTask = fetchDiagnosticsReport();
           const [{ project, currentFlow }, diagnostics] = await Promise.all([projectTask, diagnosticsTask]);
-          updateProgress(85, '同步 workbench 与 extension runtime');
+          updateProgress(85, i18n.t('store:syncWorkbench'));
 
           set((state) => ({
             resources: {
@@ -1513,12 +1515,12 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
 
       get().recordKernelEvent({
         type: 'project.connected',
-        message: 'Studio 已连接到 Engine',
+        message: i18n.t('store:studioConnected'),
         resourceId: 'project://current',
       });
       get().recordKernelEvent({
         type: 'diagnostics.updated',
-        message: '初始 diagnostics 已同步',
+        message: i18n.t('store:initialDiagnosticsSynced'),
         resourceId: 'project://current',
       });
       if (get().capabilities.grants['trace.read']) {
@@ -1627,7 +1629,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     }));
     get().recordKernelEvent({
       type: 'project.disconnected',
-      message: 'Studio 已断开与 Engine 的连接',
+      message: i18n.t('store:studioDisconnected'),
     });
   },
 
@@ -1761,7 +1763,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
         {
           type: 'flow.save',
           resourceId: getFlowResourceId(flowName),
-          summary: `保存 Flow ${flowName}`,
+          summary: i18n.t('store:saveFlow', { name: flowName }),
         },
       ],
       action: () => engineApi.saveFlow(flowName, flow),
@@ -1799,7 +1801,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
         {
           type: 'flow.create',
           resourceId: getFlowResourceId(flowName),
-          summary: `创建 Flow ${flowName}`,
+          summary: i18n.t('store:createFlow', { name: flowName }),
         },
       ],
       action: () => engineApi.saveFlow(flowName, newFlow),
@@ -1834,10 +1836,10 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     await withJob({
       set,
       get,
-      title: '重载项目',
-      detail: '调用 Engine 重新加载项目资源',
+      title: i18n.t('store:reloadProject'),
+      detail: i18n.t('store:reloadProjectDetail'),
       action: async (updateProgress) => {
-        updateProgress(20, '请求 Engine reload');
+        updateProgress(20, i18n.t('store:requestEngineReload'));
         await commitTransaction({
           set,
           get,
@@ -1849,12 +1851,12 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
             {
               type: 'project.reload',
               resourceId: 'project://current',
-              summary: '重载项目快照',
+              summary: i18n.t('store:reloadProjectSnapshot'),
             },
           ],
           action: async () => {
             await engineApi.reloadProject();
-            updateProgress(60, '重新拉取 canonical snapshot');
+            updateProgress(60, i18n.t('store:refetchSnapshot'));
             return loadProjectSnapshot(get().workbench.activeFlowId);
           },
         }).then(({ project, currentFlow }) => {
@@ -1878,7 +1880,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
 
     get().recordKernelEvent({
       type: 'project.reloaded',
-      message: '项目快照已从 Engine 重新加载',
+      message: i18n.t('store:projectReloaded'),
       resourceId: 'project://current',
     });
   },
@@ -1898,7 +1900,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
         {
           type: 'session.save',
           resourceId: 'session://default',
-          summary: '保存 Session',
+          summary: i18n.t('store:saveSession'),
         },
       ],
       action: () => engineApi.saveSession(session),
@@ -1924,7 +1926,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
         {
           type: 'session.delete',
           resourceId: 'session://default',
-          summary: '删除 Session',
+          summary: i18n.t('store:deleteSession'),
         },
       ],
       action: () => engineApi.deleteSession(),
@@ -1950,7 +1952,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
         {
           type: 'config.save',
           resourceId: 'config://project',
-          summary: '保存 Config',
+          summary: i18n.t('store:saveConfig'),
         },
       ],
       action: () => engineApi.saveConfig(patch),
@@ -1968,13 +1970,13 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     const { run, breakpointStepId } = await withJob({
       set,
       get,
-      title: '创建 Managed Run',
-      detail: forceNew ? '强制创建新的 run' : '创建或复用当前 run',
+      title: i18n.t('store:createManagedRun'),
+      detail: forceNew ? i18n.t('store:createRunForceNew') : i18n.t('store:createRunReuse'),
       action: async (updateProgress) => {
-        updateProgress(40, '请求 Engine 创建 run');
+        updateProgress(40, i18n.t('store:requestEngineCreateRun'));
         if (resolvedMode === 'continue' && hasBreakpoints) {
           const created = await engineApi.createRun(forceNew, 'step');
-          updateProgress(55, `Run ${created.run_id} 已创建，按断点推进`);
+          updateProgress(55, i18n.t('store:runCreatedWithBreakpoints', { runId: created.run_id }));
           return continueRunWithBreakpoints({
             get,
             runId: created.run_id,
@@ -1985,14 +1987,14 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
         }
 
         const created = await engineApi.createRun(forceNew, mode);
-        updateProgress(85, `Run ${created.run_id} 已创建`);
+        updateProgress(85, i18n.t('store:runCreated', { runId: created.run_id }));
         return { run: created };
       },
     });
 
     get().recordKernelEvent({
       type: 'run.created',
-      message: `创建 run ${run.run_id}`,
+      message: i18n.t('store:createRun', { runId: run.run_id }),
       runId: run.run_id,
       data: { status: run.status, active: run.active },
     });
@@ -2035,11 +2037,11 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
       set,
       get,
       title: 'Smoke Run',
-      detail: '自动推进 session 全流程',
+      detail: i18n.t('store:smokeRunDetail'),
       action: async (updateProgress) => {
-        updateProgress(20, '请求 Engine 创建 smoke run');
+        updateProgress(20, i18n.t('store:requestEngineSmokeRun'));
         const created = await engineApi.createSmokeRun(inputs);
-        updateProgress(90, `Smoke run ${created.run_id} 已完成`);
+        updateProgress(90, i18n.t('store:smokeRunCompleted', { runId: created.run_id }));
         return { run: created };
       },
     });
@@ -2222,13 +2224,13 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     const { run, breakpointStepId } = await withJob({
       set,
       get,
-      title: `推进 Run ${runId}`,
+      title: i18n.t('store:advanceRun', { runId }),
       detail:
         mode === 'step'
-          ? (input ? '提交输入并单步推进 run' : '单步推进 run')
-          : (input ? '发送输入并推进 run' : '推进 run 到下一个状态'),
+          ? (input ? i18n.t('store:advanceStepWithInput') : i18n.t('store:advanceStep'))
+          : (input ? i18n.t('store:advanceContinueWithInput') : i18n.t('store:advanceContinue')),
       action: async (updateProgress) => {
-        updateProgress(45, '调用 Engine advance');
+        updateProgress(45, i18n.t('store:callingEngineAdvance'));
         const nextRun =
           mode === 'continue' && hasBreakpoints
             ? await continueRunWithBreakpoints({
@@ -2238,14 +2240,14 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
                 updateProgress,
               })
             : { run: await engineApi.advanceRun(runId, input, mode) };
-        updateProgress(85, `Run ${runId} 已更新为 ${nextRun.run.status}`);
+        updateProgress(85, i18n.t('store:runUpdatedTo', { runId, status: nextRun.run.status }));
         return nextRun;
       },
     });
 
     get().recordKernelEvent({
       type: run.status === 'ended' ? 'run.ended' : 'run.updated',
-      message: `Run ${runId} 状态更新为 ${run.status}`,
+      message: i18n.t('store:runStatusUpdated', { runId, status: run.status }),
       runId,
       data: { status: run.status, waitingFor: run.waiting_for?.kind ?? null },
     });
@@ -2289,12 +2291,12 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     const replayedRun = await withJob({
       set,
       get,
-      title: `重放 Run ${runId}`,
-      detail: '基于输入历史重新创建并推进 managed run',
+      title: i18n.t('store:replayRun', { runId }),
+      detail: i18n.t('store:replayRunDetail'),
       action: async (updateProgress) => {
-        updateProgress(15, '读取原始 run 快照');
+        updateProgress(15, i18n.t('store:readOriginalSnapshot'));
         const nextRun = await engineApi.createRun(true, 'continue');
-        updateProgress(35, `已创建重放 run ${nextRun.run_id}`);
+        updateProgress(35, i18n.t('store:replayRunCreated', { runId: nextRun.run_id }));
 
         let currentRun = nextRun;
         const inputs = sourceState.input_history ?? [];
@@ -2302,19 +2304,19 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
           const record = inputs[index]!;
           updateProgress(
             Math.min(90, 35 + Math.round(((index + 1) / Math.max(inputs.length, 1)) * 55)),
-            `重放输入 ${index + 1}/${inputs.length}: ${record.step_id}`,
+            i18n.t('store:replayInput', { index: index + 1, total: inputs.length, stepId: record.step_id }),
           );
           currentRun = await engineApi.advanceRun(currentRun.run_id, record.input, 'continue');
         }
 
-        updateProgress(95, `Run ${currentRun.run_id} 已重放`);
+        updateProgress(95, i18n.t('store:runReplayed', { runId: currentRun.run_id }));
         return currentRun;
       },
     });
 
     get().recordKernelEvent({
       type: replayedRun.status === 'ended' ? 'run.ended' : 'run.updated',
-      message: `Run ${runId} 已重放为 ${replayedRun.run_id}`,
+      message: i18n.t('store:runReplayedAs', { runId, newRunId: replayedRun.run_id }),
       runId: replayedRun.run_id,
       data: { replayOf: runId, status: replayedRun.status },
     });
@@ -2362,7 +2364,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
 
     get().recordKernelEvent({
       type: 'run.updated',
-      message: `${enabled ? '已添加' : '已移除'}断点 ${normalizedStepId}`,
+      message: `${enabled ? i18n.t('store:breakpointAdded', { stepId: normalizedStepId }) : i18n.t('store:breakpointRemoved', { stepId: normalizedStepId })}`,
       data: { stepId: normalizedStepId, breakpointEnabled: enabled },
     });
   },
@@ -2381,7 +2383,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     }));
     get().recordKernelEvent({
       type: 'run.updated',
-      message: `已移除断点 ${normalizedStepId}`,
+      message: i18n.t('store:breakpointRemoved', { stepId: normalizedStepId }),
       data: { stepId: normalizedStepId, breakpointEnabled: false },
     });
   },
@@ -2391,10 +2393,10 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     await withJob({
       set,
       get,
-      title: `取消 Run ${runId}`,
-      detail: '请求 Engine 取消 managed run',
+      title: i18n.t('store:cancelRun', { runId }),
+      detail: i18n.t('store:cancelRunDetail'),
       action: async (updateProgress) => {
-        updateProgress(50, '发送 cancel 请求');
+        updateProgress(50, i18n.t('store:sendingCancelRequest'));
         await engineApi.cancelRun(runId);
       },
     });
@@ -2402,7 +2404,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     runStreamSubscriptions.delete(runId);
     get().recordKernelEvent({
       type: 'run.cancelled',
-      message: `Run ${runId} 已取消`,
+      message: i18n.t('store:runCancelled', { runId }),
       runId,
     });
     set((state) => ({
@@ -2449,8 +2451,8 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     const proposalId = createId('proposal');
     const proposal: ReviewProposalRecord = {
       id: proposalId,
-      title: input?.title?.trim() || `Proposal ${new Date().toLocaleTimeString('zh-CN')}`,
-      intent: input?.intent?.trim() || '围绕当前 workbench 状态生成 proposal bundle，供 review 与验证使用。',
+      title: input?.title?.trim() || `Proposal ${formatTimeShort()}`,
+      intent: input?.intent?.trim() || i18n.t('store:proposalDefaultIntent'),
       status: 'draft',
       createdAt: Date.now(),
       origin: { kind: 'user', id: 'studio.review', label: 'Review Workspace' },
@@ -2460,9 +2462,9 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
       semanticSummary: summary,
       expectedDiagnostics: summarizeDiagnostics(get().versionControl.diagnostics),
       recommendedValidations: [
-        '运行 lint，确认 diagnostics 没有新增 errors',
-        '运行 smoke，检查 session 路径是否可达',
-        '结合 selected run 查看 trace/state diff',
+        i18n.t('store:proposalValidation.runLint'),
+        i18n.t('store:proposalValidation.runSmoke'),
+        i18n.t('store:proposalValidation.checkTrace'),
       ],
       riskNotes: deriveRiskNotes({
         summary,
@@ -2485,7 +2487,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     }));
     get().recordKernelEvent({
       type: 'review.changed',
-      message: `创建 proposal ${proposal.title}`,
+      message: i18n.t('store:createProposal', { title: proposal.title }),
       resourceId: 'project://current',
       data: { proposalId },
     });
@@ -2504,7 +2506,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
   validateProposal: async (proposalId) => {
     const proposal = get().review.proposals.find((entry) => entry.id === proposalId);
     if (!proposal) {
-      throw new Error('找不到要验证的 proposal');
+      throw new Error(i18n.t('store:proposalNotFound'));
     }
 
     set((state) => ({
@@ -2530,14 +2532,14 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
       const smoke = await withJob({
         set,
         get,
-        title: `验证 Proposal ${proposal.title}`,
-        detail: '运行 smoke 以验证 session 路径',
+        title: i18n.t('store:validateProposal', { title: proposal.title }),
+        detail: i18n.t('store:validateProposalDetail'),
         action: async (updateProgress) => {
-          updateProgress(30, '刷新 diagnostics');
+          updateProgress(30, i18n.t('store:refreshingDiagnostics'));
           await get().refreshDiagnostics();
-          updateProgress(60, '请求 Engine smoke');
+          updateProgress(60, i18n.t('store:requestingEngineSmoke'));
           const result = await engineApi.runSmoke({ steps: 8, dryRun: true });
-          updateProgress(85, `Smoke 状态 ${result.finalStatus}`);
+          updateProgress(85, i18n.t('store:smokeStatus', { status: result.finalStatus }));
           return result;
         },
       });
@@ -2566,7 +2568,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
       }));
       get().recordKernelEvent({
         type: 'review.changed',
-        message: `Proposal ${proposal.title} 已完成 lint/smoke 验证`,
+        message: i18n.t('store:proposalValidated', { title: proposal.title }),
         data: { proposalId },
       });
     } catch (error) {
@@ -2596,7 +2598,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
   acceptProposal: async (proposalId) => {
     const proposal = get().review.proposals.find((entry) => entry.id === proposalId);
     if (!proposal) {
-      throw new Error('找不到要接受的 proposal');
+      throw new Error(i18n.t('store:proposalNotFoundAccept'));
     }
     assertCapability(get, 'project.write');
     assertCapability(get, 'review.accept');
@@ -2617,7 +2619,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     }));
     get().recordKernelEvent({
       type: 'review.changed',
-      message: `Proposal ${proposal.title} 已接受`,
+      message: i18n.t('store:proposalAccepted', { title: proposal.title }),
       data: { proposalId },
     });
   },
@@ -2625,10 +2627,10 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
   rollbackProposal: async (proposalId) => {
     const proposal = get().review.proposals.find((entry) => entry.id === proposalId);
     if (!proposal) {
-      throw new Error('找不到要回滚的 proposal');
+      throw new Error(i18n.t('store:proposalNotFoundRollback'));
     }
     if (!proposal.baseCheckpointId) {
-      throw new Error('当前 proposal 没有关联的 base checkpoint');
+      throw new Error(i18n.t('store:checkpointNotFound'));
     }
 
     await get().restoreCheckpoint(proposal.baseCheckpointId);
@@ -2647,7 +2649,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     }));
     get().recordKernelEvent({
       type: 'review.changed',
-      message: `Proposal ${proposal.title} 已回滚到 base checkpoint`,
+      message: i18n.t('store:proposalRolledBack', { title: proposal.title }),
       data: { proposalId, checkpointId: proposal.baseCheckpointId },
     });
   },
@@ -2685,7 +2687,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     }));
     get().recordKernelEvent({
       type: 'review.changed',
-      message: `创建评论线程 ${thread.title}`,
+      message: i18n.t('store:createCommentThread', { title: thread.title }),
       data: { threadId, anchor: input.anchor.kind },
     });
     return threadId;
@@ -2721,7 +2723,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     }));
     get().recordKernelEvent({
       type: 'review.changed',
-      message: `评论线程 ${threadId} 已追加回复`,
+      message: i18n.t('store:commentThreadReplyAdded', { threadId }),
       data: { threadId },
     });
   },
@@ -2744,7 +2746,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     }));
     get().recordKernelEvent({
       type: 'review.changed',
-      message: `评论线程 ${threadId} 已${resolved ? '解决' : '重新打开'}`,
+      message: i18n.t('store:commentThreadStatusChanged', { threadId, status: resolved ? i18n.t('store:resolved') : i18n.t('store:reopened') }),
       data: { threadId, resolved },
     });
   },
@@ -2767,7 +2769,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
 
     const checkpoint: CheckpointRecord = {
       id: createId('cp'),
-      label: label?.trim() || `Checkpoint ${new Date().toLocaleTimeString('zh-CN')}`,
+      label: label?.trim() || `Checkpoint ${formatTimeShort()}`,
       description,
       createdAt: Date.now(),
       resourceIds: [
@@ -2786,13 +2788,13 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
 
     get().recordKernelEvent({
       type: 'checkpoint.created',
-      message: `创建 checkpoint: ${checkpoint.label}`,
+      message: i18n.t('store:createCheckpoint', { label: checkpoint.label }),
       resourceId: 'project://current',
       data: { checkpointId: checkpoint.id },
     });
     get().recordKernelEvent({
       type: 'history.updated',
-      message: `checkpoint ${checkpoint.label} 已写入历史`,
+      message: i18n.t('store:checkpointSaved', { label: checkpoint.label }),
       resourceId: 'project://current',
     });
 
@@ -2804,15 +2806,15 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     const project = get().resources.project;
 
     if (!checkpoint || !project) {
-      throw new Error('找不到可恢复的 checkpoint');
+      throw new Error(i18n.t('store:checkpointNotFound'));
     }
     assertCapability(get, 'project.write');
 
     await withJob({
       set,
       get,
-      title: `恢复 Checkpoint ${checkpoint.label}`,
-      detail: '回滚 flows 与 session 到指定检查点',
+      title: i18n.t('store:restoreCheckpoint', { label: checkpoint.label }),
+      detail: i18n.t('store:restoreCheckpointDetail'),
       action: async (updateProgress) => {
         await withSaveState(set, 'project', checkpoint.label, async () => {
           const beforeSnapshot = createSnapshotEntry(
@@ -2820,13 +2822,13 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
             project,
             get().workbench.activeFlowId,
           );
-          updateProgress(25, '恢复 checkpoint 对应的 project snapshot');
+          updateProgress(25, i18n.t('store:restoringCheckpointSnapshot'));
           const { project: nextProject, currentFlow } = await restoreProjectSnapshot(
             checkpoint.snapshot,
             project,
             get().workbench.activeFlowId,
           );
-          updateProgress(70, '刷新 diagnostics 与事务历史');
+          updateProgress(70, i18n.t('store:refreshingDiagnosticsAndHistory'));
           const diagnostics = await fetchDiagnosticsReport();
 
           set((state) => {
@@ -2842,7 +2844,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
                 {
                   type: 'checkpoint.restore',
                   resourceId: 'project://current',
-                  summary: `恢复 checkpoint ${checkpoint.label}`,
+                  summary: i18n.t('store:checkpointRestored', { label: checkpoint.label }),
                 },
               ],
             };
@@ -2881,13 +2883,13 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
 
     get().recordKernelEvent({
       type: 'checkpoint.restored',
-      message: `已恢复 checkpoint ${checkpoint.label}`,
+      message: i18n.t('store:checkpointRestored', { label: checkpoint.label }),
       resourceId: 'project://current',
       data: { checkpointId: checkpoint.id },
     });
     get().recordKernelEvent({
       type: 'history.updated',
-      message: `历史已回滚到 checkpoint ${checkpoint.label}`,
+      message: i18n.t('store:historyRolledBack', { label: checkpoint.label }),
       resourceId: 'project://current',
     });
   },
@@ -2896,10 +2898,10 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     const diagnostics = await withJob({
       set,
       get,
-      title: '刷新 Diagnostics',
-      detail: '重新拉取 Engine diagnostics',
+      title: i18n.t('store:refreshDiagnostics'),
+      detail: i18n.t('store:refreshDiagnosticsDetail'),
       action: async (updateProgress) => {
-        updateProgress(50, '请求 Engine diagnostics');
+        updateProgress(50, i18n.t('store:requestingEngineDiagnostics'));
         return fetchDiagnosticsReport();
       },
     });
@@ -2918,7 +2920,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
           {
             type: 'diagnostics.refresh',
             resourceId: 'project://current',
-            summary: '刷新 diagnostics',
+            summary: i18n.t('store:refreshDiagnostics'),
           },
         ],
       };
@@ -2934,7 +2936,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     });
     get().recordKernelEvent({
       type: 'diagnostics.updated',
-      message: 'Diagnostics 已手动刷新',
+      message: i18n.t('store:diagnosticsRefreshedEvent'),
       resourceId: 'project://current',
     });
   },
@@ -2948,18 +2950,18 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     await withJob({
       set,
       get,
-      title: `撤销 ${undoEntry.label}`,
-      detail: '恢复到上一份 project snapshot',
+      title: i18n.t('store:undoTransaction', { label: undoEntry.label }),
+      detail: i18n.t('store:undoDetail'),
       action: async (updateProgress) => {
         await withSaveState(set, 'project', undoEntry.label, async () => {
           const redoEntry = createSnapshotEntry(`redo:${undoEntry.label}`, project, get().workbench.activeFlowId);
-          updateProgress(30, '应用撤销快照');
+          updateProgress(30, i18n.t('store:applyingUndoSnapshot'));
           const { project: nextProject, currentFlow } = await restoreProjectSnapshot(
             undoEntry.snapshot,
             project,
             undoEntry.activeFlowId,
           );
-          updateProgress(75, '刷新 diagnostics 与版本状态');
+          updateProgress(75, i18n.t('store:refreshingDiagnosticsAndVersions'));
           const diagnostics = await fetchDiagnosticsReport();
 
           set((state) => {
@@ -2975,7 +2977,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
                 {
                   type: 'transaction.undo',
                   resourceId: 'project://current',
-                  summary: `撤销 ${undoEntry.label}`,
+                  summary: i18n.t('store:undoCompleted', { label: undoEntry.label }),
                 },
               ],
             };
@@ -3013,7 +3015,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     });
     get().recordKernelEvent({
       type: 'history.updated',
-      message: `已撤销到 ${undoEntry.label}`,
+      message: i18n.t('store:undoCompleted', { label: undoEntry.label }),
       resourceId: 'project://current',
     });
   },
@@ -3027,18 +3029,18 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     await withJob({
       set,
       get,
-      title: `重做 ${redoEntry.label}`,
-      detail: '重新应用最近一次撤销的 snapshot',
+      title: i18n.t('store:redoTransaction', { label: redoEntry.label }),
+      detail: i18n.t('store:redoDetail'),
       action: async (updateProgress) => {
         await withSaveState(set, 'project', redoEntry.label, async () => {
           const undoEntry = createSnapshotEntry(`undo:${redoEntry.label}`, project, get().workbench.activeFlowId);
-          updateProgress(30, '应用重做快照');
+          updateProgress(30, i18n.t('store:applyingRedoSnapshot'));
           const { project: nextProject, currentFlow } = await restoreProjectSnapshot(
             redoEntry.snapshot,
             project,
             redoEntry.activeFlowId,
           );
-          updateProgress(75, '刷新 diagnostics 与版本状态');
+          updateProgress(75, i18n.t('store:refreshingDiagnosticsAndVersions'));
           const diagnostics = await fetchDiagnosticsReport();
 
           set((state) => {
@@ -3054,7 +3056,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
                 {
                   type: 'transaction.redo',
                   resourceId: 'project://current',
-                  summary: `重做 ${redoEntry.label}`,
+                  summary: i18n.t('store:redoCompleted', { label: redoEntry.label }),
                 },
               ],
             };
@@ -3092,7 +3094,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     });
     get().recordKernelEvent({
       type: 'history.updated',
-      message: `已重做到 ${redoEntry.label}`,
+      message: i18n.t('store:redoCompleted', { label: redoEntry.label }),
       resourceId: 'project://current',
     });
   },
@@ -3115,7 +3117,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     });
     get().recordKernelEvent({
       type: 'capability.updated',
-      message: `${capability} 已${granted ? '授权' : '撤销'}`,
+      message: i18n.t('store:capabilityChanged', { capability, status: granted ? 'granted' : 'revoked' }),
       data: { capability, granted },
     });
   },
@@ -3131,7 +3133,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     }));
     get().recordKernelEvent({
       type: 'capability.updated',
-      message: 'Capability grants 已重置为默认值',
+      message: i18n.t('store:capabilityGrantsReset'),
     });
   },
 
@@ -3193,7 +3195,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     });
     get().recordKernelEvent({
       type: 'extension.activated',
-      message: `扩展 ${extensionId} 已激活 (${reason})`,
+      message: i18n.t('store:extensionActivated', { extensionId, reason }),
       extensionId,
       data: { reason },
     });
@@ -3252,7 +3254,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     });
     get().recordKernelEvent({
       type: 'extension.error',
-      message: `扩展 ${extensionId} 发生错误: ${message}`,
+      message: i18n.t('store:extensionError', { extensionId, message }),
       extensionId,
     });
   },

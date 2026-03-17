@@ -1,4 +1,5 @@
 import { memo } from "react";
+import { useTranslation } from "react-i18next";
 import { Position, type NodeProps } from "@xyflow/react";
 import {
   BaseNode,
@@ -18,6 +19,7 @@ import type { NodeOverlayState } from "@/hooks/use-node-overlay";
 type Condition = { when: string; next: string };
 
 export const BranchStepNode = memo(({ id, data }: NodeProps) => {
+  const { t } = useTranslation('session');
   const config = (data as any).config || {};
   const overlay = (data as any).overlay as NodeOverlayState | undefined;
   const { updateConfig } = useNodeConfig(id);
@@ -44,14 +46,14 @@ export const BranchStepNode = memo(({ id, data }: NodeProps) => {
       <NodeOverlayBadge overlay={overlay} />
       <BaseNodeHeader className="border-b bg-amber-50 dark:bg-amber-950/30">
         <GitBranch className="size-4 text-amber-600" />
-        <BaseNodeHeaderTitle>条件分支</BaseNodeHeaderTitle>
+        <BaseNodeHeaderTitle>{t('stepTypes.Branch')}</BaseNodeHeaderTitle>
       </BaseNodeHeader>
       <BaseNodeContent>
         <div className="space-y-2">
           {conditions.map((cond, i) => (
             <div key={i} className="flex items-center gap-1">
               <Input
-                placeholder="条件表达式"
+                placeholder={t('node.conditionExpr')}
                 className="flex-1 text-xs"
                 value={cond.when}
                 onChange={(e) => updateCondition(i, "when", e.target.value)}
@@ -73,13 +75,13 @@ export const BranchStepNode = memo(({ id, data }: NodeProps) => {
             onClick={addCondition}
           >
             <Plus className="mr-1 size-3" />
-            添加条件
+            {t('node.addCondition')}
           </Button>
         </div>
       </BaseNodeContent>
       <LabeledHandle
         id="target"
-        title="入口"
+        title={t('node.entry')}
         type="target"
         position={Position.Left}
       />
@@ -87,7 +89,7 @@ export const BranchStepNode = memo(({ id, data }: NodeProps) => {
         <LabeledHandle
           key={`condition-${i}`}
           id={`condition-${i}`}
-          title={`条件 ${i + 1}`}
+          title={t('node.conditionLabel', { index: i + 1 })}
           type="source"
           position={Position.Right}
           labelClassName="flex-1 text-right"
@@ -96,7 +98,7 @@ export const BranchStepNode = memo(({ id, data }: NodeProps) => {
       ))}
       <LabeledHandle
         id="default"
-        title="默认"
+        title={t('node.default')}
         type="source"
         position={Position.Right}
         labelClassName="flex-1 text-right"

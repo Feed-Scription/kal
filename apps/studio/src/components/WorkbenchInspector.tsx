@@ -1,6 +1,8 @@
 import { useState, useMemo } from 'react';
 import { ChevronDown, ChevronRight, Crosshair, Layers2, Puzzle, Route } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
+import { formatTimeFromTimestamp } from '@/i18n/format';
 import {
   useCapabilityGate,
   useDebugViewContributions,
@@ -38,6 +40,8 @@ function CollapsibleSection({
 }
 
 export function WorkbenchInspector({ mobile }: { mobile?: boolean } = {}) {
+  const { t } = useTranslation('workbench');
+  const { t: tc } = useTranslation('common');
   const { activeExtension, activeExtensionRuntime, activeFlowId, activeView } = useWorkbench();
   const { project, session } = useStudioResources();
   const { resetCapabilityGrants, setCapabilityGrant, setExtensionEnabled } = useStudioCommands();
@@ -105,7 +109,7 @@ export function WorkbenchInspector({ mobile }: { mobile?: boolean } = {}) {
           <section className="space-y-3 rounded-xl border bg-card p-4">
             <div className="flex items-center gap-2 text-sm font-medium">
               <Crosshair className="size-4" />
-              选中节点
+              {t("selectedNode")}
             </div>
             <div className="space-y-2 text-sm">
               <div className="flex items-center justify-between gap-4">
@@ -113,27 +117,27 @@ export function WorkbenchInspector({ mobile }: { mobile?: boolean } = {}) {
                 <span className="truncate font-mono text-xs">{selectedNodeManifest.node.id}</span>
               </div>
               <div className="flex items-center justify-between gap-4">
-                <span className="text-muted-foreground">类型</span>
+                <span className="text-muted-foreground">{t("type")}</span>
                 <span className="font-medium">{selectedNodeManifest.node.type}</span>
               </div>
               {selectedNodeManifest.manifest ? (
                 <>
                   {selectedNodeManifest.manifest.category && (
                     <div className="flex items-center justify-between gap-4">
-                      <span className="text-muted-foreground">分类</span>
+                      <span className="text-muted-foreground">{t("category")}</span>
                       <span>{selectedNodeManifest.manifest.category}</span>
                     </div>
                   )}
                   <div className="flex items-center justify-between gap-4">
-                    <span className="text-muted-foreground">输入</span>
+                    <span className="text-muted-foreground">{t("inputs")}</span>
                     <span>{selectedNodeManifest.manifest.inputs.length}</span>
                   </div>
                   <div className="flex items-center justify-between gap-4">
-                    <span className="text-muted-foreground">输出</span>
+                    <span className="text-muted-foreground">{t("outputs")}</span>
                     <span>{selectedNodeManifest.manifest.outputs.length}</span>
                   </div>
                   {selectedNodeManifest.manifest.inputs.length > 0 && (
-                    <CollapsibleSection title="输入端口" defaultOpen>
+                    <CollapsibleSection title={t("inputPorts")} defaultOpen>
                       <div className="space-y-1 text-xs">
                         {selectedNodeManifest.manifest.inputs.map((input) => (
                           <div key={input.name} className="flex items-center justify-between rounded-md border px-2 py-1">
@@ -145,7 +149,7 @@ export function WorkbenchInspector({ mobile }: { mobile?: boolean } = {}) {
                     </CollapsibleSection>
                   )}
                   {selectedNodeManifest.manifest.outputs.length > 0 && (
-                    <CollapsibleSection title="输出端口" defaultOpen>
+                    <CollapsibleSection title={t("outputPorts")} defaultOpen>
                       <div className="space-y-1 text-xs">
                         {selectedNodeManifest.manifest.outputs.map((output) => (
                           <div key={output.name} className="flex items-center justify-between rounded-md border px-2 py-1">
@@ -159,7 +163,7 @@ export function WorkbenchInspector({ mobile }: { mobile?: boolean } = {}) {
                 </>
               ) : null}
               {configSummary.length > 0 && (
-                <CollapsibleSection title="配置摘要" defaultOpen>
+                <CollapsibleSection title={t("configSummary")} defaultOpen>
                   <div className="space-y-1 text-xs">
                     {configSummary.map(({ key, display }) => (
                       <div key={key} className="flex items-center justify-between gap-2 rounded-md border px-2 py-1">
@@ -178,7 +182,7 @@ export function WorkbenchInspector({ mobile }: { mobile?: boolean } = {}) {
           <section className="space-y-3 rounded-xl border bg-card p-4">
             <div className="flex items-center gap-2 text-sm font-medium">
               <Puzzle className="size-4" />
-              当前扩展
+              {t("currentExtension")}
             </div>
             <div className="space-y-2 text-sm">
               <div className="flex items-center justify-between gap-4">
@@ -186,8 +190,8 @@ export function WorkbenchInspector({ mobile }: { mobile?: boolean } = {}) {
                 <span className="font-medium">{activeExtension.id}</span>
               </div>
               <div className="flex items-center justify-between gap-4">
-                <span className="text-muted-foreground">状态</span>
-                <span>{activeExtensionRuntime?.status ?? '未激活'}</span>
+                <span className="text-muted-foreground">{t("status")}</span>
+                <span>{activeExtensionRuntime?.status ?? tc('notActivated')}</span>
               </div>
 
               <div className="flex flex-wrap gap-1.5">
@@ -206,32 +210,32 @@ export function WorkbenchInspector({ mobile }: { mobile?: boolean } = {}) {
                 ))}
               </div>
 
-              <CollapsibleSection title="扩展详情">
+              <CollapsibleSection title={t("extensionDetails")}>
                 <div className="space-y-2 text-xs">
                   <div className="flex items-center justify-between gap-4">
-                    <span className="text-muted-foreground">宿主</span>
+                    <span className="text-muted-foreground">{t("host")}</span>
                     <span>{activeExtension.host}</span>
                   </div>
                   <div className="flex items-center justify-between gap-4">
-                    <span className="text-muted-foreground">分类</span>
-                    <span>{activeExtension.kind === 'official-core' ? '官方核心' : '官方工作流'}</span>
+                    <span className="text-muted-foreground">{t("category")}</span>
+                    <span>{activeExtension.kind === 'official-core' ? t('extensionKind.officialCore') : t('extensionKind.officialWorkflow')}</span>
                   </div>
                   {activeExtensionRuntime ? (
                     <>
                       <div className="flex items-center justify-between gap-4">
-                        <span className="text-muted-foreground">Blocked</span>
+                        <span className="text-muted-foreground">{t("blocked")}</span>
                         <span>{activeExtensionRuntime.missingCapabilities.length}</span>
                       </div>
                       <div className="flex items-center justify-between gap-4">
-                        <span className="text-muted-foreground">Degraded</span>
+                        <span className="text-muted-foreground">{t("degraded")}</span>
                         <span>{activeExtensionRuntime.optionalCapabilities.length}</span>
                       </div>
                       <div className="flex items-center justify-between gap-4">
-                        <span className="text-muted-foreground">最近激活</span>
+                        <span className="text-muted-foreground">{t("lastActivated")}</span>
                         <span>
                           {activeExtensionRuntime.lastActivatedAt
-                            ? new Date(activeExtensionRuntime.lastActivatedAt).toLocaleTimeString('zh-CN', { hour12: false })
-                            : '未激活'}
+                            ? formatTimeFromTimestamp(activeExtensionRuntime.lastActivatedAt)
+                            : tc('notActivated')}
                         </span>
                       </div>
                     </>
@@ -271,7 +275,7 @@ export function WorkbenchInspector({ mobile }: { mobile?: boolean } = {}) {
                       setExtensionEnabled(activeExtension.id, !activeExtensionRuntime.enabled)
                     }
                   >
-                    {activeExtensionRuntime.enabled ? '停用' : '启用'}
+                    {activeExtensionRuntime.enabled ? t('disable') : t('enable')}
                   </Button>
                   <Button
                     variant="outline"
@@ -279,7 +283,7 @@ export function WorkbenchInspector({ mobile }: { mobile?: boolean } = {}) {
                     className="flex-1"
                     onClick={resetCapabilityGrants}
                   >
-                    重置授权
+                    {t("resetGrants")}
                   </Button>
                 </div>
               ) : null}
@@ -291,7 +295,7 @@ export function WorkbenchInspector({ mobile }: { mobile?: boolean } = {}) {
           <section className="space-y-3 rounded-xl border bg-card p-4">
             <div className="flex items-center gap-2 text-sm font-medium">
               <Layers2 className="size-4" />
-              当前 Flow
+              {t("currentFlow")}
             </div>
             <div className="space-y-2 text-sm">
               <div className="flex items-center justify-between gap-4">
@@ -299,19 +303,19 @@ export function WorkbenchInspector({ mobile }: { mobile?: boolean } = {}) {
                 <span className="font-medium">{activeFlowId}</span>
               </div>
               <div className="flex items-center justify-between gap-4">
-                <span className="text-muted-foreground">节点</span>
+                <span className="text-muted-foreground">{t("nodes")}</span>
                 <span>{activeFlow.data.nodes.length}</span>
               </div>
               <div className="flex items-center justify-between gap-4">
-                <span className="text-muted-foreground">连线</span>
+                <span className="text-muted-foreground">{t("edges")}</span>
                 <span>{activeFlow.data.edges.length}</span>
               </div>
               <div className="flex items-center justify-between gap-4">
-                <span className="text-muted-foreground">输入</span>
+                <span className="text-muted-foreground">{t("inputs")}</span>
                 <span>{activeFlow.meta.inputs?.length ?? 0}</span>
               </div>
               <div className="flex items-center justify-between gap-4">
-                <span className="text-muted-foreground">输出</span>
+                <span className="text-muted-foreground">{t("outputs")}</span>
                 <span>{activeFlow.meta.outputs?.length ?? 0}</span>
               </div>
             </div>
@@ -321,15 +325,15 @@ export function WorkbenchInspector({ mobile }: { mobile?: boolean } = {}) {
         <section className="space-y-3 rounded-xl border bg-card p-4">
           <div className="flex items-center gap-2 text-sm font-medium">
             <Route className="size-4" />
-            Session 资源
+            {t("sessionResource")}
           </div>
           <div className="space-y-2 text-sm">
             <div className="flex items-center justify-between gap-4">
-              <span className="text-muted-foreground">状态</span>
-              <span>{session ? '已加载' : '未配置'}</span>
+              <span className="text-muted-foreground">{t("status")}</span>
+              <span>{session ? t('loaded') : t('notConfigured')}</span>
             </div>
             <div className="flex items-center justify-between gap-4">
-              <span className="text-muted-foreground">步骤数</span>
+              <span className="text-muted-foreground">{t("stepCount")}</span>
               <span>{session?.steps.length ?? 0}</span>
             </div>
           </div>

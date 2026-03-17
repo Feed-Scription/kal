@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { MessageSquareMore } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { EmptyState } from "@/components/EmptyState";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,10 +13,7 @@ import {
   useStudioCommands,
   useWorkbench,
 } from '@/kernel/hooks';
-
-function formatTime(timestamp: number) {
-  return new Date(timestamp).toLocaleString('zh-CN', { hour12: false });
-}
+import { formatDateTime } from '@/i18n/format';
 
 function describeAnchor(anchor: { kind: 'proposal'; proposalId: string } | { kind: 'resource'; resourceId: string } | { kind: 'run'; runId: string }) {
   if (anchor.kind === 'proposal') {
@@ -28,6 +26,7 @@ function describeAnchor(anchor: { kind: 'proposal'; proposalId: string } | { kin
 }
 
 export function CommentsView() {
+  const { t } = useTranslation('review');
   const { activeThread, activeThreadId, threads } = useCommentsWorkspace();
   const capabilityGate = useCapabilityGate();
   const { activeProposal } = useReviewWorkspace();
@@ -56,16 +55,16 @@ export function CommentsView() {
           <div className="flex items-center gap-2">
             <MessageSquareMore className="size-4" />
             <div>
-              <h1 className="text-lg font-semibold">Comments</h1>
-              <p className="text-sm text-muted-foreground">异步评论线程独立于 canonical project data，围绕 proposal、resource 和 run 锚定。</p>
+              <h1 className="text-lg font-semibold">{t('comments.title')}</h1>
+              <p className="text-sm text-muted-foreground">{t('comments.subtitle')}</p>
             </div>
           </div>
 
           <div className="space-y-2 rounded-xl border p-4">
-            <div className="text-xs text-muted-foreground">New Thread Anchor</div>
+            <div className="text-xs text-muted-foreground">{t('comments.newThreadAnchor')}</div>
             <div className="font-mono text-sm">{describeAnchor(defaultAnchor)}</div>
-            <Input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="线程标题" />
-            <Input value={body} onChange={(event) => setBody(event.target.value)} placeholder="首条评论内容" />
+            <Input value={title} onChange={(event) => setTitle(event.target.value)} placeholder={t('comments.threadTitlePlaceholder')} />
+            <Input value={body} onChange={(event) => setBody(event.target.value)} placeholder={t('comments.threadBodyPlaceholder')} />
             <Button
               disabled={!capabilityGate.grants['comment.write']}
               onClick={() => {
@@ -81,13 +80,13 @@ export function CommentsView() {
                 }
               }}
             >
-              创建线程
+              {t('comments.createThread')}
             </Button>
           </div>
 
           <div className="space-y-2">
             {threads.length === 0 ? (
-              <EmptyState message="当前还没有评论线程。" />
+              <EmptyState message={t('comments.noThreads')} />
             ) : (
               threads.map((thread) => (
                 <button
@@ -103,7 +102,7 @@ export function CommentsView() {
                     <div className="text-xs text-muted-foreground">{thread.status}</div>
                   </div>
                   <div className="mt-1 text-xs text-muted-foreground">
-                    {describeAnchor(thread.anchor)} · {thread.comments.length} comments
+                    {describeAnchor(thread.anchor)} · {t('comments.commentsCount', { count: thread.comments.length })}
                   </div>
                 </button>
               ))
@@ -113,7 +112,7 @@ export function CommentsView() {
 
         <section className="space-y-4 rounded-2xl border bg-card p-5">
           {!activeThread ? (
-            <EmptyState message="选择一个线程以查看讨论内容。" />
+            <EmptyState message={t('comments.selectThread')} />
           ) : (
             <>
               <div className="flex items-start justify-between gap-4">
@@ -127,7 +126,7 @@ export function CommentsView() {
                   size="sm"
                   onClick={() => resolveCommentThread(activeThread.id, activeThread.status !== 'resolved')}
                 >
-                  {activeThread.status === 'resolved' ? '重新打开' : '标记已解决'}
+                  {activeThread.status === 'resolved' ? t('comments.reopen') : t('comments.resolve')}
                 </Button>
               </div>
 
@@ -136,7 +135,7 @@ export function CommentsView() {
                   <div key={comment.id} className="rounded-xl border p-4">
                     <div className="flex items-center justify-between gap-3">
                       <div className="font-medium">{comment.author}</div>
-                      <div className="text-xs text-muted-foreground">{formatTime(comment.createdAt)}</div>
+                      <div className="text-xs text-muted-foreground">{formatDateTime(comment.createdAt)}</div>
                     </div>
                     <div className="mt-2 text-sm whitespace-pre-wrap break-words">{comment.body}</div>
                   </div>
@@ -144,9 +143,9 @@ export function CommentsView() {
               </div>
 
               <div className="rounded-xl border p-4">
-                <div className="text-sm font-medium">回复线程</div>
+                <div className="text-sm font-medium">{t('comments.replyToThread')}</div>
                 <div className="mt-3 flex gap-2">
-                  <Input value={reply} onChange={(event) => setReply(event.target.value)} placeholder="输入回复内容" />
+                  <Input value={reply} onChange={(event) => setReply(event.target.value)} placeholder={t('comments.replyPlaceholder')} />
                   <Button
                     disabled={!capabilityGate.grants['comment.write']}
                     onClick={() => {
@@ -154,7 +153,7 @@ export function CommentsView() {
                       setReply('');
                     }}
                   >
-                    回复
+                    {t('comments.reply')}
                   </Button>
                 </div>
               </div>

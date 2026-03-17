@@ -1,4 +1,5 @@
 import { useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { useReactFlow } from "@xyflow/react";
 
 export type ContextMenuState = {
@@ -13,15 +14,10 @@ type SessionPaneContextMenuProps = {
   onAddNode: (position: { x: number; y: number }, nodeType: string) => void;
 };
 
-const stepTypes = [
-  { type: "RunFlow", label: "执行 Flow" },
-  { type: "Prompt", label: "等待输入" },
-  { type: "Choice", label: "选择题" },
-  { type: "Branch", label: "条件分支" },
-  { type: "End", label: "结束" },
-];
+const stepTypeKeys = ["RunFlow", "Prompt", "Choice", "Branch", "End"] as const;
 
 export function SessionPaneContextMenu({ menu, onClose, onAddNode }: SessionPaneContextMenuProps) {
+  const { t } = useTranslation('session');
   const { screenToFlowPosition } = useReactFlow();
 
   const handleAddNode = useCallback((nodeType: string) => {
@@ -49,16 +45,16 @@ export function SessionPaneContextMenu({ menu, onClose, onAddNode }: SessionPane
       onClick={(e) => e.stopPropagation()}
     >
       <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
-        添加步骤
+        {t('addStep')}
       </div>
-      {stepTypes.map((step) => (
+      {stepTypeKeys.map((type) => (
         <button
-          key={step.type}
+          key={type}
           type="button"
           className="relative flex w-full cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground"
-          onClick={() => handleAddNode(step.type)}
+          onClick={() => handleAddNode(type)}
         >
-          {step.label}
+          {t(`stepTypes.${type}`)}
         </button>
       ))}
     </div>
