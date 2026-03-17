@@ -1,7 +1,15 @@
 {
   "name": "@kal-ai/core",
   "version": "0.1.0",
-  "description": "KAL-AI Core Engine",
+  "description": "KAL-AI Core Engine — data-driven game runtime with built-in nodes, state management, and LLM integration",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Feed-Scription/kal.git",
+    "directory": "packages/core"
+  },
+  "homepage": "https://github.com/Feed-Scription/kal#readme",
+  "keywords": ["ai", "game-engine", "llm", "interactive-fiction", "state-machine", "flow", "dnd"],
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -22,7 +30,8 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit",
-    "clean": "rm -rf dist *.tsbuildinfo"
+    "clean": "rm -rf dist *.tsbuildinfo",
+    "prepublishOnly": "pnpm run typecheck && pnpm run test && pnpm run build"
   },
   "dependencies": {
     "esbuild": "^0.27.3"

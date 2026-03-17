@@ -1,7 +1,15 @@
 {
   "name": "@kal-ai/engine",
   "version": "0.1.0",
-  "description": "KAL-AI Engine Host Runtime",
+  "description": "KAL-AI Engine — CLI, HTTP server, debug tools, and Studio backend for KAL projects",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Feed-Scription/kal.git",
+    "directory": "apps/engine"
+  },
+  "homepage": "https://github.com/Feed-Scription/kal#readme",
+  "keywords": ["ai", "game-engine", "cli", "studio", "debug", "lint", "eval"],
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -24,7 +32,8 @@
     "test": "pnpm --dir ../.. --filter @kal-ai/core build && vitest run",
     "test:watch": "vitest",
     "typecheck": "pnpm --dir ../.. --filter @kal-ai/core build && tsc --noEmit",
-    "clean": "rm -rf dist *.tsbuildinfo"
+    "clean": "rm -rf dist *.tsbuildinfo",
+    "prepublishOnly": "pnpm run typecheck && pnpm run test && pnpm run build"
   },
   "dependencies": {
     "@kal-ai/core": "workspace:*"
