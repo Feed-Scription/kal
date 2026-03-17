@@ -130,5 +130,21 @@
     "commandPalette": "命令面板",
     "refreshDiagnostics": "刷新诊断",
     "run": "运行"
+  },
+  "language": {
+    "label": "语言",
+    "importFromUrl": "从 URL 导入...",
+    "importFromFile": "从文件导入...",
+    "importTitle": "导入语言包",
+    "urlPlaceholder": "https://...",
+    "import": "导入",
+    "importing": "导入中...",
+    "importSuccess": "{{label}} 加载成功",
+    "importFailed": "加载失败: {{message}}",
+    "remove": "移除",
+    "builtIn": "内置",
+    "community": "社区",
+    "switchLanguage": "切换语言",
+    "switchLanguageDesc": "更改 Studio 显示语言"
   }
 }
