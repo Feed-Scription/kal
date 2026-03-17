@@ -1,203 +1,246 @@
 # Custom Nodes Guide
 
-How to create custom nodes for KAL from scratch.
+This guide walks you through creating custom nodes from scratch. Custom nodes extend KAL's built-in node set with your own game logic.
 
-## Overview
+## How Custom Nodes Work
 
-A custom node is a TypeScript file in your project's `node/` directory that exports a `CustomNode` object. The engine auto-discovers and registers these at startup.
+KAL scans the `node/` directory in your project root at startup. Each `.ts` or `.js` file that exports a valid `CustomNode` object is automatically registered and available in flows.
 
 ## Minimal Example
 
-Create `node/double.ts`:
+Create `node/Greet.ts`:
 
 ```typescript
 import type { CustomNode } from '@kal-ai/core';
 
-const DoubleNode: CustomNode = {
-  type: 'Double',
-  label: 'Double a number',
-  category: 'math',
-
+const Greet: CustomNode = {
+  type: 'Greet',
+  label: '打招呼',
+  category: 'transform',
   inputs: [
-    { name: 'value', type: 'number', required: true },
+    { name: 'name', type: 'string', required: true },
   ],
-
   outputs: [
-    { name: 'result', type: 'number' },
+    { name: 'greeting', type: 'string' },
   ],
-
   async execute(inputs) {
-    return { result: (inputs.value as number) * 2 };
+    return { greeting: `Hello, ${inputs.name}!` };
   },
 };
 
-export default DoubleNode;
+export default Greet;
 ```
 
-## Node Structure
+That's it. Run `kal studio` or `kal debug --start` and the node is available.
 
-### Required Fields
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `type` | `string` | Unique node type identifier (PascalCase) |
-| `inputs` | `HandleDefinition[]` | Input ports |
-| `outputs` | `HandleDefinition[]` | Output ports |
-| `execute` | `(inputs, config, context) => Promise<Record<string, any>>` | Execution function |
-
-### Optional Fields
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `label` | `string` | Display name in Studio |
-| `category` | `string` | Grouping category |
-| `configSchema` | `object` | JSON Schema for config validation |
-| `defaultConfig` | `object` | Default config values |
-
-### Handle Definition
+## CustomNode Interface
 
 ```typescript
-interface HandleDefinition {
-  name: string;        // Port name (used in edges)
-  type: string;        // Type hint: 'string', 'number', 'boolean', 'object', 'array', 'any'
-  required?: boolean;  // If true, lint warns when no edge is connected
-  defaultValue?: any;  // Fallback when no edge provides a value
+interface CustomNode {
+  type: string;           // Unique identifier (PascalCase recommended)
+  label: string;          // Display name in Studio
+  category?: string;      // 'signal' | 'state' | 'llm' | 'transform' | 'utility'
+  inputs: NodePort[];     // Input ports
+  outputs: NodePort[];    // Output ports
+  configSchema?: object;  // JSON Schema for config validation
+  defaultConfig?: Record<string, unknown>;
+  execute: (
+    inputs: Record<string, any>,
+    config: Record<string, any>,
+    context: ExecutionContext,
+  ) => Promise<Record<string, any>>;
+}
+
+interface NodePort {
+  name: string;
+  type: string;           // 'string' | 'number' | 'boolean' | 'object' | 'array' | 'any'
+  required?: boolean;
+  defaultValue?: unknown;
 }
 ```
 
-## Config Schema
+## Adding Config
 
-Define a JSON Schema to validate node config in `kal lint`:
+Config lets users set static parameters on the node in the flow JSON. Define a `configSchema` to enable validation.
 
 ```typescript
-const MyNode: CustomNode = {
-  type: 'MyNode',
-  // ...
+const DiceRoll: CustomNode = {
+  type: 'DiceRoll',
+  label: '掷骰子',
+  category: 'transform',
+  inputs: [],
+  outputs: [
+    { name: 'result', type: 'number' },
+    { name: 'text', type: 'string' },
+  ],
   configSchema: {
     type: 'object',
     properties: {
-      threshold: { type: 'number' },
-      mode: { type: 'string', enum: ['fast', 'accurate'] },
+      sides: { type: 'number' },
+      count: { type: 'number' },
     },
-    required: ['threshold'],
     additionalProperties: false,
   },
   defaultConfig: {
-    threshold: 0.5,
-    mode: 'fast',
+    sides: 20,
+    count: 1,
   },
-  // ...
+  async execute(_inputs, config) {
+    const sides = (config.sides as number) || 20;
+    const count = (config.count as number) || 1;
+    const rolls: number[] = [];
+    for (let i = 0; i < count; i++) {
+      rolls.push(Math.floor(Math.random() * sides) + 1);
+    }
+    const total = rolls.reduce((a, b) => a + b, 0);
+    return {
+      result: total,
+      text: `${count}d${sides}: [${rolls.join(', ')}] = ${total}`,
+    };
+  },
 };
+
+export default DiceRoll;
 ```
 
-With `additionalProperties: false`, lint will flag any config keys not declared in `properties`.
-
-## Execution Context
-
-The `execute` function receives three arguments:
-
-```typescript
-async execute(
-  inputs: Record<string, any>,   // Values from incoming edges
-  config: Record<string, any>,   // Node config from flow JSON
-  context: NodeContext,           // State access + LLM client
-) {
-  // Read state
-  const hp = context.state.get('health');
-
-  // Write state
-  context.state.set('health', { type: 'number', value: hp.value - 10 });
-
-  // Call LLM
-  const result = await context.llm.invoke(
-    [{ role: 'user', content: 'Hello' }],
-    { model: 'gpt-4o-mini' },
-  );
-
-  return { output: result.text };
-}
-```
-
-### NodeContext API
-
-| Method | Description |
-|--------|-------------|
-| `context.state.get(key)` | Read a state value (returns `StateValue`) |
-| `context.state.set(key, stateValue)` | Write a state value |
-| `context.state.delete(key)` | Remove a state key |
-| `context.state.append(key, value)` | Append to an array state |
-| `context.llm.invoke(messages, options?)` | Call the configured LLM |
-
-## Using in a Flow
-
-Reference your custom node by its `type` in flow JSON:
+In the flow JSON, configure it like:
 
 ```json
 {
-  "id": "my-double",
-  "type": "Double",
-  "label": "Double the score",
+  "id": "roll",
+  "type": "DiceRoll",
+  "label": "掷骰子",
+  "config": { "sides": 6, "count": 2 }
+}
+```
+
+## Using Execution Context
+
+The `context` parameter provides access to game state and LLM services.
+
+```typescript
+async execute(inputs, config, context) {
+  // Read state
+  const health = context.state.health as number;
+
+  // Access LLM (if needed)
+  // const response = await context.llm.generateText({ ... });
+
+  return { currentHealth: health };
+}
+```
+
+### Available Context Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `context.state` | `Record<string, any>` | Current game state (read-only snapshot) |
+| `context.llm` | `LLMProvider` | LLM provider for text/image generation |
+| `context.flowId` | `string` | Current flow ID |
+| `context.nodeId` | `string` | Current node ID |
+
+## Real-World Example: CharacterGen
+
+From the `dnd-adventure` example — a node that generates character stats based on race and class:
+
+```typescript
+import type { CustomNode } from '@kal-ai/core';
+
+const CLASS_BASE: Record<string, { str: number; dex: number; int: number; hp: number; skills: string[] }> = {
+  warrior: { str: 14, dex: 10, int: 8, hp: 120, skills: ['重击', '盾墙', '战吼'] },
+  mage:    { str: 8,  dex: 10, int: 14, hp: 80,  skills: ['火球术', '冰冻', '魔法护盾'] },
+  rogue:   { str: 10, dex: 14, int: 10, hp: 100, skills: ['背刺', '潜行', '毒刃'] },
+};
+
+const RACE_BONUS: Record<string, { str: number; dex: number; int: number }> = {
+  human: { str: 2, dex: 2, int: 2 },
+  elf:   { str: 0, dex: 4, int: 2 },
+  dwarf: { str: 4, dex: -2, int: 0 },
+};
+
+const CharacterGen: CustomNode = {
+  type: 'CharacterGen',
+  label: '角色生成',
+  category: 'transform',
+  inputs: [
+    { name: 'race', type: 'string', required: true },
+    { name: 'class', type: 'string', required: true },
+  ],
+  outputs: [
+    { name: 'strength', type: 'number' },
+    { name: 'dexterity', type: 'number' },
+    { name: 'intelligence', type: 'number' },
+    { name: 'maxHealth', type: 'number' },
+    { name: 'skills', type: 'array' },
+  ],
+  async execute(inputs) {
+    const base = CLASS_BASE[inputs.class] ?? CLASS_BASE.warrior;
+    const bonus = RACE_BONUS[inputs.race] ?? RACE_BONUS.human;
+    return {
+      strength: base.str + bonus.str,
+      dexterity: base.dex + bonus.dex,
+      intelligence: base.int + bonus.int,
+      maxHealth: base.hp,
+      skills: base.skills,
+    };
+  },
+};
+
+export default CharacterGen;
+```
+
+## Using Custom Nodes in Flows
+
+Reference your custom node by its `type` in the flow JSON, just like built-in nodes:
+
+```json
+{
+  "id": "gen-stats",
+  "type": "CharacterGen",
+  "label": "生成角色属性",
   "inputs": [
-    { "name": "value", "type": "number", "required": true }
+    { "name": "race", "type": "string", "required": true },
+    { "name": "class", "type": "string", "required": true }
   ],
   "outputs": [
-    { "name": "result", "type": "number" }
+    { "name": "strength", "type": "number" },
+    { "name": "maxHealth", "type": "number" },
+    { "name": "skills", "type": "array" }
   ],
   "config": {}
 }
 ```
 
-Wire it with edges like any built-in node.
-
-## Testing
-
-### With `kal lint`
-
-```bash
-kal lint <project-path>
-```
-
-Lint validates that your node's config matches its `configSchema` and that required inputs have edges.
-
-### With `kal debug`
-
-```bash
-kal debug <project-path> --start --verbose
-```
-
-The `--verbose` flag shows detailed execution context including node inputs and outputs.
-
-### Unit Testing
-
-```typescript
-import { describe, it, expect } from 'vitest';
-import DoubleNode from './double';
-
-describe('Double node', () => {
-  it('doubles the input', async () => {
-    const result = await DoubleNode.execute(
-      { value: 21 },
-      {},
-      { state: { get: () => null, set: () => {}, delete: () => {}, append: () => {} }, llm: {} as any },
-    );
-    expect(result.result).toBe(42);
-  });
-});
-```
-
 ## Studio Integration
 
-Custom nodes automatically appear in Studio when the engine loads them. The Studio renders them using the `type`, `label`, `inputs`, `outputs`, and `configSchema` from the manifest.
+Custom nodes appear in Studio automatically:
 
-To verify your node appears:
+- The node card shows your `label` and `category` icon
+- Config fields render based on `configSchema` (string → text input, number → number input, enum → dropdown, boolean → checkbox, array → list editor)
+- Input/output handles display port names and types
+- `kal lint` validates config against your `configSchema`
 
-1. Run `kal studio <project-path>`
-2. Open the flow editor
-3. Right-click the canvas — your node should appear in the context menu under its `category`
+## File Organization
 
-## Common Pitfalls
+```
+my-game/
+├── node/
+│   ├── DiceRoll.ts        # One node per file (recommended)
+│   ├── CharacterGen.ts
+│   └── utils/             # Subdirectories are scanned recursively
+│       └── helpers.ts     # Non-node files are safely skipped
+├── flow/
+├── session.json
+├── initial_state.json
+└── kal_config.json
+```
 
-- **Forgetting `async`**: `execute` must return a Promise. Always use `async` or return `Promise.resolve(...)`.
-- **Wrong export**: The file must use `export default`. Named exports are not picked up by the loader.
-- **Type mismatch**: If your output type doesn't match the downstream node's input type, the edge will still connect but runtime behavior may be unexpected. Use consistent types.
-- **Missing `additionalProperties: false`**: Without this, `kal lint` won't catch unknown config fields.
+## Checklist
+
+Before shipping a custom node:
+
+- [ ] `type` is unique (no conflict with built-in nodes)
+- [ ] `inputs` and `outputs` match what `execute` consumes/returns
+- [ ] `configSchema` has `additionalProperties: false` to catch typos
+- [ ] `execute` handles missing/invalid inputs gracefully
+- [ ] `kal lint` passes with zero warnings
