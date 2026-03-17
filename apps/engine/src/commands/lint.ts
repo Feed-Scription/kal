@@ -407,9 +407,27 @@ function validateNodeConfig(
   if (schema.properties) {
     for (const [key, propSchema] of Object.entries(schema.properties) as Array<[string, Record<string, any>]>) {
       const value = config[key];
-      if (value === undefined || value === null) continue;
 
       const expectedType = propSchema.type as string | undefined;
+
+      // Warn when a configSchema property has no type declaration
+      if (!expectedType && !propSchema.enum && !propSchema.oneOf) {
+        diagnostics.push(
+          buildCliDiagnostic({
+            code: 'CONFIG_SCHEMA_MISSING_TYPE',
+            message: `Node "${nodeId}" (${nodeType}) configSchema property "${key}" has no type declaration`,
+            file: flowFile,
+            jsonPath: `data.nodes[id=${nodeId}].config.${key}`,
+            flowId,
+            nodeId,
+            phase: 'node',
+            severity: 'warning',
+            suggestions: [`Add a "type" field to the "${key}" property in the node's configSchema`],
+          })
+        );
+      }
+
+      if (value === undefined || value === null) continue;
       if (!expectedType) continue;
 
       const actualType = Array.isArray(value) ? 'array' : typeof value;
