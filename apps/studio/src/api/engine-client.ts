@@ -14,6 +14,7 @@ import type {
   GitStatusResult,
   InstalledPackageRecord,
   ProjectState,
+  PromptRenderResult,
   RunStateView,
   RunStreamEvent,
   RunSummary,
@@ -94,6 +95,12 @@ export const engineApi = {
   async getFlow(flowId: string): Promise<FlowDefinition> {
     const data = await request<{ flow: FlowDefinition }>(`/api/flows/${encodeURIComponent(flowId)}`);
     return data.flow;
+  },
+
+  async renderPrompt(flowId: string, nodeId: string): Promise<PromptRenderResult> {
+    return request<PromptRenderResult>(
+      `/api/flows/${encodeURIComponent(flowId)}/render-prompt?nodeId=${encodeURIComponent(nodeId)}`,
+    );
   },
 
   async saveFlow(flowId: string, flow: FlowDefinition): Promise<void> {

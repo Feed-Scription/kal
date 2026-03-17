@@ -458,6 +458,21 @@ export type PromptPreviewEntry = {
   bindings: PromptPreviewBinding[];
 };
 
+export type RenderedFragment = {
+  id: string;
+  type: string;
+  active: boolean;
+  rendered: string;
+  condition?: string;
+};
+
+export type PromptRenderResult = {
+  nodeId: string;
+  renderedText: string;
+  fragments: RenderedFragment[];
+  state: Record<string, any>;
+};
+
 export type ReviewValidationRecord = {
   lintStatus: 'idle' | 'running' | 'completed' | 'failed';
   smokeStatus: 'idle' | 'running' | 'completed' | 'failed';

@@ -1,7 +1,8 @@
 import { createServer } from 'node:http';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import type { FlowDefinition, SessionDefinition } from '@kal-ai/core';
+import type { FlowDefinition, SessionDefinition, Fragment } from '@kal-ai/core';
+import { renderPrompt } from '@kal-ai/core';
 import { EngineHttpError, formatEngineError, statusForError } from './errors';
 import { getGitLog, getGitStatus } from './git-service';
 import { loadProjectPackages } from './package-loader';
@@ -408,7 +409,34 @@ export async function handleEngineRequest(
     }
 
     if (method === 'GET' && pathname.startsWith('/api/flows/')) {
-      const flowId = decodeURIComponent(pathname.slice('/api/flows/'.length));
+      const rest = pathname.slice('/api/flows/'.length);
+      // GET /api/flows/:flowId/render-prompt?nodeId=xxx
+      const renderMatch = rest.match(/^([^/]+)\/render-prompt$/);
+      if (renderMatch) {
+        const flowId = decodeURIComponent(renderMatch[1]!);
+        const nodeId = url.searchParams.get('nodeId');
+        if (!nodeId) {
+          throw new EngineHttpError('Missing required query parameter: nodeId', 400, 'MISSING_PARAM');
+        }
+        const flow = runtime.getFlow(flowId);
+        const node = flow.data.nodes.find((n) => n.id === nodeId);
+        if (!node) {
+          throw new EngineHttpError(`Node not found: ${nodeId}`, 404, 'NODE_NOT_FOUND', { flowId, nodeId });
+        }
+        if (node.type !== 'PromptBuild') {
+          throw new EngineHttpError(
+            `Node "${nodeId}" is type "${node.type}", expected PromptBuild`,
+            400, 'INVALID_NODE_TYPE', { flowId, nodeId, actualType: node.type },
+          );
+        }
+        const fragments: Fragment[] = node.config?.fragments ?? [];
+        const state = runtime.getState();
+        const result = renderPrompt(nodeId, fragments, state);
+        success(res, result);
+        return;
+      }
+
+      const flowId = decodeURIComponent(rest);
       success(res, { flow: runtime.getFlow(flowId) });
       return;
     }
