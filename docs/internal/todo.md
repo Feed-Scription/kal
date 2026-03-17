@@ -36,8 +36,9 @@
   现状：当前可从 Session step 与 Flow 节点配置中提取 prompt-like 文本与 bindings，支持全局搜索和预览；还没有做到“随选中节点实时联动”的精细化预览。
 - [~] 自定义节点显示：Flow 已基于 `nodeManifests` 渲染节点与菜单；待继续验证 editor 全链路体验，补齐自定义节点的配置编辑与展示细节
   现状：Engine 已把项目的 `nodeManifests` 暴露给 Studio，Flow 画布和右键菜单会按 manifest 渲染节点；当前仍需继续验证不同 schema、配置编辑和 inspector 侧的兼容性。
-- [~] Config 视图编辑能力：已有 Config 视图与扩展入口；待 A 线在 ConfigEditor 中接入保存按钮
-  现状：完整写入链已落地——Engine `saveConfig()` → `PUT /api/config` → `engineApi.saveConfig()` → `studioStore.updateConfig()` → `useStudioCommands().updateConfig()`。安全限制：`llm.apiKey`/`llm.baseUrl` 不可通过此接口修改（防止 env var 引用被覆盖为明文）。保存后自动 diagnostics refresh + version bump + undo 支持。A 线只需在 ConfigEditor 中调用 `updateConfig(patch)` 并移除"只读模式"提示。
+- [~] Config 视图编辑能力：B 线写入链已完成；待 A 线在 ConfigEditor 中接入保存按钮
+  B 线已完成：Engine `saveConfig()` → `PUT /api/config` → `engineApi.saveConfig()` → `studioStore.updateConfig()` → `useStudioCommands().updateConfig()`。安全限制：`llm.apiKey`/`llm.baseUrl` 不可通过此接口修改（防止 env var 引用被覆盖为明文）。保存后自动 diagnostics refresh + version bump + undo 支持。
+  A 线待接：在 ConfigEditor 中调用 `updateConfig(patch)` 并移除"只读模式"提示。
 - [ ] 节点配置面板优化：当 configSchema type 为 object/array 时，提供更友好的编辑 UI，替代原始 JSON textarea
   下一步：先盘点当前哪些节点的 `configSchema` 已经稳定出现 object/array，再优先给高频节点补表单化编辑器，避免一次性做成通用但难维护的大而全方案。
 - [~] 自动布局：Flow / Session 已接入 DAG 自动布局与手动 Auto Layout；待覆盖 AI 或手写 flow JSON 时的默认布局与更多细节场景
@@ -108,9 +109,8 @@
 
 - [ ] Showcase 游戏：选定类型（候选：AI 狼人杀、AI 侦探推理、AI 角色养成、AI TTRPG 单人冒险），完成设计文档，实现 15-30 分钟可玩时长，playtest 至少 10 轮
   下一步：先在四个候选里收敛到一个最适合当前引擎能力的题材，再拆成设计文档、核心 loop、内容实现、playtest 四个阶段推进。
-- [~] 简化 dnd-adventure：减少冗余 flow，合并重复的状态处理逻辑
-  现状：已合并 `outro-death` + `outro-win` 为单一 `outro.json`，通过 `when` 条件片段根据 `state.questStage` 自动切换胜利/死亡叙事（减少 2 个 flow 文件、10 个节点）。已清理 Message 节点冗余 config。lint 零警告通过。
-  下一步：评估 intro/start-adventure/display-character 三个 2 节点静态 flow 是否值得进一步合并（当前已是最小结构，合并收益有限）。
+- [x] 简化 dnd-adventure：减少冗余 flow，合并重复的状态处理逻辑
+  已完成：合并 `outro-death` + `outro-win` 为单一 `outro.json`（减少 2 个 flow 文件、10 个节点）。清理 Message 节点冗余 config。lint 零警告通过。剩余 intro/start-adventure/display-character 三个 2 节点静态 flow 已是最小结构，进一步合并收益有限，视为完成。
 - [x] 确保 dnd-adventure 和 guess-who 都能用 `kal lint` 零警告通过
   已完成（dnd-adventure）：移除 Message 节点 config 中的冗余 `system`/`user`/`context` 字段（这些应通过 edge 传入）；为 outro-death/outro-win 添加 Constant 节点提供 user 输入；修复 `UNUSED_FLOW` 检测逻辑以扫描 SubFlow 节点引用。dnd-adventure 现在零诊断通过。
 
@@ -127,15 +127,17 @@
 
 ### 社区 / 发布
 
-- [ ] npm 发布 `@kal-ai/core` 和 `@kal-ai/engine`
-  阻塞：需要先确认包边界、导出面、版本策略和发布前 smoke/lint/test 清单，避免第一次发布就暴露不稳定 API。
+- [~] npm 发布 `@kal-ai/core` 和 `@kal-ai/engine`
+  已完成准备工作：三个包（`@kal-ai/core`、`@kal-ai/engine`、`create-kal-game`）均已配置 `publishConfig.access`、`exports` map、`files` 字段、`prepublishOnly` 脚本、per-package README。`pnpm pack --dry-run` 验证通过。Changesets 已配置（`access: "public"`）。
+  待执行：确认版本号策略（是否从 0.1.0 开始），执行 `pnpm changeset` 创建首个 changeset，然后 `pnpm release`。
 - [x] CONTRIBUTING.md：如何贡献代码、如何提 issue、代码规范
   已完成：覆盖 Prerequisites、Getting Started、Project Structure、Common Commands、Development Workflow、Commit Conventions、Code Style、Adding Built-in Nodes、Example Projects lint 要求、Reporting Issues。
 
 ## 之后
 
-- [ ] `npx create-kal-game` 脚手架
-  下一步：先评估它与现有 `kal init` 的关系，是对外分发包装层还是独立模板入口，避免两套脚手架长期并存。
+- [x] `npx create-kal-game` 脚手架
+  已完成：`packages/create-kal-game/bin.mjs` 已实现，支持 `--template minimal|game`，`package.json` 已配置 `bin` 和 `files` 字段。
+  待优化：与 `kal init` 存在模板逻辑重复，后续可抽取共享模板定义。
 - [ ] 在线 Playground
   阻塞：依赖更稳定的浏览器侧运行方案、示例资产裁剪和安全边界设计，否则很容易先做出难维护的 demo。
 - [ ] `kal generate` 从自然语言生成 flow JSON
