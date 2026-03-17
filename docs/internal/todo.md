@@ -28,8 +28,8 @@
 
 ### Studio / 编辑器
 
-- [x] 可视化 Debug（画布执行状态高亮）：画布节点已展示执行状态高亮（当前 step 蓝色脉冲、等待输入绿色呼吸、已访问灰色、断点红点）；待把 Smoke 回放集成为 Debug 的 "Run All" 模式
-  现状：`DebuggerView` 已能创建 managed run、选择 run、查看状态快照 / timeline / state diff / 输入历史，并对当前 step 做断点、单步、继续和重放操作。A 线新增 `use-node-overlay.ts` 派生 hook，将运行态和断点注入 ReactFlow nodes，画布节点可显示当前 step、等待输入、已访问与断点状态。
+- [~] 可视化 Debug：画布节点已展示执行状态高亮（当前 step 蓝色脉冲、等待输入绿色呼吸、已访问灰色、断点红点）；待把 Smoke 回放集成为 Debug 的 "Run All" 模式
+  现状：`DebuggerView` 已能创建 managed run、选择 run、查看状态快照 / timeline / state diff / 输入历史，并对当前 step 做断点、单步、继续和重放操作。A 线新增 `use-node-overlay.ts` 派生 hook，将运行态和断点注入 ReactFlow nodes，画布节点已可显示当前 step、等待输入、已访问与断点状态，但“Run All / Smoke 回放”仍未并入 Debug 工作流。
 - [x] Lint 内联诊断：画布节点已根据 diagnostics 实时标红/标黄，右上角显示诊断数量 badge
   现状：Engine 端 `buildCliDiagnostic()` 已扩展支持 `flowId`/`nodeId`/`stepId`/`phase` 字段，`DiagnosticPayload` 新增 `severity: 'error' | 'warning' | 'info'`。A 线 `useSessionNodeOverlay` / `useFlowNodeOverlay` 已按 `stepId` 或 `flowId + nodeId` 聚合诊断，并通过 `NodeOverlayBadge` 渲染诊断标记。
 - [~] Prompt 预览面板：已有全局搜索、画布选中联动与自动定位；待实现选中 PromptBuild 节点时的最终 prompt 渲染，以及 fragment 激活状态和条件命中展示
@@ -52,11 +52,11 @@
 - [x] Sidebar 信息精简：扩展状态标签仅在 debug preset 下显示，active 状态用绿色区分
   现状：`AppSidebar.tsx` 的 `renderExtensionGroup` 根据 `activePreset === 'debug'` 条件渲染 runtime status 标签，非 debug 模式下不再显示 ACTIVE/REGISTERED 等内部状态。active 状态用绿色文字区分。tooltip 也移除了 runtime status 后缀。
 - [x] Inspector 信息精简：扩展调试详情已折叠到 CollapsibleSection，顶层只保留 ID、状态和 capability chips
-  现状：`WorkbenchInspector` 新增 `CollapsibleSection` 组件，将宿主/分类/Blocked/Degraded/最近激活/capability 元数据/activation events 折叠到"扩展详情"可展开区域。顶层只展示扩展 ID、运行时状态和 capability chips。操作按钮改为并排紧凑布局。待进一步根据当前视图动态展示上下文内容（选中节点属性等）。
+  现状：`WorkbenchInspector` 新增 `CollapsibleSection` 组件，将宿主/分类/Blocked/Degraded/最近激活/capability 元数据/activation events 折叠到"扩展详情"可展开区域。顶层只展示扩展 ID、运行时状态和 capability chips。操作按钮改为并排紧凑布局。后续可继续根据当前视图展示更强的上下文内容（如选中节点属性等）。
 - [x] 节点卡片宽度自适应：根据 configSchema 字段数量动态选择宽度档位
   现状：`ManifestNode` 根据 `configSchema.properties` 数量自动选择宽度：≤1 字段 `w-64`，2-3 字段 `w-80`，≥4 字段 `w-96`。
 - [x] 底部面板折叠/展开：WorkbenchPanels 已支持折叠/展开 toggle，显示面板数量
-  现状：`WorkbenchPanels` 新增折叠 toggle 按钮，显示"面板 (N)"标题，点击展开/收起面板内容区域。待进一步支持拖拽调整高度和面板标签切换。
+  现状：`WorkbenchPanels` 新增折叠 toggle 按钮，显示"面板 (N)"标题，点击展开/收起面板内容区域。后续可继续扩展拖拽调高和面板标签切换。
 - [x] 空状态组件统一：新建 `EmptyState` 组件，已替换 18 个组件中约 25 处空状态
   现状：新建 `src/components/EmptyState.tsx`，支持 icon + message + description + action + compact 模式。已替换 DebuggerView、PromptPreviewView、VersionControlView、ReviewView、CommentsView、CommandPalette、ProblemsView、PackageManagerView、TemplateBrowserView、SessionRunDialog 以及所有 Panel 组件中的 `border-dashed` 空状态 div。
 - [x] 官方视图体验改进：DeployView、H5PreviewView、TerminalView、DebuggerSummaryView 四个视图已完成体验优化
