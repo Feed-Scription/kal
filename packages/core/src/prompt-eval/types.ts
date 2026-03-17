@@ -65,6 +65,7 @@ export interface EvalRunResult {
   flowPath: string;
   nodeId: string;
   variant: string;
+  model?: string;
   runs: number;
   result: {
     outputs: any[];
