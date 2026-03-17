@@ -19,11 +19,15 @@ import { Button } from "@/components/ui/button";
 import { useNodeConfig } from "@/hooks/use-node-config";
 import { useFlowResource } from "@/kernel/hooks";
 import { ListChecks, Plus, X } from "lucide-react";
+import { overlayClassName } from "@/hooks/use-node-overlay";
+import { NodeOverlayBadge } from "@/components/NodeOverlayBadge";
+import type { NodeOverlayState } from "@/hooks/use-node-overlay";
 
 type Option = { label: string; value: string };
 
 export const ChoiceStepNode = memo(({ id, data }: NodeProps) => {
   const config = (data as any).config || {};
+  const overlay = (data as any).overlay as NodeOverlayState | undefined;
   const { updateConfig } = useNodeConfig(id);
   const { flowNames } = useFlowResource();
   const options: Option[] = config.options || [];
@@ -43,7 +47,8 @@ export const ChoiceStepNode = memo(({ id, data }: NodeProps) => {
   };
 
   return (
-    <BaseNode className="w-96">
+    <BaseNode className={`w-96 ${overlayClassName(overlay)}`}>
+      <NodeOverlayBadge overlay={overlay} />
       <BaseNodeHeader className="border-b bg-teal-50 dark:bg-teal-950/30">
         <ListChecks className="size-4 text-teal-600" />
         <BaseNodeHeaderTitle>选择题</BaseNodeHeaderTitle>

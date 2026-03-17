@@ -64,16 +64,25 @@ export async function collectLintPayload(projectRoot: string): Promise<LintPaylo
         }
       }
 
+      // Also check SubFlow node refs inside each flow
+      for (const flow of Object.values(project.flowsById)) {
+        for (const node of flow.data.nodes) {
+          if (node.type === 'SubFlow' && node.config?.ref) {
+            usedFlows.add(node.config.ref as string);
+          }
+        }
+      }
+
       for (const flowId of Object.keys(project.flowsById)) {
         if (!usedFlows.has(flowId)) {
           diagnostics.push(
             buildCliDiagnostic({
               code: 'UNUSED_FLOW',
-              message: `Flow "${flowId}" is not referenced by any session step`,
+              message: `Flow "${flowId}" is not referenced by any session step or SubFlow node`,
               file: `flow/${flowId}.json`,
               suggestions: [
                 'Remove the flow file if it is no longer needed',
-                'Add a session step that references this flow',
+                'Add a session step or SubFlow node that references this flow',
               ],
             })
           );
@@ -330,6 +339,55 @@ function validateNodeConfig(
             suggestions: [
               `Remove "${key}" from config — this node type does not accept it`,
               `If "${key}" should be an input, wire it via an edge instead`,
+            ],
+          })
+        );
+      }
+    }
+  }
+
+  // Check config value types against schema property types
+  if (schema.properties) {
+    for (const [key, propSchema] of Object.entries(schema.properties) as Array<[string, Record<string, any>]>) {
+      const value = config[key];
+      if (value === undefined || value === null) continue;
+
+      const expectedType = propSchema.type as string | undefined;
+      if (!expectedType) continue;
+
+      const actualType = Array.isArray(value) ? 'array' : typeof value;
+      const typeMatch =
+        (expectedType === 'string' && actualType === 'string') ||
+        (expectedType === 'number' && actualType === 'number') ||
+        (expectedType === 'integer' && actualType === 'number') ||
+        (expectedType === 'boolean' && actualType === 'boolean') ||
+        (expectedType === 'array' && actualType === 'array') ||
+        (expectedType === 'object' && actualType === 'object');
+
+      if (!typeMatch) {
+        diagnostics.push(
+          buildCliDiagnostic({
+            code: 'CONFIG_TYPE_MISMATCH',
+            message: `Node "${nodeId}" (${nodeType}) config field "${key}" expects ${expectedType} but got ${actualType}`,
+            file: flowFile,
+            jsonPath: `data.nodes[id=${nodeId}].config.${key}`,
+            suggestions: [
+              `Change "${key}" value to type ${expectedType}`,
+            ],
+          })
+        );
+      }
+
+      // Check enum constraint
+      if (propSchema.enum && Array.isArray(propSchema.enum) && !propSchema.enum.includes(value)) {
+        diagnostics.push(
+          buildCliDiagnostic({
+            code: 'CONFIG_INVALID_ENUM',
+            message: `Node "${nodeId}" (${nodeType}) config field "${key}" value "${value}" is not one of: ${propSchema.enum.join(', ')}`,
+            file: flowFile,
+            jsonPath: `data.nodes[id=${nodeId}].config.${key}`,
+            suggestions: [
+              `Use one of: ${propSchema.enum.join(', ')}`,
             ],
           })
         );

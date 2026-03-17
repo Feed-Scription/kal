@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Package, Download, CheckCircle, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/EmptyState';
 import { usePackages, useStudioCommands } from '@/kernel/hooks';
 
 function formatTime(timestamp: number) {
@@ -35,15 +36,9 @@ export function PackageManagerView() {
           </div>
 
           {loading ? (
-            <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
-              正在加载包列表...
-            </div>
+            <EmptyState message="正在加载包列表..." />
           ) : installed.length === 0 ? (
-            <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
-              当前项目没有安装任何包。
-              <br />
-              包应放置在项目的 <code className="rounded bg-muted px-1 py-0.5">packages/</code> 目录下。
-            </div>
+            <EmptyState message={<>当前项目没有安装任何包。<br />包应放置在项目的 <code className="rounded bg-muted px-1 py-0.5">packages/</code> 目录下。</>} />
           ) : (
             <div className="space-y-3">
               {installed.map((pkg) => (
@@ -120,11 +115,7 @@ export function PackageManagerView() {
               将包目录复制到项目的 <code className="rounded bg-muted px-1 py-0.5">packages/</code> 目录，然后点击刷新。
             </p>
           </div>
-          <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
-            <Download className="mx-auto mb-2 size-8 opacity-50" />
-            <div>从本地路径或 URL 安装包的功能即将推出。</div>
-            <div className="mt-1">当前请手动将包复制到 packages/ 目录。</div>
-          </div>
+          <EmptyState icon={Download} message="从本地路径或 URL 安装包的功能即将推出。" description="当前请手动将包复制到 packages/ 目录。" />
         </section>
       </div>
     </div>

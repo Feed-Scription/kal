@@ -78,8 +78,6 @@
           }
         ],
         "config": {
-          "system": "",
-          "user": "描述冒险者的死亡结局。",
           "format": "xml"
         }
       },

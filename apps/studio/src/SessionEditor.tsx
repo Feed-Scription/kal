@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import {
   Background,
   ReactFlow,
@@ -29,6 +29,8 @@ import { SessionPaneContextMenu, type ContextMenuState } from './SessionPaneCont
 import { SessionToolbar } from './components/SessionToolbar';
 import { SessionRunDialog } from './components/SessionRunDialog';
 import { useStudioCommands, useStudioResources } from '@/kernel/hooks';
+import { useSessionNodeOverlay } from '@/hooks/use-node-overlay';
+import { useCanvasSelection } from '@/hooks/use-canvas-selection';
 import { layoutDag } from '@/utils/graph-layout';
 import { SESSION_STEP_DEFAULTS } from './session-nodes/defaults';
 import type {
@@ -282,6 +284,15 @@ function reactFlowToSession(
 function SessionEditorInner() {
   const { session } = useStudioResources();
   const { saveSession, deleteSession } = useStudioCommands();
+  const overlayMap = useSessionNodeOverlay();
+  const setSelection = useCanvasSelection((s) => s.setSelection);
+
+  const onSelectionChange = useCallback(
+    ({ nodes: selected }: { nodes: Node[] }) => {
+      setSelection(selected.length === 1 ? selected[0].id : null, 'session');
+    },
+    [setSelection],
+  );
 
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
@@ -422,6 +433,17 @@ function SessionEditorInner() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleManualSave]);
 
+  // 将 overlay state 注入到每个 node 的 data 中
+  const nodesWithOverlay = useMemo(
+    () =>
+      nodes.map((node) => {
+        const overlay = overlayMap.get(node.id);
+        if (!overlay) return node;
+        return { ...node, data: { ...node.data, overlay } };
+      }),
+    [nodes, overlayMap],
+  );
+
   return (
     <div className="relative h-full w-full">
       <SessionToolbar
@@ -435,11 +457,12 @@ function SessionEditorInner() {
       />
       <SessionRunDialog open={runDialogOpen} onOpenChange={setRunDialogOpen} />
       <ReactFlow
-        nodes={nodes}
+        nodes={nodesWithOverlay}
         edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        onSelectionChange={onSelectionChange}
         onPaneContextMenu={onPaneContextMenu}
         nodeTypes={sessionNodeTypes}
         fitView

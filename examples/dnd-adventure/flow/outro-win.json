@@ -85,8 +85,6 @@
           }
         ],
         "config": {
-          "system": "",
-          "user": "描述冒险者的胜利结局。",
           "format": "xml"
         }
       },

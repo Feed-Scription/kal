@@ -96,18 +96,21 @@ export function AppSidebar({ children }: AppSidebarProps) {
               (extension.contributes.views ?? []).map((view) => {
                 const Icon = view.icon;
                 const runtime = extensionRuntime[extension.id];
+                const showStatus = activePreset === 'debug';
 
                 return (
                   <SidebarMenuItem key={view.id}>
                     <SidebarMenuButton
-                      tooltip={`${extension.title} · ${view.description}${runtime ? ` · ${runtime.status}` : ""}`}
+                      tooltip={`${extension.title} · ${view.description}`}
                       isActive={activeViewId === view.id}
                       onClick={() => setActiveView(view.id)}
                     >
                       <Icon className="size-4" />
                       <span>{view.title}</span>
-                      {runtime ? (
-                        <span className="ml-auto text-[10px] uppercase text-muted-foreground">
+                      {showStatus && runtime ? (
+                        <span className={`ml-auto text-[10px] uppercase ${
+                          runtime.status === 'active' ? 'text-green-600' : 'text-muted-foreground'
+                        }`}>
                           {runtime.status}
                         </span>
                       ) : null}
