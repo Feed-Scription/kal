@@ -53,3 +53,13 @@ jobs:
         run: |
           pnpm --filter @kal-ai/core test
           pnpm --filter @kal-ai/engine test
+
+      - name: Lint example project
+        run: node apps/engine/dist/bin.js lint examples/dnd-adventure --format json
+
+      - name: Verify package contents
+        run: |
+          tmpdir="$(mktemp -d)"
+          cd packages/core && pnpm pack --pack-destination "$tmpdir"
+          cd ../create-kal-game && pnpm pack --pack-destination "$tmpdir"
+          cd ../../apps/engine && pnpm pack --pack-destination "$tmpdir"

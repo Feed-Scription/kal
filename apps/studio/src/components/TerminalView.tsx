@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { useStudioCommands } from '@/kernel/hooks';
 import { engineApi } from '@/api/engine-client';
 
-const ALLOWED_COMMANDS = ['lint', 'smoke'];
+const ALLOWED_COMMANDS = ['lint', 'smoke', 'schema', 'debug-list', 'debug-state', 'config', 'eval'];
 
 export function TerminalView() {
   const [command, setCommand] = useState('');

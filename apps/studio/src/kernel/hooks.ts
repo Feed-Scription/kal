@@ -461,6 +461,7 @@ export function useStudioCommands(): StudioCommandService {
   const deleteSession = useStudioStore((state) => state.deleteSession);
   const updateConfig = useStudioStore((state) => state.updateConfig);
   const createRun = useStudioStore((state) => state.createRun);
+  const createSmokeRun = useStudioStore((state) => state.createSmokeRun);
   const listRuns = useStudioStore((state) => state.listRuns);
   const getRun = useStudioStore((state) => state.getRun);
   const getRunState = useStudioStore((state) => state.getRunState);
@@ -516,6 +517,7 @@ export function useStudioCommands(): StudioCommandService {
     deleteSession,
     updateConfig,
     createRun,
+    createSmokeRun,
     listRuns,
     refreshRuns,
     getRun,

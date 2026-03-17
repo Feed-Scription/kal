@@ -138,6 +138,8 @@ export interface CreateRunRequest {
   forceNew?: boolean;
   cleanup?: boolean;
   mode?: 'continue' | 'step';
+  /** When provided, auto-advance the run using these inputs (smoke replay mode). */
+  smokeInputs?: string[];
 }
 
 export interface AdvanceRunRequest {

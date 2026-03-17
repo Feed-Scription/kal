@@ -1,125 +1,170 @@
 # Troubleshooting
 
-Common issues and how to resolve them.
+Common issues and solutions when working with KAL.
 
-## Lint / Static Analysis
-
-### `UNUSED_FLOW` warning
-
-**Symptom:** `kal lint` reports a flow is not referenced.
-
-**Cause:** The flow isn't referenced by any session step `flowRef` or `SubFlow` node.
-
-**Fix:** Either add a session step or SubFlow node that references it, or delete the flow file if it's no longer needed.
-
-### `MISSING_REQUIRED_INPUT`
-
-**Symptom:** A node's required input has no incoming edge.
-
-**Fix:** Connect an edge to the missing input, or add a `Constant` node wired to it. Check the node's manifest with `kal schema node <type>` to see which inputs are required.
+## Lint Issues
 
 ### `CONFIG_UNKNOWN_FIELD`
 
-**Symptom:** A node's config contains a field not declared in its `configSchema`.
+```
+✗ CONFIG_UNKNOWN_FIELD: Node "message" (Message) config has unknown field "system"
+```
 
-**Cause:** Often happens when input values are mistakenly placed in `config` instead of being wired via edges. For example, `Message` node's `system`/`user`/`context` are **inputs** (edge-wired), not config fields.
+**Cause:** The node's config contains a field not declared in its `configSchema`.
 
-**Fix:** Remove the unknown field from config. If the value needs to reach the node, wire it through an edge (use a `Constant` node for static values).
+**Fix:** Remove the unknown field from the node's `config` in the flow JSON. If the field should be dynamic input, wire it via an edge instead.
+
+### `UNUSED_FLOW`
+
+```
+⚠ UNUSED_FLOW: Flow "my-flow" is not referenced by any session step or SubFlow node
+```
+
+**Cause:** A flow file exists but is not referenced by any session step's `flowRef` or any SubFlow node's `ref` config.
+
+**Fix:** Either remove the unused flow file, or add a session step / SubFlow node that references it.
+
+### `MISSING_REQUIRED_INPUT`
+
+```
+✗ MISSING_REQUIRED_INPUT: Node "gen" (GenerateText) required input "messages" has no incoming edge
+```
+
+**Cause:** A required input port has no edge connected to it and no `defaultValue`.
+
+**Fix:** Connect an edge from another node's output to this input, or use a `Constant` node.
+
+### `STATE_KEY_NOT_FOUND`
+
+```
+✗ STATE_KEY_NOT_FOUND: Branch condition references undefined state key: "score"
+```
+
+**Cause:** A `Branch` step's condition references a state key not defined in `initial_state.json`.
+
+**Fix:** Add the missing key to `initial_state.json`, or fix the condition expression.
 
 ### `CONFIG_TYPE_MISMATCH`
 
-**Symptom:** A config field's actual type doesn't match the schema's declared type.
+```
+✗ CONFIG_TYPE_MISMATCH: Node "timer" (Timer) config field "intervalMs" expects number but got string
+```
 
-**Fix:** Check `kal schema node <type>` for the expected types and correct the value in the flow JSON.
+**Cause:** A config value's type doesn't match the schema declaration.
 
-## Debug
+**Fix:** Change the value to the correct type in the flow JSON.
 
-### `SESSION_HASH_MISMATCH`
+## Debug Issues
 
-**Symptom:** `kal debug --continue` fails with "Project files changed after this run started".
+### Run stuck in `waiting_input`
 
-**Cause:** You edited session.json, a flow file, or initial_state.json after starting the debug run. The engine invalidates runs when project files change to prevent inconsistent state.
+**Symptoms:** `kal debug --state --latest` shows status `waiting_input` and the run doesn't progress.
 
-**Fix:** Start a new run with `kal debug --start --force-new`, or delete the stale run with `kal debug --delete --run-id <id>`.
+**Cause:** The session reached a `Prompt` or `Choice` step that requires user input.
 
-### `INPUT_REQUIRED`
+**Fix:**
+```bash
+# Check current state
+kal debug --state --latest
 
-**Symptom:** `kal debug --continue` fails with "waiting for input".
+# Provide input to continue
+kal debug --continue --input "your response here"
+```
 
-**Cause:** The session is paused at a `Prompt` or `Choice` step that requires user input.
+### Run immediately errors
 
-**Fix:** Provide input: `kal debug --continue --input "your response"`.
+**Symptoms:** `kal debug --start` creates a run that immediately enters `error` status.
 
-### `NO_ACTIVE_RUN`
+**Common causes:**
+1. Missing LLM API key — set `OPENAI_API_KEY` or configure via `kal config set llm.apiKey`
+2. Invalid flow reference — a session step references a flow that doesn't exist
+3. Custom node error — a custom node's `execute` function threw an exception
 
-**Symptom:** `kal debug --continue` fails with "No active run".
+**Debug steps:**
+```bash
+# Check run state for error details
+kal debug --state --latest --format json
 
-**Fix:** Start a new run with `kal debug --start`, or target a specific run with `--run-id <id>` or `--latest`.
+# Run with verbose output to see LLM traces
+kal debug --start --verbose
+```
 
-### Run stuck in `waiting_input` state
+### Breakpoints not triggering
 
-Use `kal debug --state --latest` to inspect the current state and see what input is expected. The `observation.waiting_for` field shows the expected input kind (`prompt` or `choice`).
+**Cause:** Breakpoints are set on step IDs that don't match the session definition.
 
-## Studio Connection
+**Fix:** Use `kal debug --list` to see available runs, then verify step IDs match your `session.json`.
 
-### Studio shows blank page or fails to load
+## Studio Connection Issues
 
-1. Make sure the engine is running: `kal studio <project-path>`
-2. Check the terminal for errors — common causes:
-   - Port already in use: try `--port 3001`
-   - Missing `session.json`: Studio requires a valid project
-3. Open browser devtools console for client-side errors
+### Studio shows "Loading project..."
 
-### Studio doesn't reflect file changes
+**Symptoms:** Studio UI stays on the loading screen and never shows the editor.
 
-The engine watches project files and emits `resource.changed` events. If Studio seems stale:
+**Cause:** The Engine server is not running or not reachable.
 
-1. Check the terminal for file watcher errors
-2. Try refreshing the browser
-3. Restart `kal studio`
+**Fix:**
+```bash
+# Start the integrated studio + engine server
+kal studio
 
-### Config changes not saving
+# Or start engine separately and open studio in browser
+kal studio --port 4399
+```
 
-`llm.apiKey` and `llm.baseUrl` cannot be modified through the Studio config editor (security restriction to prevent overwriting environment variable references). Set these via `kal config set-key` or environment variables.
+### Studio shows stale data
 
-## Custom Nodes
+**Symptoms:** Changes to flow/session files are not reflected in Studio.
+
+**Fix:** Click the refresh button (⟳) in the Studio toolbar, or restart `kal studio`.
+
+### ExtensionSurface infinite re-render
+
+**Symptoms:** Browser console shows React error #185, Studio becomes unresponsive.
+
+**Cause:** This was a known bug where multiple ExtensionSurface instances competed for `activationReason`. It has been fixed — update to the latest version.
+
+## Custom Node Issues
 
 ### Custom node not loading
 
-1. Verify the file is in the `node/` directory of your project
-2. Check that it exports a valid `CustomNode` object with `type`, `inputs`, `outputs`, and `execute`
-3. Look for "Registered custom node:" messages in the terminal — if your node isn't listed, the loader didn't find it
-4. Run `kal lint` to check for config schema issues
+**Symptoms:** `Registered custom node: X` message doesn't appear in console output.
 
-### Custom node execution errors
+**Checklist:**
+1. File is in the `node/` directory of your project root
+2. File extension is `.ts`, `.js`, `.mts`, `.mjs`, `.cts`, or `.cjs`
+3. The module exports a valid `CustomNode` object (either `default` or named export)
+4. The exported object has all required fields: `type`, `label`, `inputs`, `outputs`, `execute`
 
-Use `kal debug --start --verbose` to see detailed error context including node inputs, flow inputs, and LLM request/response data.
+**Example of a valid custom node:**
+```typescript
+import type { CustomNode } from '@kal-ai/core';
 
-## LLM / API Issues
+const MyNode: CustomNode = {
+  type: 'MyNode',
+  label: 'My Custom Node',
+  inputs: [{ name: 'input', type: 'string', required: true }],
+  outputs: [{ name: 'output', type: 'string' }],
+  async execute(inputs) {
+    return { output: inputs.input.toUpperCase() };
+  },
+};
 
-### `NODE_TIMEOUT`
+export default MyNode;
+```
 
-**Cause:** The LLM API call took too long.
+### Custom node type conflict
 
-**Fix:**
-- Check your API key: `kal config get llm.apiKey`
-- Check network connectivity
-- Increase timeout in the node's config if needed
-- Try a faster model
+**Symptoms:** Error message about duplicate node type registration.
 
-### Empty or malformed LLM responses
+**Cause:** A custom node uses the same `type` name as a built-in node or another custom node.
 
-1. Use `kal eval render <flow> --node <id> --format pretty` to preview the assembled prompt
-2. Use `kal debug --start --verbose` to see the raw LLM request and response
-3. Check that `GenerateText.assistantPath` is set correctly if you expect JSON output
-4. Verify the prompt instructs the LLM to output the expected format
+**Fix:** Rename your custom node's `type` field to a unique name. Avoid built-in names like `SignalIn`, `Message`, `GenerateText`, etc.
 
-## General
+### Custom node not showing in Studio
 
-### `pnpm install` fails
+**Symptoms:** Node loads in CLI but doesn't appear in Studio's node palette.
 
-Make sure you're using pnpm 9.x and Node >= 18. Run `pnpm install --frozen-lockfile` for CI-like behavior.
+**Cause:** Studio discovers nodes through the Engine API. The node must be loaded by the Engine at startup.
 
-### Typecheck errors after pulling
-
-Run `pnpm install` first (dependencies may have changed), then `bun run typecheck`.
+**Fix:** Restart `kal studio` after adding or modifying custom nodes. The Engine re-scans the `node/` directory on startup.

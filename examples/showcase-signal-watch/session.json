@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "1.0.0",
+  "name": "风暴信标值守",
+  "description": "四夜内守住海岬信标站并尽量救下更多船只",
+  "entryStep": "intro",
+  "steps": [
+    {
+      "id": "intro",
+      "type": "RunFlow",
+      "flowRef": "intro",
+      "next": "turn"
+    },
+    {
+      "id": "turn",
+      "type": "Prompt",
+      "flowRef": "main",
+      "inputChannel": "playerAction",
+      "promptText": "这一夜你准备怎么做？请描述一个具体动作。",
+      "next": "check-status"
+    },
+    {
+      "id": "check-status",
+      "type": "Branch",
+      "conditions": [
+        {
+          "when": "state.status == 'victory'",
+          "next": "outro"
+        },
+        {
+          "when": "state.status == 'defeat'",
+          "next": "outro"
+        }
+      ],
+      "default": "turn"
+    },
+    {
+      "id": "outro",
+      "type": "RunFlow",
+      "flowRef": "outro",
+      "next": "end"
+    },
+    {
+      "id": "end",
+      "type": "End"
+    }
+  ]
+}
