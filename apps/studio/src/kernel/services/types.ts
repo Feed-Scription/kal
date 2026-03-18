@@ -89,8 +89,6 @@ export interface WorkbenchServiceState {
   activeExtensionRuntime: StudioExtensionRuntimeRecord | null;
   views: StudioViewDescriptor[];
   extensions: StudioRegisteredExtensionDescriptor[];
-  coreExtensions: StudioRegisteredExtensionDescriptor[];
-  workflowExtensions: StudioRegisteredExtensionDescriptor[];
 }
 
 // ── Connection Service ──

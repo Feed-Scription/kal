@@ -17,9 +17,10 @@
     "package": "Package",
     "packageDesc": "Package management and templates"
   },
-  "officialCoreExtensions": "Official Core Extensions",
-  "officialWorkflowExtensions": "Official Workflow Extensions",
-  "flowResources": "Flow Resources",
+  "flowResources": "Flows",
+  "runs": "Runs",
+  "noRuns": "No runs yet.",
+  "views": "Views",
   "projectCommands": "Project Commands",
   "reloading": "Reloading...",
   "reloadProject": "Reload Project",
