@@ -18,6 +18,7 @@ import terminalEn from './locales/en/terminal.json';
 import previewEn from './locales/en/preview.json';
 import deployEn from './locales/en/deploy.json';
 import packagesEn from './locales/en/packages.json';
+import evalEn from './locales/en/eval.json';
 
 import commonZh from './locales/zh-CN/common.json';
 import registryZh from './locales/zh-CN/registry.json';
@@ -34,11 +35,12 @@ import terminalZh from './locales/zh-CN/terminal.json';
 import previewZh from './locales/zh-CN/preview.json';
 import deployZh from './locales/zh-CN/deploy.json';
 import packagesZh from './locales/zh-CN/packages.json';
+import evalZh from './locales/zh-CN/eval.json';
 
 const ns = [
   'common', 'registry', 'commands', 'store', 'workbench',
   'flow', 'session', 'debug', 'review', 'vcs',
-  'config', 'terminal', 'preview', 'deploy', 'packages',
+  'config', 'terminal', 'preview', 'deploy', 'packages', 'eval',
 ] as const;
 
 i18n
@@ -62,6 +64,7 @@ i18n
         preview: previewEn,
         deploy: deployEn,
         packages: packagesEn,
+        eval: evalEn,
       },
       'zh-CN': {
         common: commonZh,
@@ -79,6 +82,7 @@ i18n
         preview: previewZh,
         deploy: deployZh,
         packages: packagesZh,
+        eval: evalZh,
       },
     },
     ns: [...ns],

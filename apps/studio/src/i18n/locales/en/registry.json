@@ -194,6 +194,13 @@
       "description": "Official workflow extension for Vercel deployment trigger and status viewing (initially a stub).",
       "viewTitle": "Deploy",
       "viewDescription": "Trigger Vercel deployments and view deployment status."
+    },
+    "promptEval": {
+      "title": "Prompt Eval",
+      "shortTitle": "Eval",
+      "description": "Official workflow extension for N-run prompt evaluation and A/B comparison.",
+      "viewTitle": "Prompt Eval",
+      "viewDescription": "Run prompt evaluations and compare variants."
     }
   },
   "dynamicRegistration": {

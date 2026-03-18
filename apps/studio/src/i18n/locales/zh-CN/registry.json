@@ -194,6 +194,13 @@
       "description": "官方工作流扩展，提供 Vercel 部署触发与状态查看（初始为 stub）。",
       "viewTitle": "部署",
       "viewDescription": "触发 Vercel 部署并查看部署状态。"
+    },
+    "promptEval": {
+      "title": "Prompt 评估",
+      "shortTitle": "评估",
+      "description": "官方工作流扩展，支持 N 次 Prompt 评估运行与 A/B 对比。",
+      "viewTitle": "Prompt 评估",
+      "viewDescription": "运行 Prompt 评估并对比变体。"
     }
   },
   "dynamicRegistration": {
