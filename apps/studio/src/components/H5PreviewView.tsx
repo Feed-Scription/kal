@@ -3,8 +3,9 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { getEngineAssetUrl } from '@/api/engine-client';
-import { useStudioResources, useRunDebug, useStudioCommands } from '@/kernel/hooks';
+import { useFlowResource, useStudioResources, useRunDebug, useStudioCommands, useWorkbench } from '@/kernel/hooks';
 import { cn } from '@/lib/utils';
+import type { ExecutionResult } from '@/types/project';
 
 type DeviceSize = 'mobile' | 'tablet' | 'desktop';
 
@@ -31,6 +32,20 @@ type KalMessage =
   | { type: 'kal:preview.ready' }
   | { type: 'kal:signal.in'; payload: { channel: string; data: unknown } };
 
+function normalizeSignalInput(data: unknown): string {
+  if (typeof data === 'string') {
+    return data;
+  }
+  if (typeof data === 'number' || typeof data === 'boolean') {
+    return String(data);
+  }
+  if (data && typeof data === 'object' && 'value' in (data as Record<string, unknown>)) {
+    const value = (data as { value?: unknown }).value;
+    return value === undefined ? JSON.stringify(data) : String(value);
+  }
+  return JSON.stringify(data);
+}
+
 export function H5PreviewView() {
   const { t } = useTranslation('preview');
   const [reloadToken, setReloadToken] = useState(0);
@@ -40,9 +55,12 @@ export function H5PreviewView() {
   const [previewReady, setPreviewReady] = useState(false);
   const [signalLog, setSignalLog] = useState<Array<{ direction: 'in' | 'out'; channel: string; data: unknown; time: number }>>([]);
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const { state } = useStudioResources();
+  const emittedSignalKeysRef = useRef<Set<string>>(new Set());
+  const { state, session } = useStudioResources();
+  const { activeFlowId } = useWorkbench();
+  const { flow } = useFlowResource(activeFlowId);
   const { selectedRun } = useRunDebug();
-  const { recordKernelEvent } = useStudioCommands();
+  const { advanceRun, executeFlow, recordKernelEvent } = useStudioCommands();
   const src = `${getEngineAssetUrl('/api/tools/h5-preview')}?v=${reloadToken}`;
 
   const handleReload = () => {
@@ -56,6 +74,14 @@ export function H5PreviewView() {
   const postToPreview = useCallback((msg: { type: string; payload?: unknown }) => {
     iframeRef.current?.contentWindow?.postMessage(msg, '*');
   }, []);
+
+  const emitSignalOut = useCallback((channel: string, data: unknown) => {
+    postToPreview({ type: 'kal:signal.out', payload: { channel, data } });
+    setSignalLog((prev) => [
+      ...prev.slice(-49),
+      { direction: 'out', channel, data, time: Date.now() },
+    ]);
+  }, [postToPreview]);
 
   // Listen for messages from iframe
   useEffect(() => {
@@ -76,13 +102,49 @@ export function H5PreviewView() {
         recordKernelEvent({
           type: 'resource.changed',
           message: `H5 Preview SignalIn: ${msg.payload.channel}`,
+          data: { channel: msg.payload.channel, data: msg.payload.data },
         });
+
+        const waitingStep = session?.steps.find((step) => step.id === selectedRun?.waiting_for?.step_id);
+        const waitingChannel =
+          waitingStep && 'inputChannel' in waitingStep ? waitingStep.inputChannel ?? null : null;
+
+        if (selectedRun?.waiting_for && waitingChannel === msg.payload.channel) {
+          void advanceRun(selectedRun.run_id, normalizeSignalInput(msg.payload.data)).catch((error) => {
+            recordKernelEvent({
+              type: 'run.updated',
+              message: `SignalIn advance failed: ${(error as Error).message}`,
+              runId: selectedRun.run_id,
+              data: { channel: msg.payload.channel },
+            });
+          });
+          return;
+        }
+
+        const supportsChannel = Boolean(flow?.meta.inputs?.some((input) => input.name === msg.payload.channel));
+        if (activeFlowId && supportsChannel) {
+          void executeFlow(activeFlowId, { [msg.payload.channel]: msg.payload.data })
+            .then((result) => {
+              const execution = result as ExecutionResult;
+              Object.entries(execution.outputs ?? {}).forEach(([channel, value]) => {
+                emitSignalOut(channel, value);
+              });
+            })
+            .catch((error) => {
+              recordKernelEvent({
+                type: 'resource.changed',
+                message: `SignalIn flow execution failed: ${(error as Error).message}`,
+                resourceId: `flow://${activeFlowId}`,
+                data: { channel: msg.payload.channel },
+              });
+            });
+        }
       }
     };
 
     window.addEventListener('message', handler);
     return () => window.removeEventListener('message', handler);
-  }, [recordKernelEvent]);
+  }, [activeFlowId, advanceRun, emitSignalOut, executeFlow, flow?.meta.inputs, recordKernelEvent, selectedRun, session?.steps]);
 
   // Sync state to preview when it changes
   useEffect(() => {
@@ -95,6 +157,27 @@ export function H5PreviewView() {
     if (!previewReady) return;
     postToPreview({ type: 'kal:run.sync', payload: { run: selectedRun ?? null } });
   }, [previewReady, selectedRun, postToPreview]);
+
+  useEffect(() => {
+    if (!previewReady || !selectedRun) {
+      emittedSignalKeysRef.current.clear();
+      return;
+    }
+
+    selectedRun.recent_events.forEach((event, eventIndex) => {
+      if (event.type !== 'output') {
+        return;
+      }
+      Object.entries(event.raw ?? {}).forEach(([channel, value]) => {
+        const signalKey = `${selectedRun.run_id}:${selectedRun.updated_at}:${eventIndex}:${channel}:${JSON.stringify(value)}`;
+        if (emittedSignalKeysRef.current.has(signalKey)) {
+          return;
+        }
+        emittedSignalKeysRef.current.add(signalKey);
+        emitSignalOut(channel, value);
+      });
+    });
+  }, [emitSignalOut, previewReady, selectedRun]);
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-background">

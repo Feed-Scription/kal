@@ -1,12 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from 'react-i18next';
 import { Focus, Loader2, MessageSquareQuote, Search, Sparkles } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/EmptyState";
-import { usePromptPreview, useWorkbench } from "@/kernel/hooks";
+import { useWorkbench } from "@/kernel/hooks";
 import { useCanvasSelection } from "@/hooks/use-canvas-selection";
 import { engineApi } from "@/api/engine-client";
-import type { PromptRenderResult, RenderedFragment } from "@/types/project";
+import type { PromptPreviewEntry, PromptRenderResult, RenderedFragment } from "@/types/project";
 
 /** 根据画布选中节点生成匹配的 entry id */
 function selectedEntryId(
@@ -107,51 +107,51 @@ function RenderResultPanel({
 
 export function PromptPreviewView() {
   const { t } = useTranslation('preview');
-  const { entries, total } = usePromptPreview();
   const { activeFlowId } = useWorkbench();
   const { selectedNodeId, selectionContext } = useCanvasSelection();
   const [query, setQuery] = useState("");
   const highlightRef = useRef<HTMLElement>(null);
+  const [entries, setEntries] = useState<PromptPreviewEntry[]>([]);
+  const [loadingEntries, setLoadingEntries] = useState(true);
 
-  // Render result state for the selected PromptBuild node
-  const [renderResult, setRenderResult] = useState<PromptRenderResult | null>(null);
-  const [renderLoading, setRenderLoading] = useState(false);
   const [renderError, setRenderError] = useState<string | null>(null);
+  const total = entries.length;
 
   const matchedId = useMemo(
     () => selectedEntryId(selectedNodeId, selectionContext, activeFlowId),
     [selectedNodeId, selectionContext, activeFlowId],
   );
 
-  // Fetch render result when a flow node is selected
-  const fetchRender = useCallback(async (flowId: string, nodeId: string) => {
-    setRenderLoading(true);
-    setRenderError(null);
-    try {
-      const result = await engineApi.renderPrompt(flowId, nodeId);
-      setRenderResult(result);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      // Not a PromptBuild node or other expected error — just clear
-      if (msg.includes('INVALID_NODE_TYPE') || msg.includes('NODE_NOT_FOUND')) {
-        setRenderResult(null);
-        setRenderError(null);
-      } else {
-        setRenderError(msg);
-      }
-    } finally {
-      setRenderLoading(false);
-    }
+  useEffect(() => {
+    let active = true;
+    engineApi.listPromptPreviewEntries()
+      .then((nextEntries) => {
+        if (!active) {
+          return;
+        }
+        setEntries(nextEntries);
+      })
+      .catch((error) => {
+        if (!active) {
+          return;
+        }
+        setRenderError((error as Error).message);
+      })
+      .finally(() => {
+        if (active) {
+          setLoadingEntries(false);
+        }
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
-  useEffect(() => {
-    if (selectionContext === 'flow' && activeFlowId && selectedNodeId) {
-      fetchRender(activeFlowId, selectedNodeId);
-    } else {
-      setRenderResult(null);
-      setRenderError(null);
-    }
-  }, [selectionContext, activeFlowId, selectedNodeId, fetchRender]);
+  const matchedEntry = useMemo(
+    () => entries.find((entry) => entry.id === matchedId) ?? null,
+    [entries, matchedId],
+  );
+  const renderResult: PromptRenderResult | null = matchedEntry?.rendered ?? null;
 
   const filteredEntries = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -222,10 +222,14 @@ export function PromptPreviewView() {
           />
         </div>
 
-        {/* Render result panel — shown when a PromptBuild node is selected */}
-        <RenderResultPanel result={renderResult} loading={renderLoading} error={renderError} />
+        <RenderResultPanel result={renderResult} loading={loadingEntries} error={renderError} />
 
-        {sortedEntries.length === 0 && !renderResult ? (
+        {loadingEntries ? (
+          <div className="flex items-center gap-2 rounded-xl border border-dashed p-6 text-sm text-muted-foreground">
+            <Loader2 className="size-4 animate-spin" />
+            {t('prompt.rendering')}
+          </div>
+        ) : sortedEntries.length === 0 && !renderResult ? (
           <EmptyState message={t('prompt.noPreviewContent')} />
         ) : (
           <div className="grid gap-4 lg:grid-cols-2">

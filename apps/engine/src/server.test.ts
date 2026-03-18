@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import type { SessionDefinition } from '@kal-ai/core';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { EngineRuntime } from './runtime';
 import { startEngineServer } from './server';
 import { createPassThroughFlow, createStateMutationFlow, createTempProject } from './test-helpers';
@@ -700,5 +702,155 @@ describe('Engine HTTP server', () => {
     // The smoke run should have auto-advanced through all steps
     expect(result.data.run.input_history.length).toBeGreaterThanOrEqual(1);
     expect(result.data.run.input_history[0].input).toBe('attack');
+  });
+
+  it('GET /api/prompt-preview 应该返回统一的 prompt 预览数据', async () => {
+    const fixture = await createTempProject({
+      flows: {
+        prompt: {
+          meta: { schemaVersion: '1.0.0' },
+          data: {
+            nodes: [
+              {
+                id: 'pb',
+                type: 'PromptBuild',
+                inputs: [],
+                outputs: [
+                  { name: 'messages', type: 'ChatMessage[]' },
+                  { name: 'text', type: 'string' },
+                ],
+                config: {
+                  defaultRole: 'system',
+                  fragments: [{ id: 'intro', type: 'base', content: 'Hello preview' }],
+                },
+              },
+            ],
+            edges: [],
+          },
+        },
+      },
+      session: {
+        schemaVersion: '1.0.0',
+        steps: [
+          { id: 'ask', type: 'Prompt', promptText: 'What now?', flowRef: 'prompt', inputChannel: 'message', next: 'end' },
+          { id: 'end', type: 'End', message: 'done' },
+        ],
+      },
+    });
+    cleanups.push(fixture.cleanup);
+
+    const runtime = await EngineRuntime.create(fixture.projectRoot);
+    const server = await startEngineServer({ runtime, host: '127.0.0.1', port: 0 });
+    cleanups.push(server.close);
+
+    const result = await fetch(`${server.url}/api/prompt-preview`).then((response) => response.json());
+    expect(result.success).toBe(true);
+    expect(result.data.entries.some((entry: any) => entry.id === 'session:ask')).toBe(true);
+    const flowEntry = result.data.entries.find((entry: any) => entry.id === 'flow:prompt:pb');
+    expect(flowEntry).toBeDefined();
+    expect(flowEntry.promptText).toContain('Hello preview');
+    expect(flowEntry.rendered.renderedText).toContain('Hello preview');
+  });
+
+  it('review/comments API 应该持久化 Studio 协作资源', async () => {
+    const fixture = await createTempProject();
+    cleanups.push(fixture.cleanup);
+
+    const runtime = await EngineRuntime.create(fixture.projectRoot);
+    const server = await startEngineServer({ runtime, host: '127.0.0.1', port: 0 });
+    cleanups.push(server.close);
+
+    const reviewPayload = {
+      proposals: [{ id: 'proposal-1', title: 'Review A', status: 'draft' }],
+    };
+    const savedReview = await fetch(`${server.url}/api/review`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(reviewPayload),
+    }).then((response) => response.json());
+    expect(savedReview.success).toBe(true);
+    expect(savedReview.data.proposals).toEqual(reviewPayload.proposals);
+
+    const review = await fetch(`${server.url}/api/review`).then((response) => response.json());
+    expect(review.data.proposals).toEqual(reviewPayload.proposals);
+
+    const commentsPayload = {
+      threads: [{ id: 'thread-1', title: 'Thread A', status: 'open', comments: [] }],
+    };
+    const savedComments = await fetch(`${server.url}/api/comments`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(commentsPayload),
+    }).then((response) => response.json());
+    expect(savedComments.success).toBe(true);
+    expect(savedComments.data.threads).toEqual(commentsPayload.threads);
+
+    const comments = await fetch(`${server.url}/api/comments`).then((response) => response.json());
+    expect(comments.data.threads).toEqual(commentsPayload.threads);
+  });
+
+  it('template/package API 应该暴露真实模板内容并应用到项目', async () => {
+    const fixture = await createTempProject();
+    cleanups.push(fixture.cleanup);
+
+    const packageRoot = join(fixture.projectRoot, 'packages', 'sample-template-pack');
+    await mkdir(join(packageRoot, 'templates', 'story-kit', 'flows'), { recursive: true });
+    await writeFile(join(packageRoot, 'manifest.json'), JSON.stringify({
+      id: 'sample.template-pack',
+      kind: 'template-pack',
+      version: '1.0.0',
+      name: 'Sample Template Pack',
+      author: 'test-author',
+      enabled: false,
+      contributes: {
+        templates: [
+          {
+            id: 'story-kit',
+            name: 'Story Kit',
+            flows: ['story'],
+            sessionRef: 'story-session',
+            stateKeys: ['chapter'],
+          },
+        ],
+      },
+    }, null, 2), 'utf8');
+    await writeFile(join(packageRoot, 'templates', 'story-kit', 'flows', 'story.json'), JSON.stringify(createPassThroughFlow(), null, 2), 'utf8');
+    await writeFile(join(packageRoot, 'templates', 'story-kit', 'session.json'), JSON.stringify({
+      schemaVersion: '1.0.0',
+      entryStep: 'intro',
+      steps: [
+        { id: 'intro', type: 'RunFlow', flowRef: 'story', next: 'end' },
+        { id: 'end', type: 'End', message: 'done' },
+      ],
+    }, null, 2), 'utf8');
+    await writeFile(join(packageRoot, 'templates', 'story-kit', 'initial_state.json'), JSON.stringify({
+      chapter: { type: 'number', value: 1 },
+    }, null, 2), 'utf8');
+
+    const runtime = await EngineRuntime.create(fixture.projectRoot);
+    const server = await startEngineServer({ runtime, host: '127.0.0.1', port: 0 });
+    cleanups.push(server.close);
+
+    const packages = await fetch(`${server.url}/api/packages`).then((response) => response.json());
+    expect(packages.success).toBe(true);
+    expect(packages.data[0]).toMatchObject({
+      manifest: { id: 'sample.template-pack' },
+      trustLevel: 'third-party',
+      enabled: false,
+    });
+
+    const bundle = await fetch(`${server.url}/api/packages/sample.template-pack/templates/story-kit`).then((response) => response.json());
+    expect(bundle.success).toBe(true);
+    expect(bundle.data.summary.flowIds).toEqual(['story']);
+    expect(bundle.data.summary.hasSession).toBe(true);
+    expect(bundle.data.summary.stateKeys).toEqual(['chapter']);
+
+    const applied = await fetch(`${server.url}/api/packages/sample.template-pack/templates/story-kit/apply`, {
+      method: 'POST',
+    }).then((response) => response.json());
+    expect(applied.success).toBe(true);
+    expect(runtime.getFlow('story').meta.inputs?.[0]?.name).toBe('message');
+    expect(runtime.getSession()?.entryStep).toBe('intro');
+    expect(runtime.getState().chapter.value).toBe(1);
   });
 });
