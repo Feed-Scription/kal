@@ -47,6 +47,9 @@
   "jsonFormatError": "Invalid JSON format",
   "searchNodes": "Search nodes...",
   "noResults": "No matching nodes.",
+  "addFragment": "Add Fragment",
+  "collapseFragment": "Collapse",
+  "expandFragment": "Expand",
   "nodeLabel": {
     "source": "Source",
     "template": "Template",

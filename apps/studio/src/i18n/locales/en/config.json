@@ -12,7 +12,7 @@
   "noChanges": "No changes",
   "restrictedFieldsOnly": "Only restricted fields have been modified",
   "unsavedWarning": "Configuration has been modified but not saved. Saving will invoke the Studio config write command and create a version record that can be undone/redone.",
-  "restrictedFieldsNote": "`llm.apiKey` and `llm.baseUrl` cannot be saved directly via Studio. You can view or temporarily edit them here, but the original values from the project file will be preserved on save.",
+  "restrictedFieldsNote": "`llm.apiKey` and `llm.baseUrl` are preserved during Studio saves. Update them through environment variables or `kal_config.json`, and Studio will keep the current project-file value when you save other settings.",
   "section": {
     "general": "General",
     "basicInfo": "Basic Info",

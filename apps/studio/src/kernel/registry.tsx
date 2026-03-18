@@ -1,4 +1,4 @@
-import { Bug, CircleAlert, ClipboardCheck, Database, FlaskConical, History, LayoutDashboard, LayoutTemplate, MessageSquareMore, MessageSquareQuote, MonitorPlay, Package, Rocket, Route, Settings } from 'lucide-react';
+import { Bug, CircleAlert, ClipboardCheck, Database, FlaskConical, History, LayoutDashboard, LayoutTemplate, MessageSquareMore, MonitorPlay, Package, Rocket, Route, Settings } from 'lucide-react';
 import { CollaboratorsPanel } from '@/components/CollaboratorsPanel';
 import { CommentsPanel } from '@/components/CommentsPanel';
 import { CommentsView } from '@/components/CommentsView';
@@ -10,7 +10,7 @@ import { DebuggerView } from '@/components/DebuggerView';
 import { EventLogPanel } from '@/components/EventLogPanel';
 import { H5PreviewView } from '@/components/H5PreviewView';
 import { PackageManagerView } from '@/components/PackageManagerView';
-import { PromptPreviewView } from '@/components/PromptPreviewView';
+import { PromptPreviewInspector } from '@/components/PromptPreviewInspector';
 import { ProblemsPanel } from '@/components/ProblemsPanel';
 import { ProblemsView } from '@/components/ProblemsView';
 import { ReviewHistoryPanel } from '@/components/ReviewHistoryPanel';
@@ -411,28 +411,16 @@ const registry = createStudioRegistry([
     description: 'ext.promptPreview.description',
     kind: 'official-workflow',
     host: 'browser',
-    activationEvents: ['onView:kal.prompt-preview'],
+    activationEvents: [],
     capabilities: [{ capability: 'project.read' }],
     contributes: {
-      views: [
-        {
-          id: 'kal.prompt-preview',
-          extensionId: 'kal.prompt-preview',
-          title: 'ext.promptPreview.viewTitle',
-          shortTitle: 'ext.promptPreview.shortTitle',
-          description: 'ext.promptPreview.viewDescription',
-          icon: MessageSquareQuote,
-          component: PromptPreviewView,
-          presets: ['authoring', 'debug'],
-        },
-      ],
       inspectors: [
         {
           id: 'kal.prompt-preview.inspector',
           extensionId: 'kal.prompt-preview',
           title: 'ext.promptPreview.inspectorTitle',
           description: 'ext.promptPreview.inspectorDescription',
-          component: PromptPreviewView,
+          component: PromptPreviewInspector,
           slot: 'right',
           presets: ['authoring', 'debug'],
         },
