@@ -320,7 +320,7 @@ export function AppSidebar({ children }: AppSidebarProps) {
             <span className="rounded border px-1.5 py-0.5 text-[11px] text-muted-foreground">Ctrl K</span>
           </Button>
         </div>
-        <div className="relative h-[calc(100vh-3.5rem-2rem)] overflow-hidden">
+        <div className="min-h-0 flex-1 overflow-hidden">
           {children}
         </div>
       </SidebarInset>
