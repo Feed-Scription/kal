@@ -129,8 +129,6 @@
   "requestingEngineDiagnostics": "请求 Engine 诊断信息",
   "applyingUndoSnapshot": "应用撤销快照",
   "applyingRedoSnapshot": "应用重做快照",
-  "capabilityChanged": "{{capability}} 已{{status}}",
-  "capabilityGrantsReset": "能力授权已重置为默认值",
   "extensionActivated": "扩展 {{extensionId}} 已激活 ({{reason}})",
   "extensionError": "扩展 {{extensionId}} 发生错误: {{message}}",
   "historyRolledBack": "历史已回滚到 checkpoint {{label}}"

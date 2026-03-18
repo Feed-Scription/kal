@@ -32,8 +32,6 @@ import type {
 } from '@/types/project';
 import type { RunAdvanceMode } from '@/api/engine-client';
 import type {
-  ResolvedStudioCapabilityRequest,
-  StudioCapabilityId,
   StudioExtensionId,
   StudioExtensionRuntimeRecord,
   StudioJobRecord,
@@ -156,16 +154,6 @@ export interface KernelEventServiceState {
   jobs: StudioJobRecord[];
 }
 
-// ── Capability Service ──
-
-export interface CapabilityGateResult {
-  grants: Record<StudioCapabilityId, boolean>;
-  resolved: Array<ResolvedStudioCapabilityRequest & { granted: boolean }>;
-  trusted: boolean;
-  blocked: Array<ResolvedStudioCapabilityRequest & { granted: boolean }>;
-  degraded: Array<ResolvedStudioCapabilityRequest & { granted: boolean }>;
-}
-
 // ── Diagnostics Service ──
 
 export interface DiagnosticsServiceState {
@@ -235,8 +223,6 @@ export interface StudioCommandService {
   refreshDiagnostics: () => Promise<void>;
   undo: () => Promise<void>;
   redo: () => Promise<void>;
-  setCapabilityGrant: (capability: StudioCapabilityId, granted: boolean) => void;
-  resetCapabilityGrants: () => void;
   setExtensionEnabled: (extensionId: StudioExtensionId, enabled: boolean) => void;
   activateExtension: (extensionId: StudioExtensionId, reason: string) => void;
   clearExtensionError: (extensionId: StudioExtensionId) => void;

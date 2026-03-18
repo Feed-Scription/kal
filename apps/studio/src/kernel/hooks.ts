@@ -20,7 +20,6 @@ import {
 import { runService } from './services/run-service';
 import type { PromptPreviewEntry, ResourceId, ResourceVersionState } from '@/types/project';
 import type {
-  ResolvedStudioCapabilityRequest,
   StudioContextValue,
   StudioDebugViewDescriptor,
   StudioExtensionId,
@@ -43,7 +42,6 @@ import type {
   DiagnosticsServiceState,
   ReferenceGraphServiceState,
   RunDebugServiceState,
-  CapabilityGateResult,
   WorkbenchContextState,
   StudioCommandService,
   RunService,
@@ -306,24 +304,6 @@ export function useResourceVersion(resourceId?: ResourceId | null): ResourceVers
   );
 }
 
-export function useCapabilityGate(capabilities?: ResolvedStudioCapabilityRequest[]): CapabilityGateResult {
-  const grants = useStudioStore((state) => state.capabilities.grants);
-
-  const resolved = (capabilities ?? []).map((request) => ({
-    ...request,
-    capability: request.capability,
-    granted: Boolean(grants[request.capability]),
-  }));
-
-  return {
-    grants,
-    resolved,
-    trusted: resolved.every((entry) => entry.granted || !entry.required),
-    blocked: resolved.filter((entry) => !entry.granted && (entry.required || entry.restrictedMode === 'block')),
-    degraded: resolved.filter((entry) => !entry.granted && !entry.required && entry.restrictedMode === 'degrade'),
-  };
-}
-
 function resolveContributions<T extends StudioPanelDescriptor | StudioInspectorDescriptor | StudioDebugViewDescriptor>(
   contributions: T[],
   runtime: Record<string, StudioExtensionRuntimeRecord>,
@@ -361,7 +341,6 @@ export function useWorkbenchContext(): WorkbenchContextState {
   );
   const breakpoints = useStudioStore((state) => state.runDebug.breakpoints);
   const { activeExtension, activeExtensionRuntime, activeFlowId, activeViewId } = useWorkbench();
-  const capabilityGate = useCapabilityGate();
   const selectedStepId = selectedRunRecord?.run.waiting_for?.step_id ?? selectedRunRecord?.run.cursor.currentStepId ?? null;
 
   const values: Record<string, StudioContextValue> = {
@@ -374,9 +353,9 @@ export function useWorkbenchContext(): WorkbenchContextState {
     'workbench.view': activeViewId,
     'extension.active': activeExtension?.id ?? null,
     'extension.status': activeExtensionRuntime?.status ?? null,
-    'capability.project.write': Boolean(capabilityGate.grants['project.write']),
-    'capability.engine.execute': Boolean(capabilityGate.grants['engine.execute']),
-    'capability.trace.read': Boolean(capabilityGate.grants['trace.read']),
+    'capability.project.write': true,
+    'capability.engine.execute': true,
+    'capability.trace.read': true,
     'diagnostics.available': Boolean(versionControl.diagnostics),
     'history.undoAvailable': versionControl.undoStack.length > 0,
     'history.redoAvailable': versionControl.redoStack.length > 0,
@@ -423,8 +402,6 @@ export function useStudioCommands(): StudioCommandService {
   const refreshDiagnostics = useStudioStore((state) => state.refreshDiagnostics);
   const undo = useStudioStore((state) => state.undo);
   const redo = useStudioStore((state) => state.redo);
-  const setCapabilityGrant = useStudioStore((state) => state.setCapabilityGrant);
-  const resetCapabilityGrants = useStudioStore((state) => state.resetCapabilityGrants);
   const setExtensionEnabled = useStudioStore((state) => state.setExtensionEnabled);
   const activateExtension = useStudioStore((state) => state.activateExtension);
   const clearExtensionError = useStudioStore((state) => state.clearExtensionError);
@@ -467,8 +444,6 @@ export function useStudioCommands(): StudioCommandService {
     refreshDiagnostics,
     undo,
     redo,
-    setCapabilityGrant,
-    resetCapabilityGrants,
     setExtensionEnabled,
     activateExtension,
     clearExtensionError,

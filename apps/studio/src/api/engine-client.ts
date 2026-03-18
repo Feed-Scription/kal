@@ -30,20 +30,11 @@ type EngineErrorResponse = { success: false; error: { code: string; message: str
 type EngineResponse<T> = EngineSuccessResponse<T> | EngineErrorResponse;
 export type RunAdvanceMode = 'continue' | 'step';
 
-/**
- * Optional callback to retrieve granted capabilities for the X-Studio-Capabilities header.
- * Set by the store after initialization to avoid circular imports.
- */
-let capabilityProvider: (() => string[]) | null = null;
 let connectionLostHandler: ((message: string) => void) | null = null;
 let lastConnectionLostAt = 0;
 const CONNECTION_LOST_THROTTLE_MS = 1000;
 
 const ENGINE_UNREACHABLE_MESSAGE = 'Cannot connect to Engine service, please confirm Engine is running';
-
-export function setCapabilityProvider(provider: () => string[]): void {
-  capabilityProvider = provider;
-}
 
 export function setConnectionLostHandler(handler: ((message: string) => void) | null): void {
   connectionLostHandler = handler;
@@ -79,12 +70,6 @@ export function getEngineAssetUrl(path: string): string {
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers);
-  if (capabilityProvider) {
-    const caps = capabilityProvider();
-    if (caps.length > 0) {
-      headers.set('X-Studio-Capabilities', caps.join(','));
-    }
-  }
   let res: Response;
   try {
     res = await fetch(buildApiUrl(path), { ...init, headers });
