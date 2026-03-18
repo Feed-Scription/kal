@@ -15,8 +15,6 @@ export {
   useSaveState,
   useVersionControl,
   useGitStatus,
-  useReviewWorkspace,
-  useCommentsWorkspace,
   useExtensionRuntime,
   useExtensionRuntimeMap,
   useKernelEvents,
@@ -33,7 +31,6 @@ export {
   useRunService,
   useReferences,
   useSearch,
-  usePackages,
 } from './hooks';
 
 // ── Kernel 类型定义 ──

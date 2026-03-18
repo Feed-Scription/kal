@@ -11,14 +11,10 @@ import workbenchEn from './locales/en/workbench.json';
 import flowEn from './locales/en/flow.json';
 import sessionEn from './locales/en/session.json';
 import debugEn from './locales/en/debug.json';
-import reviewEn from './locales/en/review.json';
 import vcsEn from './locales/en/vcs.json';
 import configEn from './locales/en/config.json';
 import terminalEn from './locales/en/terminal.json';
 import previewEn from './locales/en/preview.json';
-import deployEn from './locales/en/deploy.json';
-import packagesEn from './locales/en/packages.json';
-import evalEn from './locales/en/eval.json';
 
 import commonZh from './locales/zh-CN/common.json';
 import registryZh from './locales/zh-CN/registry.json';
@@ -28,19 +24,15 @@ import workbenchZh from './locales/zh-CN/workbench.json';
 import flowZh from './locales/zh-CN/flow.json';
 import sessionZh from './locales/zh-CN/session.json';
 import debugZh from './locales/zh-CN/debug.json';
-import reviewZh from './locales/zh-CN/review.json';
 import vcsZh from './locales/zh-CN/vcs.json';
 import configZh from './locales/zh-CN/config.json';
 import terminalZh from './locales/zh-CN/terminal.json';
 import previewZh from './locales/zh-CN/preview.json';
-import deployZh from './locales/zh-CN/deploy.json';
-import packagesZh from './locales/zh-CN/packages.json';
-import evalZh from './locales/zh-CN/eval.json';
 
 const ns = [
   'common', 'registry', 'commands', 'store', 'workbench',
-  'flow', 'session', 'debug', 'review', 'vcs',
-  'config', 'terminal', 'preview', 'deploy', 'packages', 'eval',
+  'flow', 'session', 'debug', 'vcs',
+  'config', 'terminal', 'preview',
 ] as const;
 
 i18n
@@ -57,14 +49,10 @@ i18n
         flow: flowEn,
         session: sessionEn,
         debug: debugEn,
-        review: reviewEn,
         vcs: vcsEn,
         config: configEn,
         terminal: terminalEn,
         preview: previewEn,
-        deploy: deployEn,
-        packages: packagesEn,
-        eval: evalEn,
       },
       'zh-CN': {
         common: commonZh,
@@ -75,14 +63,10 @@ i18n
         flow: flowZh,
         session: sessionZh,
         debug: debugZh,
-        review: reviewZh,
         vcs: vcsZh,
         config: configZh,
         terminal: terminalZh,
         preview: previewZh,
-        deploy: deployZh,
-        packages: packagesZh,
-        eval: evalZh,
       },
     },
     ns: [...ns],

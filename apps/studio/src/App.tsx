@@ -2,7 +2,7 @@ import '@xyflow/react/dist/style.css';
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useTranslation } from 'react-i18next';
 import { PanelGroup, Panel, type ImperativePanelHandle } from 'react-resizable-panels';
-import { Command, Info, Lock, PanelRight, Play, RefreshCw, X } from "lucide-react";
+import { Command, Info, Lock, PanelRight, Play, RefreshCw } from "lucide-react";
 import { AppSidebar } from "./AppSidebar";
 import { CommandPalette } from "./components/CommandPalette";
 import { ExtensionSurface } from "./components/ExtensionSurface";
@@ -30,12 +30,11 @@ function useIsDesktop() {
 
 export default function App() {
   const { t } = useTranslation('workbench');
-  const { t: tr } = useTranslation('registry');
   const { project } = useStudioResources();
-  const { activeExtension, activeViewId, openViews, views } = useWorkbench();
+  const { activeExtension, activeViewId, views } = useWorkbench();
   const extensionRuntime = useExtensionRuntimeMap();
   const capabilityGate = useCapabilityGate(activeExtension?.capabilities);
-  const { closeView, createRun, refreshDiagnostics, setActiveView, setCommandPaletteOpen } = useStudioCommands();
+  const { createRun, refreshDiagnostics, setActiveView, setCommandPaletteOpen } = useStudioCommands();
   const activeView = views.find((view) => view.id === activeViewId) ?? views[0] ?? null;
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [inspectorVisible, setInspectorVisible] = useState(true);
@@ -116,48 +115,7 @@ export default function App() {
               {/* Editor area */}
               <Panel defaultSize={70} minSize={30}>
                 <div className="flex h-full flex-col">
-                  <div className="flex items-center justify-between gap-3 border-b bg-background/80 px-3 py-2 backdrop-blur">
-                    <div className="flex items-center gap-2 overflow-x-auto">
-                      {openViews.map((view) => {
-                        const Icon = view.icon;
-                        const active = view.id === activeViewId;
-
-                        return (
-                          <div
-                            key={view.id}
-                            className={`group flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
-                              active
-                                ? "border-primary bg-primary/10 text-foreground"
-                                : "border-transparent bg-muted/40 text-muted-foreground hover:border-border hover:text-foreground"
-                            }`}
-                          >
-                            <button
-                              type="button"
-                              onClick={() => setActiveView(view.id)}
-                              className="flex items-center gap-2 whitespace-nowrap"
-                            >
-                              <Icon className="size-4" />
-                              {tr(view.shortTitle)}
-                            </button>
-                            {openViews.length > 1 ? (
-                              <Button
-                                variant="ghost"
-                                size="icon-xs"
-                                className="opacity-70 transition-opacity group-hover:opacity-100"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  closeView(view.id);
-                                }}
-                              >
-                                <X className="size-3.5" />
-                              </Button>
-                            ) : null}
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    <div className="flex shrink-0 items-center gap-1">
+                  <div className="flex items-center justify-end gap-1 border-b bg-background/80 px-3 py-2 backdrop-blur">
                       <Button variant="ghost" size="icon-sm" onClick={() => setCommandPaletteOpen(true)} title={t('tooltips.commandPalette')} aria-label={t('tooltips.commandPalette')}>
                         <Command className="size-4" />
                       </Button>
@@ -189,7 +147,6 @@ export default function App() {
                         <Lock className={`size-3.5 ${capabilityGate.trusted ? "text-green-600" : "text-yellow-600"}`} />
                         {capabilityGate.trusted ? t("trusted") : t("restricted")}
                       </div>
-                    </div>
                   </div>
 
                   <div className="relative min-h-0 flex-1">

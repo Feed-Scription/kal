@@ -1,35 +1,23 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import i18n from '@/i18n';
-import { useReviewWorkspace, useRunDebug, useWorkbench, useWorkbenchContext, useStudioCommands } from './hooks';
-import type { StudioCommandContext, StudioCommandDescriptor, StudioWorkspacePreset } from './types';
+import { useRunDebug, useWorkbench, useWorkbenchContext, useStudioCommands } from './hooks';
+import type { StudioCommandContext, StudioCommandDescriptor } from './types';
 
 export function useCommandRegistry() {
-  const { activeViewId, activePreset, views } = useWorkbench();
-  const { activeProposal } = useReviewWorkspace();
+  const { activeViewId, views } = useWorkbench();
   const { selectedRunId, selectedStepId } = useRunDebug();
   const context = useWorkbenchContext();
   const { t } = useTranslation('commands');
   const { t: tr } = useTranslation('registry');
 
-  const PRESET_LABELS: Record<StudioWorkspacePreset, string> = {
-    authoring: t('preset.authoring'),
-    debug: t('preset.debug'),
-    review: t('preset.review'),
-    package: t('preset.package'),
-  };
   const {
     advanceRun,
-    createCommentThread,
-    createReviewProposal,
     createRun,
-    validateProposal,
     reloadProject,
     createCheckpoint,
     refreshDiagnostics,
     replayRun,
-    setActiveProposal,
-    setActivePreset,
     setActiveView,
     setCommandPaletteOpen,
     stepRun,
@@ -56,20 +44,6 @@ export function useCommandRegistry() {
       };
     });
 
-    const presetCommands = (Object.entries(PRESET_LABELS) as Array<[StudioWorkspacePreset, string]>).map(
-      ([preset, label]) => ({
-        id: `workbench.preset.${preset}`,
-        title: t('switchTo', { label }),
-        description: t('switchWorkspace', { label }),
-        section: t('section.workspace'),
-        keywords: [preset, label],
-        when: (ctx: StudioCommandContext) => ctx.values['workbench.preset'] !== preset,
-        run: () => {
-          setActivePreset(preset);
-        },
-      }),
-    );
-
     const projectCommands: StudioCommandDescriptor[] = [
       {
         id: 'run.create',
@@ -80,7 +54,6 @@ export function useCommandRegistry() {
         when: (ctx) => Boolean(ctx.values['project.loaded']),
         run: async () => {
           await createRun(true);
-          setActivePreset('debug');
           setActiveView('kal.debugger');
         },
       },
@@ -100,7 +73,6 @@ export function useCommandRegistry() {
             return;
           }
           await stepRun(selectedRunId);
-          setActivePreset('debug');
           setActiveView('kal.debugger');
         },
       },
@@ -120,7 +92,6 @@ export function useCommandRegistry() {
             return;
           }
           await advanceRun(selectedRunId);
-          setActivePreset('debug');
           setActiveView('kal.debugger');
         },
       },
@@ -136,7 +107,6 @@ export function useCommandRegistry() {
             return;
           }
           await replayRun(selectedRunId);
-          setActivePreset('debug');
           setActiveView('kal.debugger');
         },
       },
@@ -152,80 +122,7 @@ export function useCommandRegistry() {
             return;
           }
           toggleBreakpoint(selectedStepId);
-          setActivePreset('debug');
           setActiveView('kal.debugger');
-        },
-      },
-      {
-        id: 'review.comments.open',
-        title: t('openComments'),
-        description: t('openCommentsDesc'),
-        section: 'Review',
-        keywords: ['comments', 'review', 'thread'],
-        when: (ctx) => Boolean(ctx.values['project.loaded']),
-        run: () => {
-          setActiveView('kal.comments');
-        },
-      },
-      {
-        id: 'review.proposal.create',
-        title: t('createProposal'),
-        description: t('createProposalDesc'),
-        section: 'Review',
-        keywords: ['review', 'proposal', 'bundle'],
-        when: (ctx) => Boolean(ctx.values['project.loaded']),
-        run: () => {
-          const proposalId = createReviewProposal();
-          if (proposalId) {
-            setActiveProposal(proposalId);
-            setActivePreset('review');
-            setActiveView('kal.review');
-          }
-        },
-      },
-      {
-        id: 'review.comments.create',
-        title: t('createCommentThread'),
-        description: t('createCommentThreadDesc'),
-        section: 'Review',
-        keywords: ['comment', 'proposal', 'review'],
-        when: (ctx) => Boolean(ctx.values['review.active']) && Boolean(ctx.values['capability.comment.write']),
-        run: () => {
-          if (!activeProposal) {
-            return;
-          }
-          createCommentThread({
-            title: `Review: ${activeProposal.title}`,
-            body: t('commentThreadBody', { title: activeProposal.title }),
-            anchor: { kind: 'proposal', proposalId: activeProposal.id },
-          });
-          setActiveView('kal.comments');
-        },
-      },
-      {
-        id: 'review.proposal.validate',
-        title: t('validateProposal'),
-        description: t('validateProposalDesc'),
-        section: 'Review',
-        keywords: ['review', 'validate', 'lint', 'smoke'],
-        when: (ctx) => Boolean(ctx.values['review.active']),
-        run: async () => {
-          if (!activeProposal) {
-            return;
-          }
-          await validateProposal(activeProposal.id);
-          setActiveView('kal.review');
-        },
-      },
-      {
-        id: 'project.diagnostics.refresh',
-        title: t('refreshDiagnostics'),
-        description: t('refreshDiagnosticsDesc'),
-        section: t('section.project'),
-        keywords: ['diagnostics', 'problems', 'lint'],
-        run: async () => {
-          await refreshDiagnostics();
-          setActiveView('kal.problems');
         },
       },
       {
@@ -301,27 +198,21 @@ export function useCommandRegistry() {
       },
     ];
 
-    return [...viewCommands, ...presetCommands, ...projectCommands];
+    return [...viewCommands, ...projectCommands];
   }, [
     advanceRun,
-    createCommentThread,
     createCheckpoint,
-    createReviewProposal,
     createRun,
     redo,
     refreshDiagnostics,
     reloadProject,
     replayRun,
-    setActiveProposal,
-    setActivePreset,
     setActiveView,
     setCommandPaletteOpen,
     stepRun,
     toggleBreakpoint,
     undo,
-    validateProposal,
     views,
-    activeProposal,
     selectedRunId,
     selectedStepId,
     t,
@@ -333,6 +224,5 @@ export function useCommandRegistry() {
     commands: commands.filter((command) => !command.when || command.when(context)),
     allCommands: commands,
     activeViewId,
-    activePreset,
   };
 }

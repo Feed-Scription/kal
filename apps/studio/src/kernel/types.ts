@@ -21,11 +21,6 @@ export type StudioActivationEvent =
   | `onView:${string}`
   | `onCommand:${string}`
   | `onEvent:${string}`;
-export type StudioWorkspacePreset =
-  | 'authoring'
-  | 'debug'
-  | 'review'
-  | 'package';
 export type StudioContextValue = string | boolean | null;
 export type StudioRenderableComponent = ComponentType;
 export type StudioCapabilityId =
@@ -36,10 +31,6 @@ export type StudioCapabilityId =
   | 'trace.read'
   | 'network.fetch'
   | 'process.exec'
-  | 'package.install'
-  | 'package.publish'
-  | 'comment.write'
-  | 'review.accept'
   | 'ai.invoke';
 
 export interface StudioCapabilityCatalogEntry {
@@ -72,7 +63,6 @@ export interface StudioContributionBaseDescriptor {
   title: string;
   description: string;
   component: StudioRenderableComponent;
-  presets?: StudioWorkspacePreset[];
   order?: number;
 }
 
