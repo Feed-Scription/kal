@@ -26,10 +26,6 @@
         ],
         "outputs": [
           {
-            "name": "messages",
-            "type": "ChatMessage[]"
-          },
-          {
             "name": "text",
             "type": "string"
           },
@@ -39,82 +35,70 @@
           }
         ],
         "config": {
-          "defaultRole": "system",
           "fragments": [
             {
               "type": "base",
               "id": "header",
-              "content": "═══════════ 角色卡片 ═══════════",
-              "role": "system"
+              "content": "═══════════ 角色卡片 ═══════════"
             },
             {
               "type": "field",
               "id": "name",
               "source": "state.playerName",
-              "template": "姓名: {{items}}",
-              "role": "system"
+              "template": "姓名: {{items}}"
             },
             {
               "type": "field",
               "id": "race",
               "source": "state.race",
-              "template": "种族: {{items}}",
-              "role": "system"
+              "template": "种族: {{items}}"
             },
             {
               "type": "field",
               "id": "class",
               "source": "state.class",
-              "template": "职业: {{items}}",
-              "role": "system"
+              "template": "职业: {{items}}"
             },
             {
               "type": "field",
               "id": "strength",
               "source": "state.strength",
-              "template": "力量: {{items}}",
-              "role": "system"
+              "template": "力量: {{items}}"
             },
             {
               "type": "field",
               "id": "dexterity",
               "source": "state.dexterity",
-              "template": "敏捷: {{items}}",
-              "role": "system"
+              "template": "敏捷: {{items}}"
             },
             {
               "type": "field",
               "id": "intelligence",
               "source": "state.intelligence",
-              "template": "智力: {{items}}",
-              "role": "system"
+              "template": "智力: {{items}}"
             },
             {
               "type": "field",
               "id": "health",
               "source": "state.maxHealth",
-              "template": "生命值: {{items}}",
-              "role": "system"
+              "template": "生命值: {{items}}"
             },
             {
               "type": "field",
               "id": "skills",
               "source": "state.skills",
-              "template": "技能: {{items}}",
-              "role": "system"
+              "template": "技能: {{items}}"
             },
             {
               "type": "field",
               "id": "background",
               "source": "state.background",
-              "template": "\n背景故事:\n{{items}}",
-              "role": "system"
+              "template": "\n背景故事:\n{{items}}"
             },
             {
               "type": "base",
               "id": "footer",
-              "content": "═══════════════════════════════",
-              "role": "system"
+              "content": "═══════════════════════════════"
             }
           ]
         }
