@@ -240,6 +240,7 @@ function FlowInner() {
           return {
             ...base,
             type: 'backEdge',
+            zIndex: 1000,
             style: {
               stroke: '#f59e0b',
               strokeWidth: 2,
@@ -397,6 +398,7 @@ function FlowInner() {
             return {
               ...edge,
               type: 'backEdge',
+              zIndex: 1000,
               style: { stroke: '#f59e0b', strokeWidth: 2, strokeDasharray: '8 4' },
               animated: true,
               markerEnd: { type: MarkerType.ArrowClosed, color: '#f59e0b' },
