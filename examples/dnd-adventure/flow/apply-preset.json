@@ -18,10 +18,6 @@
         "id": "signal-in",
         "type": "SignalIn",
         "label": "信号输入",
-        "position": {
-          "x": 12,
-          "y": 22
-        },
         "inputs": [],
         "outputs": [
           {
@@ -37,10 +33,6 @@
         "id": "preset",
         "type": "PresetCharacter",
         "label": "预设角色",
-        "position": {
-          "x": 470,
-          "y": 22
-        },
         "inputs": [
           {
             "name": "presetId",

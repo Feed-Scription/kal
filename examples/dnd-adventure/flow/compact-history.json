@@ -17,10 +17,6 @@
         "id": "prompt-build",
         "type": "PromptBuild",
         "label": "摘要指令",
-        "position": {
-          "x": -31.055890650389102,
-          "y": -143.47824691054473
-        },
         "inputs": [
           {
             "name": "data",
@@ -65,10 +61,6 @@
         "id": "generate-text",
         "type": "GenerateText",
         "label": "生成摘要",
-        "position": {
-          "x": 426,
-          "y": -100
-        },
         "inputs": [
           {
             "name": "messages",
@@ -98,10 +90,6 @@
         "id": "compact",
         "type": "CompactHistory",
         "label": "压缩历史",
-        "position": {
-          "x": 852,
-          "y": -232
-        },
         "inputs": [
           {
             "name": "summary",
@@ -124,10 +112,6 @@
         "id": "signal-out",
         "type": "SignalOut",
         "label": "输出结果",
-        "position": {
-          "x": 852,
-          "y": 32
-        },
         "inputs": [
           {
             "name": "data",
