@@ -377,8 +377,23 @@ function FlowInner() {
   );
 
   const onNodesChange: OnNodesChange = useCallback(
-    (changes) => setNodes((nds) => applyNodeChanges(changes, nds)),
-    [setNodes],
+    (changes) => {
+      setNodes((nds) => applyNodeChanges(changes, nds));
+      // When nodes are dragged, ELK route waypoints become stale — clear them
+      const hasDrag = changes.some((c) => c.type === 'position' && c.dragging);
+      if (hasDrag) {
+        setEdges((eds) =>
+          eds.map((e) => {
+            const d = e.data as Record<string, unknown> | undefined;
+            if (d?.route) {
+              return { ...e, data: { ...d, route: undefined } };
+            }
+            return e;
+          }),
+        );
+      }
+    },
+    [setNodes, setEdges],
   );
 
   const onEdgesChange: OnEdgesChange = useCallback(
@@ -590,22 +605,24 @@ function FlowInner() {
   const handleAutoLayout = useCallback(async () => {
     const nodeIds = nodes.map((n) => n.id);
     const simpleEdges = edges.map((e) => ({ source: e.source, target: e.target }));
-    const { positions, backEdges } = await elkLayout(nodeIds, simpleEdges, ELK_FLOW_OPTS);
+    const { positions, edgeRoutes, backEdges } = await elkLayout(nodeIds, simpleEdges, ELK_FLOW_OPTS);
     setNodes((nds) =>
       nds.map((n) => {
         const pos = positions.get(n.id);
         return pos ? { ...n, position: pos } : n;
       }),
     );
-    // Re-apply back-edge styling after layout
+    // Re-apply back-edge styling after layout, inject ELK routes into edge data
     setEdges((eds) =>
       eds.map((edge) => {
-        const isBack = backEdges.has(`${edge.source}->${edge.target}`);
+        const edgeKey = `${edge.source}->${edge.target}`;
+        const isBack = backEdges.has(edgeKey);
         if (isBack) {
           return {
             ...edge,
             type: 'smoothstep',
             zIndex: 1000,
+            data: { ...((edge.data ?? {}) as Record<string, unknown>), route: undefined },
             style: { stroke: '#f59e0b', strokeWidth: 2, strokeDasharray: '8 4' },
             animated: true,
             markerEnd: { type: MarkerType.ArrowClosed, color: '#f59e0b' },
@@ -613,9 +630,15 @@ function FlowInner() {
             labelStyle: { fill: '#f59e0b', fontWeight: 600, fontSize: 12 },
           };
         }
-        // Reset non-back edges to elegant curve
+        // Inject ELK route waypoints so ElegantEdge can draw around nodes
+        const route = edgeRoutes.get(edgeKey);
         const { style: _s, label: _l, labelStyle: _ls, zIndex: _z, ...rest } = edge;
-        return { ...rest, type: 'elegant', animated: true };
+        return {
+          ...rest,
+          type: 'elegant',
+          animated: true,
+          data: { ...((edge.data ?? {}) as Record<string, unknown>), route: route ?? undefined },
+        };
       }),
     );
     // Fit view after layout

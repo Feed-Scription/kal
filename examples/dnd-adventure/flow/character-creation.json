@@ -13,8 +13,8 @@
         "type": "ReadState",
         "label": "读取状态",
         "position": {
-          "x": 0,
-          "y": -232
+          "x": 12,
+          "y": 252
         },
         "inputs": [
           {
@@ -40,8 +40,8 @@
         "type": "ReadState",
         "label": "读取状态",
         "position": {
-          "x": 0,
-          "y": 32
+          "x": 12,
+          "y": 12
         },
         "inputs": [
           {
@@ -67,8 +67,8 @@
         "type": "CharacterGen",
         "label": "角色生成",
         "position": {
-          "x": 426,
-          "y": -100
+          "x": 460,
+          "y": 132
         },
         "inputs": [
           {
@@ -111,8 +111,8 @@
         "type": "WriteState",
         "label": "批量应用状态",
         "position": {
-          "x": 852,
-          "y": -100
+          "x": 908,
+          "y": 132
         },
         "inputs": [
           {
