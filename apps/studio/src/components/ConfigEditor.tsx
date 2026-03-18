@@ -25,14 +25,11 @@ function setPath(obj: KalConfig, path: string[], value: unknown): KalConfig {
   return clone as KalConfig;
 }
 
-function sanitizeConfigForSave(draft: KalConfig, current: KalConfig): KalConfig {
+function stripRestrictedLlmFields(config: KalConfig): Partial<KalConfig> {
+  const { apiKey: _apiKey, baseUrl: _baseUrl, ...persistableLlm } = config.llm;
   return {
-    ...draft,
-    llm: {
-      ...draft.llm,
-      apiKey: current.llm.apiKey,
-      baseUrl: current.llm.baseUrl,
-    },
+    ...config,
+    llm: persistableLlm as KalConfig['llm'],
   };
 }
 
@@ -54,17 +51,23 @@ export function ConfigEditor() {
   if (!effective) return null;
 
   const isDirty = draft !== null && JSON.stringify(draft) !== JSON.stringify(config);
-  const sanitizedDraft = useMemo(() => {
-    if (!draft || !config) return null;
-    return sanitizeConfigForSave(draft, config);
-  }, [config, draft]);
+  const persistableDraft = useMemo(() => {
+    if (!draft) return null;
+    return stripRestrictedLlmFields(draft);
+  }, [draft]);
+  const persistableConfig = useMemo(() => {
+    if (!config) return null;
+    return stripRestrictedLlmFields(config);
+  }, [config]);
   const hasRestrictedChanges = Boolean(
     draft &&
       config &&
       (draft.llm.apiKey !== config.llm.apiKey || draft.llm.baseUrl !== config.llm.baseUrl)
   );
   const hasPersistableChanges = Boolean(
-    sanitizedDraft && config && JSON.stringify(sanitizedDraft) !== JSON.stringify(config)
+    persistableDraft &&
+      persistableConfig &&
+      JSON.stringify(persistableDraft) !== JSON.stringify(persistableConfig)
   );
 
   const update = (path: string[], value: unknown) => {
@@ -74,13 +77,13 @@ export function ConfigEditor() {
   const reset = () => setDraft(null);
 
   const handleSave = async () => {
-    if (!config || !sanitizedDraft || !hasPersistableChanges) {
+    if (!config || !persistableDraft || !hasPersistableChanges) {
       return;
     }
     setIsSaving(true);
     setSaveError(null);
     try {
-      await updateConfig(sanitizedDraft);
+      await updateConfig(persistableDraft);
       setDraft(null);
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : t('saveFailed'));
