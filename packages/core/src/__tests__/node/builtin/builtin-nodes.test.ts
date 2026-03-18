@@ -27,26 +27,22 @@ describe('Transform 节点', () => {
 });
 
 describe('LLM 节点', () => {
-  it('PromptBuild 应该支持 state 绑定并输出 messages', async () => {
+  it('PromptBuild 应该支持 state 绑定并输出 text', async () => {
     const ctx = createMockContext();
     ctx.state.set('player', { type: 'object', value: { name: 'Alice' } });
     const result = await PromptBuild.execute(
       { data: {} },
       {
-        defaultRole: 'system',
         fragments: [
-          { type: 'base', id: 'intro', content: 'You are an AI', role: 'system' },
-          { type: 'field', id: 'name', source: 'state.player.name', template: 'Player: {{items}}', role: 'user' },
+          { type: 'base', id: 'intro', content: 'You are an AI' },
+          { type: 'field', id: 'name', source: 'state.player.name', template: 'Player: {{items}}' },
         ],
       },
       ctx
     );
     expect(result.text).toContain('You are an AI');
     expect(result.text).toContain('Player: Alice');
-    expect(result.messages).toEqual([
-      { role: 'system', content: 'You are an AI' },
-      { role: 'user', content: 'Player: Alice' },
-    ]);
+    expect(result.messages).toBeUndefined();
   });
 
   it('Message 应该从 state 读取 history', async () => {
