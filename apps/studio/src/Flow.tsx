@@ -5,12 +5,14 @@ import {
   addEdge,
   applyNodeChanges,
   applyEdgeChanges,
+  useReactFlow,
   type Node,
   type Edge,
   type FitViewOptions,
   type OnConnect,
   type OnNodesChange,
   type OnEdgesChange,
+  type OnConnectStart,
   type DefaultEdgeOptions,
   Controls,
   MiniMap,
@@ -117,6 +119,18 @@ const defaultEdgeOptions: DefaultEdgeOptions = {
   animated: true,
 };
 
+/** Map a port type string to a stroke color for edges */
+function edgeColorForType(portType?: string): string {
+  if (!portType) return '#94a3b8';
+  const t = portType.toLowerCase();
+  if (t.includes('chatmessage') || t.includes('message')) return '#3b82f6'; // blue
+  if (t === 'string' || t === 'string[]') return '#10b981'; // green
+  if (t === 'number' || t === 'number[]' || t === 'integer') return '#f59e0b'; // amber
+  if (t === 'boolean') return '#ef4444'; // red
+  if (t === 'any' || t === 'unknown') return '#94a3b8'; // gray
+  return '#8b5cf6'; // purple for other/custom types
+}
+
 export default function Flow() {
   const { project } = useStudioResources();
   const { flowId: currentFlow } = useFlowResource();
@@ -162,6 +176,10 @@ export default function Flow() {
     y: 0,
   });
 
+  // Track drag-connect origin for smart node suggestions
+  const connectStartRef = useRef<{ nodeId: string; handleId: string | null; handleType: 'source' | 'target' } | null>(null);
+  const { screenToFlowPosition } = useReactFlow();
+
   // Load flow data when currentFlow changes (not when project updates from save)
   useEffect(() => {
     if (project && currentFlow && project.flows[currentFlow]) {
@@ -187,13 +205,28 @@ export default function Flow() {
         };
       });
 
+      // Build a lookup: nodeId → outputs array for edge coloring
+      const nodeOutputsMap = new Map<string, Array<{ name: string; type: string }>>();
+      for (const node of flowDef.data.nodes) {
+        const manifest = manifestMap.get(node.type);
+        nodeOutputsMap.set(node.id, node.outputs?.length ? node.outputs : manifest?.outputs || []);
+      }
+
       const reactFlowEdges: Edge[] = flowDef.data.edges.map((edge, idx) => {
+        // Resolve source port type for edge coloring
+        const sourceOutputs = nodeOutputsMap.get(edge.source) ?? [];
+        const sourcePort = edge.sourceHandle
+          ? sourceOutputs.find((o) => o.name === edge.sourceHandle)
+          : sourceOutputs[0];
+        const color = edgeColorForType(sourcePort?.type);
+
         const base: Edge = {
           id: `e-${edge.source}-${edge.target}-${idx}`,
           source: edge.source,
           sourceHandle: edge.sourceHandle,
           target: edge.target,
           targetHandle: edge.targetHandle,
+          style: { stroke: color, strokeWidth: 2 },
         };
         const isBack = backEdges.has(`${edge.source}->${edge.target}`);
         if (isBack) {
@@ -249,10 +282,11 @@ export default function Flow() {
   const addNodeAtPosition = useCallback(
     (position: { x: number; y: number }, nodeType: string) => {
       const manifest = manifestMap.get(nodeType);
+      const newNodeId = `${nodeType}-${Date.now()}`;
       setNodes((nds) => [
         ...nds,
         {
-          id: `${nodeType}-${Date.now()}`,
+          id: newNodeId,
           position,
           data: {
             label: manifest?.label || nodeType,
@@ -264,8 +298,71 @@ export default function Flow() {
           type: nodeType,
         },
       ]);
+
+      // Auto-connect if this was triggered by a drag-connect drop
+      const origin = connectStartRef.current;
+      if (origin) {
+        const newInputs = manifest?.inputs || [];
+        const newOutputs = manifest?.outputs || [];
+
+        if (origin.handleType === 'source') {
+          // Dragged from a source port → connect to the new node's first input
+          const targetHandle = newInputs[0]?.name ?? null;
+          setEdges((eds) =>
+            addEdge(
+              { source: origin.nodeId, sourceHandle: origin.handleId, target: newNodeId, targetHandle },
+              eds,
+            ),
+          );
+        } else {
+          // Dragged from a target port → connect from the new node's first output
+          const sourceHandle = newOutputs[0]?.name ?? null;
+          setEdges((eds) =>
+            addEdge(
+              { source: newNodeId, sourceHandle, target: origin.nodeId, targetHandle: origin.handleId },
+              eds,
+            ),
+          );
+        }
+        connectStartRef.current = null;
+      }
     },
     [manifestMap],
+  );
+
+  const onConnectStart: OnConnectStart = useCallback(
+    (_event, params) => {
+      connectStartRef.current = {
+        nodeId: params.nodeId ?? '',
+        handleId: params.handleId ?? null,
+        handleType: params.handleType ?? 'source',
+      };
+    },
+    [],
+  );
+
+  const onConnectEnd = useCallback(
+    (event: MouseEvent | TouchEvent) => {
+      // Only trigger if the connection was dropped on the pane (not on a node handle)
+      const target = event.target as HTMLElement;
+      if (!target?.classList?.contains('react-flow__pane') && !target?.closest('.react-flow__pane')) {
+        connectStartRef.current = null;
+        return;
+      }
+
+      // Get the drop position
+      const clientPos = 'changedTouches' in event
+        ? { x: event.changedTouches[0].clientX, y: event.changedTouches[0].clientY }
+        : { x: (event as MouseEvent).clientX, y: (event as MouseEvent).clientY };
+
+      // Open context menu at drop position (connectStartRef is still set, addNodeAtPosition will use it)
+      setContextMenu({
+        open: true,
+        x: clientPos.x,
+        y: clientPos.y,
+      });
+    },
+    [],
   );
 
   const onNodesChange: OnNodesChange = useCallback(
@@ -444,6 +541,8 @@ export default function Flow() {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        onConnectStart={onConnectStart}
+        onConnectEnd={onConnectEnd}
         onSelectionChange={onSelectionChange}
         onPaneContextMenu={onPaneContextMenu}
         nodeTypes={nodeTypes}
@@ -454,9 +553,15 @@ export default function Flow() {
           <Controls />
           <MiniMap
             nodeColor={(node) => {
-              if (node.type === 'SignalIn') return '#22c55e';
-              if (node.type === 'SignalOut') return '#3b82f6';
-              return '#94a3b8';
+              const manifest = manifestMap.get(node.type ?? '');
+              switch (manifest?.category) {
+                case 'signal': return '#38bdf8';
+                case 'state': return '#34d399';
+                case 'llm': return '#fbbf24';
+                case 'transform': return '#e879f9';
+                case 'utility': return '#94a3b8';
+                default: return '#cbd5e1';
+              }
             }}
             maskColor="rgba(0, 0, 0, 0.1)"
           />

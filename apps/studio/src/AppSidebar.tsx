@@ -139,7 +139,7 @@ export function AppSidebar({ children }: AppSidebarProps) {
 
   return (
     <SidebarProvider>
-      <Sidebar className="pb-8">
+      <Sidebar collapsible="icon" className="pb-8">
         <SidebarHeader className="border-b border-sidebar-border">
           <SidebarMenu>
             <SidebarMenuItem>

@@ -14,9 +14,12 @@
     "signal": "Signal Nodes",
     "state": "State Nodes",
     "llm": "LLM Nodes",
-    "transform": "Transform Nodes"
+    "transform": "Transform Nodes",
+    "utility": "Utility Nodes"
   },
   "noEditableConfig": "This node has no editable configuration.",
+  "showConfig": "Show {{count}} fields",
+  "hideConfig": "Collapse",
   "addCandidate": "Add Candidate",
   "addSubFragment": "Add Sub-fragment",
   "addType": "Add {{type}}",
@@ -42,6 +45,8 @@
   "cancel": "Cancel",
   "executionFailed": "Execution failed",
   "jsonFormatError": "Invalid JSON format",
+  "searchNodes": "Search nodes...",
+  "noResults": "No matching nodes.",
   "nodeLabel": {
     "source": "Source",
     "template": "Template",
