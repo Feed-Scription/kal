@@ -12,7 +12,7 @@ export function StatusBar() {
   const { flowId: currentFlow } = useFlowResource();
   const { engineConnected } = useConnectionState();
   const saveState = useSaveState();
-  const { activeExtension } = useWorkbench();
+  const { activeExtension, activeViewId } = useWorkbench();
   const jobs = useKernelJobs();
   const capabilityGate = useCapabilityGate(activeExtension?.capabilities);
 
@@ -22,7 +22,8 @@ export function StatusBar() {
     return formatTimeI18n(date);
   };
 
-  const currentFlowData = currentFlow ? project.flows[currentFlow] : null;
+  const showFlowStats = activeViewId === 'kal.flow' && Boolean(currentFlow);
+  const currentFlowData = showFlowStats && currentFlow ? project.flows[currentFlow] : null;
   const lastSaved = saveState.updatedAt ? new Date(saveState.updatedAt) : null;
   const activeJobs = jobs.filter((job) => job.status === "running");
 
@@ -38,7 +39,7 @@ export function StatusBar() {
         <span className="text-muted-foreground">
           {t("project")} <span className="font-medium text-foreground">{project.config.name}</span>
         </span>
-        {currentFlow && (
+        {showFlowStats && currentFlow && (
           <span className="text-muted-foreground">
             {t("flowLabel")} <span className="font-medium text-foreground">{currentFlow}</span>
           </span>

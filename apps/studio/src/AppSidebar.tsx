@@ -13,7 +13,7 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { Command, LayoutDashboard, Plus, RefreshCw, X } from "lucide-react";
+import { Command, LayoutDashboard, Plus, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { useTranslation } from 'react-i18next';
@@ -42,7 +42,7 @@ export function AppSidebar({ children }: AppSidebarProps) {
   const { flowId: currentFlow } = useFlowResource();
   const { activePreset, activeViewId, coreExtensions, workflowExtensions } = useWorkbench();
   const extensionRuntime = useExtensionRuntimeMap();
-  const { setActiveView, setActivePreset, setCommandPaletteOpen, openFlow, disconnect, createFlow, reloadProject } = useStudioCommands();
+  const { setActiveView, setActivePreset, setCommandPaletteOpen, openFlow, createFlow, reloadProject } = useStudioCommands();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [flowNameInput, setFlowNameInput] = useState("");
@@ -234,17 +234,6 @@ export function AppSidebar({ children }: AppSidebarProps) {
                       >
                         <RefreshCw className={`mr-2 size-4 ${reloading ? "animate-spin" : ""}`} />
                         {reloading ? t("reloading") : t("reloadProject")}
-                      </Button>
-                    </SidebarMenuItem>
-                    <SidebarMenuItem>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="w-full justify-start"
-                        onClick={disconnect}
-                      >
-                        <X className="mr-2 size-4" />
-                        {t("disconnect")}
                       </Button>
                     </SidebarMenuItem>
                   </SidebarMenu>

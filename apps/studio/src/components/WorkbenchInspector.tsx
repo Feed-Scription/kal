@@ -107,7 +107,7 @@ export function WorkbenchInspector({ mobile }: { mobile?: boolean } = {}) {
   }, [selectedNodeManifest?.config]);
 
   const tabs: { id: InspectorTab; label: string; icon: React.ReactNode; badge?: string }[] = [
-    { id: 'node', label: t('inspectorTab.node'), icon: <Crosshair className="size-3.5" />, badge: selectedNodeId ? '1' : undefined },
+    { id: 'node', label: t('inspectorTab.node'), icon: <Crosshair className="size-3.5" /> },
     { id: 'flow', label: t('inspectorTab.flow'), icon: <Layers2 className="size-3.5" /> },
     { id: 'extension', label: t('inspectorTab.extension'), icon: <Puzzle className="size-3.5" /> },
     { id: 'session', label: t('inspectorTab.session'), icon: <Route className="size-3.5" /> },

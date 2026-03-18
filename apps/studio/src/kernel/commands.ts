@@ -19,26 +19,25 @@ export function useCommandRegistry() {
     history: t('preset.history'),
     package: t('preset.package'),
   };
-    const {
-      advanceRun,
-      createCommentThread,
-      createReviewProposal,
-      createRun,
+  const {
+    advanceRun,
+    createCommentThread,
+    createReviewProposal,
+    createRun,
     validateProposal,
-    disconnect,
     reloadProject,
     createCheckpoint,
     refreshDiagnostics,
-      replayRun,
-      setActiveProposal,
-      setActivePreset,
-      setActiveView,
-      setCommandPaletteOpen,
-      stepRun,
-      toggleBreakpoint,
-      undo,
-      redo,
-    } = useStudioCommands();
+    replayRun,
+    setActiveProposal,
+    setActivePreset,
+    setActiveView,
+    setCommandPaletteOpen,
+    stepRun,
+    toggleBreakpoint,
+    undo,
+    redo,
+  } = useStudioCommands();
   const commands = useMemo<StudioCommandDescriptor[]>(() => {
     const viewCommands = views.map((view) => {
       const title = tr(view.title);
@@ -278,17 +277,6 @@ export function useCommandRegistry() {
         },
       },
       {
-        id: 'project.disconnect',
-        title: t('disconnectEngine'),
-        description: t('disconnectEngineDesc'),
-        section: t('section.project'),
-        keywords: ['disconnect', 'engine'],
-        when: (ctx) => Boolean(ctx.values['engine.connected']),
-        run: () => {
-          disconnect();
-        },
-      },
-      {
         id: 'workbench.language',
         title: t('switchLanguage'),
         description: t('switchLanguageDesc'),
@@ -321,7 +309,6 @@ export function useCommandRegistry() {
     createCheckpoint,
     createReviewProposal,
     createRun,
-    disconnect,
     redo,
     refreshDiagnostics,
     reloadProject,
