@@ -76,7 +76,7 @@ kal debug --continue --input "your response here"
 **Symptoms:** `kal debug --start` creates a run that immediately enters `error` status.
 
 **Common causes:**
-1. Missing LLM API key — set `OPENAI_API_KEY` or configure via `kal config set llm.apiKey`
+1. Missing LLM API key — set `OPENAI_API_KEY` or reference it from `kal_config.json` as `${OPENAI_API_KEY}`
 2. Invalid flow reference — a session step references a flow that doesn't exist
 3. Custom node error — a custom node's `execute` function threw an exception
 
