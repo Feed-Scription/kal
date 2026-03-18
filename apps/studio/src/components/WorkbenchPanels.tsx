@@ -10,8 +10,8 @@ export function WorkbenchPanels() {
   const { diagnostics } = useDiagnostics();
   const [collapsed, setCollapsed] = useState(true);
 
-  const errorCount = diagnostics?.errors?.length ?? 0;
-  const warningCount = diagnostics?.warnings?.length ?? 0;
+  const errorCount = diagnostics?.summary?.errors ?? 0;
+  const warningCount = diagnostics?.summary?.warnings ?? 0;
   const issueCount = errorCount + warningCount;
 
   // Auto-expand when new errors appear
