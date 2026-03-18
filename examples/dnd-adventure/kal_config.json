@@ -10,7 +10,7 @@
     "provider": "openai",
     "apiKey": "${OPENAI_API_KEY}",
     "baseUrl": "${OPENAI_BASE_URL}",
-    "defaultModel": "GLM-5",
+    "defaultModel": "moonshotai/kimi-k2.5",
     "retry": {
       "maxRetries": 2,
       "initialDelayMs": 1000,
@@ -19,7 +19,13 @@
       "jitter": true
     },
     "cache": {
-      "enabled": false
+      "enabled": false,
+      "ttl": 3600000,
+      "maxEntries": 1000
     }
+  },
+  "image": {
+    "provider": "openai",
+    "apiKey": "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"
   }
 }

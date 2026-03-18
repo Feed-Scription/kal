@@ -15,16 +15,11 @@ export interface PromptScope {
   };
 }
 
-interface ResolvedSegment {
-  text: string;
-  role?: ChatMessageRole;
-}
-
 /**
  * Resolve a list of fragments into text segments
  */
 export function composeSegments(fragments: Fragment[], scope: PromptScope = {}): string[] {
-  return fragments.flatMap((fragment) => resolveFragment(fragment, scope).map((segment) => segment.text));
+  return fragments.flatMap((fragment) => resolveFragment(fragment, scope));
 }
 
 export function compose(fragments: Fragment[], scope: PromptScope = {}): string {
@@ -37,24 +32,10 @@ export function composeMessages(
   options: { defaultRole?: ChatMessageRole } = {}
 ): ChatMessage[] {
   const defaultRole = options.defaultRole ?? 'system';
-  const messages: ChatMessage[] = [];
-
-  for (const segment of fragments.flatMap((fragment) => resolveFragment(fragment, scope))) {
-    if (!segment.text) {
-      continue;
-    }
-
-    const role = segment.role ?? defaultRole;
-    const previous = messages[messages.length - 1];
-    if (previous && previous.role === role) {
-      previous.content = `${previous.content}\n\n${segment.text}`;
-      continue;
-    }
-
-    messages.push({ role, content: segment.text });
-  }
-
-  return messages;
+  const segments = composeSegments(fragments, scope);
+  const text = segments.filter(Boolean).join('\n\n');
+  if (!text) return [];
+  return [{ role: defaultRole, content: text }];
 }
 
 /**
@@ -72,25 +53,22 @@ export function interpolateVariables(text: string, scope: PromptScope): string {
 function resolveFragment(
   fragment: Fragment,
   scope: PromptScope,
-  inheritedRole?: ChatMessageRole
-): ResolvedSegment[] {
-  const effectiveRole = ('role' in fragment ? fragment.role : undefined) ?? inheritedRole;
-
+): string[] {
   switch (fragment.type) {
     case 'base':
-      return [{ text: interpolateVariables(fragment.content, scope), role: effectiveRole }];
+      return [interpolateVariables(fragment.content, scope)];
 
     case 'field':
-      return resolveField(fragment, scope, effectiveRole);
+      return resolveField(fragment, scope);
 
     case 'when':
-      return resolveWhen(fragment, scope, effectiveRole);
+      return resolveWhen(fragment, scope);
 
     case 'randomSlot':
-      return resolveRandomSlot(fragment, scope, effectiveRole);
+      return resolveRandomSlot(fragment, scope);
 
     case 'budget':
-      return resolveBudget(fragment, scope, effectiveRole);
+      return resolveBudget(fragment, scope);
 
     default:
       return [];
@@ -103,8 +81,7 @@ function resolveFragment(
 function resolveField(
   fragment: Extract<Fragment, { type: 'field' }>,
   scope: PromptScope,
-  inheritedRole?: ChatMessageRole
-): ResolvedSegment[] {
+): string[] {
   const value = getValue(fragment.source, scope);
   if (value === undefined || value === null) return [];
 
@@ -144,10 +121,7 @@ function resolveField(
 
   const fmt = fragment.format ?? fragment.template
     ?? ((fragment as any).label ? `${(fragment as any).label}: {{items}}` : '{{items}}');
-  return [{
-    text: fmt.replace('{{items}}', serialized),
-    role: fragment.role ?? inheritedRole,
-  }];
+  return [fmt.replace('{{items}}', serialized)];
 }
 
 /**
@@ -157,9 +131,7 @@ function resolveField(
 function resolveWhen(
   fragment: Extract<Fragment, { type: 'when' }>,
   scope: PromptScope,
-  inheritedRole?: ChatMessageRole
-): ResolvedSegment[] {
-  const nextRole = fragment.role ?? inheritedRole;
+): string[] {
   const reader = scopeToReader(scope);
   const conditionValue = evaluateCondition(fragment.condition, reader, { mode: 'lenient' });
 
@@ -167,14 +139,14 @@ function resolveWhen(
     // Support shorthand: content string instead of fragments array
     const children = fragment.fragments
       ?? ((fragment as any).content ? [{ type: 'base' as const, id: fragment.id + '_content', content: (fragment as any).content }] : []);
-    return children.flatMap((child: Fragment) => resolveFragment(child, scope, nextRole));
+    return children.flatMap((child: Fragment) => resolveFragment(child, scope));
   }
   if (fragment.else) {
     // Support shorthand: else as string instead of Fragment[]
     if (typeof fragment.else === 'string') {
-      return fragment.else ? [{ text: fragment.else, role: nextRole }] : [];
+      return fragment.else ? [fragment.else] : [];
     }
-    return fragment.else.flatMap((child) => resolveFragment(child, scope, nextRole));
+    return fragment.else.flatMap((child) => resolveFragment(child, scope));
   }
   return [];
 }
@@ -185,8 +157,7 @@ function resolveWhen(
 function resolveRandomSlot(
   fragment: Extract<Fragment, { type: 'randomSlot' }>,
   scope: PromptScope,
-  inheritedRole?: ChatMessageRole
-): ResolvedSegment[] {
+): string[] {
   if (fragment.candidates.length === 0) return [];
 
   let index: number;
@@ -197,7 +168,7 @@ function resolveRandomSlot(
   }
 
   const selected = fragment.candidates[index]!;
-  return resolveFragment(selected, scope, fragment.role ?? inheritedRole);
+  return resolveFragment(selected, scope);
 }
 
 /**
@@ -206,14 +177,12 @@ function resolveRandomSlot(
 function resolveBudget(
   fragment: Extract<Fragment, { type: 'budget' }>,
   scope: PromptScope,
-  inheritedRole?: ChatMessageRole
-): ResolvedSegment[] {
-  const nextRole = fragment.role ?? inheritedRole;
-  const allSegments = fragment.fragments.flatMap((child) => resolveFragment(child, scope, nextRole));
+): string[] {
+  const allSegments = fragment.fragments.flatMap((child) => resolveFragment(child, scope));
 
   let totalTokens = 0;
-  const segmentTokens = allSegments.map((segment) => {
-    const tokens = estimateTokens(segment.text);
+  const segmentTokens = allSegments.map((text) => {
+    const tokens = estimateTokens(text);
     totalTokens += tokens;
     return tokens;
   });
@@ -223,7 +192,7 @@ function resolveBudget(
   }
 
   if (fragment.strategy === 'tail') {
-    const result: ResolvedSegment[] = [];
+    const result: string[] = [];
     let used = 0;
     for (let index = 0; index < allSegments.length; index++) {
       if (used + segmentTokens[index]! <= fragment.maxTokens) {
@@ -238,17 +207,17 @@ function resolveBudget(
 
   if (fragment.strategy === 'weighted' && fragment.weights) {
     const indexed = fragment.fragments.map((child, index) => ({
-      segments: resolveFragment(child, scope, nextRole),
+      segments: resolveFragment(child, scope),
       weight: ('id' in child && child.id) ? (fragment.weights![child.id] ?? 1) : 1,
       index,
     }));
 
     indexed.sort((a, b) => b.weight - a.weight);
 
-    const result: { segments: ResolvedSegment[]; index: number }[] = [];
+    const result: { segments: string[]; index: number }[] = [];
     let used = 0;
     for (const item of indexed) {
-      const tokens = item.segments.reduce((sum, segment) => sum + estimateTokens(segment.text), 0);
+      const tokens = item.segments.reduce((sum, text) => sum + estimateTokens(text), 0);
       if (used + tokens <= fragment.maxTokens) {
         result.push({ segments: item.segments, index: item.index });
         used += tokens;

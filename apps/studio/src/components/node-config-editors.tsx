@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from 'react-i18next';
-import { ArrowDown, ArrowUp, Code, Plus, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Code, Plus, X } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -17,7 +23,6 @@ type PromptFragmentType = "base" | "field" | "when" | "randomSlot" | "budget";
 type PromptFragment = {
   type?: string;
   id?: string;
-  role?: string;
   content?: string;
   condition?: string;
   source?: string;
@@ -48,7 +53,6 @@ function createPromptFragment(type: PromptFragmentType, index: number): PromptFr
     return {
       type,
       id: `field-${index + 1}`,
-      role: "system",
       source: "",
       template: "",
     };
@@ -58,7 +62,6 @@ function createPromptFragment(type: PromptFragmentType, index: number): PromptFr
     return {
       type,
       id: `when-${index + 1}`,
-      role: "system",
       condition: "",
       content: "",
     };
@@ -68,7 +71,6 @@ function createPromptFragment(type: PromptFragmentType, index: number): PromptFr
     return {
       type,
       id: `randomSlot-${index + 1}`,
-      role: "system",
       candidates: [],
       seed: "random",
     };
@@ -78,7 +80,6 @@ function createPromptFragment(type: PromptFragmentType, index: number): PromptFr
     return {
       type,
       id: `budget-${index + 1}`,
-      role: "system",
       maxTokens: 1000,
       strategy: "tail",
       fragments: [],
@@ -88,7 +89,6 @@ function createPromptFragment(type: PromptFragmentType, index: number): PromptFr
   return {
     type,
     id: `base-${index + 1}`,
-    role: "system",
     content: "",
   };
 }
@@ -97,7 +97,6 @@ function normalizePromptFragment(fragment: PromptFragment, type: PromptFragmentT
   const next: PromptFragment = {
     type,
     id: fragment.id ?? "",
-    role: fragment.role ?? "system",
   };
 
   if (type === "field") {
@@ -138,6 +137,21 @@ function parsePromptFragments(value: unknown): PromptFragment[] {
   return value.filter((item): item is PromptFragment => typeof item === "object" && item !== null);
 }
 
+/**
+ * Returns full border-left class for each fragment type.
+ * IMPORTANT: Each class string must appear as a complete literal so Tailwind's
+ * JIT scanner can detect and generate the corresponding CSS.
+ */
+function fragmentAccentClass(type: PromptFragmentType): string {
+  switch (type) {
+    case "base": return "border-l-2 border-l-primary";
+    case "field": return "border-l-2 border-l-emerald-500";
+    case "when": return "border-l-2 border-l-amber-500";
+    case "randomSlot": return "border-l-2 border-l-fuchsia-500";
+    case "budget": return "border-l-2 border-l-sky-500";
+  }
+}
+
 /** Renders type-specific fields for a single fragment */
 function FragmentTypeFields({
   type,
@@ -165,7 +179,7 @@ function FragmentTypeFields({
           <label className="text-xs text-muted-foreground">{t('nodeLabel.template')}</label>
           <Textarea
             className="mt-1 text-xs"
-            rows={3}
+            rows={2}
             value={normalized.template ?? ""}
             onChange={(e) => onUpdate({ template: e.target.value })}
           />
@@ -447,7 +461,7 @@ function FragmentTypeFields({
         <label className="text-xs text-muted-foreground">{t('nodeLabel.content')}</label>
         <Textarea
           className="mt-1 text-xs"
-          rows={5}
+          rows={3}
           value={normalized.content ?? ""}
           onChange={(e) => onUpdate({ content: e.target.value })}
         />
@@ -473,6 +487,22 @@ export function PromptBuildFragmentsField({
   const [rawMode, setRawMode] = useState(hasUnsupportedFragments);
   const [rawText, setRawText] = useState(() => JSON.stringify(value ?? [], null, 2));
   const [rawError, setRawError] = useState<string | null>(null);
+  const [expandedSet, setExpandedSet] = useState<Set<number>>(new Set());
+
+  const toggleExpanded = (index: number) => {
+    setExpandedSet((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) next.delete(index);
+      else next.add(index);
+      return next;
+    });
+  };
+
+  const addFragment = (type: PromptFragmentType) => {
+    const newIndex = fragments.length;
+    onCommit([...fragments, createPromptFragment(type, newIndex)]);
+    setExpandedSet((prev) => new Set(prev).add(newIndex));
+  };
 
   useEffect(() => {
     setRawMode(hasUnsupportedFragments);
@@ -532,7 +562,7 @@ export function PromptBuildFragmentsField({
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-1.5">
       <div className="flex items-center justify-between">
         <label className="text-xs text-muted-foreground">
           {label} {required ? "*" : ""} ({fragments.length})
@@ -550,115 +580,120 @@ export function PromptBuildFragmentsField({
       {fragments.map((fragment, index) => {
         const type = isSupportedPromptFragmentType(fragment.type) ? fragment.type : "base";
         const normalized = normalizePromptFragment(fragment, type);
+        const isExpanded = expandedSet.has(index);
         return (
-          <div key={`${normalized.id || "fragment"}-${index}`} className="space-y-3 rounded-lg border bg-background/70 p-3">
-            <div className="flex items-center gap-2">
-              <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                {type}
-              </span>
+          <div key={`${normalized.id || "fragment"}-${index}`} className={`group/frag rounded-lg border ${fragmentAccentClass(type)} bg-background/70`}>
+            {/* Header row — always visible */}
+            <div
+              className="flex cursor-pointer items-center gap-1.5 px-2.5 py-1.5"
+              onClick={() => toggleExpanded(index)}
+            >
+              {isExpanded
+                ? <ChevronDown className="size-3 shrink-0 text-muted-foreground" />
+                : <ChevronRight className="size-3 shrink-0 text-muted-foreground" />}
+              {!isExpanded && (
+                <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                  {type}
+                </span>
+              )}
               <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
                 {normalized.id || `fragment-${index + 1}`}
               </span>
+              <div className="flex shrink-0 opacity-0 transition-opacity group-hover/frag:opacity-100">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  disabled={index === 0}
+                  onClick={(e) => { e.stopPropagation(); onCommit(moveArrayItem(fragments, index, index - 1)); }}
+                >
+                  <ArrowUp className="size-3" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  disabled={index === fragments.length - 1}
+                  onClick={(e) => { e.stopPropagation(); onCommit(moveArrayItem(fragments, index, index + 1)); }}
+                >
+                  <ArrowDown className="size-3" />
+                </Button>
+              </div>
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7"
-                disabled={index === 0}
-                onClick={() => onCommit(moveArrayItem(fragments, index, index - 1))}
-              >
-                <ArrowUp className="size-3" />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                disabled={index === fragments.length - 1}
-                onClick={() => onCommit(moveArrayItem(fragments, index, index + 1))}
-              >
-                <ArrowDown className="size-3" />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={() => onCommit(fragments.filter((_, currentIndex) => currentIndex !== index))}
+                className="h-6 w-6 shrink-0"
+                onClick={(e) => { e.stopPropagation(); onCommit(fragments.filter((_, ci) => ci !== index)); }}
               >
                 <X className="size-3" />
               </Button>
             </div>
 
-            <div className="grid gap-3 md:grid-cols-3">
-              <div>
-                <label className="text-xs text-muted-foreground">{t('nodeLabel.type')}</label>
-                <Select
-                  value={type}
-                  onValueChange={(nextType: PromptFragmentType) => {
-                    commitFragment(index, normalizePromptFragment(normalized, nextType));
-                  }}
-                >
-                  <SelectTrigger className="mt-1">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {SUPPORTED_PROMPT_FRAGMENT_TYPES.map((item) => (
-                      <SelectItem key={item} value={item}>
-                        {item}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            {/* Expanded form */}
+            {isExpanded && (
+              <div className="space-y-3 border-t px-3 pb-3 pt-2">
+                <div className="grid gap-3">
+                  <div>
+                    <label className="text-xs text-muted-foreground">{t('nodeLabel.type')}</label>
+                    <Select
+                      value={type}
+                      onValueChange={(nextType: PromptFragmentType) => {
+                        commitFragment(index, normalizePromptFragment(normalized, nextType));
+                      }}
+                    >
+                      <SelectTrigger className="mt-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {SUPPORTED_PROMPT_FRAGMENT_TYPES.map((item) => (
+                          <SelectItem key={item} value={item}>
+                            {item}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">Id</label>
+                  <Input
+                    className="mt-1"
+                    value={normalized.id ?? ""}
+                    onChange={(event) => {
+                      commitFragment(index, { ...normalized, id: event.target.value });
+                    }}
+                  />
+                </div>
 
-              <div>
-                <label className="text-xs text-muted-foreground">Id</label>
-                <Input
-                  className="mt-1"
-                  value={normalized.id ?? ""}
-                  onChange={(event) => {
-                    commitFragment(index, { ...normalized, id: event.target.value });
-                  }}
+                <FragmentTypeFields
+                  type={type}
+                  normalized={normalized}
+                  onUpdate={(patch) => commitFragment(index, { ...normalized, ...patch })}
                 />
               </div>
-
-              <div>
-                <label className="text-xs text-muted-foreground">{t('nodeLabel.role')}</label>
-                <Input
-                  className="mt-1"
-                  value={normalized.role ?? ""}
-                  placeholder="system"
-                  onChange={(event) => {
-                    commitFragment(index, { ...normalized, role: event.target.value });
-                  }}
-                />
-              </div>
-            </div>
-
-            <FragmentTypeFields
-              type={type}
-              normalized={normalized}
-              onUpdate={(patch) => commitFragment(index, { ...normalized, ...patch })}
-            />
+            )}
           </div>
         );
       })}
 
-      <div className="flex flex-wrap gap-2">
-        {SUPPORTED_PROMPT_FRAGMENT_TYPES.map((type) => (
-          <Button
-            key={type}
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => onCommit([...fragments, createPromptFragment(type, fragments.length)])}
-          >
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button type="button" variant="outline" size="sm">
             <Plus className="mr-1 size-3" />
-            {t('addType', { type })}
+            {t('addFragment')}
           </Button>
-        ))}
-      </div>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start">
+          {SUPPORTED_PROMPT_FRAGMENT_TYPES.map((type) => (
+            <DropdownMenuItem key={type} onClick={() => addFragment(type)}>
+              {t('addType', { type })}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }

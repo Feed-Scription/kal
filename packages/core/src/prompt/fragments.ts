@@ -2,8 +2,6 @@
  * Prompt fragment types and builders
  */
 
-import type { ChatMessageRole } from '../types/types';
-
 /**
  * Base fragment - static text
  */
@@ -11,7 +9,6 @@ export interface BaseFragment {
   type: 'base';
   id: string;
   content: string;
-  role?: ChatMessageRole;
 }
 
 /**
@@ -20,7 +17,6 @@ export interface BaseFragment {
 export interface FieldFragment {
   type: 'field';
   id: string;
-  role?: ChatMessageRole;
   source: string;
   /** @deprecated Use `format` instead */
   template?: string;
@@ -37,7 +33,6 @@ export interface FieldFragment {
 export interface WhenFragment {
   type: 'when';
   id: string;
-  role?: ChatMessageRole;
   condition: string;
   fragments: Fragment[];
   else?: Fragment[];
@@ -49,7 +44,6 @@ export interface WhenFragment {
 export interface RandomSlotFragment {
   type: 'randomSlot';
   id: string;
-  role?: ChatMessageRole;
   candidates: Fragment[];
   seed?: 'random' | number;
 }
@@ -60,7 +54,6 @@ export interface RandomSlotFragment {
 export interface BudgetFragment {
   type: 'budget';
   id?: string;
-  role?: ChatMessageRole;
   maxTokens: number;
   strategy: 'tail' | 'weighted';
   weights?: Record<string, number>;
@@ -80,8 +73,8 @@ export type Fragment =
 /**
  * Builder: create a base fragment
  */
-export function base(id: string, content: string, role?: ChatMessageRole): BaseFragment {
-  return { type: 'base', id, content, role };
+export function base(id: string, content: string): BaseFragment {
+  return { type: 'base', id, content };
 }
 
 /**
@@ -91,7 +84,7 @@ export function field(
   id: string,
   source: string,
   format: string,
-  options?: { role?: ChatMessageRole; window?: number; sample?: number; sort?: string; dedup?: string[] }
+  options?: { window?: number; sample?: number; sort?: string; dedup?: string[] }
 ): FieldFragment {
   return { type: 'field', id, source, format, ...options };
 }
@@ -104,9 +97,8 @@ export function when(
   condition: string,
   fragments: Fragment[],
   elseFragments?: Fragment[],
-  options?: { role?: ChatMessageRole }
 ): WhenFragment {
-  return { type: 'when', id, condition, fragments, else: elseFragments, ...options };
+  return { type: 'when', id, condition, fragments, else: elseFragments };
 }
 
 /**
@@ -116,9 +108,8 @@ export function randomSlot(
   id: string,
   candidates: Fragment[],
   seed?: 'random' | number,
-  options?: { role?: ChatMessageRole }
 ): RandomSlotFragment {
-  return { type: 'randomSlot', id, candidates, seed, ...options };
+  return { type: 'randomSlot', id, candidates, seed };
 }
 
 /**
@@ -129,7 +120,6 @@ export function budget(
   strategy: 'tail' | 'weighted',
   fragments: Fragment[],
   weights?: Record<string, number>,
-  options?: { role?: ChatMessageRole }
 ): BudgetFragment {
-  return { type: 'budget', maxTokens, strategy, fragments, weights, ...options };
+  return { type: 'budget', maxTokens, strategy, fragments, weights };
 }

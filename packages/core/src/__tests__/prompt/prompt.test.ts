@@ -88,25 +88,16 @@ describe('Prompt Fragments', () => {
   });
 
   describe('composeMessages', () => {
-    it('应该按 role 分组消息', () => {
+    it('应该将所有 fragment 合并为单条 defaultRole 消息', () => {
       const messages = composeMessages([
-        base('system-a', '你是一个叙事 AI', 'system'),
-        base('system-b', '保持简洁', 'system'),
-        field('user-name', 'name', '你好，{{items}}', { role: 'user' }),
+        base('system-a', '你是一个叙事 AI'),
+        base('system-b', '保持简洁'),
+        field('user-name', 'name', '你好，{{items}}'),
       ], createScope({ name: 'Alice' }));
 
       expect(messages).toEqual([
-        { role: 'system', content: '你是一个叙事 AI\n\n保持简洁' },
-        { role: 'user', content: '你好，Alice' },
+        { role: 'system', content: '你是一个叙事 AI\n\n保持简洁\n\n你好，Alice' },
       ]);
-    });
-
-    it('应该支持外层 role 继承', () => {
-      const messages = composeMessages([
-        when('branch', 'enabled', [base('rule', '规则A')], undefined, { role: 'assistant' }),
-      ], createScope({ enabled: true }), { defaultRole: 'system' });
-
-      expect(messages).toEqual([{ role: 'assistant', content: '规则A' }]);
     });
   });
 });
