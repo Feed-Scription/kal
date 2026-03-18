@@ -1,11 +1,14 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import type { FlowDefinition, SessionDefinition } from '@kal-ai/core';
+import { readFile, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { EngineRuntime } from './runtime';
 import { createPassThroughFlow, createStateMutationFlow, createTempProject } from './test-helpers';
 
 const cleanups: Array<() => Promise<void>> = [];
 
 afterEach(async () => {
+  delete process.env.KAL_RUNTIME_TEST_API_KEY;
   while (cleanups.length > 0) {
     await cleanups.pop()!();
   }
@@ -169,5 +172,74 @@ describe('EngineRuntime', () => {
     await runtime.deleteSession();
     expect(runtime.hasSession()).toBe(false);
     expect(runtime.getSession()).toBeUndefined();
+  });
+
+  it('saveConfig 应该忽略未变更的敏感 LLM 字段并保留环境变量引用', async () => {
+    const fixture = await createTempProject();
+    cleanups.push(fixture.cleanup);
+    process.env.KAL_RUNTIME_TEST_API_KEY = 'env-secret-key';
+
+    await writeFile(
+      join(fixture.projectRoot, 'kal_config.json'),
+      JSON.stringify({
+        name: 'test-project',
+        version: '1.0.0',
+        engine: {
+          logLevel: 'error',
+          maxConcurrentFlows: 4,
+          timeout: 1000,
+        },
+        llm: {
+          provider: 'openai',
+          apiKey: '${KAL_RUNTIME_TEST_API_KEY}',
+          baseUrl: 'https://example.invalid/v1',
+          defaultModel: 'test-model',
+          retry: {
+            maxRetries: 0,
+            initialDelayMs: 0,
+            maxDelayMs: 0,
+            backoffMultiplier: 2,
+            jitter: false,
+          },
+          cache: {
+            enabled: false,
+          },
+        },
+      }, null, 2),
+      'utf8',
+    );
+
+    const runtime = await EngineRuntime.create(fixture.projectRoot);
+    const currentConfig = runtime.getConfig();
+
+    await runtime.saveConfig({
+      engine: {
+        ...currentConfig.engine,
+        timeout: 2000,
+      },
+      llm: {
+        ...currentConfig.llm,
+      },
+    });
+
+    const rawConfig = await readFile(join(fixture.projectRoot, 'kal_config.json'), 'utf8');
+    expect(rawConfig).toContain('${KAL_RUNTIME_TEST_API_KEY}');
+    expect(rawConfig).not.toContain('env-secret-key');
+    expect(JSON.parse(rawConfig).engine.timeout).toBe(2000);
+  });
+
+  it('saveConfig 应该拒绝通过配置 API 修改敏感 LLM 字段', async () => {
+    const fixture = await createTempProject();
+    cleanups.push(fixture.cleanup);
+
+    const runtime = await EngineRuntime.create(fixture.projectRoot);
+    const currentConfig = runtime.getConfig();
+
+    await expect(runtime.saveConfig({
+      llm: {
+        ...currentConfig.llm,
+        apiKey: 'new-secret-key',
+      },
+    })).rejects.toThrow('Cannot modify llm.apiKey or llm.baseUrl via config API');
   });
 });
