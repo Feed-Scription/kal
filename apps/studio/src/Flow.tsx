@@ -376,8 +376,44 @@ export default function Flow() {
   );
 
   const onConnect: OnConnect = useCallback(
-    (connection) => setEdges((eds) => addEdge(connection, eds)),
-    [setEdges],
+    (connection) => {
+      setEdges((eds) => {
+        const nextEdges = addEdge(connection, eds);
+        // Re-detect back edges after new connection
+        const nodeIds = nodes.map((n) => n.id);
+        const simpleEdges = nextEdges.map((e) => ({ source: e.source, target: e.target }));
+        const { backEdges } = layoutDag(nodeIds, simpleEdges, FLOW_LAYOUT);
+
+        return nextEdges.map((edge) => {
+          const isBack = backEdges.has(`${edge.source}->${edge.target}`);
+          if (isBack) {
+            return {
+              ...edge,
+              type: 'smoothstep',
+              style: { stroke: '#f59e0b', strokeWidth: 2, strokeDasharray: '8 4' },
+              animated: true,
+              markerEnd: { type: MarkerType.ArrowClosed, color: '#f59e0b' },
+              label: t('cycle'),
+              labelStyle: { fill: '#f59e0b', fontWeight: 600, fontSize: 12 },
+            };
+          }
+          // Preserve existing style for non-back edges, apply type-based color for new ones
+          if (!edge.style?.stroke || edge.style.stroke === '#f59e0b') {
+            const sourceOutputs = (() => {
+              const nodeData = nodes.find((n) => n.id === edge.source)?.data as { outputs?: Array<{ name: string; type: string }> } | undefined;
+              return nodeData?.outputs ?? [];
+            })();
+            const sourcePort = edge.sourceHandle
+              ? sourceOutputs.find((o) => o.name === edge.sourceHandle)
+              : sourceOutputs[0];
+            const color = edgeColorForType(sourcePort?.type);
+            return { ...edge, type: undefined, style: { stroke: color, strokeWidth: 2 }, label: undefined, labelStyle: undefined, markerEnd: undefined };
+          }
+          return edge;
+        });
+      });
+    },
+    [setEdges, nodes, t],
   );
 
   // Build FlowDefinition from current ReactFlow state
@@ -601,7 +637,6 @@ export default function Flow() {
         onSelectionChange={onSelectionChange}
         onPaneContextMenu={onPaneContextMenu}
         nodeTypes={nodeTypes}
-        connectionMode="loose"
         fitView
         fitViewOptions={fitViewOptions}
         defaultEdgeOptions={defaultEdgeOptions}>
