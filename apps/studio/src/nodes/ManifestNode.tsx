@@ -63,13 +63,13 @@ function categoryIcon(category?: string) {
 function categoryClass(category?: string) {
   switch (category) {
     case "signal":
-      return "border-sky-200 bg-sky-50/60";
+      return "rounded-lg border-sky-200 bg-sky-50/60 dark:border-sky-800 dark:bg-sky-950/40";
     case "state":
-      return "border-emerald-200 bg-emerald-50/60";
+      return "rounded-lg border-emerald-200 bg-emerald-50/60 dark:border-emerald-800 dark:bg-emerald-950/40";
     case "llm":
-      return "border-amber-200 bg-amber-50/60";
+      return "rounded-lg border-amber-200 bg-amber-50/60 dark:border-amber-800 dark:bg-amber-950/40";
     case "transform":
-      return "border-fuchsia-200 bg-fuchsia-50/60";
+      return "rounded-lg border-fuchsia-200 bg-fuchsia-50/60 dark:border-fuchsia-800 dark:bg-fuchsia-950/40";
     default:
       return "border-border";
   }
@@ -187,7 +187,7 @@ const JsonField = memo(function JsonField({
             onCommit(JSON.parse(text));
             setError(null);
           } catch {
-            setError("JSON format error");
+            setError(t('jsonFormatError'));
           }
         }}
       />

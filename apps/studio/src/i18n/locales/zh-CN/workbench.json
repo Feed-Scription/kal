@@ -7,10 +7,15 @@
   "workspacePresets": "工作区预设",
   "preset": {
     "authoring": "创作",
+    "authoringDesc": "Flow 与 Session 编辑工作区",
     "debug": "调试",
+    "debugDesc": "运行调试与 Trace 检查",
     "review": "审查",
+    "reviewDesc": "Proposal 审查与协作",
     "history": "历史",
-    "package": "分发"
+    "historyDesc": "版本历史与 Checkpoint",
+    "package": "分发",
+    "packageDesc": "包管理与模板"
   },
   "officialCoreExtensions": "官方核心扩展",
   "officialWorkflowExtensions": "官方工作流扩展",
@@ -82,6 +87,10 @@
   "loaded": "已加载",
   "notConfigured": "未配置",
   "stepCount": "步骤数",
+  "inspector": "检查器",
+  "capabilityGranted": "已授权",
+  "capabilityBlocked": "已阻止",
+  "capabilityDegraded": "已降级",
   "problems": {
     "title": "问题",
     "noProblems": "未发现问题。",
@@ -130,6 +139,11 @@
     "commandPalette": "命令面板",
     "refreshDiagnostics": "刷新诊断",
     "run": "运行"
+  },
+  "theme": {
+    "light": "浅色",
+    "dark": "深色",
+    "toggle": "切换主题"
   },
   "language": {
     "label": "语言",

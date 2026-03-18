@@ -42,6 +42,7 @@ function CollapsibleSection({
 export function WorkbenchInspector({ mobile }: { mobile?: boolean } = {}) {
   const { t } = useTranslation('workbench');
   const { t: tc } = useTranslation('common');
+  const { t: tr } = useTranslation('registry');
   const { activeExtension, activeExtensionRuntime, activeFlowId, activeView } = useWorkbench();
   const { project, session } = useStudioResources();
   const { resetCapabilityGrants, setCapabilityGrant, setExtensionEnabled } = useStudioCommands();
@@ -95,13 +96,13 @@ export function WorkbenchInspector({ mobile }: { mobile?: boolean } = {}) {
   }, [selectedNodeManifest?.config]);
 
   return (
-    <aside className={mobile ? "flex flex-col" : "hidden w-80 shrink-0 border-l bg-background/70 xl:flex xl:flex-col"}>
+    <aside className={mobile ? "flex flex-col" : "hidden w-80 shrink-0 overflow-hidden border-l bg-background/70 xl:flex xl:flex-col"}>
       <div className="border-b p-4">
         <p className="text-xs font-medium uppercase tracking-[0.24em] text-muted-foreground">
-          Inspector
+          {t('inspector')}
         </p>
-        <h2 className="mt-2 text-lg font-semibold">{activeView.title}</h2>
-        <p className="mt-1 text-sm text-muted-foreground">{activeView.description}</p>
+        <h2 className="mt-2 truncate text-lg font-semibold">{tr(activeView.title)}</h2>
+        <p className="mt-1 truncate text-sm text-muted-foreground">{tr(activeView.description)}</p>
       </div>
 
       <div className="flex-1 space-y-6 overflow-auto p-4">
@@ -111,14 +112,14 @@ export function WorkbenchInspector({ mobile }: { mobile?: boolean } = {}) {
               <Crosshair className="size-4" />
               {t("selectedNode")}
             </div>
-            <div className="space-y-2 text-sm">
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-muted-foreground">ID</span>
+            <div className="min-w-0 space-y-2 text-sm">
+              <div className="flex min-w-0 items-center justify-between gap-4">
+                <span className="shrink-0 text-muted-foreground">ID</span>
                 <span className="truncate font-mono text-xs">{selectedNodeManifest.node.id}</span>
               </div>
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-muted-foreground">{t("type")}</span>
-                <span className="font-medium">{selectedNodeManifest.node.type}</span>
+              <div className="flex min-w-0 items-center justify-between gap-4">
+                <span className="shrink-0 text-muted-foreground">{t("type")}</span>
+                <span className="truncate font-medium">{selectedNodeManifest.node.type}</span>
               </div>
               {selectedNodeManifest.manifest ? (
                 <>
@@ -184,14 +185,14 @@ export function WorkbenchInspector({ mobile }: { mobile?: boolean } = {}) {
               <Puzzle className="size-4" />
               {t("currentExtension")}
             </div>
-            <div className="space-y-2 text-sm">
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-muted-foreground">ID</span>
-                <span className="font-medium">{activeExtension.id}</span>
+            <div className="min-w-0 space-y-2 text-sm">
+              <div className="flex min-w-0 items-center justify-between gap-4">
+                <span className="shrink-0 text-muted-foreground">ID</span>
+                <span className="truncate font-medium">{activeExtension.id}</span>
               </div>
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-muted-foreground">{t("status")}</span>
-                <span>{activeExtensionRuntime?.status ?? tc('notActivated')}</span>
+              <div className="flex min-w-0 items-center justify-between gap-4">
+                <span className="shrink-0 text-muted-foreground">{t("status")}</span>
+                <span className="truncate">{activeExtensionRuntime?.status ?? tc('notActivated')}</span>
               </div>
 
               <div className="flex flex-wrap gap-1.5">
@@ -203,7 +204,7 @@ export function WorkbenchInspector({ mobile }: { mobile?: boolean } = {}) {
                     className={`rounded-full border px-2 py-0.5 font-mono text-[11px] ${
                       entry.granted ? 'border-green-600/40 text-green-700' : 'border-yellow-600/40 text-yellow-700'
                     }`}
-                    title={entry.prompt}
+                    title={tr(entry.prompt)}
                   >
                     {entry.capability}
                   </button>
@@ -211,14 +212,14 @@ export function WorkbenchInspector({ mobile }: { mobile?: boolean } = {}) {
               </div>
 
               <CollapsibleSection title={t("extensionDetails")}>
-                <div className="space-y-2 text-xs">
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="text-muted-foreground">{t("host")}</span>
-                    <span>{activeExtension.host}</span>
+                <div className="min-w-0 space-y-2 text-xs">
+                  <div className="flex min-w-0 items-center justify-between gap-4">
+                    <span className="shrink-0 text-muted-foreground">{t("host")}</span>
+                    <span className="truncate">{activeExtension.host}</span>
                   </div>
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="text-muted-foreground">{t("category")}</span>
-                    <span>{activeExtension.kind === 'official-core' ? t('extensionKind.officialCore') : t('extensionKind.officialWorkflow')}</span>
+                  <div className="flex min-w-0 items-center justify-between gap-4">
+                    <span className="shrink-0 text-muted-foreground">{t("category")}</span>
+                    <span className="truncate">{activeExtension.kind === 'official-core' ? t('extensionKind.officialCore') : t('extensionKind.officialWorkflow')}</span>
                   </div>
                   {activeExtensionRuntime ? (
                     <>
@@ -241,14 +242,14 @@ export function WorkbenchInspector({ mobile }: { mobile?: boolean } = {}) {
                     </>
                   ) : null}
                   {capabilityGate.resolved.map((entry) => (
-                    <div key={`${entry.capability}:meta`} className="rounded-lg border p-2">
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="font-mono">{entry.capability}</span>
-                        <span className={entry.granted ? 'text-green-700' : 'text-yellow-700'}>
-                          {entry.granted ? 'granted' : entry.required ? 'blocked' : 'degraded'}
+                    <div key={`${entry.capability}:meta`} className="min-w-0 rounded-lg border p-2">
+                      <div className="flex min-w-0 items-center justify-between gap-3">
+                        <span className="truncate font-mono">{entry.capability}</span>
+                        <span className={`shrink-0 ${entry.granted ? 'text-green-700' : 'text-yellow-700'}`}>
+                          {entry.granted ? t('capabilityGranted') : entry.required ? t('capabilityBlocked') : t('capabilityDegraded')}
                         </span>
                       </div>
-                      <div className="mt-1 text-muted-foreground">
+                      <div className="mt-1 truncate text-muted-foreground">
                         {entry.descriptor.host} · {entry.descriptor.scope} · {entry.restrictedMode}
                       </div>
                     </div>
@@ -297,10 +298,10 @@ export function WorkbenchInspector({ mobile }: { mobile?: boolean } = {}) {
               <Layers2 className="size-4" />
               {t("currentFlow")}
             </div>
-            <div className="space-y-2 text-sm">
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-muted-foreground">ID</span>
-                <span className="font-medium">{activeFlowId}</span>
+            <div className="min-w-0 space-y-2 text-sm">
+              <div className="flex min-w-0 items-center justify-between gap-4">
+                <span className="shrink-0 text-muted-foreground">ID</span>
+                <span className="truncate font-medium">{activeFlowId}</span>
               </div>
               <div className="flex items-center justify-between gap-4">
                 <span className="text-muted-foreground">{t("nodes")}</span>

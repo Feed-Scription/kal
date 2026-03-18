@@ -13,7 +13,7 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { Command, LayoutDashboard, Lock, Plus, RefreshCw, Wifi, X } from "lucide-react";
+import { Command, LayoutDashboard, Plus, RefreshCw, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { useTranslation } from 'react-i18next';
@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useCapabilityGate, useConnectionState, useExtensionRuntimeMap, useFlowResource, useWorkbench, useStudioCommands, useStudioResources } from "./kernel/hooks";
+import { useExtensionRuntimeMap, useFlowResource, useWorkbench, useStudioCommands, useStudioResources } from "./kernel/hooks";
 import type { StudioRegisteredExtensionDescriptor, StudioWorkspacePreset } from "./kernel/types";
 
 type AppSidebarProps = {
@@ -37,13 +37,12 @@ type AppSidebarProps = {
 export function AppSidebar({ children }: AppSidebarProps) {
   const { t } = useTranslation('workbench');
   const { t: tc } = useTranslation('common');
+  const { t: tr } = useTranslation('registry');
   const { project, session } = useStudioResources();
   const { flowId: currentFlow } = useFlowResource();
-  const { engineConnected } = useConnectionState();
-  const { activeExtension, activePreset, activeViewId, coreExtensions, workflowExtensions } = useWorkbench();
+  const { activePreset, activeViewId, coreExtensions, workflowExtensions } = useWorkbench();
   const extensionRuntime = useExtensionRuntimeMap();
   const { setActiveView, setActivePreset, setCommandPaletteOpen, openFlow, disconnect, createFlow, reloadProject } = useStudioCommands();
-  const capabilityGate = useCapabilityGate(activeExtension?.capabilities);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [flowNameInput, setFlowNameInput] = useState("");
@@ -96,7 +95,9 @@ export function AppSidebar({ children }: AppSidebarProps) {
         <SidebarGroupContent>
           <SidebarMenu>
             {extensions.flatMap((extension) =>
-              (extension.contributes.views ?? []).map((view) => {
+              (extension.contributes.views ?? [])
+                .filter((view) => !view.presets || view.presets.includes(activePreset))
+                .map((view) => {
                 const Icon = view.icon;
                 const runtime = extensionRuntime[extension.id];
                 const showStatus = activePreset === 'debug';
@@ -104,12 +105,12 @@ export function AppSidebar({ children }: AppSidebarProps) {
                 return (
                   <SidebarMenuItem key={view.id}>
                     <SidebarMenuButton
-                      tooltip={`${extension.title} · ${view.description}`}
+                      tooltip={`${tr(extension.title)} · ${tr(view.description)}`}
                       isActive={activeViewId === view.id}
                       onClick={() => setActiveView(view.id)}
                     >
                       <Icon className="size-4" />
-                      <span>{view.title}</span>
+                      <span>{tr(view.title)}</span>
                       {showStatus && runtime ? (
                         <span className={`ml-auto text-[10px] uppercase ${
                           runtime.status === 'active' ? 'text-green-600' : 'text-muted-foreground'
@@ -128,17 +129,17 @@ export function AppSidebar({ children }: AppSidebarProps) {
     );
   };
 
-  const workspacePresets: Array<{ id: StudioWorkspacePreset; label: string }> = [
-    { id: "authoring", label: t("preset.authoring") },
-    { id: "debug", label: t("preset.debug") },
-    { id: "review", label: t("preset.review") },
-    { id: "history", label: t("preset.history") },
-    { id: "package", label: t("preset.package") },
+  const workspacePresets: Array<{ id: StudioWorkspacePreset; label: string; desc: string }> = [
+    { id: "authoring", label: t("preset.authoring"), desc: t("preset.authoringDesc") },
+    { id: "debug", label: t("preset.debug"), desc: t("preset.debugDesc") },
+    { id: "review", label: t("preset.review"), desc: t("preset.reviewDesc") },
+    { id: "history", label: t("preset.history"), desc: t("preset.historyDesc") },
+    { id: "package", label: t("preset.package"), desc: t("preset.packageDesc") },
   ];
 
   return (
     <SidebarProvider>
-      <Sidebar>
+      <Sidebar className="pb-8">
         <SidebarHeader className="border-b border-sidebar-border">
           <SidebarMenu>
             <SidebarMenuItem>
@@ -171,6 +172,7 @@ export function AppSidebar({ children }: AppSidebarProps) {
                         key={preset.id}
                         variant={activePreset === preset.id ? "secondary" : "outline"}
                         size="xs"
+                        title={preset.desc}
                         onClick={() => setActivePreset(preset.id)}
                       >
                         {preset.label}
@@ -280,7 +282,7 @@ export function AppSidebar({ children }: AppSidebarProps) {
         </SidebarFooter>
       </Sidebar>
 
-      <SidebarInset>
+      <SidebarInset className="min-w-0 overflow-hidden">
         <div className="flex h-14 items-center gap-2 border-b px-4">
           <SidebarTrigger />
           <div>
@@ -300,21 +302,8 @@ export function AppSidebar({ children }: AppSidebarProps) {
             {t("commandPalette")}
             <span className="rounded border px-1.5 py-0.5 text-[11px] text-muted-foreground">Ctrl K</span>
           </Button>
-          {activeExtension ? (
-            <div className="hidden items-center gap-2 rounded-full border px-3 py-1 text-xs text-muted-foreground lg:flex">
-              <Lock className={`size-3.5 ${capabilityGate.trusted ? "text-green-600" : "text-yellow-600"}`} />
-              <span>{capabilityGate.trusted ? t("trusted") : t("restricted")}</span>
-              <span>{activeExtension.id}</span>
-            </div>
-          ) : null}
-          {project && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Wifi className={`size-4 ${engineConnected ? "text-green-500" : "text-red-500"}`} />
-              <span>{project.name}</span>
-            </div>
-          )}
         </div>
-        <div className="relative h-[calc(100vh-3.5rem-2rem)]">
+        <div className="relative h-[calc(100vh-3.5rem-2rem)] overflow-hidden">
           {children}
         </div>
       </SidebarInset>
