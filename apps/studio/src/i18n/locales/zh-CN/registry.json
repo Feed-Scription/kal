@@ -106,7 +106,9 @@
       "shortTitle": "Prompts",
       "description": "官方工作流扩展，承载 prompt 预览与 prompt-like 配置查询。",
       "viewTitle": "Prompt 预览",
-      "viewDescription": "预览 Session prompts 与 Flow 中的 prompt-like 配置。"
+      "viewDescription": "预览 Session prompts 与 Flow 中的 prompt-like 配置。",
+      "inspectorTitle": "Prompt 预览",
+      "inspectorDescription": "右侧 inspector slot 中的 prompt 预览卡片。"
     },
     "debugger": {
       "title": "调试器",
@@ -134,6 +136,8 @@
       "description": "官方工作流扩展，承载异步评论线程与 review coordination。",
       "viewTitle": "评论",
       "viewDescription": "查看 proposal/resource/run 上的评论线程。",
+      "inspectorTitle": "评论",
+      "inspectorDescription": "右侧 inspector slot 中的评论线程卡片。",
       "panelTitle": "评论面板",
       "panelDescription": "底部 panel slot 中的评论线程摘要。"
     },
@@ -186,7 +190,9 @@
       "shortTitle": "终端",
       "description": "官方工作流扩展，提供轻量命令执行器，支持 lint/smoke 等 kal 子命令。",
       "viewTitle": "终端",
-      "viewDescription": "执行 kal 子命令（lint, smoke 等）。"
+      "viewDescription": "执行 kal 子命令（lint, smoke 等）。",
+      "panelTitle": "终端",
+      "panelDescription": "底部 panel slot 中的命令执行器。"
     },
     "vercelDeploy": {
       "title": "Vercel 部署",

@@ -114,7 +114,7 @@ export function WorkbenchInspector({ mobile }: { mobile?: boolean } = {}) {
   ];
 
   return (
-    <aside className={mobile ? "flex flex-col" : "hidden w-80 shrink-0 overflow-hidden border-l bg-background/70 xl:flex xl:flex-col"}>
+    <aside className={mobile ? "flex flex-col" : "flex h-full flex-col overflow-hidden bg-background/70"}>
       {/* Header — context-aware */}
       <div className="border-b p-4">
         <p className="text-xs font-medium uppercase tracking-[0.24em] text-muted-foreground">
