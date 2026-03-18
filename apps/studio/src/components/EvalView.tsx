@@ -15,7 +15,6 @@ import { EmptyState } from "@/components/EmptyState";
 import { engineApi } from "@/api/engine-client";
 import type {
   FlowListItem,
-  FlowDefinition,
   NodeDefinition,
   EvalRunResult,
   EvalCompareResult,
@@ -78,7 +77,6 @@ export function EvalView() {
   // ── Flow & Node selection ──
   const [flows, setFlows] = useState<FlowListItem[]>([]);
   const [selectedFlowId, setSelectedFlowId] = useState<string>("");
-  const [flowDef, setFlowDef] = useState<FlowDefinition | null>(null);
   const [promptNodes, setPromptNodes] = useState<NodeDefinition[]>([]);
   const [selectedNodeId, setSelectedNodeId] = useState<string>("");
 
@@ -102,13 +100,11 @@ export function EvalView() {
   // Load flow definition when selection changes
   useEffect(() => {
     if (!selectedFlowId) {
-      setFlowDef(null);
       setPromptNodes([]);
       setSelectedNodeId("");
       return;
     }
     engineApi.getFlow(selectedFlowId).then((flow) => {
-      setFlowDef(flow);
       const nodes = flow.data.nodes.filter(
         (n) => n.type === "PromptBuild" || n.type === "GenerateText",
       );
