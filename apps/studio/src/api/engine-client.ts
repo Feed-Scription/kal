@@ -43,9 +43,30 @@ export type RunAdvanceMode = 'continue' | 'step';
  * Set by the store after initialization to avoid circular imports.
  */
 let capabilityProvider: (() => string[]) | null = null;
+let connectionLostHandler: ((message: string) => void) | null = null;
+let lastConnectionLostAt = 0;
+const CONNECTION_LOST_THROTTLE_MS = 1000;
+
+const ENGINE_UNREACHABLE_MESSAGE = 'Cannot connect to Engine service, please confirm Engine is running';
 
 export function setCapabilityProvider(provider: () => string[]): void {
   capabilityProvider = provider;
+}
+
+export function setConnectionLostHandler(handler: ((message: string) => void) | null): void {
+  connectionLostHandler = handler;
+}
+
+function notifyConnectionLost(message = ENGINE_UNREACHABLE_MESSAGE): void {
+  if (!connectionLostHandler) {
+    return;
+  }
+  const now = Date.now();
+  if (now - lastConnectionLostAt < CONNECTION_LOST_THROTTLE_MS) {
+    return;
+  }
+  lastConnectionLostAt = now;
+  connectionLostHandler(message);
 }
 
 function buildApiUrl(path: string): string {
@@ -76,7 +97,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   try {
     res = await fetch(buildApiUrl(path), { ...init, headers });
   } catch {
-    throw new Error('Cannot connect to Engine service, please confirm Engine is running');
+    notifyConnectionLost();
+    throw new Error(ENGINE_UNREACHABLE_MESSAGE);
   }
   let json: EngineResponse<T>;
   try {
@@ -266,7 +288,7 @@ export const engineApi = {
     }
 
     source.onerror = () => {
-      // EventSource will retry automatically. Keep the connection unless explicitly closed.
+      notifyConnectionLost();
     };
 
     return () => {
@@ -294,7 +316,7 @@ export const engineApi = {
     }
 
     source.onerror = () => {
-      // EventSource will retry automatically.
+      notifyConnectionLost();
     };
 
     return () => {
@@ -403,7 +425,9 @@ export const engineApi = {
       const payload = JSON.parse((event as MessageEvent<string>).data);
       onChunk(payload);
     });
-    source.onerror = () => { /* EventSource retries automatically */ };
+    source.onerror = () => {
+      notifyConnectionLost();
+    };
     return () => { source.close(); };
   },
 

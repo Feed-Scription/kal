@@ -33,6 +33,7 @@ import { useSessionNodeOverlay } from '@/hooks/use-node-overlay';
 import { useCanvasSelection } from '@/hooks/use-canvas-selection';
 import { layoutDag } from '@/utils/graph-layout';
 import { ElegantEdge } from './edges/ElegantEdge';
+import { AUTO_SAVE_DEBOUNCE_MS } from '@/constants/editor';
 import { SESSION_STEP_DEFAULTS } from './session-nodes/defaults';
 import { useTranslation } from 'react-i18next';
 import i18n from '@/i18n';
@@ -378,7 +379,7 @@ function SessionEditorInner() {
     return reactFlowToSession(nodes, edges, session);
   }, [nodes, edges, session]);
 
-  // Auto-save (debounce 1s)
+  // Auto-save (debounce configurable constant)
   useEffect(() => {
     if (!initialized) return;
     if (isLoadingRef.current) return;
@@ -389,7 +390,7 @@ function SessionEditorInner() {
       } catch (error) {
         console.error('Session auto-save failed:', error);
       }
-    }, 1000);
+    }, AUTO_SAVE_DEBOUNCE_MS);
 
     return () => clearTimeout(timeoutId);
   }, [nodes, edges, initialized, saveSession, buildSessionDef]);

@@ -7,6 +7,8 @@
     "kal": "./apps/engine/dist/bin.js"
   },
   "scripts": {
+    "setup": "pnpm install && pnpm run link:global",
+    "link:global": "bash ./scripts/link-global.sh",
     "build": "bun run --filter='@kal-ai/*' build",
     "test": "bun run --filter='@kal-ai/*' test",
     "test:coverage": "bun run --filter='@kal-ai/*' test:coverage",

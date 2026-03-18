@@ -32,15 +32,9 @@ pnpm setup
 echo "📥 安装项目依赖..."
 pnpm install
 
-# 构建项目
-echo "🔨 构建项目..."
-pnpm --filter @kal-ai/engine build
-
 # 全局链接
 echo "🔗 创建全局命令链接..."
-cd apps/engine
-pnpm link --global
-cd ../..
+pnpm run link:global
 
 echo "✅ 安装完成！"
 echo ""
