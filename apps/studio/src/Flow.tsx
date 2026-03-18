@@ -21,6 +21,7 @@ import {
 } from '@xyflow/react';
 
 import { ManifestNode } from "./nodes/ManifestNode";
+import { ElegantEdge } from "./edges/ElegantEdge";
 import { PaneContextMenu, type ContextMenuState } from "./PaneContextMenu";
 import { FlowToolbar } from "./components/FlowToolbar";
 import { ExecutionDialog } from "./components/ExecutionDialog";
@@ -119,9 +120,13 @@ const fitViewOptions: FitViewOptions = {
 };
 
 const defaultEdgeOptions: DefaultEdgeOptions = {
-  type: 'smoothstep',
+  type: 'elegant',
   animated: true,
   interactionWidth: 20,
+};
+
+const edgeTypes = {
+  elegant: ElegantEdge,
 };
 
 /** Map a port type string to a stroke color for edges */
@@ -414,7 +419,7 @@ function FlowInner() {
               ? sourceOutputs.find((o) => o.name === edge.sourceHandle)
               : sourceOutputs[0];
             const color = edgeColorForType(sourcePort?.type);
-            return { ...edge, type: undefined, style: { stroke: color, strokeWidth: 2 }, label: undefined, labelStyle: undefined, markerEnd: undefined };
+            return { ...edge, type: 'elegant', style: { stroke: color, strokeWidth: 2 }, label: undefined, labelStyle: undefined, markerEnd: undefined };
           }
           return edge;
         });
@@ -608,9 +613,9 @@ function FlowInner() {
             labelStyle: { fill: '#f59e0b', fontWeight: 600, fontSize: 12 },
           };
         }
-        // Reset non-back edges to default smoothstep
+        // Reset non-back edges to elegant curve
         const { style: _s, label: _l, labelStyle: _ls, zIndex: _z, ...rest } = edge;
-        return { ...rest, type: 'smoothstep', animated: true };
+        return { ...rest, type: 'elegant', animated: true };
       }),
     );
     // Fit view after layout
@@ -647,6 +652,7 @@ function FlowInner() {
         onSelectionChange={onSelectionChange}
         onPaneContextMenu={onPaneContextMenu}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
         fitView
         fitViewOptions={fitViewOptions}
         defaultEdgeOptions={defaultEdgeOptions}>
