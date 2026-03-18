@@ -94,7 +94,7 @@ export function AppSidebar({ children }: AppSidebarProps) {
   const showPackage = activePreset === 'package';
 
   const presetViews = views.filter(
-    (view) => view.presets && view.presets.includes(activePreset),
+    (view) => !view.presets || view.presets.includes(activePreset),
   );
 
   const workspacePresets: Array<{ id: StudioWorkspacePreset; label: string; desc: string }> = [
