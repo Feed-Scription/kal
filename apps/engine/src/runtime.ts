@@ -240,12 +240,16 @@ export class EngineRuntime {
       rawConfig = {};
     }
 
-    // Safety: reject modifications to sensitive LLM fields
+    // Safety: preserve env-backed sensitive fields unless the caller is explicitly trying to change them.
     if (patch.llm) {
       const { apiKey, baseUrl, ...safeLlmPatch } = patch.llm;
-      if (apiKey !== undefined || baseUrl !== undefined) {
+      const currentLlm = project.config.llm;
+      const modifiesSensitiveField =
+        (apiKey !== undefined && apiKey !== currentLlm.apiKey) ||
+        (baseUrl !== undefined && baseUrl !== currentLlm.baseUrl);
+      if (modifiesSensitiveField) {
         throw new EngineHttpError(
-          'Cannot modify llm.apiKey or llm.baseUrl via config API — use environment variables instead',
+          'Cannot modify llm.apiKey or llm.baseUrl via config API — update environment variables or kal_config.json directly instead',
           400,
           'CONFIG_SENSITIVE_FIELD',
         );
