@@ -1,53 +1,56 @@
 /**
- * ELK-based graph layout with orthogonal edge routing.
+ * ELK-based graph layout.
  *
  * Uses Eclipse Layout Kernel (elkjs) for industrial-grade Sugiyama layered
- * layout with proper edge routing that avoids node overlap.
+ * layout. ELK handles node positioning so edges don't need to cross nodes.
  */
 import ELK, { type ElkNode, type ElkExtendedEdge } from 'elkjs/lib/elk-api.js';
 
 export interface ElkLayoutOptions {
+  /** Default width when a node has no measured size */
   nodeWidth: number;
+  /** Default height when a node has no measured size */
   nodeHeight: number;
   direction?: 'RIGHT' | 'DOWN';
 }
+
+/** Per-node size info, keyed by node id */
+export type NodeSizeMap = Map<string, { width: number; height: number }>;
 
 const elk = new ELK({
   workerUrl: new URL('elkjs/lib/elk-worker.min.js', import.meta.url).href,
 });
 
-/** Ordered waypoints for a single edge, computed by ELK's edge router. */
-export type EdgeRoute = Array<{ x: number; y: number }>;
-
 /**
  * Compute layout positions using ELK's layered algorithm.
  *
- * Returns node positions, edge routes (bend-point polylines keyed by
- * `source->target`), and a set of back-edge keys detected via DFS.
+ * Returns node positions and a set of back-edge keys detected via DFS.
  */
 export async function elkLayout(
   nodeIds: string[],
   edges: { source: string; target: string }[],
   opts: ElkLayoutOptions,
+  nodeSizes?: NodeSizeMap,
 ): Promise<{
   positions: Map<string, { x: number; y: number }>;
-  edgeRoutes: Map<string, EdgeRoute>;
   backEdges: Set<string>;
 }> {
   const positions = new Map<string, { x: number; y: number }>();
-  const edgeRoutes = new Map<string, EdgeRoute>();
 
   if (nodeIds.length === 0) {
-    return { positions, edgeRoutes, backEdges: new Set() };
+    return { positions, backEdges: new Set() };
   }
 
   const idSet = new Set(nodeIds);
 
-  const elkNodes: ElkNode[] = nodeIds.map((id) => ({
-    id,
-    width: opts.nodeWidth,
-    height: opts.nodeHeight,
-  }));
+  const elkNodes: ElkNode[] = nodeIds.map((id) => {
+    const size = nodeSizes?.get(id);
+    return {
+      id,
+      width: size?.width ?? opts.nodeWidth,
+      height: size?.height ?? opts.nodeHeight,
+    };
+  });
 
   const validEdges = edges.filter((e) => idSet.has(e.source) && idSet.has(e.target));
 
@@ -62,22 +65,16 @@ export async function elkLayout(
     layoutOptions: {
       'elk.algorithm': 'layered',
       'elk.direction': opts.direction ?? 'RIGHT',
-      // Orthogonal = right-angle lines that route around nodes
       'elk.edgeRouting': 'ORTHOGONAL',
-      // Cycle handling
       'elk.layered.cycleBreaking.strategy': 'DEPTH_FIRST',
-      // Node placement
       'elk.layered.nodePlacement.strategy': 'BRANDES_KOEPF',
       'elk.layered.nodePlacement.bk.fixedAlignment': 'BALANCED',
-      // Spacing — generous to avoid overlap
       'elk.layered.spacing.nodeNodeBetweenLayers': String(Math.round(opts.nodeWidth * 0.4)),
       'elk.layered.spacing.edgeNodeBetweenLayers': '30',
       'elk.spacing.nodeNode': '40',
       'elk.spacing.edgeNode': '30',
       'elk.spacing.edgeEdge': '15',
-      // Minimize edge crossings
       'elk.layered.crossingMinimization.strategy': 'LAYER_SWEEP',
-      // Merge edges going to the same target for cleaner look
       'elk.layered.mergeEdges': 'true',
     },
     children: elkNodes,
@@ -92,26 +89,9 @@ export async function elkLayout(
     }
   }
 
-  // Extract edge routing waypoints from ELK sections
-  for (let i = 0; i < validEdges.length; i++) {
-    const elkEdge = (result.edges ?? [])[i] as ElkExtendedEdge | undefined;
-    if (!elkEdge?.sections?.length) continue;
-
-    const route: EdgeRoute = [];
-    for (const section of elkEdge.sections) {
-      route.push(section.startPoint);
-      if (section.bendPoints) {
-        route.push(...section.bendPoints);
-      }
-      route.push(section.endPoint);
-    }
-    const key = `${validEdges[i].source}->${validEdges[i].target}`;
-    edgeRoutes.set(key, route);
-  }
-
   const backEdges = detectBackEdges(nodeIds, validEdges);
 
-  return { positions, edgeRoutes, backEdges };
+  return { positions, backEdges };
 }
 
 /**
