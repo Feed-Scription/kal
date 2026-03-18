@@ -15,6 +15,19 @@ import { Button } from "./components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "./components/ui/sheet";
 import { useCapabilityGate, useExtensionRuntimeMap, usePanelContributions, useStudioCommands, useWorkbench, useStudioResources } from "./kernel/hooks";
 
+function useIsDesktop() {
+  const [isDesktop, setIsDesktop] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth >= 1280 : true,
+  );
+  useEffect(() => {
+    const mql = window.matchMedia('(min-width: 1280px)');
+    const onChange = () => setIsDesktop(mql.matches);
+    mql.addEventListener('change', onChange);
+    return () => mql.removeEventListener('change', onChange);
+  }, []);
+  return isDesktop;
+}
+
 export default function App() {
   const { t } = useTranslation('workbench');
   const { t: tr } = useTranslation('registry');
@@ -28,6 +41,7 @@ export default function App() {
   const [inspectorVisible, setInspectorVisible] = useState(true);
   const panelContributions = usePanelContributions();
   const hasPanels = panelContributions.length > 0;
+  const isDesktop = useIsDesktop();
 
   const inspectorPanelRef = useRef<ImperativePanelHandle>(null);
   const bottomPanelRef = useRef<ImperativePanelHandle>(null);
@@ -42,6 +56,15 @@ export default function App() {
       panel.expand();
     }
   }, [hasPanels]);
+
+  // Auto-collapse inspector on small screens, restore on desktop
+  useEffect(() => {
+    const panel = inspectorPanelRef.current;
+    if (!panel) return;
+    if (!isDesktop && !panel.isCollapsed()) {
+      panel.collapse();
+    }
+  }, [isDesktop]);
 
   const toggleInspector = useCallback(() => {
     const panel = inspectorPanelRef.current;
