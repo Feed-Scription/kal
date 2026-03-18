@@ -30,6 +30,7 @@ import { useFlowNodeOverlay } from "@/hooks/use-node-overlay";
 import { useCanvasSelection } from "@/hooks/use-canvas-selection";
 import { elkLayout, detectBackEdges } from "@/utils/elk-layout";
 import { layoutDag } from "@/utils/graph-layout";
+import { AUTO_SAVE_DEBOUNCE_MS } from "@/constants/editor";
 import { useTranslation } from "react-i18next";
 import type { FlowDefinition, NodeDefinition, EdgeDefinition, NodeManifest } from "@/types/project";
 
@@ -147,14 +148,19 @@ function FlowInner() {
   const { saveFlow } = useStudioCommands();
   const overlayMap = useFlowNodeOverlay(currentFlow);
   const setSelection = useCanvasSelection((s) => s.setSelection);
+  const selectedNodeId = useCanvasSelection((s) => s.selectedNodeId);
+  const selectionContext = useCanvasSelection((s) => s.selectionContext);
   const { t } = useTranslation('flow');
   const reactFlowInstance = useReactFlow();
 
   const onSelectionChange = useCallback(
     ({ nodes: selected }: { nodes: Node[] }) => {
+      if (isLoadingRef.current && selected.length === 0 && selectionContext === 'flow' && selectedNodeId) {
+        return;
+      }
       setSelection(selected.length === 1 ? selected[0].id : null, 'flow');
     },
-    [setSelection],
+    [selectedNodeId, selectionContext, setSelection],
   );
 
   const manifestMap = useMemo(() => {
@@ -205,6 +211,7 @@ function FlowInner() {
           id: node.id,
           type: node.type,
           position: layoutPositions.get(node.id) ?? node.position ?? { x: 0, y: 0 },
+          selected: selectionContext === 'flow' && selectedNodeId === node.id,
           data: {
             label: node.label || manifest?.label || node.type,
             manifest,
@@ -269,6 +276,14 @@ function FlowInner() {
       setEdges(reactFlowEdges);
       setInitialized(true);
 
+      if (
+        selectionContext === 'flow' &&
+        selectedNodeId &&
+        !flowDef.data.nodes.some((node) => node.id === selectedNodeId)
+      ) {
+        setSelection(null, 'flow');
+      }
+
       // Reset loading flag after React processes the state updates
       requestAnimationFrame(() => {
         isLoadingRef.current = false;
@@ -276,7 +291,7 @@ function FlowInner() {
     } else {
       setInitialized(false);
     }
-  }, [currentFlow, manifestMap, project]);
+  }, [currentFlow, manifestMap, project, selectedNodeId, selectionContext, setSelection]);
 
   const onPaneContextMenu = useCallback(
     (event: React.MouseEvent | MouseEvent) => {
@@ -496,7 +511,7 @@ function FlowInner() {
       } catch (error) {
         console.error('Auto-save failed:', error);
       }
-    }, 1000);
+    }, AUTO_SAVE_DEBOUNCE_MS);
 
     return () => clearTimeout(timeoutId);
   }, [nodes, edges, initialized, currentFlow, saveFlow, buildFlowDef]);
