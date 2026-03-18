@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   Background,
   ReactFlow,
+  ReactFlowProvider,
   addEdge,
   applyNodeChanges,
   applyEdgeChanges,
@@ -137,7 +138,7 @@ function edgeColorForType(portType?: string): string {
   return '#8b5cf6'; // purple for other/custom types
 }
 
-export default function Flow() {
+function FlowInner() {
   const { project } = useStudioResources();
   const { flowId: currentFlow } = useFlowResource();
   const { saveFlow } = useStudioCommands();
@@ -679,5 +680,13 @@ export default function Flow() {
         />
       )}
     </div>
+  );
+}
+
+export default function Flow() {
+  return (
+    <ReactFlowProvider>
+      <FlowInner />
+    </ReactFlowProvider>
   );
 }
