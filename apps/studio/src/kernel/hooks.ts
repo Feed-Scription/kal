@@ -13,7 +13,6 @@ import {
   getAllViews,
   getStudioDebugViews,
   getStudioExtensionForView,
-  getStudioExtensionsByKind,
   getStudioInspectors,
   getStudioPanels,
   getStudioView,
@@ -86,8 +85,6 @@ export function useWorkbench(): WorkbenchServiceState {
     activeExtensionRuntime,
     views: allViews,
     extensions: allExtensions,
-    coreExtensions: getStudioExtensionsByKind('official-core'),
-    workflowExtensions: getStudioExtensionsByKind('official-workflow'),
   };
 }
 

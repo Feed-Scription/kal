@@ -1,4 +1,4 @@
-import { Bug, CircleAlert, ClipboardCheck, Database, FlaskConical, History, LayoutDashboard, LayoutTemplate, MessageSquareMore, MessageSquareQuote, MonitorPlay, Package, Rocket, Route, Settings, Terminal } from 'lucide-react';
+import { Bug, CircleAlert, ClipboardCheck, Database, FlaskConical, History, LayoutDashboard, LayoutTemplate, MessageSquareMore, MessageSquareQuote, MonitorPlay, Package, Rocket, Route, Settings } from 'lucide-react';
 import { CollaboratorsPanel } from '@/components/CollaboratorsPanel';
 import { CommentsPanel } from '@/components/CommentsPanel';
 import { CommentsView } from '@/components/CommentsView';
@@ -275,6 +275,7 @@ const registry = createStudioRegistry([
           description: 'ext.flowEditor.viewDescription',
           icon: LayoutDashboard,
           component: Flow,
+          presets: ['authoring', 'debug', 'review'],
         },
       ],
     },
@@ -301,6 +302,7 @@ const registry = createStudioRegistry([
           description: 'ext.sessionEditor.viewDescription',
           icon: Route,
           component: SessionEditor,
+          presets: ['authoring', 'debug'],
         },
       ],
     },
@@ -326,6 +328,7 @@ const registry = createStudioRegistry([
           description: 'ext.stateEditor.viewDescription',
           icon: Database,
           component: StateManager,
+          presets: ['authoring', 'debug', 'review'],
         },
       ],
       inspectors: [
@@ -362,6 +365,7 @@ const registry = createStudioRegistry([
           description: 'ext.configEditor.viewDescription',
           icon: Settings,
           component: ConfigEditor,
+          presets: ['authoring'],
         },
       ],
     },
@@ -384,6 +388,7 @@ const registry = createStudioRegistry([
           description: 'ext.problems.viewDescription',
           icon: CircleAlert,
           component: ProblemsView,
+          presets: ['authoring', 'debug', 'review'],
         },
       ],
       panels: [
@@ -418,6 +423,18 @@ const registry = createStudioRegistry([
           description: 'ext.promptPreview.viewDescription',
           icon: MessageSquareQuote,
           component: PromptPreviewView,
+          presets: ['authoring', 'debug'],
+        },
+      ],
+      inspectors: [
+        {
+          id: 'kal.prompt-preview.inspector',
+          extensionId: 'kal.prompt-preview',
+          title: 'ext.promptPreview.inspectorTitle',
+          description: 'ext.promptPreview.inspectorDescription',
+          component: PromptPreviewView,
+          slot: 'right',
+          presets: ['authoring', 'debug'],
         },
       ],
     },
@@ -444,6 +461,7 @@ const registry = createStudioRegistry([
           description: 'ext.debugger.viewDescription',
           icon: Bug,
           component: DebuggerView,
+          presets: ['debug'],
         },
       ],
       debugViews: [
@@ -503,6 +521,7 @@ const registry = createStudioRegistry([
           description: 'ext.h5Preview.viewDescription',
           icon: MonitorPlay,
           component: H5PreviewView,
+          presets: ['debug'],
         },
       ],
     },
@@ -528,6 +547,18 @@ const registry = createStudioRegistry([
           description: 'ext.comments.viewDescription',
           icon: MessageSquareMore,
           component: CommentsView,
+          presets: ['review'],
+        },
+      ],
+      inspectors: [
+        {
+          id: 'kal.comments.inspector',
+          extensionId: 'kal.comments',
+          title: 'ext.comments.inspectorTitle',
+          description: 'ext.comments.inspectorDescription',
+          component: CommentsView,
+          slot: 'right',
+          presets: ['review'],
         },
       ],
       panels: [
@@ -567,6 +598,7 @@ const registry = createStudioRegistry([
           description: 'ext.review.viewDescription',
           icon: ClipboardCheck,
           component: ReviewView,
+          presets: ['review'],
         },
       ],
       panels: [
@@ -604,6 +636,7 @@ const registry = createStudioRegistry([
           description: 'ext.versionControl.viewDescription',
           icon: History,
           component: VersionControlView,
+          presets: ['review', 'history'],
         },
       ],
       panels: [
@@ -614,7 +647,7 @@ const registry = createStudioRegistry([
           description: 'ext.versionControl.panelDescription',
           component: VersionControlPanel,
           slot: 'down',
-          presets: ['history'],
+          presets: ['review', 'history'],
           order: 20,
         },
       ],
@@ -734,15 +767,16 @@ const registry = createStudioRegistry([
       { capability: 'process.exec', required: false, restrictedMode: 'degrade' },
     ],
     contributes: {
-      views: [
+      panels: [
         {
-          id: 'kal.terminal',
+          id: 'kal.terminal.panel',
           extensionId: 'kal.terminal',
-          title: 'ext.terminal.viewTitle',
-          shortTitle: 'ext.terminal.shortTitle',
-          description: 'ext.terminal.viewDescription',
-          icon: Terminal,
+          title: 'ext.terminal.panelTitle',
+          description: 'ext.terminal.panelDescription',
           component: TerminalView,
+          slot: 'down',
+          presets: ['debug'],
+          order: 40,
         },
       ],
     },
@@ -768,6 +802,7 @@ const registry = createStudioRegistry([
           description: 'ext.vercelDeploy.viewDescription',
           icon: Rocket,
           component: DeployView,
+          presets: ['package'],
         },
       ],
     },
@@ -793,6 +828,7 @@ const registry = createStudioRegistry([
           description: 'ext.promptEval.viewDescription',
           icon: FlaskConical,
           component: EvalView,
+          presets: ['debug'],
         },
       ],
     },
