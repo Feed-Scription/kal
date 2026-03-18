@@ -90,6 +90,50 @@
             }
           }
         }
+      },
+      {
+        "id": "write-state",
+        "type": "WriteState",
+        "label": "写入角色状态",
+        "inputs": [
+          {
+            "name": "playerName",
+            "type": "string"
+          },
+          {
+            "name": "race",
+            "type": "string"
+          },
+          {
+            "name": "class",
+            "type": "string"
+          },
+          {
+            "name": "background",
+            "type": "string"
+          },
+          {
+            "name": "createMode",
+            "type": "string"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "applied",
+            "type": "array"
+          },
+          {
+            "name": "success",
+            "type": "boolean"
+          }
+        ],
+        "config": {
+          "path": "",
+          "allowedKeys": [],
+          "operations": {},
+          "deduplicateBy": {},
+          "constraints": {}
+        }
       }
     ],
     "edges": [
@@ -101,15 +145,33 @@
       },
       {
         "source": "preset",
+        "sourceHandle": "name",
+        "target": "write-state",
+        "targetHandle": "playerName"
+      },
+      {
+        "source": "preset",
+        "sourceHandle": "race",
+        "target": "write-state",
+        "targetHandle": "race"
+      },
+      {
+        "source": "preset",
         "sourceHandle": "class",
-        "target": "preset",
-        "targetHandle": "presetId"
+        "target": "write-state",
+        "targetHandle": "class"
       },
       {
         "source": "preset",
         "sourceHandle": "background",
-        "target": "preset",
-        "targetHandle": "presetId"
+        "target": "write-state",
+        "targetHandle": "background"
+      },
+      {
+        "source": "preset",
+        "sourceHandle": "createMode",
+        "target": "write-state",
+        "targetHandle": "createMode"
       }
     ]
   }
