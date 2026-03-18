@@ -5,7 +5,6 @@ import {
   addEdge,
   applyNodeChanges,
   applyEdgeChanges,
-  useReactFlow,
   type Node,
   type Edge,
   type FitViewOptions,
@@ -178,7 +177,6 @@ export default function Flow() {
 
   // Track drag-connect origin for smart node suggestions
   const connectStartRef = useRef<{ nodeId: string; handleId: string | null; handleType: 'source' | 'target' } | null>(null);
-  const { screenToFlowPosition } = useReactFlow();
 
   // Load flow data when currentFlow changes (not when project updates from save)
   useEffect(() => {
