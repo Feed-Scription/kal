@@ -5,6 +5,7 @@ import {
   addEdge,
   applyNodeChanges,
   applyEdgeChanges,
+  useReactFlow,
   type Node,
   type Edge,
   type FitViewOptions,
@@ -137,6 +138,7 @@ export default function Flow() {
   const overlayMap = useFlowNodeOverlay(currentFlow);
   const setSelection = useCanvasSelection((s) => s.setSelection);
   const { t } = useTranslation('flow');
+  const reactFlowInstance = useReactFlow();
 
   const onSelectionChange = useCallback(
     ({ nodes: selected }: { nodes: Node[] }) => {
@@ -470,17 +472,72 @@ export default function Flow() {
 
   // Keyboard shortcuts
   useEffect(() => {
+    const isEditable = (target: EventTarget | null) => {
+      if (!(target instanceof HTMLElement)) return false;
+      return target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+    };
+
     const handleKeyDown = (e: KeyboardEvent) => {
+      const mod = e.ctrlKey || e.metaKey;
+
       // Ctrl/Cmd + S to save
-      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+      if (mod && e.key === 's') {
         e.preventDefault();
         handleManualSave();
+        return;
+      }
+
+      // Ctrl/Cmd + Enter to run
+      if (mod && e.key === 'Enter') {
+        e.preventDefault();
+        setExecutionDialogOpen(true);
+        return;
+      }
+
+      // Ctrl/Cmd + D to duplicate selected nodes
+      if (mod && e.key === 'd') {
+        e.preventDefault();
+        const selected = nodes.filter((n) => n.selected);
+        if (selected.length === 0) return;
+        const newNodes = selected.map((n) => ({
+          ...n,
+          id: `${n.type}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          position: { x: n.position.x + 40, y: n.position.y + 40 },
+          selected: false,
+        }));
+        setNodes((nds) => [...nds, ...newNodes]);
+        return;
+      }
+
+      // Skip single-key shortcuts when inside editable fields
+      if (isEditable(e.target)) return;
+
+      // F to fit view
+      if (e.key === 'f' && !mod && !e.shiftKey) {
+        e.preventDefault();
+        reactFlowInstance.fitView({ padding: 0.2, duration: 300 });
+        return;
+      }
+
+      // Tab to open add-node context menu at center of viewport
+      if (e.key === 'Tab' && !mod) {
+        e.preventDefault();
+        const vp = document.querySelector('.react-flow');
+        if (vp) {
+          const rect = vp.getBoundingClientRect();
+          setContextMenu({
+            open: true,
+            x: rect.left + rect.width / 2,
+            y: rect.top + rect.height / 2,
+          });
+        }
+        return;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleManualSave]);
+  }, [handleManualSave, nodes, reactFlowInstance]);
 
   const handleAutoLayout = useCallback(() => {
     const nodeIds = nodes.map((n) => n.id);

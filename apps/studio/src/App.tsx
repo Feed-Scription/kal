@@ -1,12 +1,12 @@
 import '@xyflow/react/dist/style.css';
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useTranslation } from 'react-i18next';
 import { Command, Info, Lock, PanelRight, Play, RefreshCw, X } from "lucide-react";
 import { AppSidebar } from "./AppSidebar";
 import { CommandPalette } from "./components/CommandPalette";
 import { ExtensionSurface } from "./components/ExtensionSurface";
 import { WorkbenchInspector } from "./components/WorkbenchInspector";
-import { WorkbenchPanels } from "./components/WorkbenchPanels";
+import { WorkbenchPanels, type WorkbenchPanelsHandle } from "./components/WorkbenchPanels";
 import { ProjectLoader } from "./components/ProjectLoader";
 import { StatusBar } from "./components/StatusBar";
 import { Button } from "./components/ui/button";
@@ -24,15 +24,20 @@ export default function App() {
   const activeView = views.find((view) => view.id === activeViewId) ?? views[0] ?? null;
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [inspectorVisible, setInspectorVisible] = useState(true);
+  const panelsRef = useRef<WorkbenchPanelsHandle>(null);
 
   const toggleInspector = useCallback(() => setInspectorVisible((v) => !v), []);
 
-  // Cmd+I / Ctrl+I to toggle the desktop inspector panel
+  // Cmd+I / Ctrl+I to toggle inspector, Cmd+J / Ctrl+J to toggle bottom panel
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'i') {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      if (e.key === 'i') {
         e.preventDefault();
         toggleInspector();
+      } else if (e.key === 'j') {
+        e.preventDefault();
+        panelsRef.current?.toggle();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -135,7 +140,7 @@ export default function App() {
                 </div>
               ) : null}
             </div>
-            <WorkbenchPanels />
+            <WorkbenchPanels ref={panelsRef} />
           </div>
           {inspectorVisible && <WorkbenchInspector />}
         </div>
