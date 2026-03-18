@@ -36,6 +36,7 @@ import type {
   CheckpointRecord,
   CommentThreadRecord,
   DiagnosticsPayload,
+  ExecutionResult,
   EngineEvent,
   FlowDefinition,
   GitLogResult,
@@ -190,7 +191,7 @@ type StudioStore = {
   setCurrentFlow: (flowName: string) => void;
   saveFlow: (flowName: string, flow: FlowDefinition) => Promise<void>;
   createFlow: (flowName: string) => Promise<void>;
-  executeFlow: (flowId: string, input?: Record<string, any>) => Promise<any>;
+  executeFlow: (flowId: string, input?: Record<string, unknown>) => Promise<ExecutionResult>;
   reloadProject: () => Promise<void>;
   saveSession: (session: SessionDefinition) => Promise<void>;
   deleteSession: () => Promise<void>;
@@ -262,7 +263,6 @@ function createId(prefix: string): string {
 
 const WORKBENCH_STORAGE_KEY = 'kal.studio.workbench';
 const EXTENSION_RUNTIME_STORAGE_KEY = 'kal.studio.extensions';
-const COMMENTS_STORAGE_KEY = 'kal.studio.comments';
 const BREAKPOINTS_STORAGE_KEY = 'kal.studio.breakpoints';
 const runStreamSubscriptions = new Map<string, () => void>();
 let engineEventStreamUnsubscribe: (() => void) | null = null;
@@ -319,7 +319,8 @@ function persistWorkbenchState(workbench: WorkbenchState) {
     return;
   }
 
-  const { commandPaletteOpen: _commandPaletteOpen, ...persistedWorkbench } = workbench;
+  const { commandPaletteOpen, ...persistedWorkbench } = workbench;
+  void commandPaletteOpen;
   window.localStorage.setItem(WORKBENCH_STORAGE_KEY, JSON.stringify(persistedWorkbench));
 }
 
@@ -347,19 +348,7 @@ function loadExtensionPreferences(): Record<string, { enabled: boolean }> {
 }
 
 function loadCommentThreads(): CommentThreadRecord[] {
-  if (typeof window === 'undefined') {
-    return [];
-  }
-
-  try {
-    const raw = window.localStorage.getItem(COMMENTS_STORAGE_KEY);
-    if (!raw) {
-      return [];
-    }
-    return JSON.parse(raw) as CommentThreadRecord[];
-  } catch {
-    return [];
-  }
+  return [];
 }
 
 function loadBreakpoints(): RunBreakpointRecord[] {
@@ -395,19 +384,70 @@ function persistExtensionPreferences(records: Record<StudioExtensionId, StudioEx
   window.localStorage.setItem(EXTENSION_RUNTIME_STORAGE_KEY, JSON.stringify(persisted));
 }
 
-function persistCommentThreads(threads: CommentThreadRecord[]) {
-  if (typeof window === 'undefined') {
-    return;
-  }
-  window.localStorage.setItem(COMMENTS_STORAGE_KEY, JSON.stringify(threads));
-}
-
 function persistBreakpoints(breakpoints: RunBreakpointRecord[]) {
   if (typeof window === 'undefined') {
     return;
   }
 
   window.localStorage.setItem(BREAKPOINTS_STORAGE_KEY, JSON.stringify(breakpoints));
+}
+
+async function loadReviewWorkspaceState(
+  set: (partial: Partial<StudioStore> | ((state: StudioStore) => Partial<StudioStore>)) => void,
+  get: () => StudioStore,
+) {
+  try {
+    const review = await engineApi.getReviewState();
+    set((state) => ({
+      review: {
+        ...state.review,
+        activeProposalId:
+          state.review.activeProposalId && review.proposals.some((proposal) => proposal.id === state.review.activeProposalId)
+            ? state.review.activeProposalId
+            : review.proposals[0]?.id ?? null,
+        proposals: review.proposals,
+      },
+    }));
+  } catch (error) {
+    console.warn('Failed to load review proposals:', error);
+  }
+
+  void get;
+}
+
+async function loadCommentsWorkspaceState(
+  set: (partial: Partial<StudioStore> | ((state: StudioStore) => Partial<StudioStore>)) => void,
+  get: () => StudioStore,
+) {
+  try {
+    const comments = await engineApi.getCommentsState();
+    set((state) => ({
+      comments: {
+        ...state.comments,
+        activeThreadId:
+          state.comments.activeThreadId && comments.threads.some((thread) => thread.id === state.comments.activeThreadId)
+            ? state.comments.activeThreadId
+            : comments.threads[0]?.id ?? null,
+        threads: comments.threads,
+      },
+    }));
+  } catch (error) {
+    console.warn('Failed to load comment threads:', error);
+  }
+
+  void get;
+}
+
+function syncReviewWorkspaceState(get: () => StudioStore) {
+  void engineApi.saveReviewState(get().review.proposals).catch((error) => {
+    console.warn('Failed to persist review proposals:', error);
+  });
+}
+
+function syncCommentsWorkspaceState(get: () => StudioStore) {
+  void engineApi.saveCommentsState(get().comments.threads).catch((error) => {
+    console.warn('Failed to persist comment threads:', error);
+  });
 }
 
 function cloneValue<T>(value: T): T {
@@ -1548,10 +1588,21 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
               }));
             });
           }
+          if (event.resourceId === 'review://proposals') {
+            void loadReviewWorkspaceState(set, get);
+          }
+          if (event.resourceId === 'comments://threads') {
+            void loadCommentsWorkspaceState(set, get);
+          }
           store.recordKernelEvent({
             type: 'resource.changed',
             message: event.message ?? 'Resource changed',
-            resourceId: event.flowId ? `flow://${event.flowId}` : event.sessionId ? 'session://default' : undefined,
+            resourceId:
+              event.flowId
+                ? `flow://${event.flowId}`
+                : event.sessionId
+                  ? 'session://default'
+                  : (event.resourceId as ResourceId | undefined),
           });
         } else if (event.type === 'project.reloaded') {
           void store.reloadProject();
@@ -1569,6 +1620,11 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
       await get().loadPackages().catch(() => {
         // Packages not available, continue without them
       });
+
+      await Promise.all([
+        loadReviewWorkspaceState(set, get),
+        loadCommentsWorkspaceState(set, get),
+      ]);
     } catch (error) {
       const message = (error as Error).message;
       set({
@@ -1621,7 +1677,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
       },
       comments: {
         activeThreadId: null,
-        threads: state.comments.threads,
+        threads: [],
       },
       git: { status: null, log: null },
       packages: { installed: [], loading: false },
@@ -2491,6 +2547,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
       resourceId: 'project://current',
       data: { proposalId },
     });
+    syncReviewWorkspaceState(get);
     return proposalId;
   },
 
@@ -2529,7 +2586,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     }));
 
     try {
-      const smoke = await withJob({
+      const smokeRun = await withJob({
         set,
         get,
         title: i18n.t('store:validateProposal', { title: proposal.title }),
@@ -2538,9 +2595,9 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
           updateProgress(30, i18n.t('store:refreshingDiagnostics'));
           await get().refreshDiagnostics();
           updateProgress(60, i18n.t('store:requestingEngineSmoke'));
-          const result = await engineApi.runSmoke({ steps: 8, dryRun: true });
-          updateProgress(85, i18n.t('store:smokeStatus', { status: result.finalStatus }));
-          return result;
+          const run = await get().createSmokeRun([]);
+          updateProgress(85, i18n.t('store:runCreated', { runId: run.run_id }));
+          return run;
         },
       });
       const diagnostics = get().versionControl.diagnostics;
@@ -2551,14 +2608,17 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
           proposals: state.review.proposals.map((entry) =>
             entry.id === proposalId
               ? {
-                  ...entry,
+                ...entry,
                   status: 'ready',
+                  relatedRunId: smokeRun.run_id,
+                  relatedStateKeys: smokeRun.state_summary.changed,
                   expectedDiagnostics: summarizeDiagnostics(diagnostics),
                   validation: {
                     lintStatus: 'completed',
                     smokeStatus: 'completed',
                     diagnostics,
-                    smoke,
+                    smoke: null,
+                    smokeRun,
                     lastValidatedAt: Date.now(),
                   },
                 }
@@ -2571,6 +2631,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
         message: i18n.t('store:proposalValidated', { title: proposal.title }),
         data: { proposalId },
       });
+      syncReviewWorkspaceState(get);
     } catch (error) {
       set((state) => ({
         review: {
@@ -2591,6 +2652,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
           ),
         },
       }));
+      syncReviewWorkspaceState(get);
       throw error;
     }
   },
@@ -2622,6 +2684,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
       message: i18n.t('store:proposalAccepted', { title: proposal.title }),
       data: { proposalId },
     });
+    syncReviewWorkspaceState(get);
   },
 
   rollbackProposal: async (proposalId) => {
@@ -2652,6 +2715,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
       message: i18n.t('store:proposalRolledBack', { title: proposal.title }),
       data: { proposalId, checkpointId: proposal.baseCheckpointId },
     });
+    syncReviewWorkspaceState(get);
   },
 
   createCommentThread: (input) => {
@@ -2690,6 +2754,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
       message: i18n.t('store:createCommentThread', { title: thread.title }),
       data: { threadId, anchor: input.anchor.kind },
     });
+    syncCommentsWorkspaceState(get);
     return threadId;
   },
 
@@ -2726,6 +2791,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
       message: i18n.t('store:commentThreadReplyAdded', { threadId }),
       data: { threadId },
     });
+    syncCommentsWorkspaceState(get);
   },
 
   resolveCommentThread: (threadId, resolved) => {
@@ -2749,6 +2815,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
       message: i18n.t('store:commentThreadStatusChanged', { threadId, status: resolved ? i18n.t('store:resolved') : i18n.t('store:reopened') }),
       data: { threadId, resolved },
     });
+    syncCommentsWorkspaceState(get);
   },
 
   setActiveCommentThread: (threadId) => {
@@ -3317,44 +3384,22 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
 
   applyTemplate: async (templateId: string, packageId: string) => {
     const packages = get().packages.installed;
-    const pkg = packages.find((p) => p.manifest.id === packageId);
-    if (!pkg) {
-      throw new Error(`Package not found: ${packageId}`);
-    }
-    const template = pkg.manifest.contributes?.templates?.find((t) => t.id === templateId);
-    if (!template) {
-      throw new Error(`Template not found: ${templateId} in package ${packageId}`);
-    }
+    const pkg = packages.find((entry) => entry.manifest.id === packageId);
+    const template = pkg?.manifest.contributes?.templates?.find((entry) => entry.id === templateId);
+    const bundle = await engineApi.applyTemplate(packageId, templateId);
 
-    // Apply template flows
-    if (template.flows) {
-      for (const flowName of template.flows) {
-        await engineApi.saveFlow(flowName, {
-          meta: { schemaVersion: '1.0.0', name: flowName, description: `From template ${template.name}` },
-          data: { nodes: [], edges: [] },
-        });
-      }
-    }
-
-    // Merge session if template has sessionRef
-    if (template.sessionRef) {
-      const currentSession = get().resources.project?.session;
-      if (!currentSession) {
-        await engineApi.saveSession({
-          schemaVersion: '1.0.0',
-          name: template.name,
-          steps: [{ id: 'end', type: 'End' }],
-        });
-      }
-    }
-
-    // Reload project to pick up changes
     await get().reloadProject();
 
     get().recordKernelEvent({
       type: 'resource.changed',
-      message: `Template "${template.name}" applied from ${pkg.manifest.name}`,
+      message: `Template "${template?.name ?? templateId}" applied from ${pkg?.manifest.name ?? packageId}`,
       resourceId: `template://${templateId}`,
+      data: {
+        packageId,
+        flowIds: bundle.summary.flowIds,
+        hasSession: bundle.summary.hasSession,
+        stateKeys: bundle.summary.stateKeys,
+      },
     });
   },
 }));
@@ -3362,7 +3407,6 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
 useStudioStore.subscribe((state) => {
   persistWorkbenchState(state.workbench);
   persistExtensionPreferences(state.extensions.records);
-  persistCommentThreads(state.comments.threads);
   persistBreakpoints(state.runDebug.breakpoints);
 });
 
