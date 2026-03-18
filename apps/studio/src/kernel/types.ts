@@ -25,7 +25,6 @@ export type StudioWorkspacePreset =
   | 'authoring'
   | 'debug'
   | 'review'
-  | 'history'
   | 'package';
 export type StudioContextValue = string | boolean | null;
 export type StudioRenderableComponent = ComponentType;

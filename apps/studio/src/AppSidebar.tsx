@@ -13,9 +13,9 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { Command, LayoutDashboard, Plus, RefreshCw, PlayCircle } from "lucide-react";
+import { Command, LayoutDashboard, Plus, RefreshCw, PlayCircle, Route, ClipboardCheck, Package, Zap, Bookmark } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from 'react-i18next';
 import {
   Dialog,
@@ -27,16 +27,54 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useFlowResource, useWorkbench, useStudioCommands, useStudioResources, useRunDebug } from "./kernel/hooks";
+import { useFlowResource, useWorkbench, useStudioCommands, useStudioResources, useRunDebug, useReviewWorkspace, usePackages } from "./kernel/hooks";
+import { getStudioView } from "./kernel/registry";
 import type { StudioWorkspacePreset } from "./kernel/types";
 
 type AppSidebarProps = {
   children: React.ReactNode;
 };
 
-const PRESETS_WITH_FLOWS: StudioWorkspacePreset[] = ['authoring', 'debug', 'review'];
-const PRESETS_WITH_RUNS: StudioWorkspacePreset[] = ['debug', 'review', 'history'];
-const PRESETS_WITH_VIEWS: StudioWorkspacePreset[] = ['authoring', 'debug', 'review', 'history'];
+// ── Per-preset sidebar configuration ──
+
+type PresetResourcesConfig = {
+  showFlows: boolean;
+  showSession: boolean;
+  showRuns: boolean;
+  showProposals: boolean;
+  showPackages: boolean;
+};
+
+type PresetSidebarConfig = {
+  resources: PresetResourcesConfig;
+  toolViewIds: string[];
+  actions: string[];
+};
+
+const PRESET_SIDEBAR_CONFIG: Record<StudioWorkspacePreset, PresetSidebarConfig> = {
+  authoring: {
+    resources: { showFlows: true, showSession: true, showRuns: false, showProposals: false, showPackages: false },
+    toolViewIds: ['kal.config', 'kal.problems', 'kal.prompt-preview'],
+    actions: ['reload'],
+  },
+  debug: {
+    resources: { showFlows: true, showSession: false, showRuns: true, showProposals: false, showPackages: false },
+    toolViewIds: ['kal.debugger', 'kal.h5-preview', 'kal.prompt-eval', 'kal.prompt-preview', 'kal.problems'],
+    actions: ['newRun', 'smokeRun', 'reload'],
+  },
+  review: {
+    resources: { showFlows: false, showSession: false, showRuns: true, showProposals: true, showPackages: false },
+    toolViewIds: ['kal.review', 'kal.comments', 'kal.version-control', 'kal.problems'],
+    actions: ['createProposal', 'createCheckpoint', 'reload'],
+  },
+  package: {
+    resources: { showFlows: false, showSession: false, showRuns: false, showProposals: false, showPackages: true },
+    toolViewIds: ['kal.template-browser', 'kal.vercel-deploy'],
+    actions: ['reload'],
+  },
+};
+
+const WORKSPACE_PRESETS: StudioWorkspacePreset[] = ['authoring', 'debug', 'review', 'package'];
 
 export function AppSidebar({ children }: AppSidebarProps) {
   const { t } = useTranslation('workbench');
@@ -44,9 +82,16 @@ export function AppSidebar({ children }: AppSidebarProps) {
   const { t: tr } = useTranslation('registry');
   const { project, session } = useStudioResources();
   const { flowId: currentFlow } = useFlowResource();
-  const { activePreset, activeViewId, views } = useWorkbench();
+  const { activePreset, activeViewId } = useWorkbench();
   const { runs, selectedRunId } = useRunDebug();
-  const { setActiveView, setActivePreset, setCommandPaletteOpen, openFlow, createFlow, reloadProject, selectRun } = useStudioCommands();
+  const { proposals } = useReviewWorkspace();
+  const { installed: installedPackages } = usePackages();
+  const {
+    setActiveView, setActivePreset, setCommandPaletteOpen,
+    openFlow, createFlow, reloadProject, selectRun,
+    createRun, createSmokeRun, createReviewProposal,
+    setActiveProposal, createCheckpoint,
+  } = useStudioCommands();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [flowNameInput, setFlowNameInput] = useState("");
@@ -72,8 +117,8 @@ export function AppSidebar({ children }: AppSidebarProps) {
     try {
       await createFlow(name);
       setDialogOpen(false);
-    } catch (e: any) {
-      setError(e.message);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : String(e));
     }
   };
 
@@ -81,29 +126,54 @@ export function AppSidebar({ children }: AppSidebarProps) {
     setReloading(true);
     try {
       await reloadProject();
-    } catch (e: any) {
-      alert(tc("reloadFailed", { message: e.message }));
+    } catch (e: unknown) {
+      alert(tc("reloadFailed", { message: e instanceof Error ? e.message : String(e) }));
     } finally {
       setReloading(false);
     }
   };
 
-  const showFlows = PRESETS_WITH_FLOWS.includes(activePreset);
-  const showRuns = PRESETS_WITH_RUNS.includes(activePreset);
-  const showViews = PRESETS_WITH_VIEWS.includes(activePreset);
-  const showPackage = activePreset === 'package';
+  const handleNewRun = async () => {
+    await createRun(true);
+    setActivePreset('debug');
+    setActiveView('kal.debugger');
+  };
 
-  const presetViews = views.filter(
-    (view) => !view.presets || view.presets.includes(activePreset),
-  );
+  const handleSmokeRun = async () => {
+    await createSmokeRun();
+    setActivePreset('debug');
+    setActiveView('kal.debugger');
+  };
 
-  const workspacePresets: Array<{ id: StudioWorkspacePreset; label: string; desc: string }> = [
-    { id: "authoring", label: t("preset.authoring"), desc: t("preset.authoringDesc") },
-    { id: "debug", label: t("preset.debug"), desc: t("preset.debugDesc") },
-    { id: "review", label: t("preset.review"), desc: t("preset.reviewDesc") },
-    { id: "history", label: t("preset.history"), desc: t("preset.historyDesc") },
-    { id: "package", label: t("preset.package"), desc: t("preset.packageDesc") },
-  ];
+  const handleCreateProposal = () => {
+    const proposalId = createReviewProposal();
+    if (proposalId) {
+      setActiveProposal(proposalId);
+      setActivePreset('review');
+      setActiveView('kal.review');
+    }
+  };
+
+  const handleCreateCheckpoint = () => {
+    createCheckpoint();
+    setActiveView('kal.version-control');
+  };
+
+  const config = PRESET_SIDEBAR_CONFIG[activePreset];
+
+  const toolViews = useMemo(() => {
+    return config.toolViewIds
+      .map((id) => {
+        try { return getStudioView(id); } catch { return null; }
+      })
+      .filter((v): v is NonNullable<typeof v> => v !== null && v.id !== 'kal.flow');
+  }, [config.toolViewIds]);
+
+  const workspacePresets = WORKSPACE_PRESETS.map((id) => ({
+    id,
+    label: t(`preset.${id}`),
+    desc: t(`preset.${id}Desc`),
+  }));
 
   return (
     <SidebarProvider>
@@ -131,6 +201,7 @@ export function AppSidebar({ children }: AppSidebarProps) {
         <SidebarContent>
           {project && (
             <>
+              {/* Preset switcher */}
               <SidebarGroup>
                 <SidebarGroupLabel>{t("workspacePresets")}</SidebarGroupLabel>
                 <SidebarGroupContent className="px-2">
@@ -150,85 +221,185 @@ export function AppSidebar({ children }: AppSidebarProps) {
                 </SidebarGroupContent>
               </SidebarGroup>
 
-              {showFlows && (
-                <SidebarGroup>
-                  <div className="flex items-center justify-between px-2">
-                    <SidebarGroupLabel>{t("flowResources")}</SidebarGroupLabel>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6"
-                      onClick={openCreateDialog}
-                    >
-                      <Plus className="size-4" />
-                    </Button>
-                  </div>
-                  <SidebarGroupContent>
-                    <SidebarMenu>
-                      {Object.keys(project.flows).map((flowName) => (
-                        <SidebarMenuItem key={flowName}>
-                          <SidebarMenuButton
-                            tooltip={flowName}
-                            isActive={currentFlow === flowName}
-                            onClick={() => openFlow(flowName)}
-                          >
-                            <LayoutDashboard className="size-4" />
-                            <span className="flex-1 truncate">{flowName}</span>
-                            <span className="text-xs text-muted-foreground">
-                              {project.flows[flowName]?.data.nodes.length || 0}
-                            </span>
-                          </SidebarMenuButton>
-                        </SidebarMenuItem>
-                      ))}
-                    </SidebarMenu>
-                  </SidebarGroupContent>
-                </SidebarGroup>
-              )}
-
-              {showRuns && (
-                <SidebarGroup>
-                  <SidebarGroupLabel>{t("runs")}</SidebarGroupLabel>
-                  <SidebarGroupContent>
-                    <SidebarMenu>
-                      {runs.length === 0 ? (
+              {/* Resources section */}
+              <SidebarGroup>
+                <SidebarGroupLabel>{t("resources")}</SidebarGroupLabel>
+                <SidebarGroupContent>
+                  <SidebarMenu>
+                    {/* Flow list */}
+                    {config.resources.showFlows && (
+                      <>
                         <SidebarMenuItem>
-                          <span className="px-2 text-xs text-muted-foreground">{t("noRuns")}</span>
-                        </SidebarMenuItem>
-                      ) : (
-                        runs.map((record) => (
-                          <SidebarMenuItem key={record.runId}>
-                            <SidebarMenuButton
-                              tooltip={`Run ${record.runId.slice(0, 8)}`}
-                              isActive={selectedRunId === record.runId}
-                              onClick={() => selectRun(record.runId)}
+                          <div className="flex items-center justify-between px-2 py-1">
+                            <span className="text-xs font-medium text-muted-foreground">{t("flowResources")}</span>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-5 w-5"
+                              onClick={openCreateDialog}
                             >
-                              <PlayCircle className="size-4" />
-                              <span className="flex-1 truncate">
-                                {record.runId.slice(0, 8)}
-                              </span>
-                              <span className={`text-[10px] uppercase ${
-                                record.run.status === 'ended' ? 'text-green-600' :
-                                record.run.status === 'waiting_input' || record.run.status === 'paused' ? 'text-blue-600' :
-                                record.run.status === 'error' ? 'text-red-600' :
-                                'text-muted-foreground'
-                              }`}>
-                                {record.run.status}
+                              <Plus className="size-3" />
+                            </Button>
+                          </div>
+                        </SidebarMenuItem>
+                        {Object.keys(project.flows).map((flowName) => (
+                          <SidebarMenuItem key={flowName}>
+                            <SidebarMenuButton
+                              tooltip={flowName}
+                              isActive={currentFlow === flowName}
+                              onClick={() => openFlow(flowName)}
+                            >
+                              <LayoutDashboard className="size-4" />
+                              <span className="flex-1 truncate">{flowName}</span>
+                              <span className="text-xs text-muted-foreground">
+                                {project.flows[flowName]?.data.nodes.length || 0}
                               </span>
                             </SidebarMenuButton>
                           </SidebarMenuItem>
-                        ))
-                      )}
-                    </SidebarMenu>
-                  </SidebarGroupContent>
-                </SidebarGroup>
-              )}
+                        ))}
+                      </>
+                    )}
 
-              {(showViews || showPackage) && presetViews.length > 0 && (
+                    {/* Session entry */}
+                    {config.resources.showSession && (
+                      <SidebarMenuItem>
+                        <SidebarMenuButton
+                          tooltip={t("sessionEntry")}
+                          isActive={activeViewId === 'kal.session'}
+                          onClick={() => setActiveView('kal.session')}
+                        >
+                          <Route className="size-4" />
+                          <span className="flex-1">{t("sessionEntry")}</span>
+                          <span className={`text-xs ${session ? "text-green-500" : "text-muted-foreground"}`}>
+                            {session ? tc("configured") : tc("none")}
+                          </span>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    )}
+
+                    {/* Run list */}
+                    {config.resources.showRuns && (
+                      <>
+                        <SidebarMenuItem>
+                          <div className="flex items-center px-2 py-1">
+                            <span className="text-xs font-medium text-muted-foreground">{t("runs")}</span>
+                          </div>
+                        </SidebarMenuItem>
+                        {runs.length === 0 ? (
+                          <SidebarMenuItem>
+                            <span className="px-2 text-xs text-muted-foreground">{t("noRuns")}</span>
+                          </SidebarMenuItem>
+                        ) : (
+                          runs.map((record) => (
+                            <SidebarMenuItem key={record.runId}>
+                              <SidebarMenuButton
+                                tooltip={`Run ${record.runId.slice(0, 8)}`}
+                                isActive={selectedRunId === record.runId}
+                                onClick={() => selectRun(record.runId)}
+                              >
+                                <PlayCircle className="size-4" />
+                                <span className="flex-1 truncate">
+                                  {record.runId.slice(0, 8)}
+                                </span>
+                                <span className={`text-[10px] uppercase ${
+                                  record.run.status === 'ended' ? 'text-green-600' :
+                                  record.run.status === 'waiting_input' || record.run.status === 'paused' ? 'text-blue-600' :
+                                  record.run.status === 'error' ? 'text-red-600' :
+                                  'text-muted-foreground'
+                                }`}>
+                                  {record.run.status}
+                                </span>
+                              </SidebarMenuButton>
+                            </SidebarMenuItem>
+                          ))
+                        )}
+                      </>
+                    )}
+
+                    {/* Proposal list */}
+                    {config.resources.showProposals && (
+                      <>
+                        <SidebarMenuItem>
+                          <div className="flex items-center justify-between px-2 py-1">
+                            <span className="text-xs font-medium text-muted-foreground">{t("proposals")}</span>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-5 w-5"
+                              onClick={handleCreateProposal}
+                            >
+                              <Plus className="size-3" />
+                            </Button>
+                          </div>
+                        </SidebarMenuItem>
+                        {proposals.length === 0 ? (
+                          <SidebarMenuItem>
+                            <span className="px-2 text-xs text-muted-foreground">{t("noProposals")}</span>
+                          </SidebarMenuItem>
+                        ) : (
+                          proposals.map((proposal) => (
+                            <SidebarMenuItem key={proposal.id}>
+                              <SidebarMenuButton
+                                tooltip={proposal.title}
+                                isActive={false}
+                                onClick={() => {
+                                  setActiveProposal(proposal.id);
+                                  setActiveView('kal.review');
+                                }}
+                              >
+                                <ClipboardCheck className="size-4" />
+                                <span className="flex-1 truncate">{proposal.title}</span>
+                                <span className="text-[10px] uppercase text-muted-foreground">
+                                  {proposal.status}
+                                </span>
+                              </SidebarMenuButton>
+                            </SidebarMenuItem>
+                          ))
+                        )}
+                      </>
+                    )}
+
+                    {/* Installed packages list */}
+                    {config.resources.showPackages && (
+                      <>
+                        <SidebarMenuItem>
+                          <div className="flex items-center px-2 py-1">
+                            <span className="text-xs font-medium text-muted-foreground">{t("installedPackages")}</span>
+                          </div>
+                        </SidebarMenuItem>
+                        {installedPackages.length === 0 ? (
+                          <SidebarMenuItem>
+                            <span className="px-2 text-xs text-muted-foreground">{t("noPackages")}</span>
+                          </SidebarMenuItem>
+                        ) : (
+                          installedPackages.map((pkg) => (
+                            <SidebarMenuItem key={pkg.manifest.id}>
+                              <SidebarMenuButton
+                                tooltip={pkg.manifest.name}
+                                onClick={() => setActiveView('kal.package-manager')}
+                              >
+                                <Package className="size-4" />
+                                <span className="flex-1 truncate">{pkg.manifest.name}</span>
+                                <span className={`text-[10px] ${pkg.enabled ? "text-green-500" : "text-muted-foreground"}`}>
+                                  {pkg.manifest.kind}
+                                </span>
+                              </SidebarMenuButton>
+                            </SidebarMenuItem>
+                          ))
+                        )}
+                      </>
+                    )}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </SidebarGroup>
+
+              {/* Tools section */}
+              {toolViews.length > 0 && (
                 <SidebarGroup>
-                  <SidebarGroupLabel>{t("views")}</SidebarGroupLabel>
+                  <SidebarGroupLabel>{t("tools")}</SidebarGroupLabel>
                   <SidebarGroupContent>
                     <SidebarMenu>
-                      {presetViews.map((view) => {
+                      {toolViews.map((view) => {
                         const Icon = view.icon;
                         return (
                           <SidebarMenuItem key={view.id}>
@@ -238,7 +409,7 @@ export function AppSidebar({ children }: AppSidebarProps) {
                               onClick={() => setActiveView(view.id)}
                             >
                               <Icon className="size-4" />
-                              <span>{tr(view.title)}</span>
+                              <span>{tr(view.shortTitle)}</span>
                             </SidebarMenuButton>
                           </SidebarMenuItem>
                         );
@@ -248,22 +419,57 @@ export function AppSidebar({ children }: AppSidebarProps) {
                 </SidebarGroup>
               )}
 
+              {/* Quick actions section */}
               <SidebarGroup>
-                <SidebarGroupLabel>{t("projectCommands")}</SidebarGroupLabel>
+                <SidebarGroupLabel>{t("quickActions")}</SidebarGroupLabel>
                 <SidebarGroupContent>
                   <SidebarMenu>
-                    <SidebarMenuItem>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="w-full justify-start"
-                        onClick={handleReload}
-                        disabled={reloading}
-                      >
-                        <RefreshCw className={`mr-2 size-4 ${reloading ? "animate-spin" : ""}`} />
-                        {reloading ? t("reloading") : t("reloadProject")}
-                      </Button>
-                    </SidebarMenuItem>
+                    {config.actions.includes('newRun') && (
+                      <SidebarMenuItem>
+                        <Button variant="ghost" size="sm" className="w-full justify-start" onClick={handleNewRun}>
+                          <Zap className="mr-2 size-4" />
+                          {t("newRun")}
+                        </Button>
+                      </SidebarMenuItem>
+                    )}
+                    {config.actions.includes('smokeRun') && (
+                      <SidebarMenuItem>
+                        <Button variant="ghost" size="sm" className="w-full justify-start" onClick={handleSmokeRun}>
+                          <PlayCircle className="mr-2 size-4" />
+                          {t("smokeRun")}
+                        </Button>
+                      </SidebarMenuItem>
+                    )}
+                    {config.actions.includes('createProposal') && (
+                      <SidebarMenuItem>
+                        <Button variant="ghost" size="sm" className="w-full justify-start" onClick={handleCreateProposal}>
+                          <ClipboardCheck className="mr-2 size-4" />
+                          {t("createProposal")}
+                        </Button>
+                      </SidebarMenuItem>
+                    )}
+                    {config.actions.includes('createCheckpoint') && (
+                      <SidebarMenuItem>
+                        <Button variant="ghost" size="sm" className="w-full justify-start" onClick={handleCreateCheckpoint}>
+                          <Bookmark className="mr-2 size-4" />
+                          {t("createCheckpoint")}
+                        </Button>
+                      </SidebarMenuItem>
+                    )}
+                    {config.actions.includes('reload') && (
+                      <SidebarMenuItem>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="w-full justify-start"
+                          onClick={handleReload}
+                          disabled={reloading}
+                        >
+                          <RefreshCw className={`mr-2 size-4 ${reloading ? "animate-spin" : ""}`} />
+                          {reloading ? t("reloading") : t("reloadProject")}
+                        </Button>
+                      </SidebarMenuItem>
+                    )}
                   </SidebarMenu>
                 </SidebarGroupContent>
               </SidebarGroup>
@@ -286,12 +492,6 @@ export function AppSidebar({ children }: AppSidebarProps) {
                 <div className="flex items-center justify-between">
                   <span>{t("flowLabel")}</span>
                   <span className="font-medium text-foreground">{Object.keys(project.flows).length}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span>{t("sessionLabel")}</span>
-                  <span className={`font-medium ${session ? "text-green-500" : "text-muted-foreground"}`}>
-                    {session ? tc("configured") : tc("none")}
-                  </span>
                 </div>
               </div>
             )}
