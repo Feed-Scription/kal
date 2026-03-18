@@ -99,13 +99,12 @@
   "notConfigured": "Not configured",
   "stepCount": "Step Count",
   "inspector": "Inspector",
-  "inspectorTab": {
-    "node": "Node",
-    "flow": "Flow",
-    "extension": "Extension",
-    "session": "Session"
-  },
+  "properties": "Properties",
+  "context": "Context",
+  "extensionInfo": "Extension Info",
   "noNodeSelected": "Click a node on the canvas to inspect it.",
+  "noActiveFlow": "No active flow.",
+  "sessionInfo": "Session",
   "capabilityGranted": "Granted",
   "capabilityBlocked": "Blocked",
   "capabilityDegraded": "Degraded",
