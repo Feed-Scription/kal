@@ -20,6 +20,7 @@ import {
 } from '@xyflow/react';
 
 import { ManifestNode } from "./nodes/ManifestNode";
+import { BackEdge } from "./edges/BackEdge";
 import { PaneContextMenu, type ContextMenuState } from "./PaneContextMenu";
 import { FlowToolbar } from "./components/FlowToolbar";
 import { ExecutionDialog } from "./components/ExecutionDialog";
@@ -118,6 +119,10 @@ const fitViewOptions: FitViewOptions = {
 const defaultEdgeOptions: DefaultEdgeOptions = {
   animated: true,
   interactionWidth: 20,
+};
+
+const edgeTypes = {
+  backEdge: BackEdge,
 };
 
 /** Map a port type string to a stroke color for edges */
@@ -233,7 +238,7 @@ export default function Flow() {
         if (isBack) {
           return {
             ...base,
-            type: 'smoothstep',
+            type: 'backEdge',
             style: {
               stroke: '#f59e0b',
               strokeWidth: 2,
@@ -390,7 +395,7 @@ export default function Flow() {
           if (isBack) {
             return {
               ...edge,
-              type: 'smoothstep',
+              type: 'backEdge',
               style: { stroke: '#f59e0b', strokeWidth: 2, strokeDasharray: '8 4' },
               animated: true,
               markerEnd: { type: MarkerType.ArrowClosed, color: '#f59e0b' },
@@ -638,6 +643,7 @@ export default function Flow() {
         onSelectionChange={onSelectionChange}
         onPaneContextMenu={onPaneContextMenu}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
         fitView
         fitViewOptions={fitViewOptions}
         defaultEdgeOptions={defaultEdgeOptions}>
