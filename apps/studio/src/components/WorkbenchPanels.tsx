@@ -1,10 +1,14 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useImperativeHandle, forwardRef } from "react";
 import { ChevronDown, ChevronUp, AlertTriangle, PanelBottomClose } from "lucide-react";
 import { useTranslation } from 'react-i18next';
 import { useDiagnostics, usePanelContributions } from "@/kernel/hooks";
 import { ExtensionSurface } from "./ExtensionSurface";
 
-export function WorkbenchPanels() {
+export type WorkbenchPanelsHandle = {
+  toggle: () => void;
+};
+
+export const WorkbenchPanels = forwardRef<WorkbenchPanelsHandle>(function WorkbenchPanels(_props, ref) {
   const { t } = useTranslation('workbench');
   const panels = usePanelContributions();
   const { diagnostics } = useDiagnostics();
@@ -13,6 +17,10 @@ export function WorkbenchPanels() {
   const errorCount = diagnostics?.summary?.errors ?? 0;
   const warningCount = diagnostics?.summary?.warnings ?? 0;
   const issueCount = errorCount + warningCount;
+
+  useImperativeHandle(ref, () => ({
+    toggle: () => setCollapsed((prev) => !prev),
+  }));
 
   // Auto-expand when new errors appear
   useEffect(() => {
@@ -62,4 +70,4 @@ export function WorkbenchPanels() {
       )}
     </div>
   );
-}
+});
