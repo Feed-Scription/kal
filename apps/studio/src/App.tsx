@@ -13,7 +13,7 @@ import { ProjectLoader } from "./components/ProjectLoader";
 import { StatusBar } from "./components/StatusBar";
 import { Button } from "./components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "./components/ui/sheet";
-import { useCapabilityGate, useExtensionRuntimeMap, useStudioCommands, useWorkbench, useStudioResources } from "./kernel/hooks";
+import { useCapabilityGate, useExtensionRuntimeMap, usePanelContributions, useStudioCommands, useWorkbench, useStudioResources } from "./kernel/hooks";
 
 export default function App() {
   const { t } = useTranslation('workbench');
@@ -26,9 +26,22 @@ export default function App() {
   const activeView = views.find((view) => view.id === activeViewId) ?? views[0] ?? null;
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [inspectorVisible, setInspectorVisible] = useState(true);
+  const panelContributions = usePanelContributions();
+  const hasPanels = panelContributions.length > 0;
 
   const inspectorPanelRef = useRef<ImperativePanelHandle>(null);
   const bottomPanelRef = useRef<ImperativePanelHandle>(null);
+
+  // Auto-collapse/expand bottom panel when preset changes panel availability
+  useEffect(() => {
+    const panel = bottomPanelRef.current;
+    if (!panel) return;
+    if (!hasPanels && !panel.isCollapsed()) {
+      panel.collapse();
+    } else if (hasPanels && panel.isCollapsed()) {
+      panel.expand();
+    }
+  }, [hasPanels]);
 
   const toggleInspector = useCallback(() => {
     const panel = inspectorPanelRef.current;

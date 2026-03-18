@@ -6,6 +6,7 @@ import { ExtensionSurface } from "./ExtensionSurface";
 
 export function WorkbenchPanels() {
   const { t } = useTranslation('workbench');
+  const { t: tr } = useTranslation('registry');
   const panels = usePanelContributions();
   const { diagnostics } = useDiagnostics();
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
@@ -47,7 +48,7 @@ export function WorkbenchPanels() {
                   : ''
               }`}
             >
-              {t(contribution.title)}
+              {tr(contribution.title)}
             </button>
           ))}
           {issueCount > 0 && (
