@@ -1,9 +1,9 @@
 import { CheckCircle2, Lock, XCircle, Loader2, Wifi } from "lucide-react";
 import { useTranslation } from 'react-i18next';
-import { useCapabilityGate, useConnectionState, useFlowResource, useKernelJobs, useResourceVersion, useSaveState, useStudioResources, useWorkbench } from "@/kernel/hooks";
+import { useCapabilityGate, useConnectionState, useFlowResource, useKernelJobs, useSaveState, useStudioResources, useWorkbench } from "@/kernel/hooks";
 import { formatTime as formatTimeI18n } from '@/i18n/format';
-import type { ResourceId } from "@/types/project";
 import { LanguageSwitcher } from "./LanguageSwitcher";
+import { ThemeToggle } from "./ThemeToggle";
 
 export function StatusBar() {
   const { t } = useTranslation('workbench');
@@ -12,11 +12,9 @@ export function StatusBar() {
   const { flowId: currentFlow } = useFlowResource();
   const { engineConnected } = useConnectionState();
   const saveState = useSaveState();
-  const { activeExtension, activePreset, activeView } = useWorkbench();
+  const { activeExtension } = useWorkbench();
   const jobs = useKernelJobs();
   const capabilityGate = useCapabilityGate(activeExtension?.capabilities);
-  const activeResourceId = (currentFlow ? `flow://${currentFlow}` : "session://default") as ResourceId;
-  const activeVersion = useResourceVersion(activeResourceId);
 
   if (!project) return null;
 
@@ -45,19 +43,10 @@ export function StatusBar() {
             {t("flowLabel")} <span className="font-medium text-foreground">{currentFlow}</span>
           </span>
         )}
-        <span className="text-muted-foreground">
-          {t("version")} <span className="font-medium text-foreground">v{activeVersion?.version ?? 0}</span>
-        </span>
-        <span className="text-muted-foreground">
-          {t("view")} <span className="font-medium text-foreground">{activeView.shortTitle}</span>
-        </span>
-        <span className="text-muted-foreground">
-          {t("workspace")} <span className="font-medium text-foreground">{activePreset}</span>
-        </span>
         <span className="flex items-center gap-1.5 text-muted-foreground">
           <Lock className={`size-3.5 ${capabilityGate.trusted ? "text-green-600" : "text-yellow-600"}`} />
           <span className="font-medium text-foreground">
-            {capabilityGate.trusted ? "trusted" : "restricted"}
+            {capabilityGate.trusted ? t("trusted") : t("restricted")}
           </span>
         </span>
       </div>
@@ -102,6 +91,7 @@ export function StatusBar() {
             </span>
           )}
         </div>
+        <ThemeToggle />
         <LanguageSwitcher />
       </div>
     </div>

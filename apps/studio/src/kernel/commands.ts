@@ -10,6 +10,7 @@ export function useCommandRegistry() {
   const { selectedRunId, selectedStepId } = useRunDebug();
   const context = useWorkbenchContext();
   const { t } = useTranslation('commands');
+  const { t: tr } = useTranslation('registry');
 
   const PRESET_LABELS: Record<StudioWorkspacePreset, string> = {
     authoring: t('preset.authoring'),
@@ -39,17 +40,23 @@ export function useCommandRegistry() {
       redo,
     } = useStudioCommands();
   const commands = useMemo<StudioCommandDescriptor[]>(() => {
-    const viewCommands = views.map((view) => ({
-      id: `workbench.view.${view.id}`,
-      title: t('openView', { title: view.title }),
-      description: view.description,
-      section: t('section.views'),
-      keywords: [view.id, view.shortTitle, view.title],
-      when: (ctx: StudioCommandContext) => Boolean(ctx.values['project.loaded']) && ctx.values['workbench.view'] !== view.id,
-      run: () => {
-        setActiveView(view.id);
-      },
-    }));
+    const viewCommands = views.map((view) => {
+      const title = tr(view.title);
+      const shortTitle = tr(view.shortTitle);
+      const description = tr(view.description);
+
+      return {
+        id: `workbench.view.${view.id}`,
+        title: t('openView', { title }),
+        description,
+        section: t('section.views'),
+        keywords: [view.id, view.shortTitle, view.title, shortTitle, title, description],
+        when: (ctx: StudioCommandContext) => Boolean(ctx.values['project.loaded']) && ctx.values['workbench.view'] !== view.id,
+        run: () => {
+          setActiveView(view.id);
+        },
+      };
+    });
 
     const presetCommands = (Object.entries(PRESET_LABELS) as Array<[StudioWorkspacePreset, string]>).map(
       ([preset, label]) => ({
@@ -332,6 +339,7 @@ export function useCommandRegistry() {
     selectedRunId,
     selectedStepId,
     t,
+    tr,
   ]);
 
   return {

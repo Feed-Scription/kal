@@ -15,6 +15,7 @@ import { useCapabilityGate, useExtensionRuntimeMap, useStudioCommands, useWorkbe
 
 export default function App() {
   const { t } = useTranslation('workbench');
+  const { t: tr } = useTranslation('registry');
   const { project } = useStudioResources();
   const { activeExtension, activeViewId, openViews, views } = useWorkbench();
   const extensionRuntime = useExtensionRuntimeMap();
@@ -53,7 +54,7 @@ export default function App() {
                         className="flex items-center gap-2 whitespace-nowrap"
                       >
                         <Icon className="size-4" />
-                        {view.shortTitle}
+                        {tr(view.shortTitle)}
                       </button>
                       {openViews.length > 1 ? (
                         <Button
@@ -74,10 +75,10 @@ export default function App() {
               </div>
 
               <div className="flex shrink-0 items-center gap-1">
-                <Button variant="ghost" size="icon-sm" onClick={() => setCommandPaletteOpen(true)} title={t('tooltips.commandPalette')}>
+                <Button variant="ghost" size="icon-sm" onClick={() => setCommandPaletteOpen(true)} title={t('tooltips.commandPalette')} aria-label={t('tooltips.commandPalette')}>
                   <Command className="size-4" />
                 </Button>
-                <Button variant="ghost" size="icon-sm" onClick={() => void refreshDiagnostics()} title={t('tooltips.refreshDiagnostics')}>
+                <Button variant="ghost" size="icon-sm" onClick={() => void refreshDiagnostics()} title={t('tooltips.refreshDiagnostics')} aria-label={t('tooltips.refreshDiagnostics')}>
                   <RefreshCw className="size-4" />
                 </Button>
                 <Button
@@ -88,6 +89,7 @@ export default function App() {
                     setActiveView("kal.debugger");
                   }}
                   title={t('tooltips.run')}
+                  aria-label={t('tooltips.run')}
                 >
                   <Play className="size-4" />
                 </Button>
@@ -121,7 +123,8 @@ export default function App() {
         size="icon-sm"
         className="fixed right-4 bottom-12 z-40 shadow-md xl:hidden"
         onClick={() => setInspectorOpen(true)}
-        title="Inspector"
+        title={t('inspector')}
+        aria-label={t('inspector')}
       >
         <Info className="size-4" />
       </Button>

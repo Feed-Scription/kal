@@ -57,6 +57,8 @@ function SurfaceFallback({
   } = useStudioCommands();
   const { t } = useTranslation('workbench');
   const { t: tc } = useTranslation('common');
+  const { t: tr } = useTranslation('registry');
+  const translatedTitle = tr(contribution.title);
   const shellClassName =
     chrome === "fill"
       ? "flex h-full w-full items-center justify-center bg-background p-6"
@@ -76,7 +78,7 @@ function SurfaceFallback({
         <div className="space-y-3 text-sm">
           <div className="flex items-center gap-2 font-medium">
             <PlugZap className="size-4" />
-            {t("extensionDisabled", { title: contribution.title })}
+            {t("extensionDisabled", { title: translatedTitle })}
           </div>
           <div className="text-muted-foreground">
             {t("extensionDisabledDesc")}
@@ -95,7 +97,7 @@ function SurfaceFallback({
         <div className="space-y-3 text-sm">
           <div className="flex items-center gap-2 font-medium">
             <Lock className="size-4" />
-            {t("extensionBlocked", { title: contribution.title })}
+            {t("extensionBlocked", { title: translatedTitle })}
           </div>
           <div className="text-muted-foreground">
             {t("missingCapabilities", { capabilities: runtime.missingCapabilities.join(", ") })}
@@ -128,7 +130,7 @@ function SurfaceFallback({
         <div className="space-y-3 text-sm">
           <div className="flex items-center gap-2 font-medium text-destructive">
             <AlertTriangle className="size-4" />
-            {t("extensionLoadFailed", { title: contribution.title })}
+            {t("extensionLoadFailed", { title: translatedTitle })}
           </div>
           <div className="text-muted-foreground">{runtime.error}</div>
           <Button variant="outline" size="sm" onClick={() => clearExtensionError(contribution.extensionId)}>
