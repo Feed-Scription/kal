@@ -16,7 +16,6 @@ export function useCommandRegistry() {
     authoring: t('preset.authoring'),
     debug: t('preset.debug'),
     review: t('preset.review'),
-    history: t('preset.history'),
     package: t('preset.package'),
   };
   const {

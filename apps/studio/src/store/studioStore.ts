@@ -303,9 +303,10 @@ function loadWorkbenchState(): WorkbenchState {
       openViewIds: openViewIds.includes(activeViewId) ? openViewIds : [activeViewId, ...openViewIds],
       activeFlowId: typeof parsed.activeFlowId === 'string' ? parsed.activeFlowId : null,
       activePreset:
+        // Support legacy 'history' preset stored in localStorage → migrate to 'review'
+        (parsed.activePreset as string) === 'history' ? 'review' :
         parsed.activePreset === 'debug' ||
         parsed.activePreset === 'review' ||
-        parsed.activePreset === 'history' ||
         parsed.activePreset === 'package'
           ? parsed.activePreset
           : 'authoring',
