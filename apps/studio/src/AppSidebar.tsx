@@ -11,9 +11,10 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarProvider,
+  SidebarRail,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { Command, LayoutDashboard, Plus, PlayCircle, Route, Zap, Bookmark } from "lucide-react";
+import { Command, LayoutDashboard, PanelRight, Play, Plus, PlayCircle, Route, Zap, Bookmark } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useMemo, useState } from "react";
 import { useTranslation } from 'react-i18next';
@@ -32,11 +33,13 @@ import { getStudioView } from "./kernel/registry";
 
 type AppSidebarProps = {
   children: React.ReactNode;
+  onToggleInspector?: () => void;
+  inspectorVisible?: boolean;
 };
 
 const TOOL_VIEW_IDS = ['kal.config', 'kal.debugger', 'kal.h5-preview', 'kal.prompt-preview', 'kal.version-control'];
 
-export function AppSidebar({ children }: AppSidebarProps) {
+export function AppSidebar({ children, onToggleInspector, inspectorVisible }: AppSidebarProps) {
   const { t } = useTranslation('workbench');
   const { t: tc } = useTranslation('common');
   const { t: tr } = useTranslation('registry');
@@ -291,6 +294,7 @@ export function AppSidebar({ children }: AppSidebarProps) {
             )}
           </div>
         </SidebarFooter>
+        <SidebarRail />
       </Sidebar>
 
       <SidebarInset className="min-w-0 overflow-hidden">
@@ -300,6 +304,27 @@ export function AppSidebar({ children }: AppSidebarProps) {
             <p className="text-sm font-medium">{t("studioKernel")}</p>
           </div>
           <div className="flex-1" />
+          <Button
+            variant={inspectorVisible ? "secondary" : "ghost"}
+            size="icon-sm"
+            onClick={onToggleInspector}
+            title={`${t('inspector')} (⌘I)`}
+            aria-label={t('inspector')}
+          >
+            <PanelRight className="size-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={async () => {
+              await createRun(false);
+              setActiveView("kal.debugger");
+            }}
+            title={t('tooltips.run')}
+            aria-label={t('tooltips.run')}
+          >
+            <Play className="size-4" />
+          </Button>
           <Button
             variant="outline"
             size="sm"
