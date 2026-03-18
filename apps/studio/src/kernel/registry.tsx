@@ -7,18 +7,12 @@ import { DebuggerView } from '@/components/DebuggerView';
 import { EventLogPanel } from '@/components/EventLogPanel';
 import { H5PreviewView } from '@/components/H5PreviewView';
 import { PromptPreviewInspector } from '@/components/PromptPreviewInspector';
-import { StateDiffPanel } from '@/components/StateDiffPanel';
 import { StateInspectorCard } from '@/components/StateInspectorCard';
 import { StateManager } from '@/components/StateManager';
-import { TracePanel } from '@/components/TracePanel';
 import { TerminalView } from '@/components/TerminalView';
-import { VersionControlPanel } from '@/components/VersionControlPanel';
 import { VersionControlView } from '@/components/VersionControlView';
 import type {
   StudioContributionDescriptor,
-  StudioCapabilityCatalogEntry,
-  StudioCapabilityId,
-  StudioExtensionCapabilityRequest,
   StudioDebugViewDescriptor,
   StudioActivationEvent,
   StudioExtensionContributions,
@@ -40,100 +34,6 @@ type StudioRegistry = {
   inspectors: StudioInspectorDescriptor[];
   debugViews: StudioDebugViewDescriptor[];
 };
-
-const CAPABILITY_CATALOG: Record<StudioCapabilityId, StudioCapabilityCatalogEntry> = {
-  'project.read': {
-    id: 'project.read',
-    title: 'capability.projectRead.title',
-    description: 'capability.projectRead.description',
-    host: 'browser',
-    scope: 'project',
-    approvalStrategy: 'auto',
-    prompt: 'capability.projectRead.prompt',
-  },
-  'project.write': {
-    id: 'project.write',
-    title: 'capability.projectWrite.title',
-    description: 'capability.projectWrite.description',
-    host: 'browser',
-    scope: 'project',
-    approvalStrategy: 'prompt',
-    prompt: 'capability.projectWrite.prompt',
-  },
-  'engine.execute': {
-    id: 'engine.execute',
-    title: 'capability.engineExecute.title',
-    description: 'capability.engineExecute.description',
-    host: 'service',
-    scope: 'project',
-    approvalStrategy: 'prompt',
-    prompt: 'capability.engineExecute.prompt',
-  },
-  'engine.debug': {
-    id: 'engine.debug',
-    title: 'capability.engineDebug.title',
-    description: 'capability.engineDebug.description',
-    host: 'service',
-    scope: 'project',
-    approvalStrategy: 'prompt',
-    prompt: 'capability.engineDebug.prompt',
-  },
-  'trace.read': {
-    id: 'trace.read',
-    title: 'capability.traceRead.title',
-    description: 'capability.traceRead.description',
-    host: 'service',
-    scope: 'project',
-    approvalStrategy: 'auto',
-    prompt: 'capability.traceRead.prompt',
-  },
-  'network.fetch': {
-    id: 'network.fetch',
-    title: 'capability.networkFetch.title',
-    description: 'capability.networkFetch.description',
-    host: 'workspace',
-    scope: 'user',
-    approvalStrategy: 'prompt',
-    prompt: 'capability.networkFetch.prompt',
-  },
-  'process.exec': {
-    id: 'process.exec',
-    title: 'capability.processExec.title',
-    description: 'capability.processExec.description',
-    host: 'workspace',
-    scope: 'user',
-    approvalStrategy: 'admin',
-    prompt: 'capability.processExec.prompt',
-  },
-  'ai.invoke': {
-    id: 'ai.invoke',
-    title: 'capability.aiInvoke.title',
-    description: 'capability.aiInvoke.description',
-    host: 'service',
-    scope: 'user',
-    approvalStrategy: 'prompt',
-    prompt: 'capability.aiInvoke.prompt',
-  },
-};
-
-function resolveCapabilityRequests(
-  requests: StudioExtensionCapabilityRequest[],
-) {
-  return requests.map((request) => {
-    const descriptor = CAPABILITY_CATALOG[request.capability];
-    if (!descriptor) {
-      throw new Error(`Unknown capability: ${request.capability}`);
-    }
-
-    return {
-      ...request,
-      descriptor,
-      required: request.required !== false,
-      restrictedMode: request.restrictedMode ?? (request.required === false ? 'degrade' : 'block'),
-      prompt: request.prompt ?? descriptor.prompt,
-    };
-  });
-}
 
 function normalizeContributions(
   extensionId: StudioExtensionId,
@@ -177,7 +77,6 @@ function assertUniqueIds(items: StudioContributionDescriptor[], scope: string) {
 function createStudioRegistry(extensions: StudioExtensionDescriptor[]): StudioRegistry {
   const normalizedExtensions = extensions.map((extension) => ({
     ...extension,
-    capabilities: resolveCapabilityRequests(extension.capabilities),
     contributes: normalizeContributions(extension.id, extension.contributes),
   }));
 
@@ -213,11 +112,6 @@ const registry = createStudioRegistry([
     kind: 'official-core',
     host: 'browser',
     activationEvents: ['onView:kal.flow'],
-    capabilities: [
-      { capability: 'project.read' },
-      { capability: 'project.write' },
-      { capability: 'engine.execute', required: false, restrictedMode: 'degrade' },
-    ],
     contributes: {
       views: [
         {
@@ -239,11 +133,6 @@ const registry = createStudioRegistry([
     kind: 'official-core',
     host: 'browser',
     activationEvents: ['onView:kal.session', 'onCommand:kal.session.run'],
-    capabilities: [
-      { capability: 'project.read' },
-      { capability: 'project.write' },
-      { capability: 'engine.execute', required: false, restrictedMode: 'degrade' },
-    ],
     contributes: {
       views: [
         {
@@ -265,10 +154,6 @@ const registry = createStudioRegistry([
     kind: 'official-workflow',
     host: 'browser',
     activationEvents: ['onView:kal.state', 'onEvent:run.updated'],
-    capabilities: [
-      { capability: 'project.read' },
-      { capability: 'trace.read', required: false, restrictedMode: 'degrade' },
-    ],
     contributes: {
       views: [
         {
@@ -300,10 +185,6 @@ const registry = createStudioRegistry([
     kind: 'official-workflow',
     host: 'browser',
     activationEvents: ['onView:kal.config'],
-    capabilities: [
-      { capability: 'project.read' },
-      { capability: 'project.write' },
-    ],
     contributes: {
       views: [
         {
@@ -325,7 +206,6 @@ const registry = createStudioRegistry([
     kind: 'official-workflow',
     host: 'browser',
     activationEvents: [],
-    capabilities: [{ capability: 'project.read' }],
     contributes: {
       inspectors: [
         {
@@ -346,11 +226,6 @@ const registry = createStudioRegistry([
     kind: 'official-workflow',
     host: 'browser',
     activationEvents: ['onView:kal.debugger', 'onEvent:run.updated'],
-    capabilities: [
-      { capability: 'project.read' },
-      { capability: 'engine.execute', required: false, restrictedMode: 'degrade' },
-      { capability: 'trace.read', required: false, restrictedMode: 'degrade' },
-    ],
     contributes: {
       views: [
         {
@@ -374,26 +249,6 @@ const registry = createStudioRegistry([
           order: 20,
         },
       ],
-      panels: [
-        {
-          id: 'kal.debugger.trace-panel',
-          extensionId: 'kal.debugger',
-          title: 'ext.debugger.tracePanelTitle',
-          description: 'ext.debugger.tracePanelDescription',
-          component: TracePanel,
-          slot: 'down',
-          order: 15,
-        },
-        {
-          id: 'kal.debugger.state-diff-panel',
-          extensionId: 'kal.debugger',
-          title: 'ext.debugger.stateDiffPanelTitle',
-          description: 'ext.debugger.stateDiffPanelDescription',
-          component: StateDiffPanel,
-          slot: 'down',
-          order: 16,
-        },
-      ],
     },
   },
   {
@@ -403,10 +258,6 @@ const registry = createStudioRegistry([
     kind: 'official-workflow',
     host: 'browser',
     activationEvents: ['onView:kal.h5-preview', 'onEvent:run.updated'],
-    capabilities: [
-      { capability: 'project.read' },
-      { capability: 'trace.read', required: false, restrictedMode: 'degrade' },
-    ],
     contributes: {
       views: [
         {
@@ -428,10 +279,6 @@ const registry = createStudioRegistry([
     kind: 'official-workflow',
     host: 'browser',
     activationEvents: ['onView:kal.version-control', 'onCommand:kal.version-control.focus'],
-    capabilities: [
-      { capability: 'project.read' },
-      { capability: 'project.write' },
-    ],
     contributes: {
       views: [
         {
@@ -444,17 +291,6 @@ const registry = createStudioRegistry([
           component: VersionControlView,
         },
       ],
-      panels: [
-        {
-          id: 'kal.version-control.panel',
-          extensionId: 'kal.version-control',
-          title: 'ext.versionControl.panelTitle',
-          description: 'ext.versionControl.panelDescription',
-          component: VersionControlPanel,
-          slot: 'down',
-          order: 20,
-        },
-      ],
     },
   },
   {
@@ -464,10 +300,6 @@ const registry = createStudioRegistry([
     kind: 'official-workflow',
     host: 'browser',
     activationEvents: ['onView:kal.debugger', 'onEvent:diagnostics.updated', 'onEvent:run.updated', 'onEvent:history.updated'],
-    capabilities: [
-      { capability: 'project.read', required: false, restrictedMode: 'degrade' },
-      { capability: 'trace.read', required: false, restrictedMode: 'degrade' },
-    ],
     contributes: {
       panels: [
         {
@@ -489,10 +321,6 @@ const registry = createStudioRegistry([
     kind: 'official-workflow',
     host: 'workspace',
     activationEvents: ['onView:kal.terminal'],
-    capabilities: [
-      { capability: 'project.read' },
-      { capability: 'process.exec', required: false, restrictedMode: 'degrade' },
-    ],
     contributes: {
       panels: [
         {
@@ -549,10 +377,6 @@ export function getStudioDebugViews() {
   return sortByOrder(STUDIO_DEBUG_VIEWS);
 }
 
-export function getStudioCapabilityCatalog() {
-  return CAPABILITY_CATALOG;
-}
-
 // ── Dynamic Third-party Extension Registration ──
 
 const ALLOWED_THIRD_PARTY_KINDS: Set<string> = new Set([
@@ -572,7 +396,6 @@ export type DynamicExtensionInput = {
   kind: string;
   host?: StudioExtensionHost;
   activationEvents?: StudioActivationEvent[];
-  capabilities?: StudioExtensionCapabilityRequest[];
   contributes?: StudioExtensionContributions;
 };
 
@@ -603,13 +426,11 @@ export function registerDynamicExtension(input: DynamicExtensionInput): DynamicR
     kind: 'third-party',
     host: input.host ?? 'browser',
     activationEvents: input.activationEvents ?? [],
-    capabilities: input.capabilities ?? [],
     contributes: input.contributes ?? {},
   };
 
   const resolved: StudioRegisteredExtensionDescriptor = {
     ...descriptor,
-    capabilities: resolveCapabilityRequests(descriptor.capabilities),
     contributes: normalizeContributions(descriptor.id, descriptor.contributes),
   };
 

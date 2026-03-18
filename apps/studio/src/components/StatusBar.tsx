@@ -1,6 +1,6 @@
-import { CheckCircle2, Lock, XCircle, Loader2, Wifi } from "lucide-react";
+import { CheckCircle2, XCircle, Loader2, Wifi } from "lucide-react";
 import { useTranslation } from 'react-i18next';
-import { useCapabilityGate, useConnectionState, useFlowResource, useKernelJobs, useSaveState, useStudioResources, useWorkbench } from "@/kernel/hooks";
+import { useConnectionState, useFlowResource, useKernelJobs, useSaveState, useStudioResources, useWorkbench } from "@/kernel/hooks";
 import { formatTime as formatTimeI18n } from '@/i18n/format';
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { ThemeToggle } from "./ThemeToggle";
@@ -12,9 +12,8 @@ export function StatusBar() {
   const { flowId: currentFlow } = useFlowResource();
   const { engineConnected } = useConnectionState();
   const saveState = useSaveState();
-  const { activeExtension, activeViewId } = useWorkbench();
+  const { activeViewId } = useWorkbench();
   const jobs = useKernelJobs();
-  const capabilityGate = useCapabilityGate(activeExtension?.capabilities);
 
   if (!project) return null;
 
@@ -44,12 +43,6 @@ export function StatusBar() {
             {t("flowLabel")} <span className="font-medium text-foreground">{currentFlow}</span>
           </span>
         )}
-        <span className="flex items-center gap-1.5 text-muted-foreground">
-          <Lock className={`size-3.5 ${capabilityGate.trusted ? "text-green-600" : "text-yellow-600"}`} />
-          <span className="font-medium text-foreground">
-            {capabilityGate.trusted ? t("trusted") : t("restricted")}
-          </span>
-        </span>
       </div>
 
       <div className="flex items-center gap-4">

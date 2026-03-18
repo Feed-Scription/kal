@@ -2,7 +2,7 @@ import '@xyflow/react/dist/style.css';
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useTranslation } from 'react-i18next';
 import { PanelGroup, Panel, type ImperativePanelHandle } from 'react-resizable-panels';
-import { Command, Info, Lock, PanelRight, Play, RefreshCw } from "lucide-react";
+import { Command, Info, PanelRight, Play, RefreshCw } from "lucide-react";
 import { AppSidebar } from "./AppSidebar";
 import { CommandPalette } from "./components/CommandPalette";
 import { ExtensionSurface } from "./components/ExtensionSurface";
@@ -13,7 +13,7 @@ import { ProjectLoader } from "./components/ProjectLoader";
 import { StatusBar } from "./components/StatusBar";
 import { Button } from "./components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "./components/ui/sheet";
-import { useCapabilityGate, useExtensionRuntimeMap, usePanelContributions, useStudioCommands, useWorkbench, useStudioResources } from "./kernel/hooks";
+import { useExtensionRuntimeMap, usePanelContributions, useStudioCommands, useWorkbench, useStudioResources } from "./kernel/hooks";
 
 function useIsDesktop() {
   const [isDesktop, setIsDesktop] = useState(() =>
@@ -31,9 +31,8 @@ function useIsDesktop() {
 export default function App() {
   const { t } = useTranslation('workbench');
   const { project } = useStudioResources();
-  const { activeExtension, activeViewId, views } = useWorkbench();
+  const { activeViewId, views } = useWorkbench();
   const extensionRuntime = useExtensionRuntimeMap();
-  const capabilityGate = useCapabilityGate(activeExtension?.capabilities);
   const { createRun, refreshDiagnostics, setActiveView, setCommandPaletteOpen } = useStudioCommands();
   const activeView = views.find((view) => view.id === activeViewId) ?? views[0] ?? null;
   const [inspectorOpen, setInspectorOpen] = useState(false);
@@ -143,10 +142,6 @@ export default function App() {
                       >
                         <Play className="size-4" />
                       </Button>
-                      <div className="ml-1 flex items-center gap-1 rounded-lg border px-2 py-1 text-xs text-muted-foreground">
-                        <Lock className={`size-3.5 ${capabilityGate.trusted ? "text-green-600" : "text-yellow-600"}`} />
-                        {capabilityGate.trusted ? t("trusted") : t("restricted")}
-                      </div>
                   </div>
 
                   <div className="relative min-h-0 flex-1">

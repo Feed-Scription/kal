@@ -22,7 +22,6 @@ export {
   useDiagnostics,
   useRunDebug,
   useResourceVersion,
-  useCapabilityGate,
   usePanelContributions,
   useInspectorContributions,
   useDebugViewContributions,
@@ -54,7 +53,6 @@ export {
   getStudioPanels,
   getStudioInspectors,
   getStudioDebugViews,
-  getStudioCapabilityCatalog,
 } from './registry';
 
 // ── Non-React Service ──
