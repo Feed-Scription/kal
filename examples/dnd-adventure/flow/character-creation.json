@@ -12,6 +12,10 @@
         "id": "read-race",
         "type": "ReadState",
         "label": "读取状态",
+        "position": {
+          "x": 0,
+          "y": -232
+        },
         "inputs": [
           {
             "name": "key",
@@ -35,6 +39,10 @@
         "id": "read-class",
         "type": "ReadState",
         "label": "读取状态",
+        "position": {
+          "x": 0,
+          "y": 32
+        },
         "inputs": [
           {
             "name": "key",
@@ -58,6 +66,10 @@
         "id": "char-gen",
         "type": "CharacterGen",
         "label": "角色生成",
+        "position": {
+          "x": 426,
+          "y": -100
+        },
         "inputs": [
           {
             "name": "race",
@@ -98,6 +110,10 @@
         "id": "apply-state",
         "type": "WriteState",
         "label": "批量应用状态",
+        "position": {
+          "x": 852,
+          "y": -100
+        },
         "inputs": [
           {
             "name": "strength",
@@ -136,7 +152,10 @@
         ],
         "config": {
           "path": "",
-          "allowedKeys": []
+          "allowedKeys": [],
+          "operations": {},
+          "deduplicateBy": {},
+          "constraints": {}
         }
       }
     ],

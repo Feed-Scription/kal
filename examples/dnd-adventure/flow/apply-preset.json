@@ -38,8 +38,8 @@
         "type": "PresetCharacter",
         "label": "预设角色",
         "position": {
-          "x": 400,
-          "y": -100
+          "x": 577,
+          "y": -96
         },
         "inputs": [
           {
@@ -98,54 +98,6 @@
             }
           }
         }
-      },
-      {
-        "id": "apply-state",
-        "type": "WriteState",
-        "label": "批量应用状态",
-        "position": {
-          "x": 800,
-          "y": -100
-        },
-        "inputs": [
-          {
-            "name": "playerName",
-            "type": "string"
-          },
-          {
-            "name": "race",
-            "type": "string"
-          },
-          {
-            "name": "class",
-            "type": "string"
-          },
-          {
-            "name": "background",
-            "type": "string"
-          },
-          {
-            "name": "createMode",
-            "type": "string"
-          }
-        ],
-        "outputs": [
-          {
-            "name": "applied",
-            "type": "array"
-          },
-          {
-            "name": "success",
-            "type": "boolean"
-          }
-        ],
-        "config": {
-          "path": "",
-          "allowedKeys": [],
-          "operations": {},
-          "deduplicateBy": {},
-          "constraints": {}
-        }
       }
     ],
     "edges": [
@@ -157,33 +109,9 @@
       },
       {
         "source": "preset",
-        "sourceHandle": "name",
-        "target": "apply-state",
-        "targetHandle": "playerName"
-      },
-      {
-        "source": "preset",
-        "sourceHandle": "race",
-        "target": "apply-state",
-        "targetHandle": "race"
-      },
-      {
-        "source": "preset",
         "sourceHandle": "class",
-        "target": "apply-state",
-        "targetHandle": "class"
-      },
-      {
-        "source": "preset",
-        "sourceHandle": "background",
-        "target": "apply-state",
-        "targetHandle": "background"
-      },
-      {
-        "source": "preset",
-        "sourceHandle": "createMode",
-        "target": "apply-state",
-        "targetHandle": "createMode"
+        "target": "preset",
+        "targetHandle": "presetId"
       }
     ]
   }

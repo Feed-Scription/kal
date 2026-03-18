@@ -17,6 +17,10 @@
         "id": "prompt-build",
         "type": "PromptBuild",
         "label": "结局提示词",
+        "position": {
+          "x": 0,
+          "y": -232
+        },
         "inputs": [
           {
             "name": "data",
@@ -76,6 +80,10 @@
         "id": "message",
         "type": "Message",
         "label": "组装消息",
+        "position": {
+          "x": 426,
+          "y": -100
+        },
         "inputs": [
           {
             "name": "system",
@@ -100,6 +108,10 @@
         "id": "user-prompt",
         "type": "Constant",
         "label": "用户提示",
+        "position": {
+          "x": 0,
+          "y": 32
+        },
         "inputs": [],
         "outputs": [
           {
@@ -108,13 +120,18 @@
           }
         ],
         "config": {
-          "value": "描述冒险者的结局。"
+          "value": "描述冒险者的结局。",
+          "type": "string"
         }
       },
       {
         "id": "generate-text",
         "type": "GenerateText",
         "label": "生成结局叙事",
+        "position": {
+          "x": 852,
+          "y": -100
+        },
         "inputs": [
           {
             "name": "messages",
@@ -144,6 +161,10 @@
         "id": "signal-out",
         "type": "SignalOut",
         "label": "输出结果",
+        "position": {
+          "x": 1278,
+          "y": -100
+        },
         "inputs": [
           {
             "name": "data",

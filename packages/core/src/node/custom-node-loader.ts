@@ -36,7 +36,6 @@ export class CustomNodeLoader {
 
       try {
         registry.register(node);
-        console.error(`Registered custom node: ${node.type}`);
       } catch (error) {
         console.error(`Failed to register node from ${path}:`, error);
       }
