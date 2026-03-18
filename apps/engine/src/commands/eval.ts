@@ -463,7 +463,7 @@ async function handleCompare(
   return 0;
 }
 
-function buildComparison(a: any, b: any, labelA: string, labelB: string): any {
+export function buildComparison(a: any, b: any, labelA: string, labelB: string): any {
   const result: any = {
     a: { label: labelA, variant: a.variant, runs: a.runs },
     b: { label: labelB, variant: b.variant, runs: b.runs },

@@ -1,4 +1,4 @@
-import { Bug, CircleAlert, ClipboardCheck, Database, History, LayoutDashboard, LayoutTemplate, MessageSquareMore, MessageSquareQuote, MonitorPlay, Package, Rocket, Route, Settings, Terminal } from 'lucide-react';
+import { Bug, CircleAlert, ClipboardCheck, Database, FlaskConical, History, LayoutDashboard, LayoutTemplate, MessageSquareMore, MessageSquareQuote, MonitorPlay, Package, Rocket, Route, Settings, Terminal } from 'lucide-react';
 import { CollaboratorsPanel } from '@/components/CollaboratorsPanel';
 import { CommentsPanel } from '@/components/CommentsPanel';
 import { CommentsView } from '@/components/CommentsView';
@@ -18,6 +18,7 @@ import { ReviewView } from '@/components/ReviewView';
 import { TemplateBrowserView } from '@/components/TemplateBrowserView';
 import { TerminalView } from '@/components/TerminalView';
 import { DeployView } from '@/components/DeployView';
+import { EvalView } from '@/components/EvalView';
 import { StateDiffPanel } from '@/components/StateDiffPanel';
 import { StateInspectorCard } from '@/components/StateInspectorCard';
 import { StateManager } from '@/components/StateManager';
@@ -767,6 +768,31 @@ const registry = createStudioRegistry([
           description: 'ext.vercelDeploy.viewDescription',
           icon: Rocket,
           component: DeployView,
+        },
+      ],
+    },
+  },
+  {
+    id: 'kal.prompt-eval',
+    title: 'ext.promptEval.title',
+    description: 'ext.promptEval.description',
+    kind: 'official-workflow',
+    host: 'browser',
+    activationEvents: ['onView:kal.prompt-eval'],
+    capabilities: [
+      { capability: 'project.read' },
+      { capability: 'engine.execute' },
+    ],
+    contributes: {
+      views: [
+        {
+          id: 'kal.prompt-eval',
+          extensionId: 'kal.prompt-eval',
+          title: 'ext.promptEval.viewTitle',
+          shortTitle: 'ext.promptEval.shortTitle',
+          description: 'ext.promptEval.viewDescription',
+          icon: FlaskConical,
+          component: EvalView,
         },
       ],
     },

@@ -691,3 +691,65 @@ export type InstalledPackageRecord = {
   signature?: string;
   provenance?: string;
 };
+
+// ── Eval ──
+
+export type NumericStats = {
+  min: number;
+  max: number;
+  median: number;
+  mean: number;
+  stddev: number;
+  p25: number;
+  p75: number;
+};
+
+export type BooleanStats = {
+  trueCount: number;
+  falseCount: number;
+  trueRate: number;
+  nullCount: number;
+};
+
+export type EvalRunResultEntry = {
+  output: any;
+  cost: number;
+  latency: number;
+  llmRawOutputs?: string[];
+};
+
+export type EvalRunResult = {
+  flowPath: string;
+  nodeId: string;
+  variant: string;
+  model?: string;
+  runs: number;
+  result: {
+    outputs: any[];
+    cost: number;
+    avgLatency: number;
+    perRun: EvalRunResultEntry[];
+    numericStats: Record<string, NumericStats>;
+    booleanStats?: Record<string, BooleanStats>;
+  };
+};
+
+export type EvalCompareResult = {
+  a: { label: string; variant: string; runs: number };
+  b: { label: string; variant: string; runs: number };
+  diff: {
+    cost?: { a: number; b: number; delta: number; pctChange: number | null };
+    avgLatency?: { a: number; b: number; delta: number; pctChange: number | null };
+    numericStats?: Record<string, {
+      a: { median: number; mean: number };
+      b: { median: number; mean: number };
+      medianDelta: number;
+      meanDelta: number;
+    }>;
+    booleanStats?: Record<string, {
+      a: { trueRate: number; trueCount: number };
+      b: { trueRate: number; trueCount: number };
+      trueRateDelta: number;
+    }>;
+  };
+};
