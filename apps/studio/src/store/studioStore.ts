@@ -12,6 +12,7 @@ import i18n from '@/i18n';
 import { formatTimeShort } from '@/i18n/format';
 import { engineApi } from '@/api/engine-client';
 import { setCapabilityProvider } from '@/api/engine-client';
+import { setConnectionLostHandler } from '@/api/engine-client';
 import type { RunAdvanceMode } from '@/api/engine-client';
 import {
   DEFAULT_STUDIO_VIEW_ID,
@@ -3416,4 +3417,32 @@ setCapabilityProvider(() => {
   return Object.entries(grants)
     .filter(([, granted]) => granted)
     .map(([cap]) => cap);
+});
+
+let checkingEngineReachability = false;
+
+setConnectionLostHandler((message) => {
+  const state = useStudioStore.getState();
+  if (!state.connection.engineConnected || !state.resources.project || checkingEngineReachability) {
+    return;
+  }
+
+  checkingEngineReachability = true;
+  void engineApi.getProject()
+    .catch(() => {
+      const latest = useStudioStore.getState();
+      if (!latest.connection.engineConnected || !latest.resources.project) {
+        return;
+      }
+      latest.disconnect();
+      useStudioStore.setState((current) => ({
+        connection: {
+          ...current.connection,
+          connectionError: message,
+        },
+      }));
+    })
+    .finally(() => {
+      checkingEngineReachability = false;
+    });
 });

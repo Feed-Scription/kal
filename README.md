@@ -92,8 +92,8 @@ Batteries included: runtime, engine host, Studio workbench, and example games.
 git clone https://github.com/Feed-Scription/kal.git
 cd kal
 
-# 2. Install
-./scripts/install.sh
+# 2. Install dependencies and link the CLI
+pnpm run setup
 
 # 3. Configure
 kal config init
@@ -109,12 +109,11 @@ kal play examples/dnd-adventure
 git clone https://github.com/Feed-Scription/kal.git
 cd kal
 
-# 2. Install & build
+# 2. Install dependencies (this also builds engine/core/studio)
 pnpm install
-pnpm --filter @kal-ai/engine build
 
 # 3. Link the CLI globally
-cd apps/engine && pnpm link --global && cd ../..
+pnpm run link:global
 
 # 4. Configure API key
 kal config init          # interactive
