@@ -7,12 +7,10 @@
 
 import type {
   CheckpointRecord,
-  CommentThreadRecord,
   DiagnosticsPayload,
   FlowDefinition,
   GitLogResult,
   GitStatusResult,
-  InstalledPackageRecord,
   KalConfig,
   NodeManifest,
   ProjectData,
@@ -20,7 +18,6 @@ import type {
   PromptPreviewEntry,
   ReferenceEntry,
   ResourceVersionState,
-  ReviewProposalRecord,
   RunBreakpointRecord,
   RunStateView,
   RunStreamEvent,
@@ -45,7 +42,6 @@ import type {
   StudioRegisteredExtensionDescriptor,
   StudioViewDescriptor,
   StudioViewId,
-  StudioWorkspacePreset,
   StudioContextValue,
   StudioPanelDescriptor,
   StudioInspectorDescriptor,
@@ -82,7 +78,6 @@ export interface WorkbenchServiceState {
   openViewIds: StudioViewId[];
   openViews: StudioViewDescriptor[];
   activeFlowId: string | null;
-  activePreset: StudioWorkspacePreset;
   commandPaletteOpen: boolean;
   activeView: StudioViewDescriptor;
   activeExtension: StudioRegisteredExtensionDescriptor | null;
@@ -138,35 +133,11 @@ export interface RunDebugServiceState {
   records: Record<string, RunTraceRecord>;
 }
 
-// ── Review Service ──
-
-export interface ReviewServiceState {
-  activeProposalId: string | null;
-  activeProposal: ReviewProposalRecord | null;
-  proposals: ReviewProposalRecord[];
-}
-
-// ── Comments Service ──
-
-export interface CommentsServiceState {
-  activeThreadId: string | null;
-  activeThread: CommentThreadRecord | null;
-  threads: CommentThreadRecord[];
-}
-
 // ── Git Service ──
 
 export interface GitServiceState {
   status: GitStatusResult | null;
   log: GitLogResult | null;
-  updatedAt?: number;
-}
-
-// ── Packages Service ──
-
-export interface PackagesServiceState {
-  installed: InstalledPackageRecord[];
-  loading: boolean;
   updatedAt?: number;
 }
 
@@ -236,7 +207,6 @@ export interface StudioCommandService {
   disconnect: () => void;
   setActiveView: (viewId: StudioViewId) => void;
   closeView: (viewId: StudioViewId) => void;
-  setActivePreset: (preset: StudioWorkspacePreset) => void;
   setCommandPaletteOpen: (open: boolean) => void;
   toggleCommandPalette: () => void;
   openFlow: (flowName: string) => void;
@@ -263,20 +233,6 @@ export interface StudioCommandService {
   createCheckpoint: (label?: string, description?: string) => CheckpointRecord | null;
   restoreCheckpoint: (checkpointId: string) => Promise<void>;
   refreshDiagnostics: () => Promise<void>;
-  createReviewProposal: (input?: { title?: string; intent?: string; baseCheckpointId?: string | null }) => string | null;
-  setActiveProposal: (proposalId: string | null) => void;
-  validateProposal: (proposalId: string) => Promise<void>;
-  acceptProposal: (proposalId: string) => Promise<void>;
-  rollbackProposal: (proposalId: string) => Promise<void>;
-  createCommentThread: (input: {
-    title: string;
-    anchor: CommentThreadRecord['anchor'];
-    body: string;
-    author?: string;
-  }) => string | null;
-  addComment: (threadId: string, body: string, author?: string) => void;
-  resolveCommentThread: (threadId: string, resolved: boolean) => void;
-  setActiveCommentThread: (threadId: string | null) => void;
   undo: () => Promise<void>;
   redo: () => Promise<void>;
   setCapabilityGrant: (capability: StudioCapabilityId, granted: boolean) => void;
@@ -295,10 +251,8 @@ export interface StudioCommandService {
     data?: Record<string, unknown>;
   }) => void;
   refreshGitStatus: () => Promise<void>;
-  loadPackages: () => Promise<void>;
   refreshReferences: (resourceId?: string) => Promise<void>;
   searchProject: (query: string) => Promise<void>;
-  applyTemplate: (templateId: string, packageId: string) => Promise<void>;
 }
 
 // ── Run Service (non-React) ──
