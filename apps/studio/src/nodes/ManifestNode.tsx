@@ -101,16 +101,19 @@ const JsonField = memo(function JsonField({
   name,
   value,
   required,
+  schemaType,
   onCommit,
 }: {
   name: string;
   value: unknown;
   required: boolean;
+  schemaType?: string;
   onCommit: (value: unknown) => void;
 }) {
   const { t } = useTranslation('flow');
-  const isArray = Array.isArray(value) || (!value && name.endsWith("s"));
-  const isObject = !isArray && value !== null && typeof value === 'object' && !Array.isArray(value);
+  // Use schema type when available; fall back to runtime detection
+  const isArray = schemaType === 'array' || (!schemaType && (Array.isArray(value) || (!value && name.endsWith("s"))));
+  const isObject = !isArray && (schemaType === 'object' || (!schemaType && value !== null && typeof value === 'object' && !Array.isArray(value)));
   const [rawMode, setRawMode] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [text, setText] = useState(() => JSON.stringify(value ?? (isArray ? [] : {}), null, 2));
@@ -564,6 +567,7 @@ function ConfigField({
         name={name}
         value={value}
         required={required}
+        schemaType={schema.type}
         onCommit={setValue}
       />
     );
