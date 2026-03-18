@@ -21,6 +21,8 @@ import type {
   RunView,
   SessionDefinition,
   SmokeResult,
+  EvalRunResult,
+  EvalCompareResult,
 } from '@/types/project';
 
 const BASE_URL = import.meta.env.VITE_ENGINE_URL || '';
@@ -374,6 +376,32 @@ export const engineApi = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(options ?? {}),
+    });
+  },
+
+  // ── Eval API ──
+
+  async runEval(options: {
+    flowId: string;
+    nodeId: string;
+    runs?: number;
+    variant?: { fragments: any[] };
+    input?: Record<string, any>;
+    state?: Record<string, any>;
+    model?: string;
+  }): Promise<EvalRunResult> {
+    return request<EvalRunResult>('/api/tools/eval/run', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(options),
+    });
+  },
+
+  async compareEval(a: EvalRunResult, b: EvalRunResult): Promise<EvalCompareResult> {
+    return request<EvalCompareResult>('/api/tools/eval/compare', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ a, b }),
     });
   },
 };
