@@ -21,18 +21,19 @@ import {
 } from '@xyflow/react';
 
 import { ManifestNode } from "./nodes/ManifestNode";
-import { BackEdge } from "./edges/BackEdge";
 import { PaneContextMenu, type ContextMenuState } from "./PaneContextMenu";
 import { FlowToolbar } from "./components/FlowToolbar";
 import { ExecutionDialog } from "./components/ExecutionDialog";
 import { useFlowResource, useStudioCommands, useStudioResources } from "@/kernel/hooks";
 import { useFlowNodeOverlay } from "@/hooks/use-node-overlay";
 import { useCanvasSelection } from "@/hooks/use-canvas-selection";
+import { elkLayout, detectBackEdges } from "@/utils/elk-layout";
 import { layoutDag } from "@/utils/graph-layout";
 import { useTranslation } from "react-i18next";
 import type { FlowDefinition, NodeDefinition, EdgeDefinition, NodeManifest } from "@/types/project";
 
 const FLOW_LAYOUT = { nodeWidth: 320, nodeHeight: 200, gapX: 80, gapY: 40 };
+const ELK_FLOW_OPTS = { nodeWidth: 320, nodeHeight: 200, direction: 'RIGHT' as const };
 
 type Schema = {
   type?: string;
@@ -118,12 +119,9 @@ const fitViewOptions: FitViewOptions = {
 };
 
 const defaultEdgeOptions: DefaultEdgeOptions = {
+  type: 'smoothstep',
   animated: true,
   interactionWidth: 20,
-};
-
-const edgeTypes = {
-  backEdge: BackEdge,
 };
 
 /** Map a port type string to a stroke color for edges */
@@ -239,7 +237,7 @@ function FlowInner() {
         if (isBack) {
           return {
             ...base,
-            type: 'backEdge',
+            type: 'smoothstep',
             zIndex: 1000,
             style: {
               stroke: '#f59e0b',
@@ -390,14 +388,14 @@ function FlowInner() {
         // Re-detect back edges after new connection
         const nodeIds = nodes.map((n) => n.id);
         const simpleEdges = nextEdges.map((e) => ({ source: e.source, target: e.target }));
-        const { backEdges } = layoutDag(nodeIds, simpleEdges, FLOW_LAYOUT);
+        const backEdges = detectBackEdges(nodeIds, simpleEdges);
 
         return nextEdges.map((edge) => {
           const isBack = backEdges.has(`${edge.source}->${edge.target}`);
           if (isBack) {
             return {
               ...edge,
-              type: 'backEdge',
+              type: 'smoothstep',
               zIndex: 1000,
               style: { stroke: '#f59e0b', strokeWidth: 2, strokeDasharray: '8 4' },
               animated: true,
@@ -584,10 +582,10 @@ function FlowInner() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleManualSave, nodes, reactFlowInstance]);
 
-  const handleAutoLayout = useCallback(() => {
+  const handleAutoLayout = useCallback(async () => {
     const nodeIds = nodes.map((n) => n.id);
     const simpleEdges = edges.map((e) => ({ source: e.source, target: e.target }));
-    const { positions, backEdges } = layoutDag(nodeIds, simpleEdges, FLOW_LAYOUT);
+    const { positions, backEdges } = await elkLayout(nodeIds, simpleEdges, ELK_FLOW_OPTS);
     setNodes((nds) =>
       nds.map((n) => {
         const pos = positions.get(n.id);
@@ -602,6 +600,7 @@ function FlowInner() {
           return {
             ...edge,
             type: 'smoothstep',
+            zIndex: 1000,
             style: { stroke: '#f59e0b', strokeWidth: 2, strokeDasharray: '8 4' },
             animated: true,
             markerEnd: { type: MarkerType.ArrowClosed, color: '#f59e0b' },
@@ -609,12 +608,14 @@ function FlowInner() {
             labelStyle: { fill: '#f59e0b', fontWeight: 600, fontSize: 12 },
           };
         }
-        // Reset non-back edges to default
-        const { type: _t, style: _s, label: _l, labelStyle: _ls, ...rest } = edge;
-        return { ...rest, animated: true };
+        // Reset non-back edges to default smoothstep
+        const { style: _s, label: _l, labelStyle: _ls, zIndex: _z, ...rest } = edge;
+        return { ...rest, type: 'smoothstep', animated: true };
       }),
     );
-  }, [nodes, edges]);
+    // Fit view after layout
+    requestAnimationFrame(() => reactFlowInstance.fitView({ padding: 0.15, duration: 300 }));
+  }, [nodes, edges, reactFlowInstance, t]);
 
   // 将 overlay state 注入到每个 node 的 data 中
   const nodesWithOverlay = useMemo(
@@ -646,7 +647,6 @@ function FlowInner() {
         onSelectionChange={onSelectionChange}
         onPaneContextMenu={onPaneContextMenu}
         nodeTypes={nodeTypes}
-        edgeTypes={edgeTypes}
         fitView
         fitViewOptions={fitViewOptions}
         defaultEdgeOptions={defaultEdgeOptions}>
