@@ -304,8 +304,6 @@ KAL includes 17 built-in nodes across 5 categories.
 
 ```json
 {
-  "system": "",
-  "user": "",
   "format": "xml"
 }
 ```
