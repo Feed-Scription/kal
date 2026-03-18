@@ -5,6 +5,7 @@ import {
   addEdge,
   applyNodeChanges,
   applyEdgeChanges,
+  useReactFlow,
   type Node,
   type Edge,
   type FitViewOptions,
@@ -31,7 +32,7 @@ import { SessionRunDialog } from './components/SessionRunDialog';
 import { useStudioCommands, useStudioResources } from '@/kernel/hooks';
 import { useSessionNodeOverlay } from '@/hooks/use-node-overlay';
 import { useCanvasSelection } from '@/hooks/use-canvas-selection';
-import { layoutDag } from '@/utils/graph-layout';
+import { elkLayout, detectBackEdges, ELK_SESSION_OPTS } from '@/utils/elk-layout';
 import { ElegantEdge } from './edges/ElegantEdge';
 import { AUTO_SAVE_DEBOUNCE_MS } from '@/constants/editor';
 import { SESSION_STEP_DEFAULTS } from './session-nodes/defaults';
@@ -66,11 +67,9 @@ const sessionEdgeTypes = {
   elegant: ElegantEdge,
 };
 
-const SESSION_LAYOUT = { nodeWidth: 400, nodeHeight: 220, gapX: 80, gapY: 40 };
-
-/** Convert SessionDefinition → ReactFlow nodes + edges */
+/** Convert SessionDefinition → ReactFlow nodes (at origin) + styled edges */
 function sessionToReactFlow(session: SessionDefinition): { nodes: Node[]; edges: Edge[] } {
-  // 先构建边
+  // Build edges
   const edges: Edge[] = [];
   for (const step of session.steps) {
     if (step.type === 'RunFlow' || step.type === 'Prompt' || step.type === 'Choice' || step.type === 'DynamicChoice') {
@@ -108,21 +107,21 @@ function sessionToReactFlow(session: SessionDefinition): { nodes: Node[]; edges:
     }
   }
 
-  // 用拓扑排序计算布局
-  const stepIds = session.steps.map((s) => s.id);
-  const { positions: layoutPositions, backEdges } = layoutDag(stepIds, edges, SESSION_LAYOUT);
-
+  // Nodes placed at origin — real positions come from ELK after measurement
   const nodes: Node[] = session.steps.map((step) => ({
     id: step.id,
     type: step.type,
-    position: layoutPositions.get(step.id) ?? { x: 0, y: 0 },
+    position: { x: 0, y: 0 },
     data: {
       label: SESSION_STEP_DEFAULTS[step.type]?.label || step.type,
       config: stepToConfig(step),
     },
   }));
 
-  // 识别回边并应用差异化样式
+  // Detect back edges synchronously for styling
+  const stepIds = session.steps.map((s) => s.id);
+  const backEdges = detectBackEdges(stepIds, edges);
+
   const styledEdges = edges.map((edge) => {
     const isBack = backEdges.has(`${edge.source}->${edge.target}`);
 
@@ -297,6 +296,7 @@ function SessionEditorInner() {
   const { saveSession, deleteSession } = useStudioCommands();
   const overlayMap = useSessionNodeOverlay();
   const setSelection = useCanvasSelection((s) => s.setSelection);
+  const reactFlowInstance = useReactFlow();
 
   const onSelectionChange = useCallback(
     ({ nodes: selected }: { nodes: Node[] }) => {
@@ -308,29 +308,49 @@ function SessionEditorInner() {
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
   const [initialized, setInitialized] = useState(false);
+  const [layoutReady, setLayoutReady] = useState(false);
   const [runDialogOpen, setRunDialogOpen] = useState(false);
   const isLoadingRef = useRef(false);
+  const needsInitialLayoutRef = useRef(false);
+  const nodesRef = useRef<Node[]>([]);
+  const edgesRef = useRef<Edge[]>([]);
   const [contextMenu, setContextMenu] = useState<ContextMenuState>({
     open: false,
     x: 0,
     y: 0,
   });
 
-  // Load session data
+  // Keep refs in sync so handleAutoLayout always reads fresh state
+  nodesRef.current = nodes;
+  edgesRef.current = edges;
+
+  // Load session data — place nodes at origin, let React Flow measure, then ELK layouts
   useEffect(() => {
     if (session) {
       isLoadingRef.current = true;
+      setLayoutReady(false);
+
       const { nodes: n, edges: e } = sessionToReactFlow(session);
+
+      if (n.length === 0) {
+        needsInitialLayoutRef.current = false;
+        setNodes([]);
+        setEdges(e);
+        setInitialized(true);
+        setLayoutReady(true);
+        requestAnimationFrame(() => { isLoadingRef.current = false; });
+        return;
+      }
+
+      needsInitialLayoutRef.current = true;
       setNodes(n);
       setEdges(e);
       setInitialized(true);
-      requestAnimationFrame(() => {
-        isLoadingRef.current = false;
-      });
     } else {
       setNodes([]);
       setEdges([]);
       setInitialized(false);
+      setLayoutReady(true);
     }
   }, [session]);
 
@@ -360,9 +380,71 @@ function SessionEditorInner() {
     [initialized],
   );
 
+  const handleAutoLayout = useCallback(async () => {
+    const currentNodes = nodesRef.current;
+    const currentEdges = edgesRef.current;
+    const nodeIds = currentNodes.map((n) => n.id);
+    const simpleEdges = currentEdges.map((e) => ({ source: e.source, target: e.target }));
+
+    const nodeSizes = new Map<string, { width: number; height: number }>();
+    for (const node of currentNodes) {
+      const width = node.measured?.width ?? node.width ?? ELK_SESSION_OPTS.nodeWidth;
+      const height = node.measured?.height ?? node.height ?? ELK_SESSION_OPTS.nodeHeight;
+      nodeSizes.set(node.id, { width, height });
+    }
+
+    const { positions, backEdges } = await elkLayout(nodeIds, simpleEdges, ELK_SESSION_OPTS, nodeSizes);
+    setNodes((nds) =>
+      nds.map((n) => {
+        const pos = positions.get(n.id);
+        return pos ? { ...n, position: pos } : n;
+      }),
+    );
+    // Re-style back edges
+    setEdges((eds) =>
+      eds.map((edge) => {
+        const isBack = backEdges.has(`${edge.source}->${edge.target}`);
+        if (isBack) {
+          return {
+            ...edge,
+            type: 'smoothstep',
+            style: { stroke: '#f59e0b', strokeWidth: 2, strokeDasharray: '8 4' },
+            animated: true,
+            markerEnd: { type: MarkerType.ArrowClosed, color: '#f59e0b' },
+            label: t('cycle'),
+            labelStyle: { fill: '#f59e0b', fontWeight: 600, fontSize: 12 },
+          };
+        }
+        return edge;
+      }),
+    );
+    requestAnimationFrame(() => reactFlowInstance.fitView({ padding: 0.15, duration: 300 }));
+  }, [reactFlowInstance, t]);
+
   const onNodesChange: OnNodesChange = useCallback(
-    (changes) => setNodes((nds) => applyNodeChanges(changes, nds)),
-    [],
+    (changes) => {
+      setNodes((nds) => applyNodeChanges(changes, nds));
+
+      if (needsInitialLayoutRef.current) {
+        const hasDimensionChange = changes.some(
+          (c) => c.type === 'dimensions' && c.dimensions,
+        );
+        if (hasDimensionChange) {
+          requestAnimationFrame(() => {
+            if (needsInitialLayoutRef.current) {
+              needsInitialLayoutRef.current = false;
+              handleAutoLayout().then(() => {
+                setLayoutReady(true);
+                requestAnimationFrame(() => {
+                  isLoadingRef.current = false;
+                });
+              });
+            }
+          });
+        }
+      }
+    },
+    [handleAutoLayout],
   );
 
   const onEdgesChange: OnEdgesChange = useCallback(
@@ -456,7 +538,7 @@ function SessionEditorInner() {
   );
 
   return (
-    <div className="relative h-full w-full">
+    <div className="relative h-full w-full" style={{ opacity: layoutReady ? 1 : 0, transition: 'opacity 0.15s ease-in' }}>
       <SessionToolbar
         hasSession={!!session || initialized}
         onSave={handleManualSave}
@@ -464,6 +546,7 @@ function SessionEditorInner() {
         onDelete={handleDelete}
         onCreate={handleCreate}
         onRun={() => setRunDialogOpen(true)}
+        onAutoLayout={handleAutoLayout}
         canRun={!!session}
       />
       <SessionRunDialog open={runDialogOpen} onOpenChange={setRunDialogOpen} />
