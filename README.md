@@ -140,7 +140,7 @@ kal config get openai.apiKey
 kal config remove openai.apiKey
 ```
 
-### Launch the Editor
+### Launch Studio
 
 ```bash
 # Option A: Studio mode (engine + studio in one command)
@@ -253,9 +253,16 @@ export default {
 kal serve examples/dnd-adventure
 
 # Endpoints
-POST /api/session/start    # Start a new session
-POST /api/session/input    # Send user input
-GET  /api/session/state    # Get current state
+GET    /api/project              # Project snapshot for Studio / tools
+GET    /api/flows               # List flows
+GET    /api/session             # Load session definition
+GET    /api/state               # Current state snapshot
+GET    /api/diagnostics         # Lint / diagnostics summary
+POST   /api/executions          # Execute one flow
+POST   /api/runs                # Create managed run
+POST   /api/runs/:id/advance    # Advance managed run
+GET    /api/runs/:id/state      # Inspect managed run state
+GET    /api/runs/:id/stream     # Subscribe to managed run events (SSE)
 ```
 
 ## Documentation
@@ -279,8 +286,8 @@ KAL is in early stage. The core runtime works, but APIs and config formats may c
 - Session layer (multi-turn dialogue, state persistence)
 - 17 built-in nodes (State, LLM, Signal, Transform, Utility)
 - CLI tools (play, serve, debug, lint, smoke, eval, studio)
-- Studio workbench (flow/session/state/config)
-- 2 example games (dnd-adventure, guess-who)
+- Studio workbench (flow/session/state/config/debug/review/packages)
+- 2 example games (dnd-adventure, showcase-signal-watch)
 
 **In progress:**
 - Documentation

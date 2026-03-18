@@ -390,15 +390,22 @@ function generateCli(): void {
   md += '| `--continue [input]` | Continue an existing session with input |\n';
   md += '| `--step [input]` | Execute one step and pause |\n';
   md += '| `--state` | Print current state |\n';
+  md += '| `--diff --run-id <a> --diff-run <b>` | Compare state snapshots between two runs |\n';
   md += '| `--list` | List all debug sessions |\n';
-  md += '| `--delete --run-id <id>` | Delete a debug session |\n\n';
+  md += '| `--delete --run-id <id>` | Delete a debug session |\n';
+  md += '| `--retry` | Retry the current failed step |\n';
+  md += '| `--skip` | Skip the current failed or paused step |\n\n';
   md += '| Option | Description |\n';
   md += '|--------|-------------|\n';
   md += '| `--force-new` | Force a new session (with `--start`) |\n';
   md += '| `--state-dir <path>` | Custom state directory |\n';
   md += '| `--run-id <id>` | Target a specific run |\n';
+  md += '| `--diff-run <id>` | Second run ID for `--diff` comparison |\n';
+  md += '| `--latest` | Auto-select the most recent run |\n';
   md += '| `--input <input>` | Provide input value |\n';
-  md += '| `--format <json\\|pretty>` | Output format |\n\n';
+  md += '| `--format <json\\|pretty\\|agent>` | Output format |\n';
+  md += '| `--verbose` | Include LLM traces in output |\n';
+  md += '| `--cleanup` | Remove persisted debug state when the run completes |\n\n';
 
   md += '### `kal lint`\n\n';
   md += 'Validate project structure and configuration.\n\n';
@@ -414,7 +421,7 @@ function generateCli(): void {
   md += '| `[project-path]` | Path to KAL project directory | `.` |\n';
   md += '| `--steps N` | Number of steps to run | — |\n';
   md += '| `--input value` | Input values (repeatable) | — |\n';
-  md += '| `--dry-run` | Validate without executing | — |\n';
+  md += '| `--dry-run` | Preview session progression without executing flows or writing state | — |\n';
   md += '| `--format <json\\|pretty>` | Output format | `pretty` |\n\n';
 
   md += '### `kal config`\n\n';
@@ -425,7 +432,49 @@ function generateCli(): void {
   md += '| `set <key> <value>` | Set a config item |\n';
   md += '| `get <key>` | Get a config item |\n';
   md += '| `list` | List all config items |\n';
-  md += '| `set-key <provider> <key>` | Securely set an API key |\n';
+  md += '| `remove <key>` | Remove a config item |\n';
+  md += '| `set-key <provider> <key>` | Securely set an API key |\n\n';
+
+  md += '### `kal studio`\n\n';
+  md += 'Start the integrated Studio + API server (serves the Studio UI alongside the engine HTTP API).\n\n';
+  md += '| Option | Description | Default |\n';
+  md += '|--------|-------------|---------|\n';
+  md += '| `[project-path]` | Path to KAL project directory | `.` |\n';
+  md += '| `--host <host>` | Host to bind to | `127.0.0.1` |\n';
+  md += '| `--port <port>` | Port to listen on | `3000` |\n\n';
+
+  md += '### `kal init`\n\n';
+  md += 'Scaffold a new KAL project.\n\n';
+  md += '| Option | Description | Default |\n';
+  md += '|--------|-------------|---------|\n';
+  md += '| `<project-name>` | Name of the project to create | (required) |\n';
+  md += '| `--template <minimal\\|game>` | Project template | `minimal` |\n\n';
+
+  md += '### `kal eval`\n\n';
+  md += 'Prompt evaluation toolkit for systematic A/B testing.\n\n';
+  md += '| Subcommand | Description |\n';
+  md += '|------------|-------------|\n';
+  md += '| `nodes <flow>` | List prompt-capable nodes in a flow |\n';
+  md += '| `render <flow> --node <id>` | Render a prompt with given state |\n';
+  md += '| `run <flow> --node <id>` | Run eval against a prompt-capable node |\n';
+  md += '| `compare <file-a> <file-b>` | Compare two eval result files |\n\n';
+  md += '| Option | Description |\n';
+  md += '|--------|-------------|\n';
+  md += '| `--variant <file>` | Alternative fragments file (for A/B testing) |\n';
+  md += '| `--runs N` | Number of eval runs (default: 5) |\n';
+  md += '| `--model <name>` | Override LLM model for eval runs |\n';
+  md += '| `--input <json>` | Input data as JSON |\n';
+  md += '| `--state <json>` | State data as JSON |\n';
+  md += '| `--project <path>` | Project path (when using flow ID instead of file path) |\n';
+  md += '| `--format <json\\|pretty>` | Output format |\n\n';
+
+  md += '### `kal schema`\n\n';
+  md += 'Export node and session schema information.\n\n';
+  md += '| Subcommand | Description |\n';
+  md += '|------------|-------------|\n';
+  md += '| `nodes` | List all built-in node types |\n';
+  md += '| `node <type>` | Show detailed schema for a node type |\n';
+  md += '| `session` | Show session step types and fields |\n';
 
   writeFileSync(resolve(OUT, 'cli.md'), md);
   console.log('  ✓ cli.md');

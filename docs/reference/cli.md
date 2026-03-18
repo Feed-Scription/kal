@@ -36,22 +36,23 @@ Debug session execution with state inspection.
 | `--continue [input]` | Continue an existing session with input |
 | `--step [input]` | Execute one step and pause |
 | `--state` | Print current state |
+| `--diff --run-id <a> --diff-run <b>` | Compare state snapshots between two runs |
 | `--list` | List all debug sessions |
 | `--delete --run-id <id>` | Delete a debug session |
 | `--retry` | Retry the current failed step |
-| `--skip` | Skip the current step |
-| `--diff --run-id <a> --diff-run <b>` | Compare state snapshots between two runs |
+| `--skip` | Skip the current failed or paused step |
 
 | Option | Description |
 |--------|-------------|
 | `--force-new` | Force a new session (with `--start`) |
 | `--state-dir <path>` | Custom state directory |
 | `--run-id <id>` | Target a specific run |
+| `--diff-run <id>` | Second run ID for `--diff` comparison |
 | `--latest` | Auto-select the most recent run |
 | `--input <input>` | Provide input value |
 | `--format <json\|pretty\|agent>` | Output format |
 | `--verbose` | Include LLM traces in output |
-| `--diff-run <id>` | Second run ID for `--diff` comparison |
+| `--cleanup` | Remove persisted debug state when the run completes |
 
 ### `kal lint`
 
@@ -84,6 +85,7 @@ Manage user-level configuration.
 | `set <key> <value>` | Set a config item |
 | `get <key>` | Get a config item |
 | `list` | List all config items |
+| `remove <key>` | Remove a config item |
 | `set-key <provider> <key>` | Securely set an API key |
 
 ### `kal studio`
@@ -111,9 +113,9 @@ Prompt evaluation toolkit for systematic A/B testing.
 
 | Subcommand | Description |
 |------------|-------------|
-| `nodes <flow>` | List PromptBuild nodes in a flow |
+| `nodes <flow>` | List prompt-capable nodes in a flow |
 | `render <flow> --node <id>` | Render a prompt with given state |
-| `run <flow> --node <id>` | Run eval against a PromptBuild node |
+| `run <flow> --node <id>` | Run eval against a prompt-capable node |
 | `compare <file-a> <file-b>` | Compare two eval result files |
 
 | Option | Description |
