@@ -12,23 +12,15 @@ import type {
   SearchResult,
   GitLogResult,
   GitStatusResult,
-  InstalledPackageRecord,
   ProjectState,
   PromptPreviewEntry,
   PromptRenderResult,
-  ReviewProposalRecord,
-  ReviewStateRecord,
   RunStateView,
   RunStreamEvent,
   RunSummary,
   RunView,
   SessionDefinition,
   SmokeResult,
-  TemplateBundle,
-  CommentsStateRecord,
-  CommentThreadRecord,
-  EvalRunResult,
-  EvalCompareResult,
 } from '@/types/project';
 
 const BASE_URL = import.meta.env.VITE_ENGINE_URL || '';
@@ -332,51 +324,6 @@ export const engineApi = {
     return request<GitLogResult>(`/api/git/log?limit=${limit}`);
   },
 
-  // ── Package API ──
-
-  async listPackages(): Promise<InstalledPackageRecord[]> {
-    return request<InstalledPackageRecord[]>('/api/packages');
-  },
-
-  async getTemplateBundle(packageId: string, templateId: string): Promise<TemplateBundle> {
-    return request<TemplateBundle>(
-      `/api/packages/${encodeURIComponent(packageId)}/templates/${encodeURIComponent(templateId)}`,
-    );
-  },
-
-  async applyTemplate(packageId: string, templateId: string): Promise<TemplateBundle> {
-    return request<TemplateBundle>(
-      `/api/packages/${encodeURIComponent(packageId)}/templates/${encodeURIComponent(templateId)}/apply`,
-      {
-        method: 'POST',
-      },
-    );
-  },
-
-  async getReviewState(): Promise<ReviewStateRecord> {
-    return request<ReviewStateRecord>('/api/review');
-  },
-
-  async saveReviewState(proposals: ReviewProposalRecord[]): Promise<ReviewStateRecord> {
-    return request<ReviewStateRecord>('/api/review', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ proposals }),
-    });
-  },
-
-  async getCommentsState(): Promise<CommentsStateRecord> {
-    return request<CommentsStateRecord>('/api/comments');
-  },
-
-  async saveCommentsState(threads: CommentThreadRecord[]): Promise<CommentsStateRecord> {
-    return request<CommentsStateRecord>('/api/comments', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ threads }),
-    });
-  },
-
   // ── Reference Graph + Search API ──
 
   async getReferences(resourceId?: string): Promise<ReferenceEntry[]> {
@@ -429,46 +376,5 @@ export const engineApi = {
       notifyConnectionLost();
     };
     return () => { source.close(); };
-  },
-
-  // ── Deploy API ──
-
-  async triggerDeploy(options?: { projectId?: string; teamId?: string }): Promise<{
-    deploymentId?: string;
-    url?: string;
-    readyState?: string;
-    createdAt?: unknown;
-  }> {
-    return request('/api/tools/deploy', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(options ?? {}),
-    });
-  },
-
-  // ── Eval API ──
-
-  async runEval(options: {
-    flowId: string;
-    nodeId: string;
-    runs?: number;
-    variant?: { fragments: Array<Record<string, unknown>> };
-    input?: Record<string, unknown>;
-    state?: Record<string, unknown>;
-    model?: string;
-  }): Promise<EvalRunResult> {
-    return request<EvalRunResult>('/api/tools/eval/run', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(options),
-    });
-  },
-
-  async compareEval(a: EvalRunResult, b: EvalRunResult): Promise<EvalCompareResult> {
-    return request<EvalCompareResult>('/api/tools/eval/compare', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ a, b }),
-    });
   },
 };
