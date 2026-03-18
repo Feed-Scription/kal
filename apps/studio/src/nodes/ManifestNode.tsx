@@ -29,7 +29,7 @@ import { useNodeConfig } from "@/hooks/use-node-config";
 import { useFlowResource } from "@/kernel/hooks";
 import { overlayClassName } from "@/hooks/use-node-overlay";
 import { NodeOverlayBadge } from "@/components/NodeOverlayBadge";
-import { Code, List, Plus, Radio, Sparkles, Zap, Shuffle, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Code, List, Plus, Radio, Sparkles, Zap, Shuffle, Wrench, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { NodeOverlayState } from "@/hooks/use-node-overlay";
 import type { NodeManifest } from "@/types/project";
@@ -48,13 +48,15 @@ function labelFor(key: string) {
 function categoryIcon(category?: string) {
   switch (category) {
     case "signal":
-      return <Radio className="size-4 text-sky-600" />;
+      return <Radio className="size-4 text-sky-500 dark:text-sky-400" />;
     case "state":
-      return <Sparkles className="size-4 text-emerald-600" />;
+      return <Sparkles className="size-4 text-emerald-500 dark:text-emerald-400" />;
     case "llm":
-      return <Zap className="size-4 text-amber-600" />;
+      return <Zap className="size-4 text-amber-500 dark:text-amber-400" />;
     case "transform":
-      return <Shuffle className="size-4 text-fuchsia-600" />;
+      return <Shuffle className="size-4 text-fuchsia-500 dark:text-fuchsia-400" />;
+    case "utility":
+      return <Wrench className="size-4 text-slate-500 dark:text-slate-400" />;
     default:
       return null;
   }
@@ -63,15 +65,35 @@ function categoryIcon(category?: string) {
 function categoryClass(category?: string) {
   switch (category) {
     case "signal":
-      return "rounded-lg border-sky-200 bg-sky-50/60 dark:border-sky-800 dark:bg-sky-950/40";
+      return "rounded-lg border-sky-300 bg-sky-50 dark:border-sky-700 dark:bg-sky-950/60";
     case "state":
-      return "rounded-lg border-emerald-200 bg-emerald-50/60 dark:border-emerald-800 dark:bg-emerald-950/40";
+      return "rounded-lg border-emerald-300 bg-emerald-50 dark:border-emerald-700 dark:bg-emerald-950/60";
     case "llm":
-      return "rounded-lg border-amber-200 bg-amber-50/60 dark:border-amber-800 dark:bg-amber-950/40";
+      return "rounded-lg border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/60";
     case "transform":
-      return "rounded-lg border-fuchsia-200 bg-fuchsia-50/60 dark:border-fuchsia-800 dark:bg-fuchsia-950/40";
+      return "rounded-lg border-fuchsia-300 bg-fuchsia-50 dark:border-fuchsia-700 dark:bg-fuchsia-950/60";
+    case "utility":
+      return "rounded-lg border-slate-300 bg-slate-50 dark:border-slate-600 dark:bg-slate-900/60";
     default:
       return "border-border";
+  }
+}
+
+/** Thin left accent bar color per category */
+function categoryAccentClass(category?: string) {
+  switch (category) {
+    case "signal":
+      return "before:absolute before:inset-y-0 before:left-0 before:w-1 before:rounded-l-lg before:bg-sky-400 dark:before:bg-sky-500";
+    case "state":
+      return "before:absolute before:inset-y-0 before:left-0 before:w-1 before:rounded-l-lg before:bg-emerald-400 dark:before:bg-emerald-500";
+    case "llm":
+      return "before:absolute before:inset-y-0 before:left-0 before:w-1 before:rounded-l-lg before:bg-amber-400 dark:before:bg-amber-500";
+    case "transform":
+      return "before:absolute before:inset-y-0 before:left-0 before:w-1 before:rounded-l-lg before:bg-fuchsia-400 dark:before:bg-fuchsia-500";
+    case "utility":
+      return "before:absolute before:inset-y-0 before:left-0 before:w-1 before:rounded-l-lg before:bg-slate-400 dark:before:bg-slate-500";
+    default:
+      return "";
   }
 }
 
@@ -481,6 +503,7 @@ function ConfigField({
 
 export const ManifestNode = memo(({ id, data, selected }: NodeProps) => {
   const { t } = useTranslation('flow');
+  const [configExpanded, setConfigExpanded] = useState(false);
   const nodeData = data as {
     label?: string;
     config?: Record<string, unknown>;
@@ -498,8 +521,15 @@ export const ManifestNode = memo(({ id, data, selected }: NodeProps) => {
   const fieldCount = Object.keys(properties).length;
   const widthClass = fieldCount <= 1 ? 'w-64' : fieldCount <= 3 ? 'w-80' : 'w-96';
 
+  // Progressive disclosure: collapse when > 3 fields and not selected
+  const COLLAPSE_THRESHOLD = 3;
+  const shouldCollapse = fieldCount > COLLAPSE_THRESHOLD && !configExpanded;
+  const entries = Object.entries(properties);
+  const visibleEntries = shouldCollapse ? entries.slice(0, 2) : entries;
+  const hiddenCount = shouldCollapse ? entries.length - 2 : 0;
+
   return (
-    <BaseNode className={`${widthClass} ${selected ? "ring-2 ring-primary" : ""} ${categoryClass(manifest?.category)} ${overlayClassName(overlay)}`}>
+    <BaseNode className={`${widthClass} ${selected ? "ring-2 ring-primary" : ""} ${categoryClass(manifest?.category)} ${categoryAccentClass(manifest?.category)} ${overlayClassName(overlay)}`}>
       <NodeOverlayBadge overlay={overlay} />
       <BaseNodeHeader className="border-b">
         {categoryIcon(manifest?.category)}
@@ -509,9 +539,9 @@ export const ManifestNode = memo(({ id, data, selected }: NodeProps) => {
         )}
       </BaseNodeHeader>
       <BaseNodeContent>
-        {Object.keys(properties).length > 0 ? (
+        {fieldCount > 0 ? (
           <div className="space-y-2">
-            {Object.entries(properties).map(([name, schema]) => (
+            {visibleEntries.map(([name, schema]) => (
               <ConfigField
                 key={name}
                 nodeId={id}
@@ -524,6 +554,25 @@ export const ManifestNode = memo(({ id, data, selected }: NodeProps) => {
                 fullConfig={config}
               />
             ))}
+            {shouldCollapse ? (
+              <button
+                type="button"
+                onClick={() => setConfigExpanded(true)}
+                className="flex w-full items-center justify-center gap-1 rounded-md border border-dashed py-1 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
+              >
+                <ChevronDown className="size-3" />
+                {t('showConfig', { count: hiddenCount })}
+              </button>
+            ) : fieldCount > COLLAPSE_THRESHOLD ? (
+              <button
+                type="button"
+                onClick={() => setConfigExpanded(false)}
+                className="flex w-full items-center justify-center gap-1 rounded-md py-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+              >
+                <ChevronUp className="size-3" />
+                {t('hideConfig')}
+              </button>
+            ) : null}
           </div>
         ) : (
           <div className="text-xs text-muted-foreground">

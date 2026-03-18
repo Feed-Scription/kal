@@ -88,6 +88,13 @@
   "notConfigured": "未配置",
   "stepCount": "步骤数",
   "inspector": "检查器",
+  "inspectorTab": {
+    "node": "节点",
+    "flow": "Flow",
+    "extension": "扩展",
+    "session": "Session"
+  },
+  "noNodeSelected": "点击画布上的节点以查看详情。",
   "capabilityGranted": "已授权",
   "capabilityBlocked": "已阻止",
   "capabilityDegraded": "已降级",

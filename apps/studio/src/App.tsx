@@ -1,7 +1,7 @@
 import '@xyflow/react/dist/style.css';
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useTranslation } from 'react-i18next';
-import { Command, Info, Lock, Play, RefreshCw, X } from "lucide-react";
+import { Command, Info, Lock, PanelRight, Play, RefreshCw, X } from "lucide-react";
 import { AppSidebar } from "./AppSidebar";
 import { CommandPalette } from "./components/CommandPalette";
 import { ExtensionSurface } from "./components/ExtensionSurface";
@@ -23,6 +23,21 @@ export default function App() {
   const { closeView, createRun, refreshDiagnostics, setActiveView, setCommandPaletteOpen } = useStudioCommands();
   const activeView = views.find((view) => view.id === activeViewId) ?? views[0] ?? null;
   const [inspectorOpen, setInspectorOpen] = useState(false);
+  const [inspectorVisible, setInspectorVisible] = useState(true);
+
+  const toggleInspector = useCallback(() => setInspectorVisible((v) => !v), []);
+
+  // Cmd+I / Ctrl+I to toggle the desktop inspector panel
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'i') {
+        e.preventDefault();
+        toggleInspector();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [toggleInspector]);
 
   if (!project) {
     return <ProjectLoader />;
@@ -78,6 +93,15 @@ export default function App() {
                 <Button variant="ghost" size="icon-sm" onClick={() => setCommandPaletteOpen(true)} title={t('tooltips.commandPalette')} aria-label={t('tooltips.commandPalette')}>
                   <Command className="size-4" />
                 </Button>
+                <Button
+                  variant={inspectorVisible ? "secondary" : "ghost"}
+                  size="icon-sm"
+                  onClick={toggleInspector}
+                  title={`${t('inspector')} (⌘I)`}
+                  aria-label={t('inspector')}
+                >
+                  <PanelRight className="size-4" />
+                </Button>
                 <Button variant="ghost" size="icon-sm" onClick={() => void refreshDiagnostics()} title={t('tooltips.refreshDiagnostics')} aria-label={t('tooltips.refreshDiagnostics')}>
                   <RefreshCw className="size-4" />
                 </Button>
@@ -113,7 +137,7 @@ export default function App() {
             </div>
             <WorkbenchPanels />
           </div>
-          <WorkbenchInspector />
+          {inspectorVisible && <WorkbenchInspector />}
         </div>
       </AppSidebar>
 
