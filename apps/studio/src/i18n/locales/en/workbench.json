@@ -88,6 +88,13 @@
   "notConfigured": "Not configured",
   "stepCount": "Step Count",
   "inspector": "Inspector",
+  "inspectorTab": {
+    "node": "Node",
+    "flow": "Flow",
+    "extension": "Extension",
+    "session": "Session"
+  },
+  "noNodeSelected": "Click a node on the canvas to inspect it.",
   "capabilityGranted": "Granted",
   "capabilityBlocked": "Blocked",
   "capabilityDegraded": "Degraded",

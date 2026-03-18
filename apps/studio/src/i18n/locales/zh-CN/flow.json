@@ -14,9 +14,12 @@
     "signal": "信号节点",
     "state": "状态节点",
     "llm": "LLM 节点",
-    "transform": "转换节点"
+    "transform": "转换节点",
+    "utility": "工具节点"
   },
   "noEditableConfig": "该节点没有可编辑配置。",
+  "showConfig": "展开 {{count}} 个字段",
+  "hideConfig": "收起",
   "addCandidate": "添加候选",
   "addSubFragment": "添加子 fragment",
   "addType": "添加 {{type}}",
@@ -42,6 +45,8 @@
   "cancel": "取消",
   "executionFailed": "执行失败",
   "jsonFormatError": "JSON 格式错误",
+  "searchNodes": "搜索节点...",
+  "noResults": "没有匹配的节点。",
   "nodeLabel": {
     "source": "来源",
     "template": "模板",
