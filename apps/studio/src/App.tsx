@@ -2,7 +2,7 @@ import '@xyflow/react/dist/style.css';
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useTranslation } from 'react-i18next';
 import { PanelGroup, Panel, type ImperativePanelHandle } from 'react-resizable-panels';
-import { Command, Info, PanelRight, Play, RefreshCw } from "lucide-react";
+import { Info } from "lucide-react";
 import { AppSidebar } from "./AppSidebar";
 import { CommandPalette } from "./components/CommandPalette";
 import { ExtensionSurface } from "./components/ExtensionSurface";
@@ -13,7 +13,7 @@ import { ProjectLoader } from "./components/ProjectLoader";
 import { StatusBar } from "./components/StatusBar";
 import { Button } from "./components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "./components/ui/sheet";
-import { useExtensionRuntimeMap, usePanelContributions, useStudioCommands, useWorkbench, useStudioResources } from "./kernel/hooks";
+import { useExtensionRuntimeMap, usePanelContributions, useWorkbench, useStudioResources } from "./kernel/hooks";
 
 function useIsDesktop() {
   const [isDesktop, setIsDesktop] = useState(() =>
@@ -33,7 +33,6 @@ export default function App() {
   const { project } = useStudioResources();
   const { activeViewId, views } = useWorkbench();
   const extensionRuntime = useExtensionRuntimeMap();
-  const { createRun, refreshDiagnostics, setActiveView, setCommandPaletteOpen } = useStudioCommands();
   const activeView = views.find((view) => view.id === activeViewId) ?? views[0] ?? null;
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [inspectorVisible, setInspectorVisible] = useState(true);
@@ -106,7 +105,7 @@ export default function App() {
 
   return (
     <>
-      <AppSidebar>
+      <AppSidebar onToggleInspector={toggleInspector} inspectorVisible={inspectorVisible}>
         <PanelGroup direction="horizontal" autoSaveId="studio-workbench-h">
           {/* Main editor column */}
           <Panel defaultSize={75} minSize={40}>
@@ -114,36 +113,6 @@ export default function App() {
               {/* Editor area */}
               <Panel defaultSize={70} minSize={30}>
                 <div className="flex h-full flex-col">
-                  <div className="flex items-center justify-end gap-1 border-b bg-background/80 px-3 py-2 backdrop-blur">
-                      <Button variant="ghost" size="icon-sm" onClick={() => setCommandPaletteOpen(true)} title={t('tooltips.commandPalette')} aria-label={t('tooltips.commandPalette')}>
-                        <Command className="size-4" />
-                      </Button>
-                      <Button
-                        variant={inspectorVisible ? "secondary" : "ghost"}
-                        size="icon-sm"
-                        onClick={toggleInspector}
-                        title={`${t('inspector')} (⌘I)`}
-                        aria-label={t('inspector')}
-                      >
-                        <PanelRight className="size-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon-sm" onClick={() => void refreshDiagnostics()} title={t('tooltips.refreshDiagnostics')} aria-label={t('tooltips.refreshDiagnostics')}>
-                        <RefreshCw className="size-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        onClick={async () => {
-                          await createRun(false);
-                          setActiveView("kal.debugger");
-                        }}
-                        title={t('tooltips.run')}
-                        aria-label={t('tooltips.run')}
-                      >
-                        <Play className="size-4" />
-                      </Button>
-                  </div>
-
                   <div className="relative min-h-0 flex-1">
                     {activeView ? (
                       <div className="absolute inset-0">
