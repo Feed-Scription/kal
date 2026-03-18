@@ -1,7 +1,4 @@
-import { Bug, CircleAlert, ClipboardCheck, Database, FlaskConical, History, LayoutDashboard, LayoutTemplate, MessageSquareMore, MonitorPlay, Package, Rocket, Route, Settings } from 'lucide-react';
-import { CollaboratorsPanel } from '@/components/CollaboratorsPanel';
-import { CommentsPanel } from '@/components/CommentsPanel';
-import { CommentsView } from '@/components/CommentsView';
+import { Bug, Database, History, LayoutDashboard, MonitorPlay, Route, Settings } from 'lucide-react';
 import Flow from '@/Flow';
 import SessionEditor from '@/SessionEditor';
 import { ConfigEditor } from '@/components/ConfigEditor';
@@ -9,20 +6,12 @@ import { DebuggerSummaryView } from '@/components/DebuggerSummaryView';
 import { DebuggerView } from '@/components/DebuggerView';
 import { EventLogPanel } from '@/components/EventLogPanel';
 import { H5PreviewView } from '@/components/H5PreviewView';
-import { PackageManagerView } from '@/components/PackageManagerView';
 import { PromptPreviewInspector } from '@/components/PromptPreviewInspector';
-import { ProblemsPanel } from '@/components/ProblemsPanel';
-import { ProblemsView } from '@/components/ProblemsView';
-import { ReviewHistoryPanel } from '@/components/ReviewHistoryPanel';
-import { ReviewView } from '@/components/ReviewView';
-import { TemplateBrowserView } from '@/components/TemplateBrowserView';
-import { TerminalView } from '@/components/TerminalView';
-import { DeployView } from '@/components/DeployView';
-import { EvalView } from '@/components/EvalView';
 import { StateDiffPanel } from '@/components/StateDiffPanel';
 import { StateInspectorCard } from '@/components/StateInspectorCard';
 import { StateManager } from '@/components/StateManager';
 import { TracePanel } from '@/components/TracePanel';
+import { TerminalView } from '@/components/TerminalView';
 import { VersionControlPanel } from '@/components/VersionControlPanel';
 import { VersionControlView } from '@/components/VersionControlView';
 import type {
@@ -115,42 +104,6 @@ const CAPABILITY_CATALOG: Record<StudioCapabilityId, StudioCapabilityCatalogEntr
     scope: 'user',
     approvalStrategy: 'admin',
     prompt: 'capability.processExec.prompt',
-  },
-  'package.install': {
-    id: 'package.install',
-    title: 'capability.packageInstall.title',
-    description: 'capability.packageInstall.description',
-    host: 'workspace',
-    scope: 'org',
-    approvalStrategy: 'admin',
-    prompt: 'capability.packageInstall.prompt',
-  },
-  'package.publish': {
-    id: 'package.publish',
-    title: 'capability.packagePublish.title',
-    description: 'capability.packagePublish.description',
-    host: 'workspace',
-    scope: 'org',
-    approvalStrategy: 'admin',
-    prompt: 'capability.packagePublish.prompt',
-  },
-  'comment.write': {
-    id: 'comment.write',
-    title: 'capability.commentWrite.title',
-    description: 'capability.commentWrite.description',
-    host: 'service',
-    scope: 'project',
-    approvalStrategy: 'prompt',
-    prompt: 'capability.commentWrite.prompt',
-  },
-  'review.accept': {
-    id: 'review.accept',
-    title: 'capability.reviewAccept.title',
-    description: 'capability.reviewAccept.description',
-    host: 'service',
-    scope: 'project',
-    approvalStrategy: 'admin',
-    prompt: 'capability.reviewAccept.prompt',
   },
   'ai.invoke': {
     id: 'ai.invoke',
@@ -275,7 +228,6 @@ const registry = createStudioRegistry([
           description: 'ext.flowEditor.viewDescription',
           icon: LayoutDashboard,
           component: Flow,
-          presets: ['authoring', 'debug', 'review'],
         },
       ],
     },
@@ -302,7 +254,6 @@ const registry = createStudioRegistry([
           description: 'ext.sessionEditor.viewDescription',
           icon: Route,
           component: SessionEditor,
-          presets: ['authoring', 'debug'],
         },
       ],
     },
@@ -328,7 +279,6 @@ const registry = createStudioRegistry([
           description: 'ext.stateEditor.viewDescription',
           icon: Database,
           component: StateManager,
-          presets: ['authoring', 'debug', 'review'],
         },
       ],
       inspectors: [
@@ -339,7 +289,6 @@ const registry = createStudioRegistry([
           description: 'ext.stateEditor.inspectorDescription',
           component: StateInspectorCard,
           slot: 'right',
-          presets: ['authoring', 'debug', 'review'],
         },
       ],
     },
@@ -365,42 +314,6 @@ const registry = createStudioRegistry([
           description: 'ext.configEditor.viewDescription',
           icon: Settings,
           component: ConfigEditor,
-          presets: ['authoring'],
-        },
-      ],
-    },
-  },
-  {
-    id: 'kal.problems',
-    title: 'ext.problems.title',
-    description: 'ext.problems.description',
-    kind: 'official-workflow',
-    host: 'browser',
-    activationEvents: ['onView:kal.problems', 'onEvent:diagnostics.updated'],
-    capabilities: [{ capability: 'project.read' }],
-    contributes: {
-      views: [
-        {
-          id: 'kal.problems',
-          extensionId: 'kal.problems',
-          title: 'ext.problems.viewTitle',
-          shortTitle: 'ext.problems.shortTitle',
-          description: 'ext.problems.viewDescription',
-          icon: CircleAlert,
-          component: ProblemsView,
-          presets: ['authoring', 'debug', 'review'],
-        },
-      ],
-      panels: [
-        {
-          id: 'kal.problems.panel',
-          extensionId: 'kal.problems',
-          title: 'ext.problems.panelTitle',
-          description: 'ext.problems.panelDescription',
-          component: ProblemsPanel,
-          slot: 'down',
-          presets: ['authoring', 'debug', 'review'],
-          order: 10,
         },
       ],
     },
@@ -422,7 +335,6 @@ const registry = createStudioRegistry([
           description: 'ext.promptPreview.inspectorDescription',
           component: PromptPreviewInspector,
           slot: 'right',
-          presets: ['authoring', 'debug'],
         },
       ],
     },
@@ -449,7 +361,6 @@ const registry = createStudioRegistry([
           description: 'ext.debugger.viewDescription',
           icon: Bug,
           component: DebuggerView,
-          presets: ['debug'],
         },
       ],
       debugViews: [
@@ -460,7 +371,6 @@ const registry = createStudioRegistry([
           description: 'ext.debugger.summaryDescription',
           component: DebuggerSummaryView,
           slot: 'right',
-          presets: ['debug'],
           order: 20,
         },
       ],
@@ -472,7 +382,6 @@ const registry = createStudioRegistry([
           description: 'ext.debugger.tracePanelDescription',
           component: TracePanel,
           slot: 'down',
-          presets: ['debug', 'review'],
           order: 15,
         },
         {
@@ -482,7 +391,6 @@ const registry = createStudioRegistry([
           description: 'ext.debugger.stateDiffPanelDescription',
           component: StateDiffPanel,
           slot: 'down',
-          presets: ['debug', 'review'],
           order: 16,
         },
       ],
@@ -509,96 +417,6 @@ const registry = createStudioRegistry([
           description: 'ext.h5Preview.viewDescription',
           icon: MonitorPlay,
           component: H5PreviewView,
-          presets: ['debug'],
-        },
-      ],
-    },
-  },
-  {
-    id: 'kal.comments',
-    title: 'ext.comments.title',
-    description: 'ext.comments.description',
-    kind: 'official-workflow',
-    host: 'browser',
-    activationEvents: ['onView:kal.comments', 'onEvent:review.changed'],
-    capabilities: [
-      { capability: 'project.read' },
-      { capability: 'comment.write', required: false, restrictedMode: 'degrade' },
-    ],
-    contributes: {
-      views: [
-        {
-          id: 'kal.comments',
-          extensionId: 'kal.comments',
-          title: 'ext.comments.viewTitle',
-          shortTitle: 'ext.comments.shortTitle',
-          description: 'ext.comments.viewDescription',
-          icon: MessageSquareMore,
-          component: CommentsView,
-          presets: ['review'],
-        },
-      ],
-      inspectors: [
-        {
-          id: 'kal.comments.inspector',
-          extensionId: 'kal.comments',
-          title: 'ext.comments.inspectorTitle',
-          description: 'ext.comments.inspectorDescription',
-          component: CommentsView,
-          slot: 'right',
-          presets: ['review'],
-        },
-      ],
-      panels: [
-        {
-          id: 'kal.comments.panel',
-          extensionId: 'kal.comments',
-          title: 'ext.comments.panelTitle',
-          description: 'ext.comments.panelDescription',
-          component: CommentsPanel,
-          slot: 'down',
-          presets: ['review', 'history'],
-          order: 24,
-        },
-      ],
-    },
-  },
-  {
-    id: 'kal.review',
-    title: 'ext.review.title',
-    description: 'ext.review.description',
-    kind: 'official-workflow',
-    host: 'browser',
-    activationEvents: ['onView:kal.review', 'onEvent:review.changed'],
-    capabilities: [
-      { capability: 'project.read' },
-      { capability: 'project.write', required: false, restrictedMode: 'degrade' },
-      { capability: 'trace.read', required: false, restrictedMode: 'degrade' },
-      { capability: 'review.accept', required: false, restrictedMode: 'degrade' },
-    ],
-    contributes: {
-      views: [
-        {
-          id: 'kal.review',
-          extensionId: 'kal.review',
-          title: 'ext.review.viewTitle',
-          shortTitle: 'ext.review.shortTitle',
-          description: 'ext.review.viewDescription',
-          icon: ClipboardCheck,
-          component: ReviewView,
-          presets: ['review'],
-        },
-      ],
-      panels: [
-        {
-          id: 'kal.review.history-panel',
-          extensionId: 'kal.review',
-          title: 'ext.review.historyPanelTitle',
-          description: 'ext.review.historyPanelDescription',
-          component: ReviewHistoryPanel,
-          slot: 'down',
-          presets: ['review', 'history'],
-          order: 25,
         },
       ],
     },
@@ -624,7 +442,6 @@ const registry = createStudioRegistry([
           description: 'ext.versionControl.viewDescription',
           icon: History,
           component: VersionControlView,
-          presets: ['review', 'history'],
         },
       ],
       panels: [
@@ -635,7 +452,6 @@ const registry = createStudioRegistry([
           description: 'ext.versionControl.panelDescription',
           component: VersionControlPanel,
           slot: 'down',
-          presets: ['review', 'history'],
           order: 20,
         },
       ],
@@ -661,84 +477,7 @@ const registry = createStudioRegistry([
           description: 'ext.eventLog.panelDescription',
           component: EventLogPanel,
           slot: 'down',
-          presets: ['debug', 'review', 'history'],
           order: 30,
-        },
-      ],
-    },
-  },
-  {
-    id: 'kal.package-manager',
-    title: 'ext.packageManager.title',
-    description: 'ext.packageManager.description',
-    kind: 'official-workflow',
-    host: 'browser',
-    activationEvents: ['onView:kal.package-manager'],
-    capabilities: [
-      { capability: 'project.read' },
-      { capability: 'package.install', required: false, restrictedMode: 'degrade' },
-    ],
-    contributes: {
-      views: [
-        {
-          id: 'kal.package-manager',
-          extensionId: 'kal.package-manager',
-          title: 'ext.packageManager.viewTitle',
-          shortTitle: 'ext.packageManager.shortTitle',
-          description: 'ext.packageManager.viewDescription',
-          icon: Package,
-          component: PackageManagerView,
-          presets: ['package'],
-        },
-      ],
-    },
-  },
-  {
-    id: 'kal.template-browser',
-    title: 'ext.templateBrowser.title',
-    description: 'ext.templateBrowser.description',
-    kind: 'official-workflow',
-    host: 'browser',
-    activationEvents: ['onView:kal.template-browser'],
-    capabilities: [
-      { capability: 'project.read' },
-    ],
-    contributes: {
-      views: [
-        {
-          id: 'kal.template-browser',
-          extensionId: 'kal.template-browser',
-          title: 'ext.templateBrowser.viewTitle',
-          shortTitle: 'ext.templateBrowser.shortTitle',
-          description: 'ext.templateBrowser.viewDescription',
-          icon: LayoutTemplate,
-          component: TemplateBrowserView,
-          presets: ['package'],
-        },
-      ],
-    },
-  },
-  {
-    id: 'kal.collaborators',
-    title: 'ext.collaborators.title',
-    description: 'ext.collaborators.description',
-    kind: 'official-workflow',
-    host: 'browser',
-    activationEvents: ['onView:kal.debugger', 'onView:kal.review'],
-    capabilities: [
-      { capability: 'project.read', required: false, restrictedMode: 'degrade' },
-    ],
-    contributes: {
-      panels: [
-        {
-          id: 'kal.collaborators.panel',
-          extensionId: 'kal.collaborators',
-          title: 'ext.collaborators.panelTitle',
-          description: 'ext.collaborators.panelDescription',
-          component: CollaboratorsPanel,
-          slot: 'down',
-          presets: ['review', 'debug'],
-          order: 35,
         },
       ],
     },
@@ -763,60 +502,7 @@ const registry = createStudioRegistry([
           description: 'ext.terminal.panelDescription',
           component: TerminalView,
           slot: 'down',
-          presets: ['debug'],
           order: 40,
-        },
-      ],
-    },
-  },
-  {
-    id: 'kal.vercel-deploy',
-    title: 'ext.vercelDeploy.title',
-    description: 'ext.vercelDeploy.description',
-    kind: 'official-workflow',
-    host: 'workspace',
-    activationEvents: ['onView:kal.vercel-deploy'],
-    capabilities: [
-      { capability: 'project.read' },
-      { capability: 'network.fetch', required: false, restrictedMode: 'degrade' },
-    ],
-    contributes: {
-      views: [
-        {
-          id: 'kal.vercel-deploy',
-          extensionId: 'kal.vercel-deploy',
-          title: 'ext.vercelDeploy.viewTitle',
-          shortTitle: 'ext.vercelDeploy.shortTitle',
-          description: 'ext.vercelDeploy.viewDescription',
-          icon: Rocket,
-          component: DeployView,
-          presets: ['package'],
-        },
-      ],
-    },
-  },
-  {
-    id: 'kal.prompt-eval',
-    title: 'ext.promptEval.title',
-    description: 'ext.promptEval.description',
-    kind: 'official-workflow',
-    host: 'browser',
-    activationEvents: ['onView:kal.prompt-eval'],
-    capabilities: [
-      { capability: 'project.read' },
-      { capability: 'engine.execute' },
-    ],
-    contributes: {
-      views: [
-        {
-          id: 'kal.prompt-eval',
-          extensionId: 'kal.prompt-eval',
-          title: 'ext.promptEval.viewTitle',
-          shortTitle: 'ext.promptEval.shortTitle',
-          description: 'ext.promptEval.viewDescription',
-          icon: FlaskConical,
-          component: EvalView,
-          presets: ['debug'],
         },
       ],
     },

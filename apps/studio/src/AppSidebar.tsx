@@ -13,9 +13,9 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { Command, LayoutDashboard, Plus, RefreshCw, PlayCircle } from "lucide-react";
+import { Command, LayoutDashboard, Plus, PlayCircle, Route, Zap, Bookmark } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from 'react-i18next';
 import {
   Dialog,
@@ -28,15 +28,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useFlowResource, useWorkbench, useStudioCommands, useStudioResources, useRunDebug } from "./kernel/hooks";
-import type { StudioWorkspacePreset } from "./kernel/types";
+import { getStudioView } from "./kernel/registry";
 
 type AppSidebarProps = {
   children: React.ReactNode;
 };
 
-const PRESETS_WITH_FLOWS: StudioWorkspacePreset[] = ['authoring', 'debug', 'review'];
-const PRESETS_WITH_RUNS: StudioWorkspacePreset[] = ['debug', 'review', 'history'];
-const PRESETS_WITH_VIEWS: StudioWorkspacePreset[] = ['authoring', 'debug', 'review', 'history'];
+const TOOL_VIEW_IDS = ['kal.config', 'kal.debugger', 'kal.h5-preview', 'kal.prompt-preview', 'kal.version-control'];
 
 export function AppSidebar({ children }: AppSidebarProps) {
   const { t } = useTranslation('workbench');
@@ -44,14 +42,17 @@ export function AppSidebar({ children }: AppSidebarProps) {
   const { t: tr } = useTranslation('registry');
   const { project, session } = useStudioResources();
   const { flowId: currentFlow } = useFlowResource();
-  const { activePreset, activeViewId, views } = useWorkbench();
+  const { activeViewId } = useWorkbench();
   const { runs, selectedRunId } = useRunDebug();
-  const { setActiveView, setActivePreset, setCommandPaletteOpen, openFlow, createFlow, reloadProject, selectRun } = useStudioCommands();
+  const {
+    setActiveView, setCommandPaletteOpen,
+    openFlow, createFlow, selectRun,
+    createRun, createSmokeRun, createCheckpoint,
+  } = useStudioCommands();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [flowNameInput, setFlowNameInput] = useState("");
   const [error, setError] = useState("");
-  const [reloading, setReloading] = useState(false);
 
   const openCreateDialog = () => {
     setFlowNameInput("");
@@ -72,38 +73,33 @@ export function AppSidebar({ children }: AppSidebarProps) {
     try {
       await createFlow(name);
       setDialogOpen(false);
-    } catch (e: any) {
-      setError(e.message);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : String(e));
     }
   };
 
-  const handleReload = async () => {
-    setReloading(true);
-    try {
-      await reloadProject();
-    } catch (e: any) {
-      alert(tc("reloadFailed", { message: e.message }));
-    } finally {
-      setReloading(false);
-    }
+  const handleNewRun = async () => {
+    await createRun(true);
+    setActiveView('kal.debugger');
   };
 
-  const showFlows = PRESETS_WITH_FLOWS.includes(activePreset);
-  const showRuns = PRESETS_WITH_RUNS.includes(activePreset);
-  const showViews = PRESETS_WITH_VIEWS.includes(activePreset);
-  const showPackage = activePreset === 'package';
+  const handleSmokeRun = async () => {
+    await createSmokeRun();
+    setActiveView('kal.debugger');
+  };
 
-  const presetViews = views.filter(
-    (view) => !view.presets || view.presets.includes(activePreset),
-  );
+  const handleCreateCheckpoint = () => {
+    createCheckpoint();
+    setActiveView('kal.version-control');
+  };
 
-  const workspacePresets: Array<{ id: StudioWorkspacePreset; label: string; desc: string }> = [
-    { id: "authoring", label: t("preset.authoring"), desc: t("preset.authoringDesc") },
-    { id: "debug", label: t("preset.debug"), desc: t("preset.debugDesc") },
-    { id: "review", label: t("preset.review"), desc: t("preset.reviewDesc") },
-    { id: "history", label: t("preset.history"), desc: t("preset.historyDesc") },
-    { id: "package", label: t("preset.package"), desc: t("preset.packageDesc") },
-  ];
+  const toolViews = useMemo(() => {
+    return TOOL_VIEW_IDS
+      .map((id) => {
+        try { return getStudioView(id); } catch { return null; }
+      })
+      .filter((v): v is NonNullable<typeof v> => v !== null && v.id !== 'kal.flow');
+  }, []);
 
   return (
     <SidebarProvider>
@@ -131,104 +127,101 @@ export function AppSidebar({ children }: AppSidebarProps) {
         <SidebarContent>
           {project && (
             <>
+              {/* Resources section */}
               <SidebarGroup>
-                <SidebarGroupLabel>{t("workspacePresets")}</SidebarGroupLabel>
-                <SidebarGroupContent className="px-2">
-                  <div className="flex flex-wrap gap-2">
-                    {workspacePresets.map((preset) => (
-                      <Button
-                        key={preset.id}
-                        variant={activePreset === preset.id ? "secondary" : "outline"}
-                        size="xs"
-                        title={preset.desc}
-                        onClick={() => setActivePreset(preset.id)}
-                      >
-                        {preset.label}
-                      </Button>
+                <SidebarGroupLabel>{t("resources")}</SidebarGroupLabel>
+                <SidebarGroupContent>
+                  <SidebarMenu>
+                    {/* Flow list */}
+                    <SidebarMenuItem>
+                      <div className="flex items-center justify-between px-2 py-1">
+                        <span className="text-xs font-medium text-muted-foreground">{t("flowResources")}</span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-5 w-5"
+                          onClick={openCreateDialog}
+                        >
+                          <Plus className="size-3" />
+                        </Button>
+                      </div>
+                    </SidebarMenuItem>
+                    {Object.keys(project.flows).map((flowName) => (
+                      <SidebarMenuItem key={flowName}>
+                        <SidebarMenuButton
+                          tooltip={flowName}
+                          isActive={currentFlow === flowName}
+                          onClick={() => openFlow(flowName)}
+                        >
+                          <LayoutDashboard className="size-4" />
+                          <span className="flex-1 truncate">{flowName}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {project.flows[flowName]?.data.nodes.length || 0}
+                          </span>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
                     ))}
-                  </div>
-                </SidebarGroupContent>
-              </SidebarGroup>
 
-              {showFlows && (
-                <SidebarGroup>
-                  <div className="flex items-center justify-between px-2">
-                    <SidebarGroupLabel>{t("flowResources")}</SidebarGroupLabel>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6"
-                      onClick={openCreateDialog}
-                    >
-                      <Plus className="size-4" />
-                    </Button>
-                  </div>
-                  <SidebarGroupContent>
-                    <SidebarMenu>
-                      {Object.keys(project.flows).map((flowName) => (
-                        <SidebarMenuItem key={flowName}>
+                    {/* Session entry */}
+                    <SidebarMenuItem>
+                      <SidebarMenuButton
+                        tooltip={t("sessionEntry")}
+                        isActive={activeViewId === 'kal.session'}
+                        onClick={() => setActiveView('kal.session')}
+                      >
+                        <Route className="size-4" />
+                        <span className="flex-1">{t("sessionEntry")}</span>
+                        <span className={`text-xs ${session ? "text-green-500" : "text-muted-foreground"}`}>
+                          {session ? tc("configured") : tc("none")}
+                        </span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+
+                    {/* Run list */}
+                    <SidebarMenuItem>
+                      <div className="flex items-center px-2 py-1">
+                        <span className="text-xs font-medium text-muted-foreground">{t("runs")}</span>
+                      </div>
+                    </SidebarMenuItem>
+                    {runs.length === 0 ? (
+                      <SidebarMenuItem>
+                        <span className="px-2 text-xs text-muted-foreground">{t("noRuns")}</span>
+                      </SidebarMenuItem>
+                    ) : (
+                      runs.map((record) => (
+                        <SidebarMenuItem key={record.runId}>
                           <SidebarMenuButton
-                            tooltip={flowName}
-                            isActive={currentFlow === flowName}
-                            onClick={() => openFlow(flowName)}
+                            tooltip={`Run ${record.runId.slice(0, 8)}`}
+                            isActive={selectedRunId === record.runId}
+                            onClick={() => selectRun(record.runId)}
                           >
-                            <LayoutDashboard className="size-4" />
-                            <span className="flex-1 truncate">{flowName}</span>
-                            <span className="text-xs text-muted-foreground">
-                              {project.flows[flowName]?.data.nodes.length || 0}
+                            <PlayCircle className="size-4" />
+                            <span className="flex-1 truncate">
+                              {record.runId.slice(0, 8)}
+                            </span>
+                            <span className={`text-[10px] uppercase ${
+                              record.run.status === 'ended' ? 'text-green-600' :
+                              record.run.status === 'waiting_input' || record.run.status === 'paused' ? 'text-blue-600' :
+                              record.run.status === 'error' ? 'text-red-600' :
+                              'text-muted-foreground'
+                            }`}>
+                              {record.run.status}
                             </span>
                           </SidebarMenuButton>
                         </SidebarMenuItem>
-                      ))}
-                    </SidebarMenu>
-                  </SidebarGroupContent>
-                </SidebarGroup>
-              )}
+                      ))
+                    )}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </SidebarGroup>
 
-              {showRuns && (
+              {/* Tools section */}
+              {toolViews.length > 0 && (
                 <SidebarGroup>
-                  <SidebarGroupLabel>{t("runs")}</SidebarGroupLabel>
+                  <SidebarGroupLabel>{t("tools")}</SidebarGroupLabel>
                   <SidebarGroupContent>
                     <SidebarMenu>
-                      {runs.length === 0 ? (
-                        <SidebarMenuItem>
-                          <span className="px-2 text-xs text-muted-foreground">{t("noRuns")}</span>
-                        </SidebarMenuItem>
-                      ) : (
-                        runs.map((record) => (
-                          <SidebarMenuItem key={record.runId}>
-                            <SidebarMenuButton
-                              tooltip={`Run ${record.runId.slice(0, 8)}`}
-                              isActive={selectedRunId === record.runId}
-                              onClick={() => selectRun(record.runId)}
-                            >
-                              <PlayCircle className="size-4" />
-                              <span className="flex-1 truncate">
-                                {record.runId.slice(0, 8)}
-                              </span>
-                              <span className={`text-[10px] uppercase ${
-                                record.run.status === 'ended' ? 'text-green-600' :
-                                record.run.status === 'waiting_input' || record.run.status === 'paused' ? 'text-blue-600' :
-                                record.run.status === 'error' ? 'text-red-600' :
-                                'text-muted-foreground'
-                              }`}>
-                                {record.run.status}
-                              </span>
-                            </SidebarMenuButton>
-                          </SidebarMenuItem>
-                        ))
-                      )}
-                    </SidebarMenu>
-                  </SidebarGroupContent>
-                </SidebarGroup>
-              )}
-
-              {(showViews || showPackage) && presetViews.length > 0 && (
-                <SidebarGroup>
-                  <SidebarGroupLabel>{t("views")}</SidebarGroupLabel>
-                  <SidebarGroupContent>
-                    <SidebarMenu>
-                      {presetViews.map((view) => {
+                      {toolViews.map((view) => {
                         const Icon = view.icon;
                         return (
                           <SidebarMenuItem key={view.id}>
@@ -238,7 +231,7 @@ export function AppSidebar({ children }: AppSidebarProps) {
                               onClick={() => setActiveView(view.id)}
                             >
                               <Icon className="size-4" />
-                              <span>{tr(view.title)}</span>
+                              <span>{tr(view.shortTitle)}</span>
                             </SidebarMenuButton>
                           </SidebarMenuItem>
                         );
@@ -248,20 +241,27 @@ export function AppSidebar({ children }: AppSidebarProps) {
                 </SidebarGroup>
               )}
 
+              {/* Quick actions section */}
               <SidebarGroup>
-                <SidebarGroupLabel>{t("projectCommands")}</SidebarGroupLabel>
+                <SidebarGroupLabel>{t("quickActions")}</SidebarGroupLabel>
                 <SidebarGroupContent>
                   <SidebarMenu>
                     <SidebarMenuItem>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="w-full justify-start"
-                        onClick={handleReload}
-                        disabled={reloading}
-                      >
-                        <RefreshCw className={`mr-2 size-4 ${reloading ? "animate-spin" : ""}`} />
-                        {reloading ? t("reloading") : t("reloadProject")}
+                      <Button variant="ghost" size="sm" className="w-full justify-start" onClick={handleNewRun}>
+                        <Zap className="mr-2 size-4" />
+                        {t("newRun")}
+                      </Button>
+                    </SidebarMenuItem>
+                    <SidebarMenuItem>
+                      <Button variant="ghost" size="sm" className="w-full justify-start" onClick={handleSmokeRun}>
+                        <PlayCircle className="mr-2 size-4" />
+                        {t("smokeRun")}
+                      </Button>
+                    </SidebarMenuItem>
+                    <SidebarMenuItem>
+                      <Button variant="ghost" size="sm" className="w-full justify-start" onClick={handleCreateCheckpoint}>
+                        <Bookmark className="mr-2 size-4" />
+                        {t("createCheckpoint")}
                       </Button>
                     </SidebarMenuItem>
                   </SidebarMenu>
@@ -287,12 +287,6 @@ export function AppSidebar({ children }: AppSidebarProps) {
                   <span>{t("flowLabel")}</span>
                   <span className="font-medium text-foreground">{Object.keys(project.flows).length}</span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span>{t("sessionLabel")}</span>
-                  <span className={`font-medium ${session ? "text-green-500" : "text-muted-foreground"}`}>
-                    {session ? tc("configured") : tc("none")}
-                  </span>
-                </div>
               </div>
             )}
           </div>
@@ -304,9 +298,6 @@ export function AppSidebar({ children }: AppSidebarProps) {
           <SidebarTrigger />
           <div>
             <p className="text-sm font-medium">{t("studioKernel")}</p>
-            <p className="text-xs text-muted-foreground">
-              {activePreset && t("workspaceLabel", { preset: t(`preset.${activePreset}`) })}
-            </p>
           </div>
           <div className="flex-1" />
           <Button
@@ -320,7 +311,7 @@ export function AppSidebar({ children }: AppSidebarProps) {
             <span className="rounded border px-1.5 py-0.5 text-[11px] text-muted-foreground">Ctrl K</span>
           </Button>
         </div>
-        <div className="min-h-0 flex-1 overflow-hidden">
+        <div className="min-h-0 flex-1 overflow-hidden pb-[33px]">
           {children}
         </div>
       </SidebarInset>

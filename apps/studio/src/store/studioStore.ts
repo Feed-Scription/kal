@@ -17,10 +17,8 @@ import type { RunAdvanceMode } from '@/api/engine-client';
 import {
   DEFAULT_STUDIO_VIEW_ID,
   OFFICIAL_STUDIO_EXTENSIONS,
-  getAllViews,
   getStudioExtensionForView,
 } from '@/kernel/registry';
-import { compareSnapshot } from '@/kernel/semantic-diff';
 import type {
   ResolvedStudioCapabilityRequest,
   StudioCapabilityId,
@@ -30,20 +28,17 @@ import type {
   StudioExtensionId,
   StudioExtensionRuntimeRecord,
   StudioViewId,
-  StudioWorkspacePreset,
   PresenceUser,
   PresenceActivity,
 } from '@/kernel/types';
 import type {
   CheckpointRecord,
-  CommentThreadRecord,
   DiagnosticsPayload,
   ExecutionResult,
   EngineEvent,
   FlowDefinition,
   GitLogResult,
   GitStatusResult,
-  InstalledPackageRecord,
   KalConfig,
   ProjectData,
   ReferenceEntry,
@@ -51,7 +46,6 @@ import type {
   SearchResult,
   ResourceVersionState,
   RestorableSnapshot,
-  ReviewProposalRecord,
   RunBreakpointRecord,
   RunStateView,
   RunSummary,
@@ -111,7 +105,6 @@ type WorkbenchState = {
   activeViewId: StudioViewId;
   openViewIds: StudioViewId[];
   activeFlowId: string | null;
-  activePreset: StudioWorkspacePreset;
   commandPaletteOpen: boolean;
 };
 
@@ -128,25 +121,9 @@ type RunDebugState = {
   breakpoints: RunBreakpointRecord[];
 };
 
-type ReviewState = {
-  activeProposalId: string | null;
-  proposals: ReviewProposalRecord[];
-};
-
-type CommentsState = {
-  activeThreadId: string | null;
-  threads: CommentThreadRecord[];
-};
-
 type GitState = {
   status: GitStatusResult | null;
   log: GitLogResult | null;
-  updatedAt?: number;
-};
-
-type PackagesState = {
-  installed: InstalledPackageRecord[];
-  loading: boolean;
   updatedAt?: number;
 };
 
@@ -176,10 +153,7 @@ type StudioStore = {
   extensions: ExtensionRuntimeState;
   kernel: KernelState;
   runDebug: RunDebugState;
-  review: ReviewState;
-  comments: CommentsState;
   git: GitState;
-  packages: PackagesState;
   presence: PresenceStoreState;
   referenceGraph: ReferenceGraphState;
 
@@ -187,7 +161,6 @@ type StudioStore = {
   disconnect: () => void;
   setActiveView: (viewId: StudioViewId) => void;
   closeView: (viewId: StudioViewId) => void;
-  setActivePreset: (preset: StudioWorkspacePreset) => void;
   setCommandPaletteOpen: (open: boolean) => void;
   toggleCommandPalette: () => void;
   setCurrentFlow: (flowName: string) => void;
@@ -211,20 +184,6 @@ type StudioStore = {
   toggleBreakpoint: (stepId: string) => void;
   clearBreakpoint: (stepId: string) => void;
   cancelRun: (runId: string) => Promise<void>;
-  createReviewProposal: (input?: { title?: string; intent?: string; baseCheckpointId?: string | null }) => string | null;
-  setActiveProposal: (proposalId: string | null) => void;
-  validateProposal: (proposalId: string) => Promise<void>;
-  acceptProposal: (proposalId: string) => Promise<void>;
-  rollbackProposal: (proposalId: string) => Promise<void>;
-  createCommentThread: (input: {
-    title: string;
-    anchor: CommentThreadRecord['anchor'];
-    body: string;
-    author?: string;
-  }) => string | null;
-  addComment: (threadId: string, body: string, author?: string) => void;
-  resolveCommentThread: (threadId: string, resolved: boolean) => void;
-  setActiveCommentThread: (threadId: string | null) => void;
   createCheckpoint: (label?: string, description?: string) => CheckpointRecord | null;
   restoreCheckpoint: (checkpointId: string) => Promise<void>;
   refreshDiagnostics: () => Promise<void>;
@@ -246,10 +205,8 @@ type StudioStore = {
     data?: Record<string, unknown>;
   }) => void;
   refreshGitStatus: () => Promise<void>;
-  loadPackages: () => Promise<void>;
   refreshReferences: (resourceId?: string) => Promise<void>;
   searchProject: (query: string) => Promise<void>;
-  applyTemplate: (templateId: string, packageId: string) => Promise<void>;
 };
 
 function updateSaveState(
@@ -275,7 +232,6 @@ function getDefaultWorkbenchState(): WorkbenchState {
     activeViewId: DEFAULT_STUDIO_VIEW_ID,
     openViewIds: [DEFAULT_STUDIO_VIEW_ID],
     activeFlowId: null,
-    activePreset: 'authoring',
     commandPaletteOpen: false,
   };
 }
@@ -303,13 +259,6 @@ function loadWorkbenchState(): WorkbenchState {
       activeViewId,
       openViewIds: openViewIds.includes(activeViewId) ? openViewIds : [activeViewId, ...openViewIds],
       activeFlowId: typeof parsed.activeFlowId === 'string' ? parsed.activeFlowId : null,
-      activePreset:
-        parsed.activePreset === 'debug' ||
-        parsed.activePreset === 'review' ||
-        parsed.activePreset === 'history' ||
-        parsed.activePreset === 'package'
-          ? parsed.activePreset
-          : 'authoring',
       commandPaletteOpen: false,
     };
   } catch {
@@ -348,10 +297,6 @@ function loadExtensionPreferences(): Record<string, { enabled: boolean }> {
   } catch {
     return {};
   }
-}
-
-function loadCommentThreads(): CommentThreadRecord[] {
-  return [];
 }
 
 function loadBreakpoints(): RunBreakpointRecord[] {
@@ -393,64 +338,6 @@ function persistBreakpoints(breakpoints: RunBreakpointRecord[]) {
   }
 
   window.localStorage.setItem(BREAKPOINTS_STORAGE_KEY, JSON.stringify(breakpoints));
-}
-
-async function loadReviewWorkspaceState(
-  set: (partial: Partial<StudioStore> | ((state: StudioStore) => Partial<StudioStore>)) => void,
-  get: () => StudioStore,
-) {
-  try {
-    const review = await engineApi.getReviewState();
-    set((state) => ({
-      review: {
-        ...state.review,
-        activeProposalId:
-          state.review.activeProposalId && review.proposals.some((proposal) => proposal.id === state.review.activeProposalId)
-            ? state.review.activeProposalId
-            : review.proposals[0]?.id ?? null,
-        proposals: review.proposals,
-      },
-    }));
-  } catch (error) {
-    console.warn('Failed to load review proposals:', error);
-  }
-
-  void get;
-}
-
-async function loadCommentsWorkspaceState(
-  set: (partial: Partial<StudioStore> | ((state: StudioStore) => Partial<StudioStore>)) => void,
-  get: () => StudioStore,
-) {
-  try {
-    const comments = await engineApi.getCommentsState();
-    set((state) => ({
-      comments: {
-        ...state.comments,
-        activeThreadId:
-          state.comments.activeThreadId && comments.threads.some((thread) => thread.id === state.comments.activeThreadId)
-            ? state.comments.activeThreadId
-            : comments.threads[0]?.id ?? null,
-        threads: comments.threads,
-      },
-    }));
-  } catch (error) {
-    console.warn('Failed to load comment threads:', error);
-  }
-
-  void get;
-}
-
-function syncReviewWorkspaceState(get: () => StudioStore) {
-  void engineApi.saveReviewState(get().review.proposals).catch((error) => {
-    console.warn('Failed to persist review proposals:', error);
-  });
-}
-
-function syncCommentsWorkspaceState(get: () => StudioStore) {
-  void engineApi.saveCommentsState(get().comments.threads).catch((error) => {
-    console.warn('Failed to persist comment threads:', error);
-  });
 }
 
 function cloneValue<T>(value: T): T {
@@ -509,10 +396,6 @@ const DEFAULT_CAPABILITY_GRANTS: Record<StudioCapabilityId, boolean> = {
   'trace.read': true,
   'network.fetch': false,
   'process.exec': false,
-  'package.install': false,
-  'package.publish': false,
-  'comment.write': true,
-  'review.accept': true,
   'ai.invoke': false,
 };
 
@@ -973,50 +856,6 @@ async function continueRunWithBreakpoints(options: {
 
 function ensureRunOrder(runOrder: string[], runId: string): string[] {
   return [runId, ...runOrder.filter((candidate) => candidate !== runId)];
-}
-
-function summarizeDiagnostics(diagnostics: DiagnosticsPayload | null | undefined) {
-  return {
-    totalIssues: diagnostics?.summary.total_issues ?? 0,
-    errors: diagnostics?.summary.errors ?? 0,
-    warnings: diagnostics?.summary.warnings ?? 0,
-  };
-}
-
-function deriveTouchedResources(transactions: TransactionRecord[], checkpoint?: CheckpointRecord | null): ResourceId[] {
-  const candidates = checkpoint
-    ? transactions.filter((transaction) => transaction.timestamp >= checkpoint.createdAt)
-    : transactions.slice(0, 8);
-  const resources = new Set<ResourceId>();
-  candidates.forEach((transaction) => {
-    resources.add(transaction.resourceId);
-    transaction.operations.forEach((operation) => resources.add(operation.resourceId));
-  });
-  return [...resources];
-}
-
-function deriveRiskNotes(options: {
-  summary: ReturnType<typeof compareSnapshot>;
-  diagnostics: DiagnosticsPayload | null;
-  selectedRun?: RunTraceRecord | null;
-}) {
-  const notes: string[] = [];
-  if (options.summary.changedFlows.length > 0) {
-    notes.push(i18n.t('store:riskNotes.flowChanges', { count: options.summary.changedFlows.length }));
-  }
-  if (options.summary.sessionChanged) {
-    notes.push(i18n.t('store:riskNotes.sessionChanged'));
-  }
-  if ((options.diagnostics?.summary.errors ?? 0) > 0) {
-    notes.push(i18n.t('store:riskNotes.diagnosticsErrors'));
-  }
-  if (options.selectedRun?.stateDiff.length) {
-    notes.push(i18n.t('store:riskNotes.stateDiffKeys', { count: options.selectedRun.stateDiff.length }));
-  }
-  if (notes.length === 0) {
-    notes.push(i18n.t('store:riskNotes.lowRisk'));
-  }
-  return notes;
 }
 
 async function fetchDiagnosticsReport(): Promise<DiagnosticsPayload | null> {
@@ -1535,21 +1374,9 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     records: {},
     breakpoints: loadBreakpoints(),
   },
-  review: {
-    activeProposalId: null,
-    proposals: [],
-  },
-  comments: {
-    activeThreadId: null,
-    threads: loadCommentThreads(),
-  },
   git: {
     status: null,
     log: null,
-  },
-  packages: {
-    installed: [],
-    loading: false,
   },
   presence: {
     users: [],
@@ -1647,12 +1474,6 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
               }));
             });
           }
-          if (event.resourceId === 'review://proposals') {
-            void loadReviewWorkspaceState(set, get);
-          }
-          if (event.resourceId === 'comments://threads') {
-            void loadCommentsWorkspaceState(set, get);
-          }
           store.recordKernelEvent({
             type: 'resource.changed',
             message: event.message ?? 'Resource changed',
@@ -1674,16 +1495,6 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
       await get().refreshGitStatus().catch(() => {
         // Git not available, continue without it
       });
-
-      // Fetch initial packages
-      await get().loadPackages().catch(() => {
-        // Packages not available, continue without them
-      });
-
-      await Promise.all([
-        loadReviewWorkspaceState(set, get),
-        loadCommentsWorkspaceState(set, get),
-      ]);
     } catch (error) {
       const message = (error as Error).message;
       set({
@@ -1730,16 +1541,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
         records: {},
         breakpoints: state.runDebug.breakpoints,
       },
-      review: {
-        activeProposalId: null,
-        proposals: [],
-      },
-      comments: {
-        activeThreadId: null,
-        threads: [],
-      },
       git: { status: null, log: null },
-      packages: { installed: [], loading: false },
       presence: { users: [], activities: [], selfId: null },
     }));
     get().recordKernelEvent({
@@ -1800,44 +1602,6 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
             state.workbench.activeViewId === viewId
               ? openViewIds[openViewIds.length - 1]!
               : state.workbench.activeViewId,
-        },
-      };
-    });
-  },
-
-  setActivePreset: (preset) => {
-    set((state) => {
-      const allViews = getAllViews();
-      const presetViews = allViews.filter(
-        (v) => !v.presets || v.presets.includes(preset),
-      );
-      const presetViewIds = new Set(presetViews.map((v) => v.id));
-
-      // Keep only open views that belong to the new preset
-      const filteredOpenIds = state.workbench.openViewIds.filter((id) =>
-        presetViewIds.has(id),
-      );
-
-      // If active view doesn't belong to new preset, pick the first available
-      const activeStillValid = presetViewIds.has(state.workbench.activeViewId);
-      const fallbackViewId = presetViews[0]?.id ?? DEFAULT_STUDIO_VIEW_ID;
-      const nextActiveId = activeStillValid
-        ? state.workbench.activeViewId
-        : filteredOpenIds[0] ?? fallbackViewId;
-
-      const nextOpenIds =
-        filteredOpenIds.length > 0
-          ? filteredOpenIds.includes(nextActiveId)
-            ? filteredOpenIds
-            : [nextActiveId, ...filteredOpenIds]
-          : [nextActiveId];
-
-      return {
-        workbench: {
-          ...state.workbench,
-          activePreset: preset,
-          activeViewId: nextActiveId,
-          openViewIds: nextOpenIds,
         },
       };
     });
@@ -2570,354 +2334,6 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     }));
   },
 
-  createReviewProposal: (input) => {
-    const project = get().resources.project;
-    if (!project) {
-      return null;
-    }
-
-    const checkpoints = get().versionControl.checkpoints;
-    const baseCheckpoint =
-      (input?.baseCheckpointId
-        ? checkpoints.find((checkpoint) => checkpoint.id === input.baseCheckpointId)
-        : checkpoints[0]) ?? null;
-    const selectedRunId = get().runDebug.selectedRunId;
-    const selectedRun = selectedRunId
-      ? get().runDebug.records[selectedRunId] ?? null
-      : null;
-    const summary = baseCheckpoint
-      ? compareSnapshot(baseCheckpoint.snapshot, project)
-      : compareSnapshot(
-          {
-            flows: {},
-            session: null,
-          },
-          project,
-        );
-    const touchedResources = deriveTouchedResources(get().versionControl.transactions, baseCheckpoint);
-    const proposalId = createId('proposal');
-    const proposal: ReviewProposalRecord = {
-      id: proposalId,
-      title: input?.title?.trim() || `Proposal ${formatTimeShort()}`,
-      intent: input?.intent?.trim() || i18n.t('store:proposalDefaultIntent'),
-      status: 'draft',
-      createdAt: Date.now(),
-      origin: { kind: 'user', id: 'studio.review', label: 'Review Workspace' },
-      baseCheckpointId: baseCheckpoint?.id,
-      baseResourceVersion: get().versionControl.resourceVersions['project://current']?.version ?? 0,
-      touchedResources,
-      semanticSummary: summary,
-      expectedDiagnostics: summarizeDiagnostics(get().versionControl.diagnostics),
-      recommendedValidations: [
-        i18n.t('store:proposalValidation.runLint'),
-        i18n.t('store:proposalValidation.runSmoke'),
-        i18n.t('store:proposalValidation.checkTrace'),
-      ],
-      riskNotes: deriveRiskNotes({
-        summary,
-        diagnostics: get().versionControl.diagnostics,
-        selectedRun,
-      }),
-      relatedRunId: selectedRun?.runId,
-      relatedStateKeys: selectedRun?.stateDiff.map((entry) => entry.key) ?? [],
-      validation: {
-        lintStatus: 'idle',
-        smokeStatus: 'idle',
-      },
-    };
-
-    set((state) => ({
-      review: {
-        activeProposalId: proposalId,
-        proposals: [proposal, ...state.review.proposals].slice(0, 30),
-      },
-    }));
-    get().recordKernelEvent({
-      type: 'review.changed',
-      message: i18n.t('store:createProposal', { title: proposal.title }),
-      resourceId: 'project://current',
-      data: { proposalId },
-    });
-    syncReviewWorkspaceState(get);
-    return proposalId;
-  },
-
-  setActiveProposal: (proposalId) => {
-    set((state) => ({
-      review: {
-        ...state.review,
-        activeProposalId: proposalId,
-      },
-    }));
-  },
-
-  validateProposal: async (proposalId) => {
-    const proposal = get().review.proposals.find((entry) => entry.id === proposalId);
-    if (!proposal) {
-      throw new Error(i18n.t('store:proposalNotFound'));
-    }
-
-    set((state) => ({
-      review: {
-        ...state.review,
-        proposals: state.review.proposals.map((entry) =>
-          entry.id === proposalId
-            ? {
-                ...entry,
-                validation: {
-                  ...entry.validation,
-                  lintStatus: 'running',
-                  smokeStatus: 'running',
-                  error: undefined,
-                },
-              }
-            : entry,
-        ),
-      },
-    }));
-
-    try {
-      const smokeRun = await withJob({
-        set,
-        get,
-        title: i18n.t('store:validateProposal', { title: proposal.title }),
-        detail: i18n.t('store:validateProposalDetail'),
-        action: async (updateProgress) => {
-          updateProgress(30, i18n.t('store:refreshingDiagnostics'));
-          await get().refreshDiagnostics();
-          updateProgress(60, i18n.t('store:requestingEngineSmoke'));
-          const run = await get().createSmokeRun([]);
-          updateProgress(85, i18n.t('store:runCreated', { runId: run.run_id }));
-          return run;
-        },
-      });
-      const diagnostics = get().versionControl.diagnostics;
-
-      set((state) => ({
-        review: {
-          ...state.review,
-          proposals: state.review.proposals.map((entry) =>
-            entry.id === proposalId
-              ? {
-                ...entry,
-                  status: 'ready',
-                  relatedRunId: smokeRun.run_id,
-                  relatedStateKeys: smokeRun.state_summary.changed,
-                  expectedDiagnostics: summarizeDiagnostics(diagnostics),
-                  validation: {
-                    lintStatus: 'completed',
-                    smokeStatus: 'completed',
-                    diagnostics,
-                    smoke: null,
-                    smokeRun,
-                    lastValidatedAt: Date.now(),
-                  },
-                }
-              : entry,
-          ),
-        },
-      }));
-      get().recordKernelEvent({
-        type: 'review.changed',
-        message: i18n.t('store:proposalValidated', { title: proposal.title }),
-        data: { proposalId },
-      });
-      syncReviewWorkspaceState(get);
-    } catch (error) {
-      set((state) => ({
-        review: {
-          ...state.review,
-          proposals: state.review.proposals.map((entry) =>
-            entry.id === proposalId
-              ? {
-                  ...entry,
-                  validation: {
-                    ...entry.validation,
-                    lintStatus: 'failed',
-                    smokeStatus: 'failed',
-                    error: (error as Error).message,
-                    lastValidatedAt: Date.now(),
-                  },
-                }
-              : entry,
-          ),
-        },
-      }));
-      syncReviewWorkspaceState(get);
-      throw error;
-    }
-  },
-
-  acceptProposal: async (proposalId) => {
-    const proposal = get().review.proposals.find((entry) => entry.id === proposalId);
-    if (!proposal) {
-      throw new Error(i18n.t('store:proposalNotFoundAccept'));
-    }
-    assertCapability(get, 'project.write');
-    assertCapability(get, 'review.accept');
-
-    get().createCheckpoint(`accepted:${proposal.title}`, proposal.intent);
-    set((state) => ({
-      review: {
-        ...state.review,
-        proposals: state.review.proposals.map((entry) =>
-          entry.id === proposalId
-            ? {
-                ...entry,
-                status: 'accepted',
-              }
-            : entry,
-        ),
-      },
-    }));
-    get().recordKernelEvent({
-      type: 'review.changed',
-      message: i18n.t('store:proposalAccepted', { title: proposal.title }),
-      data: { proposalId },
-    });
-    syncReviewWorkspaceState(get);
-  },
-
-  rollbackProposal: async (proposalId) => {
-    const proposal = get().review.proposals.find((entry) => entry.id === proposalId);
-    if (!proposal) {
-      throw new Error(i18n.t('store:proposalNotFoundRollback'));
-    }
-    if (!proposal.baseCheckpointId) {
-      throw new Error(i18n.t('store:checkpointNotFound'));
-    }
-
-    await get().restoreCheckpoint(proposal.baseCheckpointId);
-    set((state) => ({
-      review: {
-        ...state.review,
-        proposals: state.review.proposals.map((entry) =>
-          entry.id === proposalId
-            ? {
-                ...entry,
-                status: 'rolled-back',
-              }
-            : entry,
-        ),
-      },
-    }));
-    get().recordKernelEvent({
-      type: 'review.changed',
-      message: i18n.t('store:proposalRolledBack', { title: proposal.title }),
-      data: { proposalId, checkpointId: proposal.baseCheckpointId },
-    });
-    syncReviewWorkspaceState(get);
-  },
-
-  createCommentThread: (input) => {
-    assertCapability(get, 'comment.write');
-    if (!input.title.trim() || !input.body.trim()) {
-      return null;
-    }
-
-    const threadId = createId('thread');
-    const now = Date.now();
-    const thread: CommentThreadRecord = {
-      id: threadId,
-      title: input.title.trim(),
-      anchor: input.anchor,
-      status: 'open',
-      createdAt: now,
-      updatedAt: now,
-      comments: [
-        {
-          id: createId('comment'),
-          author: input.author?.trim() || 'Studio User',
-          body: input.body.trim(),
-          createdAt: now,
-        },
-      ],
-    };
-
-    set((state) => ({
-      comments: {
-        activeThreadId: threadId,
-        threads: [thread, ...state.comments.threads].slice(0, 200),
-      },
-    }));
-    get().recordKernelEvent({
-      type: 'review.changed',
-      message: i18n.t('store:createCommentThread', { title: thread.title }),
-      data: { threadId, anchor: input.anchor.kind },
-    });
-    syncCommentsWorkspaceState(get);
-    return threadId;
-  },
-
-  addComment: (threadId, body, author) => {
-    assertCapability(get, 'comment.write');
-    if (!body.trim()) {
-      return;
-    }
-
-    set((state) => ({
-      comments: {
-        ...state.comments,
-        threads: state.comments.threads.map((thread) =>
-          thread.id === threadId
-            ? {
-                ...thread,
-                updatedAt: Date.now(),
-                comments: [
-                  ...thread.comments,
-                  {
-                    id: createId('comment'),
-                    author: author?.trim() || 'Studio User',
-                    body: body.trim(),
-                    createdAt: Date.now(),
-                  },
-                ],
-              }
-            : thread,
-        ),
-      },
-    }));
-    get().recordKernelEvent({
-      type: 'review.changed',
-      message: i18n.t('store:commentThreadReplyAdded', { threadId }),
-      data: { threadId },
-    });
-    syncCommentsWorkspaceState(get);
-  },
-
-  resolveCommentThread: (threadId, resolved) => {
-    assertCapability(get, 'comment.write');
-    set((state) => ({
-      comments: {
-        ...state.comments,
-        threads: state.comments.threads.map((thread) =>
-          thread.id === threadId
-            ? {
-                ...thread,
-                status: resolved ? 'resolved' : 'open',
-                updatedAt: Date.now(),
-              }
-            : thread,
-        ),
-      },
-    }));
-    get().recordKernelEvent({
-      type: 'review.changed',
-      message: i18n.t('store:commentThreadStatusChanged', { threadId, status: resolved ? i18n.t('store:resolved') : i18n.t('store:reopened') }),
-      data: { threadId, resolved },
-    });
-    syncCommentsWorkspaceState(get);
-  },
-
-  setActiveCommentThread: (threadId) => {
-    set((state) => ({
-      comments: {
-        ...state.comments,
-        activeThreadId: threadId,
-      },
-    }));
-  },
-
   createCheckpoint: (label, description) => {
     const project = get().resources.project;
     if (!project) {
@@ -3440,17 +2856,6 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     }
   },
 
-  loadPackages: async () => {
-    set((state) => ({ packages: { ...state.packages, loading: true } }));
-    try {
-      const installed = await engineApi.listPackages();
-      set({ packages: { installed, loading: false, updatedAt: Date.now() } });
-    } catch (error) {
-      console.warn('Failed to load packages:', error);
-      set((state) => ({ packages: { ...state.packages, loading: false } }));
-    }
-  },
-
   refreshReferences: async (resourceId?: string) => {
     set((state) => ({ referenceGraph: { ...state.referenceGraph, loading: true } }));
     try {
@@ -3471,27 +2876,6 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
       console.warn('Failed to search project:', error);
       set((state) => ({ referenceGraph: { ...state.referenceGraph, loading: false } }));
     }
-  },
-
-  applyTemplate: async (templateId: string, packageId: string) => {
-    const packages = get().packages.installed;
-    const pkg = packages.find((entry) => entry.manifest.id === packageId);
-    const template = pkg?.manifest.contributes?.templates?.find((entry) => entry.id === templateId);
-    const bundle = await engineApi.applyTemplate(packageId, templateId);
-
-    await get().reloadProject();
-
-    get().recordKernelEvent({
-      type: 'resource.changed',
-      message: `Template "${template?.name ?? templateId}" applied from ${pkg?.manifest.name ?? packageId}`,
-      resourceId: `template://${templateId}`,
-      data: {
-        packageId,
-        flowIds: bundle.summary.flowIds,
-        hasSession: bundle.summary.hasSession,
-        stateKeys: bundle.summary.stateKeys,
-      },
-    });
   },
 }));
 

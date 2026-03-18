@@ -22,7 +22,6 @@ import type { PromptPreviewEntry, ResourceId, ResourceVersionState } from '@/typ
 import type {
   ResolvedStudioCapabilityRequest,
   StudioContextValue,
-  StudioContributionDescriptor,
   StudioDebugViewDescriptor,
   StudioExtensionId,
   StudioExtensionRuntimeRecord,
@@ -39,10 +38,7 @@ import type {
   ConnectionServiceState,
   SaveServiceState,
   VersionControlServiceState,
-  ReviewServiceState,
-  CommentsServiceState,
   GitServiceState,
-  PackagesServiceState,
   PresenceServiceState,
   DiagnosticsServiceState,
   ReferenceGraphServiceState,
@@ -60,7 +56,6 @@ export function useWorkbench(): WorkbenchServiceState {
   const activeViewId = useStudioStore((state) => state.workbench.activeViewId);
   const openViewIds = useStudioStore((state) => state.workbench.openViewIds);
   const activeFlowId = useStudioStore((state) => state.workbench.activeFlowId);
-  const activePreset = useStudioStore((state) => state.workbench.activePreset);
   const commandPaletteOpen = useStudioStore((state) => state.workbench.commandPaletteOpen);
   const extensionRuntime = useStudioStore((state) => state.extensions.records);
   const allViews = getAllViews();
@@ -78,7 +73,6 @@ export function useWorkbench(): WorkbenchServiceState {
     openViewIds,
     openViews: resolvedOpenViews,
     activeFlowId,
-    activePreset,
     commandPaletteOpen,
     activeView,
     activeExtension,
@@ -237,10 +231,6 @@ export function useGitStatus(): GitServiceState {
   return useStudioStore((state) => state.git);
 }
 
-export function usePackages(): PackagesServiceState {
-  return useStudioStore((state) => state.packages);
-}
-
 export function useReferences(_resourceId?: string): ReferenceGraphServiceState {
   return useStudioStore((state) => state.referenceGraph);
 }
@@ -251,30 +241,6 @@ export function useSearch(): ReferenceGraphServiceState {
 
 export function usePresence(): PresenceServiceState {
   return useStudioStore((state) => state.presence);
-}
-
-export function useReviewWorkspace(): ReviewServiceState {
-  const activeProposalId = useStudioStore((state) => state.review.activeProposalId);
-  const proposals = useStudioStore((state) => state.review.proposals);
-  const activeProposal = proposals.find((proposal) => proposal.id === activeProposalId) ?? proposals[0] ?? null;
-
-  return {
-    activeProposalId,
-    activeProposal,
-    proposals,
-  };
-}
-
-export function useCommentsWorkspace(): CommentsServiceState {
-  const activeThreadId = useStudioStore((state) => state.comments.activeThreadId);
-  const threads = useStudioStore((state) => state.comments.threads);
-  const activeThread = threads.find((thread) => thread.id === activeThreadId) ?? threads[0] ?? null;
-
-  return {
-    activeThreadId,
-    activeThread,
-    threads,
-  };
 }
 
 export function useExtensionRuntime(extensionId?: StudioExtensionId | null) {
@@ -358,20 +324,11 @@ export function useCapabilityGate(capabilities?: ResolvedStudioCapabilityRequest
   };
 }
 
-function matchesPreset(
-  contribution: StudioContributionDescriptor,
-  activePreset: ReturnType<typeof useWorkbench>['activePreset'],
-) {
-  return !contribution.presets || contribution.presets.includes(activePreset);
-}
-
 function resolveContributions<T extends StudioPanelDescriptor | StudioInspectorDescriptor | StudioDebugViewDescriptor>(
   contributions: T[],
-  activePreset: ReturnType<typeof useWorkbench>['activePreset'],
   runtime: Record<string, StudioExtensionRuntimeRecord>,
 ) {
   return contributions
-    .filter((contribution) => matchesPreset(contribution, activePreset))
     .map((contribution) => ({
       contribution,
       runtime: runtime[contribution.extensionId] ?? null,
@@ -379,21 +336,18 @@ function resolveContributions<T extends StudioPanelDescriptor | StudioInspectorD
 }
 
 export function usePanelContributions(): ResolvedPanelContribution[] {
-  const { activePreset } = useWorkbench();
   const runtime = useStudioStore((state) => state.extensions.records);
-  return resolveContributions(getStudioPanels(), activePreset, runtime);
+  return resolveContributions(getStudioPanels(), runtime);
 }
 
 export function useInspectorContributions(): ResolvedInspectorContribution[] {
-  const { activePreset } = useWorkbench();
   const runtime = useStudioStore((state) => state.extensions.records);
-  return resolveContributions(getStudioInspectors(), activePreset, runtime);
+  return resolveContributions(getStudioInspectors(), runtime);
 }
 
 export function useDebugViewContributions(): ResolvedDebugViewContribution[] {
-  const { activePreset } = useWorkbench();
   const runtime = useStudioStore((state) => state.extensions.records);
-  return resolveContributions(getStudioDebugViews(), activePreset, runtime);
+  return resolveContributions(getStudioDebugViews(), runtime);
 }
 
 export function useWorkbenchContext(): WorkbenchContextState {
@@ -401,13 +355,12 @@ export function useWorkbenchContext(): WorkbenchContextState {
   const { engineConnected, connectionError } = useConnectionState();
   const saveState = useSaveState();
   const versionControl = useVersionControl();
-  const { activeProposal } = useReviewWorkspace();
   const selectedRunId = useStudioStore((state) => state.runDebug.selectedRunId);
   const selectedRunRecord = useStudioStore((state) =>
     state.runDebug.selectedRunId ? state.runDebug.records[state.runDebug.selectedRunId] ?? null : null,
   );
   const breakpoints = useStudioStore((state) => state.runDebug.breakpoints);
-  const { activeExtension, activeExtensionRuntime, activeFlowId, activePreset, activeViewId } = useWorkbench();
+  const { activeExtension, activeExtensionRuntime, activeFlowId, activeViewId } = useWorkbench();
   const capabilityGate = useCapabilityGate();
   const selectedStepId = selectedRunRecord?.run.waiting_for?.step_id ?? selectedRunRecord?.run.cursor.currentStepId ?? null;
 
@@ -419,18 +372,14 @@ export function useWorkbenchContext(): WorkbenchContextState {
     'session.available': Boolean(session),
     'save.status': saveState.status,
     'workbench.view': activeViewId,
-    'workbench.preset': activePreset,
     'extension.active': activeExtension?.id ?? null,
     'extension.status': activeExtensionRuntime?.status ?? null,
     'capability.project.write': Boolean(capabilityGate.grants['project.write']),
     'capability.engine.execute': Boolean(capabilityGate.grants['engine.execute']),
     'capability.trace.read': Boolean(capabilityGate.grants['trace.read']),
-    'capability.comment.write': Boolean(capabilityGate.grants['comment.write']),
-    'capability.review.accept': Boolean(capabilityGate.grants['review.accept']),
     'diagnostics.available': Boolean(versionControl.diagnostics),
     'history.undoAvailable': versionControl.undoStack.length > 0,
     'history.redoAvailable': versionControl.redoStack.length > 0,
-    'review.active': Boolean(activeProposal),
     'run.selected': Boolean(selectedRunId),
     'run.status': selectedRunRecord?.run.status ?? null,
     'run.waitingForInput': Boolean(selectedRunRecord?.run.waiting_for),
@@ -446,7 +395,6 @@ export function useStudioCommands(): StudioCommandService {
   const disconnect = useStudioStore((state) => state.disconnect);
   const setActiveView = useStudioStore((state) => state.setActiveView);
   const closeView = useStudioStore((state) => state.closeView);
-  const setActivePreset = useStudioStore((state) => state.setActivePreset);
   const setCommandPaletteOpen = useStudioStore((state) => state.setCommandPaletteOpen);
   const toggleCommandPalette = useStudioStore((state) => state.toggleCommandPalette);
   const openFlow = useStudioStore((state) => state.setCurrentFlow);
@@ -473,15 +421,6 @@ export function useStudioCommands(): StudioCommandService {
   const createCheckpoint = useStudioStore((state) => state.createCheckpoint);
   const restoreCheckpoint = useStudioStore((state) => state.restoreCheckpoint);
   const refreshDiagnostics = useStudioStore((state) => state.refreshDiagnostics);
-  const createReviewProposal = useStudioStore((state) => state.createReviewProposal);
-  const setActiveProposal = useStudioStore((state) => state.setActiveProposal);
-  const validateProposal = useStudioStore((state) => state.validateProposal);
-  const acceptProposal = useStudioStore((state) => state.acceptProposal);
-  const rollbackProposal = useStudioStore((state) => state.rollbackProposal);
-  const createCommentThread = useStudioStore((state) => state.createCommentThread);
-  const addComment = useStudioStore((state) => state.addComment);
-  const resolveCommentThread = useStudioStore((state) => state.resolveCommentThread);
-  const setActiveCommentThread = useStudioStore((state) => state.setActiveCommentThread);
   const undo = useStudioStore((state) => state.undo);
   const redo = useStudioStore((state) => state.redo);
   const setCapabilityGrant = useStudioStore((state) => state.setCapabilityGrant);
@@ -492,17 +431,14 @@ export function useStudioCommands(): StudioCommandService {
   const markExtensionError = useStudioStore((state) => state.markExtensionError);
   const recordKernelEvent = useStudioStore((state) => state.recordKernelEvent);
   const refreshGitStatus = useStudioStore((state) => state.refreshGitStatus);
-  const loadPackages = useStudioStore((state) => state.loadPackages);
   const refreshReferences = useStudioStore((state) => state.refreshReferences);
   const searchProject = useStudioStore((state) => state.searchProject);
-  const applyTemplate = useStudioStore((state) => state.applyTemplate);
 
   return {
     connect,
     disconnect,
     setActiveView,
     closeView,
-    setActivePreset,
     setCommandPaletteOpen,
     toggleCommandPalette,
     openFlow,
@@ -529,15 +465,6 @@ export function useStudioCommands(): StudioCommandService {
     createCheckpoint,
     restoreCheckpoint,
     refreshDiagnostics,
-    createReviewProposal,
-    setActiveProposal,
-    validateProposal,
-    acceptProposal,
-    rollbackProposal,
-    createCommentThread,
-    addComment,
-    resolveCommentThread,
-    setActiveCommentThread,
     undo,
     redo,
     setCapabilityGrant,
@@ -548,10 +475,8 @@ export function useStudioCommands(): StudioCommandService {
     markExtensionError,
     recordKernelEvent,
     refreshGitStatus,
-    loadPackages,
     refreshReferences,
     searchProject,
-    applyTemplate,
   };
 }
 
