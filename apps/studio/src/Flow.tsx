@@ -2,9 +2,11 @@ import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   Background,
   ReactFlow,
+  ReactFlowProvider,
   addEdge,
   applyNodeChanges,
   applyEdgeChanges,
+  useReactFlow,
   type Node,
   type Edge,
   type FitViewOptions,
@@ -19,17 +21,20 @@ import {
 } from '@xyflow/react';
 
 import { ManifestNode } from "./nodes/ManifestNode";
+import { ElegantEdge } from "./edges/ElegantEdge";
 import { PaneContextMenu, type ContextMenuState } from "./PaneContextMenu";
 import { FlowToolbar } from "./components/FlowToolbar";
 import { ExecutionDialog } from "./components/ExecutionDialog";
 import { useFlowResource, useStudioCommands, useStudioResources } from "@/kernel/hooks";
 import { useFlowNodeOverlay } from "@/hooks/use-node-overlay";
 import { useCanvasSelection } from "@/hooks/use-canvas-selection";
+import { elkLayout, detectBackEdges } from "@/utils/elk-layout";
 import { layoutDag } from "@/utils/graph-layout";
 import { useTranslation } from "react-i18next";
 import type { FlowDefinition, NodeDefinition, EdgeDefinition, NodeManifest } from "@/types/project";
 
 const FLOW_LAYOUT = { nodeWidth: 320, nodeHeight: 200, gapX: 80, gapY: 40 };
+const ELK_FLOW_OPTS = { nodeWidth: 320, nodeHeight: 200, direction: 'RIGHT' as const };
 
 type Schema = {
   type?: string;
@@ -115,7 +120,13 @@ const fitViewOptions: FitViewOptions = {
 };
 
 const defaultEdgeOptions: DefaultEdgeOptions = {
+  type: 'elegant',
   animated: true,
+  interactionWidth: 20,
+};
+
+const edgeTypes = {
+  elegant: ElegantEdge,
 };
 
 /** Map a port type string to a stroke color for edges */
@@ -130,13 +141,14 @@ function edgeColorForType(portType?: string): string {
   return '#8b5cf6'; // purple for other/custom types
 }
 
-export default function Flow() {
+function FlowInner() {
   const { project } = useStudioResources();
   const { flowId: currentFlow } = useFlowResource();
   const { saveFlow } = useStudioCommands();
   const overlayMap = useFlowNodeOverlay(currentFlow);
   const setSelection = useCanvasSelection((s) => s.setSelection);
   const { t } = useTranslation('flow');
+  const reactFlowInstance = useReactFlow();
 
   const onSelectionChange = useCallback(
     ({ nodes: selected }: { nodes: Node[] }) => {
@@ -231,6 +243,7 @@ export default function Flow() {
           return {
             ...base,
             type: 'smoothstep',
+            zIndex: 1000,
             style: {
               stroke: '#f59e0b',
               strokeWidth: 2,
@@ -364,8 +377,23 @@ export default function Flow() {
   );
 
   const onNodesChange: OnNodesChange = useCallback(
-    (changes) => setNodes((nds) => applyNodeChanges(changes, nds)),
-    [setNodes],
+    (changes) => {
+      setNodes((nds) => applyNodeChanges(changes, nds));
+      // When nodes are dragged, ELK route waypoints become stale — clear them
+      const hasDrag = changes.some((c) => c.type === 'position' && c.dragging);
+      if (hasDrag) {
+        setEdges((eds) =>
+          eds.map((e) => {
+            const d = e.data as Record<string, unknown> | undefined;
+            if (d?.route) {
+              return { ...e, data: { ...d, route: undefined } };
+            }
+            return e;
+          }),
+        );
+      }
+    },
+    [setNodes, setEdges],
   );
 
   const onEdgesChange: OnEdgesChange = useCallback(
@@ -374,8 +402,45 @@ export default function Flow() {
   );
 
   const onConnect: OnConnect = useCallback(
-    (connection) => setEdges((eds) => addEdge(connection, eds)),
-    [setEdges],
+    (connection) => {
+      setEdges((eds) => {
+        const nextEdges = addEdge(connection, eds);
+        // Re-detect back edges after new connection
+        const nodeIds = nodes.map((n) => n.id);
+        const simpleEdges = nextEdges.map((e) => ({ source: e.source, target: e.target }));
+        const backEdges = detectBackEdges(nodeIds, simpleEdges);
+
+        return nextEdges.map((edge) => {
+          const isBack = backEdges.has(`${edge.source}->${edge.target}`);
+          if (isBack) {
+            return {
+              ...edge,
+              type: 'smoothstep',
+              zIndex: 1000,
+              style: { stroke: '#f59e0b', strokeWidth: 2, strokeDasharray: '8 4' },
+              animated: true,
+              markerEnd: { type: MarkerType.ArrowClosed, color: '#f59e0b' },
+              label: t('cycle'),
+              labelStyle: { fill: '#f59e0b', fontWeight: 600, fontSize: 12 },
+            };
+          }
+          // Preserve existing style for non-back edges, apply type-based color for new ones
+          if (!edge.style?.stroke || edge.style.stroke === '#f59e0b') {
+            const sourceOutputs = (() => {
+              const nodeData = nodes.find((n) => n.id === edge.source)?.data as { outputs?: Array<{ name: string; type: string }> } | undefined;
+              return nodeData?.outputs ?? [];
+            })();
+            const sourcePort = edge.sourceHandle
+              ? sourceOutputs.find((o) => o.name === edge.sourceHandle)
+              : sourceOutputs[0];
+            const color = edgeColorForType(sourcePort?.type);
+            return { ...edge, type: 'elegant', style: { stroke: color, strokeWidth: 2 }, label: undefined, labelStyle: undefined, markerEnd: undefined };
+          }
+          return edge;
+        });
+      });
+    },
+    [setEdges, nodes, t],
   );
 
   // Build FlowDefinition from current ReactFlow state
@@ -470,36 +535,94 @@ export default function Flow() {
 
   // Keyboard shortcuts
   useEffect(() => {
+    const isEditable = (target: EventTarget | null) => {
+      if (!(target instanceof HTMLElement)) return false;
+      return target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+    };
+
     const handleKeyDown = (e: KeyboardEvent) => {
+      const mod = e.ctrlKey || e.metaKey;
+
       // Ctrl/Cmd + S to save
-      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+      if (mod && e.key === 's') {
         e.preventDefault();
         handleManualSave();
+        return;
+      }
+
+      // Ctrl/Cmd + Enter to run
+      if (mod && e.key === 'Enter') {
+        e.preventDefault();
+        setExecutionDialogOpen(true);
+        return;
+      }
+
+      // Ctrl/Cmd + D to duplicate selected nodes
+      if (mod && e.key === 'd') {
+        e.preventDefault();
+        const selected = nodes.filter((n) => n.selected);
+        if (selected.length === 0) return;
+        const newNodes = selected.map((n) => ({
+          ...n,
+          id: `${n.type}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          position: { x: n.position.x + 40, y: n.position.y + 40 },
+          selected: false,
+        }));
+        setNodes((nds) => [...nds, ...newNodes]);
+        return;
+      }
+
+      // Skip single-key shortcuts when inside editable fields
+      if (isEditable(e.target)) return;
+
+      // F to fit view
+      if (e.key === 'f' && !mod && !e.shiftKey) {
+        e.preventDefault();
+        reactFlowInstance.fitView({ padding: 0.2, duration: 300 });
+        return;
+      }
+
+      // Tab to open add-node context menu at center of viewport
+      if (e.key === 'Tab' && !mod) {
+        e.preventDefault();
+        const vp = document.querySelector('.react-flow');
+        if (vp) {
+          const rect = vp.getBoundingClientRect();
+          setContextMenu({
+            open: true,
+            x: rect.left + rect.width / 2,
+            y: rect.top + rect.height / 2,
+          });
+        }
+        return;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleManualSave]);
+  }, [handleManualSave, nodes, reactFlowInstance]);
 
-  const handleAutoLayout = useCallback(() => {
+  const handleAutoLayout = useCallback(async () => {
     const nodeIds = nodes.map((n) => n.id);
     const simpleEdges = edges.map((e) => ({ source: e.source, target: e.target }));
-    const { positions, backEdges } = layoutDag(nodeIds, simpleEdges, FLOW_LAYOUT);
+    const { positions, edgeRoutes, backEdges } = await elkLayout(nodeIds, simpleEdges, ELK_FLOW_OPTS);
     setNodes((nds) =>
       nds.map((n) => {
         const pos = positions.get(n.id);
         return pos ? { ...n, position: pos } : n;
       }),
     );
-    // Re-apply back-edge styling after layout
+    // Re-apply back-edge styling after layout, inject ELK routes into edge data
     setEdges((eds) =>
       eds.map((edge) => {
-        const isBack = backEdges.has(`${edge.source}->${edge.target}`);
+        const edgeKey = `${edge.source}->${edge.target}`;
+        const isBack = backEdges.has(edgeKey);
         if (isBack) {
           return {
             ...edge,
             type: 'smoothstep',
+            zIndex: 1000,
+            data: { ...((edge.data ?? {}) as Record<string, unknown>), route: undefined },
             style: { stroke: '#f59e0b', strokeWidth: 2, strokeDasharray: '8 4' },
             animated: true,
             markerEnd: { type: MarkerType.ArrowClosed, color: '#f59e0b' },
@@ -507,12 +630,20 @@ export default function Flow() {
             labelStyle: { fill: '#f59e0b', fontWeight: 600, fontSize: 12 },
           };
         }
-        // Reset non-back edges to default
-        const { type: _t, style: _s, label: _l, labelStyle: _ls, ...rest } = edge;
-        return { ...rest, animated: true };
+        // Inject ELK route waypoints so ElegantEdge can draw around nodes
+        const route = edgeRoutes.get(edgeKey);
+        const { style: _s, label: _l, labelStyle: _ls, zIndex: _z, ...rest } = edge;
+        return {
+          ...rest,
+          type: 'elegant',
+          animated: true,
+          data: { ...((edge.data ?? {}) as Record<string, unknown>), route: route ?? undefined },
+        };
       }),
     );
-  }, [nodes, edges]);
+    // Fit view after layout
+    requestAnimationFrame(() => reactFlowInstance.fitView({ padding: 0.15, duration: 300 }));
+  }, [nodes, edges, reactFlowInstance, t]);
 
   // 将 overlay state 注入到每个 node 的 data 中
   const nodesWithOverlay = useMemo(
@@ -544,6 +675,7 @@ export default function Flow() {
         onSelectionChange={onSelectionChange}
         onPaneContextMenu={onPaneContextMenu}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
         fitView
         fitViewOptions={fitViewOptions}
         defaultEdgeOptions={defaultEdgeOptions}>
@@ -579,5 +711,13 @@ export default function Flow() {
         />
       )}
     </div>
+  );
+}
+
+export default function Flow() {
+  return (
+    <ReactFlowProvider>
+      <FlowInner />
+    </ReactFlowProvider>
   );
 }
