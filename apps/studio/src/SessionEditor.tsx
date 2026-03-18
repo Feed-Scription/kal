@@ -54,7 +54,9 @@ const sessionNodeTypes = {
 
 const fitViewOptions: FitViewOptions = { padding: 100 };
 const defaultEdgeOptions: DefaultEdgeOptions = {
+  type: 'smoothstep',
   animated: true,
+  interactionWidth: 20,
   markerEnd: { type: MarkerType.ArrowClosed, color: '#64748b' },
 };
 
