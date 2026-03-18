@@ -17,10 +17,6 @@
         "id": "prompt-build",
         "type": "PromptBuild",
         "label": "Prompt 构建",
-        "position": {
-          "x": 0,
-          "y": -100
-        },
         "inputs": [
           {
             "name": "data",
@@ -127,10 +123,6 @@
         "id": "signal-out",
         "type": "SignalOut",
         "label": "信号输出",
-        "position": {
-          "x": 426,
-          "y": -100
-        },
         "inputs": [
           {
             "name": "data",
