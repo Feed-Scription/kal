@@ -117,6 +117,7 @@ const fitViewOptions: FitViewOptions = {
 
 const defaultEdgeOptions: DefaultEdgeOptions = {
   animated: true,
+  interactionWidth: 20,
 };
 
 /** Map a port type string to a stroke color for edges */
