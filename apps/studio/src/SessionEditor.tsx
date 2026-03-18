@@ -32,6 +32,7 @@ import { useStudioCommands, useStudioResources } from '@/kernel/hooks';
 import { useSessionNodeOverlay } from '@/hooks/use-node-overlay';
 import { useCanvasSelection } from '@/hooks/use-canvas-selection';
 import { layoutDag } from '@/utils/graph-layout';
+import { ElegantEdge } from './edges/ElegantEdge';
 import { SESSION_STEP_DEFAULTS } from './session-nodes/defaults';
 import { useTranslation } from 'react-i18next';
 import i18n from '@/i18n';
@@ -54,10 +55,14 @@ const sessionNodeTypes = {
 
 const fitViewOptions: FitViewOptions = { padding: 100 };
 const defaultEdgeOptions: DefaultEdgeOptions = {
-  type: 'smoothstep',
+  type: 'elegant',
   animated: true,
   interactionWidth: 20,
   markerEnd: { type: MarkerType.ArrowClosed, color: '#64748b' },
+};
+
+const sessionEdgeTypes = {
+  elegant: ElegantEdge,
 };
 
 const SESSION_LAYOUT = { nodeWidth: 400, nodeHeight: 220, gapX: 80, gapY: 40 };
@@ -470,6 +475,7 @@ function SessionEditorInner() {
         onSelectionChange={onSelectionChange}
         onPaneContextMenu={onPaneContextMenu}
         nodeTypes={sessionNodeTypes}
+        edgeTypes={sessionEdgeTypes}
         fitView
         fitViewOptions={fitViewOptions}
         defaultEdgeOptions={defaultEdgeOptions}
