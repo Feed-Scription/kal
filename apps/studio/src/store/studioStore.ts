@@ -11,7 +11,6 @@ import { create } from 'zustand';
 import i18n from '@/i18n';
 import { formatTimeShort } from '@/i18n/format';
 import { engineApi } from '@/api/engine-client';
-import { setCapabilityProvider } from '@/api/engine-client';
 import { setConnectionLostHandler } from '@/api/engine-client';
 import type { RunAdvanceMode } from '@/api/engine-client';
 import {
@@ -20,8 +19,6 @@ import {
   getStudioExtensionForView,
 } from '@/kernel/registry';
 import type {
-  ResolvedStudioCapabilityRequest,
-  StudioCapabilityId,
   StudioJobRecord,
   StudioKernelEventName,
   StudioKernelEventRecord,
@@ -88,10 +85,6 @@ type SnapshotEntry = {
   timestamp: number;
 };
 
-type CapabilityState = {
-  grants: Record<StudioCapabilityId, boolean>;
-};
-
 type ExtensionRuntimeState = {
   records: Record<StudioExtensionId, StudioExtensionRuntimeRecord>;
 };
@@ -149,7 +142,6 @@ type StudioStore = {
   connection: ConnectionState;
   saveState: SaveState;
   versionControl: VersionControlState;
-  capabilities: CapabilityState;
   extensions: ExtensionRuntimeState;
   kernel: KernelState;
   runDebug: RunDebugState;
@@ -189,8 +181,6 @@ type StudioStore = {
   refreshDiagnostics: () => Promise<void>;
   undo: () => Promise<void>;
   redo: () => Promise<void>;
-  setCapabilityGrant: (capability: StudioCapabilityId, granted: boolean) => void;
-  resetCapabilityGrants: () => void;
   setExtensionEnabled: (extensionId: StudioExtensionId, enabled: boolean) => void;
   activateExtension: (extensionId: StudioExtensionId, reason: string) => void;
   clearExtensionError: (extensionId: StudioExtensionId) => void;
@@ -223,7 +213,6 @@ function createId(prefix: string): string {
 const WORKBENCH_STORAGE_KEY = 'kal.studio.workbench';
 const EXTENSION_RUNTIME_STORAGE_KEY = 'kal.studio.extensions';
 const BREAKPOINTS_STORAGE_KEY = 'kal.studio.breakpoints';
-const CAPABILITY_GRANTS_STORAGE_KEY = 'kal.studio.capabilities';
 const runStreamSubscriptions = new Map<string, () => void>();
 let engineEventStreamUnsubscribe: (() => void) | null = null;
 
@@ -388,94 +377,18 @@ function createSnapshotEntry(label: string, project: ProjectData | null, activeF
   };
 }
 
-const DEFAULT_CAPABILITY_GRANTS: Record<StudioCapabilityId, boolean> = {
-  'project.read': true,
-  'project.write': true,
-  'engine.execute': true,
-  'engine.debug': true,
-  'trace.read': true,
-  'network.fetch': false,
-  'process.exec': false,
-  'ai.invoke': false,
-};
-
-function loadCapabilityGrants(): Record<StudioCapabilityId, boolean> {
-  if (typeof window === 'undefined') {
-    return DEFAULT_CAPABILITY_GRANTS;
-  }
-
-  try {
-    const raw = window.localStorage.getItem(CAPABILITY_GRANTS_STORAGE_KEY);
-    if (!raw) {
-      return DEFAULT_CAPABILITY_GRANTS;
-    }
-
-    const parsed = JSON.parse(raw) as Partial<Record<StudioCapabilityId, boolean>>;
-    return Object.fromEntries(
-      (Object.keys(DEFAULT_CAPABILITY_GRANTS) as StudioCapabilityId[]).map((capability) => [
-        capability,
-        typeof parsed[capability] === 'boolean'
-          ? parsed[capability]
-          : DEFAULT_CAPABILITY_GRANTS[capability],
-      ]),
-    ) as Record<StudioCapabilityId, boolean>;
-  } catch {
-    return DEFAULT_CAPABILITY_GRANTS;
-  }
-}
-
-function persistCapabilityGrants(grants: Record<StudioCapabilityId, boolean>) {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  window.localStorage.setItem(CAPABILITY_GRANTS_STORAGE_KEY, JSON.stringify(grants));
-}
-
-const INITIAL_CAPABILITY_GRANTS = loadCapabilityGrants();
-
-function splitCapabilityRequests(
-  capabilities: ResolvedStudioCapabilityRequest[],
-  grants: Record<StudioCapabilityId, boolean>,
-) {
-  const missingRequired: StudioCapabilityId[] = [];
-  const deniedOptional: StudioCapabilityId[] = [];
-
-  capabilities.forEach((request) => {
-    if (grants[request.capability]) {
-      return;
-    }
-
-    if (request.required || request.restrictedMode === 'block') {
-      missingRequired.push(request.capability);
-      return;
-    }
-
-    deniedOptional.push(request.capability);
-  });
-
-  return {
-    missingRequired,
-    deniedOptional,
-  };
-}
-
 function resolveExtensionRuntimeStatus(options: {
   enabled: boolean;
   activated: boolean;
   error?: string;
-  missingCapabilities: StudioCapabilityId[];
 }): StudioExtensionRuntimeRecord['status'] {
-  const { enabled, activated, error, missingCapabilities } = options;
+  const { enabled, activated, error } = options;
 
   if (!enabled) {
     return 'disabled';
   }
   if (error) {
     return 'error';
-  }
-  if (missingCapabilities.length > 0) {
-    return 'blocked';
   }
   if (activated) {
     return 'active';
@@ -485,7 +398,6 @@ function resolveExtensionRuntimeStatus(options: {
 }
 
 function createExtensionRuntimeRecords(
-  grants: Record<StudioCapabilityId, boolean>,
   previous?: Record<StudioExtensionId, StudioExtensionRuntimeRecord>,
 ): Record<StudioExtensionId, StudioExtensionRuntimeRecord> {
   const preferences = loadExtensionPreferences();
@@ -495,7 +407,6 @@ function createExtensionRuntimeRecords(
       const existing = previous?.[extension.id];
       const enabled = preferences[extension.id]?.enabled ?? existing?.enabled ?? true;
       const activated = existing?.activated ?? false;
-      const capabilityState = splitCapabilityRequests(extension.capabilities, grants);
       const error = existing?.error;
       const activationReason = existing?.activationReason;
       const lastActivatedAt = existing?.lastActivatedAt;
@@ -508,25 +419,16 @@ function createExtensionRuntimeRecords(
           activated,
           activationReason,
           lastActivatedAt,
-          missingCapabilities: capabilityState.missingRequired,
-          optionalCapabilities: capabilityState.deniedOptional,
           error,
           status: resolveExtensionRuntimeStatus({
             enabled,
             activated,
             error,
-            missingCapabilities: capabilityState.missingRequired,
           }),
         },
       ];
     }),
   );
-}
-
-function assertCapability(get: () => StudioStore, capability: StudioCapabilityId) {
-  if (!get().capabilities.grants[capability]) {
-    throw new Error(`Capability denied: ${capability}`);
-  }
 }
 
 function activateExtensionsForEvent(
@@ -538,7 +440,7 @@ function activateExtensionsForEvent(
 
   OFFICIAL_STUDIO_EXTENSIONS.forEach((extension) => {
     const current = records[extension.id];
-    if (!current || !current.enabled || current.missingCapabilities.length > 0) {
+    if (!current || !current.enabled) {
       return;
     }
 
@@ -557,7 +459,6 @@ function activateExtensionsForEvent(
         enabled: current.enabled,
         activated: true,
         error: current.error,
-        missingCapabilities: current.missingCapabilities,
       }),
     };
   });
@@ -1267,7 +1168,7 @@ function attachRunSubscription(
       data: { status: event.run.status, recentEvents: event.run.recent_events.length },
     });
 
-    if (event.type !== 'run.cancelled' && get().capabilities.grants['trace.read']) {
+    if (event.type !== 'run.cancelled') {
       void engineApi.getRunState(runId).then((stateView) => {
         set((state) => ({
           runDebug: {
@@ -1358,11 +1259,8 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     undoStack: [],
     redoStack: [],
   },
-  capabilities: {
-    grants: INITIAL_CAPABILITY_GRANTS,
-  },
   extensions: {
-    records: createExtensionRuntimeRecords(INITIAL_CAPABILITY_GRANTS),
+    records: createExtensionRuntimeRecords(),
   },
   kernel: {
     events: [],
@@ -1433,7 +1331,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
               diagnosticsUpdatedAt: diagnostics ? Date.now() : state.versionControl.diagnosticsUpdatedAt,
             },
             extensions: {
-              records: createExtensionRuntimeRecords(state.capabilities.grants, state.extensions.records),
+              records: createExtensionRuntimeRecords(state.extensions.records),
             },
           }));
         },
@@ -1449,11 +1347,9 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
         message: i18n.t('store:initialDiagnosticsSynced'),
         resourceId: 'project://current',
       });
-      if (get().capabilities.grants['trace.read']) {
-        await get().refreshRuns().catch(() => {
-          // Keep workbench usable even if run catalog hydration fails.
-        });
-      }
+      await get().refreshRuns().catch(() => {
+        // Keep workbench usable even if run catalog hydration fails.
+      });
 
       // Subscribe to unified event stream
       engineEventStreamUnsubscribe = engineApi.subscribeEvents((event: EngineEvent) => {
@@ -1533,7 +1429,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
         diagnostics: null,
       },
       extensions: {
-        records: createExtensionRuntimeRecords(state.capabilities.grants, state.extensions.records),
+        records: createExtensionRuntimeRecords(state.extensions.records),
       },
       runDebug: {
         selectedRunId: null,
@@ -1566,7 +1462,6 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
                 enabled: state.extensions.records[extension.id]?.enabled ?? true,
                 activated: true,
                 error: state.extensions.records[extension.id]?.error,
-                missingCapabilities: state.extensions.records[extension.id]?.missingCapabilities ?? [],
               }),
             },
           }
@@ -1647,8 +1542,6 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
               enabled: state.extensions.records['kal.flow-editor']?.enabled ?? true,
               activated: true,
               error: state.extensions.records['kal.flow-editor']?.error,
-              missingCapabilities:
-                state.extensions.records['kal.flow-editor']?.missingCapabilities ?? [],
             }),
           },
         },
@@ -1659,7 +1552,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
   saveFlow: async (flowName, flow) => {
     const project = get().resources.project;
     if (!project) return;
-    assertCapability(get, 'project.write');
+
 
     await commitTransaction({
       set,
@@ -1688,7 +1581,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
   createFlow: async (flowName) => {
     const project = get().resources.project;
     if (!project) return;
-    assertCapability(get, 'project.write');
+
 
     if (project.flows[flowName]) {
       throw new Error(`Flow "${flowName}" already exists`);
@@ -1735,12 +1628,12 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
   },
 
   executeFlow: async (flowId, input = {}) => {
-    assertCapability(get, 'engine.execute');
+
     return engineApi.executeFlow(flowId, input);
   },
 
   reloadProject: async () => {
-    assertCapability(get, 'project.read');
+
     await withJob({
       set,
       get,
@@ -1796,7 +1689,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
   saveSession: async (session) => {
     const project = get().resources.project;
     if (!project) return;
-    assertCapability(get, 'project.write');
+
 
     await commitTransaction({
       set,
@@ -1822,7 +1715,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
   deleteSession: async () => {
     const project = get().resources.project;
     if (!project) return;
-    assertCapability(get, 'project.write');
+
 
     await commitTransaction({
       set,
@@ -1848,7 +1741,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
   updateConfig: async (patch) => {
     const project = get().resources.project;
     if (!project) return;
-    assertCapability(get, 'project.write');
+
 
     await commitTransaction({
       set,
@@ -1875,7 +1768,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
   },
 
   createRun: async (forceNew = false, mode) => {
-    assertCapability(get, 'engine.execute');
+
     const hasBreakpoints = get().runDebug.breakpoints.length > 0;
     const resolvedMode = mode ?? 'continue';
     const { run, breakpointStepId } = await withJob({
@@ -1935,15 +1828,13 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
         stepId: breakpointStepId,
       });
     }
-    if (get().capabilities.grants['trace.read']) {
-      await get().selectRun(run.run_id);
-    }
+    await get().selectRun(run.run_id);
 
     return run;
   },
 
   createSmokeRun: async (inputs = []) => {
-    assertCapability(get, 'engine.execute');
+
     const { run } = await withJob({
       set,
       get,
@@ -1980,9 +1871,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
         },
       };
     });
-    if (get().capabilities.grants['trace.read']) {
-      await get().selectRun(run.run_id);
-    }
+    await get().selectRun(run.run_id);
     return run;
   },
 
@@ -2037,7 +1926,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     });
 
     const selectedRunId = get().runDebug.selectedRunId;
-    if (selectedRunId && get().capabilities.grants['trace.read']) {
+    if (selectedRunId) {
       await get().selectRun(selectedRunId);
     }
 
@@ -2060,7 +1949,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
   },
 
   getRunState: async (runId) => {
-    assertCapability(get, 'trace.read');
+
     const stateView = await engineApi.getRunState(runId);
     set((state) => ({
       runDebug: {
@@ -2086,7 +1975,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
       return;
     }
 
-    assertCapability(get, 'trace.read');
+
     const existing = get().runDebug.records[runId];
     if (!existing?.state) {
       const record = await hydrateRunRecord(runId);
@@ -2130,7 +2019,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
   },
 
   advanceRun: async (runId, input, mode = 'continue') => {
-    assertCapability(get, 'engine.execute');
+
     const hasBreakpoints = get().runDebug.breakpoints.length > 0;
     const { run, breakpointStepId } = await withJob({
       set,
@@ -2182,21 +2071,19 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
         stepId: breakpointStepId,
       });
     }
-    if (get().capabilities.grants['trace.read']) {
-      await get().selectRun(runId);
-    }
+    await get().selectRun(runId);
 
     return run;
   },
 
   stepRun: async (runId, input) => {
-    assertCapability(get, 'engine.execute');
+
     return get().advanceRun(runId, input, 'step');
   },
 
   replayRun: async (runId) => {
-    assertCapability(get, 'engine.execute');
-    assertCapability(get, 'trace.read');
+
+
 
     const sourceState = get().runDebug.records[runId]?.state ?? await get().getRunState(runId);
     const replayedRun = await withJob({
@@ -2300,7 +2187,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
   },
 
   cancelRun: async (runId) => {
-    assertCapability(get, 'engine.execute');
+
     await withJob({
       set,
       get,
@@ -2339,7 +2226,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     if (!project) {
       return null;
     }
-    assertCapability(get, 'project.write');
+
 
     const checkpoint: CheckpointRecord = {
       id: createId('cp'),
@@ -2382,7 +2269,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     if (!checkpoint || !project) {
       throw new Error(i18n.t('store:checkpointNotFound'));
     }
-    assertCapability(get, 'project.write');
+
 
     await withJob({
       set,
@@ -2519,7 +2406,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     const project = get().resources.project;
     const undoEntry = get().versionControl.undoStack[0];
     if (!project || !undoEntry) return;
-    assertCapability(get, 'project.write');
+
 
     await withJob({
       set,
@@ -2598,7 +2485,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     const project = get().resources.project;
     const redoEntry = get().versionControl.redoStack[0];
     if (!project || !redoEntry) return;
-    assertCapability(get, 'project.write');
+
 
     await withJob({
       set,
@@ -2673,44 +2560,6 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     });
   },
 
-  setCapabilityGrant: (capability, granted) => {
-    set((state) => {
-      const grants = {
-        ...state.capabilities.grants,
-        [capability]: granted,
-      };
-
-      return {
-        capabilities: {
-          grants,
-        },
-        extensions: {
-          records: createExtensionRuntimeRecords(grants, state.extensions.records),
-        },
-      };
-    });
-    get().recordKernelEvent({
-      type: 'capability.updated',
-      message: i18n.t('store:capabilityChanged', { capability, status: granted ? 'granted' : 'revoked' }),
-      data: { capability, granted },
-    });
-  },
-
-  resetCapabilityGrants: () => {
-    set((state) => ({
-      capabilities: {
-        grants: DEFAULT_CAPABILITY_GRANTS,
-      },
-      extensions: {
-        records: createExtensionRuntimeRecords(DEFAULT_CAPABILITY_GRANTS, state.extensions.records),
-      },
-    }));
-    get().recordKernelEvent({
-      type: 'capability.updated',
-      message: i18n.t('store:capabilityGrantsReset'),
-    });
-  },
-
   setExtensionEnabled: (extensionId, enabled) => {
     set((state) => {
       const current = state.extensions.records[extensionId];
@@ -2727,7 +2576,6 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
             enabled,
             activated: current.activated,
             error: current.error,
-            missingCapabilities: current.missingCapabilities,
           }),
         },
       };
@@ -2760,7 +2608,6 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
                 enabled: current.enabled,
                 activated: true,
                 error: current.error,
-                missingCapabilities: current.missingCapabilities,
               }),
             },
           },
@@ -2792,7 +2639,6 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
               status: resolveExtensionRuntimeStatus({
                 enabled: current.enabled,
                 activated: current.activated,
-                missingCapabilities: current.missingCapabilities,
               }),
             },
           },
@@ -2819,7 +2665,6 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
                 enabled: current.enabled,
                 activated: current.activated,
                 error: message,
-                missingCapabilities: current.missingCapabilities,
               }),
             },
           },
@@ -2881,17 +2726,8 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
 
 useStudioStore.subscribe((state) => {
   persistWorkbenchState(state.workbench);
-  persistCapabilityGrants(state.capabilities.grants);
   persistExtensionPreferences(state.extensions.records);
   persistBreakpoints(state.runDebug.breakpoints);
-});
-
-// Wire capability grants into engine API request headers
-setCapabilityProvider(() => {
-  const grants = useStudioStore.getState().capabilities.grants;
-  return Object.entries(grants)
-    .filter(([, granted]) => granted)
-    .map(([cap]) => cap);
 });
 
 let checkingEngineReachability = false;

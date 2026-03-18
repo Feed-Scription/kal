@@ -1,23 +1,14 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Lock, Terminal, Plus, X, Square, TerminalSquare } from 'lucide-react';
+import { Terminal, Plus, X, Square, TerminalSquare } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { useCapabilityGate, useStudioCommands } from '@/kernel/hooks';
+import { useStudioCommands } from '@/kernel/hooks';
 import { engineApi } from '@/api/engine-client';
 
 const ALLOWED_COMMANDS = ['lint', 'smoke', 'schema', 'debug-list', 'debug-state', 'config', 'eval'];
 
 type TerminalMode = 'quick' | 'session';
-const PROCESS_EXEC_PROMPT_STORAGE_KEY = 'kal.studio.prompts.processExec';
 
 interface SessionState {
   id: string;
@@ -26,77 +17,8 @@ interface SessionState {
   unsubscribe: (() => void) | null;
 }
 
-function isLocalDesktopMode() {
-  if (typeof window === 'undefined') {
-    return false;
-  }
-
-  const { protocol, hostname } = window.location;
-  return (
-    protocol === 'file:' ||
-    hostname === 'localhost' ||
-    hostname === '127.0.0.1' ||
-    hostname === '[::1]'
-  );
-}
-
-function hasSeenProcessExecPrompt() {
-  if (typeof window === 'undefined') {
-    return true;
-  }
-
-  return window.localStorage.getItem(PROCESS_EXEC_PROMPT_STORAGE_KEY) === 'shown';
-}
-
-function markProcessExecPromptSeen() {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  window.localStorage.setItem(PROCESS_EXEC_PROMPT_STORAGE_KEY, 'shown');
-}
-
-function RestrictedState({
-  canRequestAccess,
-  onRequestAccess,
-}: {
-  canRequestAccess: boolean;
-  onRequestAccess?: () => void;
-}) {
-  const { t } = useTranslation('terminal');
-
-  return (
-    <div className="flex flex-1 items-center justify-center p-6">
-      <div className="max-w-md rounded-xl border border-yellow-600/20 bg-yellow-500/5 p-4 text-sm shadow-sm">
-        <div className="flex items-center gap-2 font-medium text-foreground">
-          <Lock className="size-4 text-yellow-600" />
-          {t('executionUnavailable')}
-        </div>
-        <p className="mt-2 text-muted-foreground">
-          {t('executionUnavailableDesc')}
-        </p>
-        {canRequestAccess ? (
-          <div className="mt-4 flex justify-end">
-            <Button size="sm" onClick={onRequestAccess}>
-              {t('requestExecutionAccess')}
-            </Button>
-          </div>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
 /** Quick commands panel — the original lightweight terminal */
-function QuickCommandsPanel({
-  disabled,
-  canRequestAccess,
-  onRequestAccess,
-}: {
-  disabled: boolean;
-  canRequestAccess: boolean;
-  onRequestAccess: () => void;
-}) {
+function QuickCommandsPanel() {
   const { t } = useTranslation('terminal');
   const [command, setCommand] = useState('');
   const [output, setOutput] = useState<Array<{ command: string; result: string; error?: boolean }>>([]);
@@ -107,8 +29,6 @@ function QuickCommandsPanel({
   const { recordKernelEvent } = useStudioCommands();
 
   const handleExec = useCallback(async (cmd?: string) => {
-    if (disabled) return;
-
     const execCmd = (cmd ?? command).trim().toLowerCase();
     if (!execCmd) return;
 
@@ -132,7 +52,7 @@ function QuickCommandsPanel({
         outputRef.current?.scrollTo({ top: outputRef.current.scrollHeight, behavior: 'smooth' });
       });
     }
-  }, [command, disabled, recordKernelEvent]);
+  }, [command, recordKernelEvent]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !running) {
@@ -156,10 +76,6 @@ function QuickCommandsPanel({
       }
     }
   };
-
-  if (disabled) {
-    return <RestrictedState canRequestAccess={canRequestAccess} onRequestAccess={onRequestAccess} />;
-  }
 
   return (
     <>
@@ -197,15 +113,7 @@ function QuickCommandsPanel({
 }
 
 /** Streaming shell session panel */
-function SessionPanel({
-  disabled,
-  canRequestAccess,
-  onRequestAccess,
-}: {
-  disabled: boolean;
-  canRequestAccess: boolean;
-  onRequestAccess: () => void;
-}) {
+function SessionPanel() {
   const { t } = useTranslation('terminal');
   const [session, setSession] = useState<SessionState | null>(null);
   const [input, setInput] = useState('');
@@ -219,8 +127,6 @@ function SessionPanel({
   }, []);
 
   const createSession = useCallback(async () => {
-    if (disabled) return;
-
     setCreating(true);
     try {
       const { session: info } = await engineApi.createTerminalSession();
@@ -237,33 +143,33 @@ function SessionPanel({
     } finally {
       setCreating(false);
     }
-  }, [disabled, scrollToBottom]);
+  }, [scrollToBottom]);
 
   const killSession = useCallback(async () => {
-    if (disabled || !session) return;
+    if (!session) return;
     session.unsubscribe?.();
     try {
       await engineApi.killTerminalSession(session.id);
     } catch { /* ignore */ }
     setSession((prev) => prev ? { ...prev, alive: false } : null);
-  }, [disabled, session]);
+  }, [session]);
 
   const sendInput = useCallback(async () => {
-    if (disabled || !session || !input) return;
+    if (!session || !input) return;
     try {
       await engineApi.writeTerminalSession(session.id, input + '\n');
       setInput('');
     } catch (err) {
       setSession((prev) => prev ? { ...prev, output: prev.output + `\r\n[Error: ${(err as Error).message}]\r\n` } : null);
     }
-  }, [disabled, session, input]);
+  }, [session, input]);
 
   const handleCtrlC = useCallback(async () => {
-    if (disabled || !session) return;
+    if (!session) return;
     try {
       await engineApi.writeTerminalSession(session.id, '\x03');
     } catch { /* ignore */ }
-  }, [disabled, session]);
+  }, [session]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -272,10 +178,6 @@ function SessionPanel({
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  if (disabled) {
-    return <RestrictedState canRequestAccess={canRequestAccess} onRequestAccess={onRequestAccess} />;
-  }
 
   if (!session) {
     return (
@@ -332,102 +234,37 @@ function SessionPanel({
 
 export function TerminalView() {
   const { t } = useTranslation('terminal');
-  const { setCapabilityGrant } = useStudioCommands();
-  const capabilityGate = useCapabilityGate();
-  const canExecute = capabilityGate.grants['process.exec'];
-  const localDesktopMode = isLocalDesktopMode();
   const [mode, setMode] = useState<TerminalMode>('quick');
-  const [authorizationDialogOpen, setAuthorizationDialogOpen] = useState(() => {
-    if (!localDesktopMode || canExecute || hasSeenProcessExecPrompt()) {
-      return false;
-    }
-
-    markProcessExecPromptSeen();
-    return true;
-  });
-  const canRequestLocalAccess = localDesktopMode && !canExecute;
-
-  const requestLocalAccess = useCallback(() => {
-    if (!localDesktopMode) {
-      return;
-    }
-
-    markProcessExecPromptSeen();
-    setAuthorizationDialogOpen(true);
-  }, [localDesktopMode]);
-
-  const allowLocalExecution = useCallback(() => {
-    setCapabilityGrant('process.exec', true);
-    setAuthorizationDialogOpen(false);
-  }, [setCapabilityGrant]);
 
   return (
-    <>
-      <div className="flex h-full w-full flex-col bg-background">
-        <div className="flex items-center justify-between gap-2 border-b px-4 py-3">
-          <div className="flex items-center gap-2">
-            <Terminal className="size-4" />
-            <h1 className="text-sm font-semibold">{t('title')}</h1>
-          </div>
-          <div className="flex items-center gap-1">
-            <Button
-              variant={mode === 'quick' ? 'secondary' : 'ghost'}
-              size="sm"
-              onClick={() => setMode('quick')}
-              title={t('quickCommandsTitle')}
-            >
-              <TerminalSquare className="mr-1 size-3" />
-              {t('quick')}
-            </Button>
-            <Button
-              variant={mode === 'session' ? 'secondary' : 'ghost'}
-              size="sm"
-              onClick={() => setMode('session')}
-              title={t('terminalSessionTitle')}
-            >
-              <Terminal className="mr-1 size-3" />
-              {t('shell')}
-            </Button>
-          </div>
+    <div className="flex h-full w-full flex-col bg-background">
+      <div className="flex items-center justify-between gap-2 border-b px-4 py-3">
+        <div className="flex items-center gap-2">
+          <Terminal className="size-4" />
+          <h1 className="text-sm font-semibold">{t('title')}</h1>
         </div>
-        {mode === 'quick' ? (
-          <QuickCommandsPanel
-            disabled={!canExecute}
-            canRequestAccess={canRequestLocalAccess}
-            onRequestAccess={requestLocalAccess}
-          />
-        ) : (
-          <SessionPanel
-            disabled={!canExecute}
-            canRequestAccess={canRequestLocalAccess}
-            onRequestAccess={requestLocalAccess}
-          />
-        )}
+        <div className="flex items-center gap-1">
+          <Button
+            variant={mode === 'quick' ? 'secondary' : 'ghost'}
+            size="sm"
+            onClick={() => setMode('quick')}
+            title={t('quickCommandsTitle')}
+          >
+            <TerminalSquare className="mr-1 size-3" />
+            {t('quick')}
+          </Button>
+          <Button
+            variant={mode === 'session' ? 'secondary' : 'ghost'}
+            size="sm"
+            onClick={() => setMode('session')}
+            title={t('terminalSessionTitle')}
+          >
+            <Terminal className="mr-1 size-3" />
+            {t('shell')}
+          </Button>
+        </div>
       </div>
-      <Dialog open={authorizationDialogOpen} onOpenChange={setAuthorizationDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>{t('processExecConsentTitle')}</DialogTitle>
-            <DialogDescription>
-              {t('processExecConsentDescription')}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="rounded-xl border border-primary/15 bg-primary/[0.03] p-4 text-sm">
-            <div className="font-medium text-foreground">{t('processExecConsentScopeTitle')}</div>
-            <p className="mt-1 text-muted-foreground">
-              {t('processExecConsentScopeDescription')}
-            </p>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAuthorizationDialogOpen(false)}>
-              {t('processExecConsentDeny')}
-            </Button>
-            <Button onClick={allowLocalExecution}>
-              {t('processExecConsentAllow')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+      {mode === 'quick' ? <QuickCommandsPanel /> : <SessionPanel />}
+    </div>
   );
 }

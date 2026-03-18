@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { formatTimeFromTimestamp } from '@/i18n/format';
 import {
-  useCapabilityGate,
   useDebugViewContributions,
   useInspectorContributions,
   useStudioCommands,
@@ -54,10 +53,9 @@ export function WorkbenchInspector({ mobile }: { mobile?: boolean } = {}) {
   const { t: tr } = useTranslation('registry');
   const { activeExtension, activeExtensionRuntime, activeFlowId, activeView } = useWorkbench();
   const { project, session } = useStudioResources();
-  const { resetCapabilityGrants, setCapabilityGrant, setExtensionEnabled } = useStudioCommands();
+  const { setExtensionEnabled } = useStudioCommands();
   const inspectors = useInspectorContributions();
   const debugViews = useDebugViewContributions();
-  const capabilityGate = useCapabilityGate(activeExtension?.capabilities);
   const activeFlow = activeFlowId ? project?.flows[activeFlowId] : null;
   const { selectedNodeId, selectionContext } = useCanvasSelection();
 
@@ -278,21 +276,6 @@ export function WorkbenchInspector({ mobile }: { mobile?: boolean } = {}) {
             <SectionDivider label={t('extensionInfo')} />
             <CollapsibleSection title={`${activeExtension.id} · ${activeExtensionRuntime?.status ?? tc('notActivated')}`}>
               <div className="min-w-0 space-y-2 text-xs">
-                <div className="flex flex-wrap gap-1.5">
-                  {capabilityGate.resolved.map((entry) => (
-                    <button
-                      key={entry.capability}
-                      type="button"
-                      onClick={() => setCapabilityGrant(entry.capability, !entry.granted)}
-                      className={`rounded-full border px-2 py-0.5 font-mono text-[11px] ${
-                        entry.granted ? 'border-green-600/40 text-green-700' : 'border-yellow-600/40 text-yellow-700'
-                      }`}
-                      title={tr(entry.prompt)}
-                    >
-                      {entry.capability}
-                    </button>
-                  ))}
-                </div>
                 <div className="flex min-w-0 items-center justify-between gap-4">
                   <span className="shrink-0 text-muted-foreground">{t("host")}</span>
                   <span className="truncate">{activeExtension.host}</span>
@@ -311,18 +294,6 @@ export function WorkbenchInspector({ mobile }: { mobile?: boolean } = {}) {
                           : tc('notActivated')}
                       </span>
                     </div>
-                    {activeExtensionRuntime.missingCapabilities.length > 0 && (
-                      <div className="flex items-center justify-between gap-4">
-                        <span className="text-muted-foreground">{t("blocked")}</span>
-                        <span>{activeExtensionRuntime.missingCapabilities.length}</span>
-                      </div>
-                    )}
-                    {activeExtensionRuntime.optionalCapabilities.length > 0 && (
-                      <div className="flex items-center justify-between gap-4">
-                        <span className="text-muted-foreground">{t("degraded")}</span>
-                        <span>{activeExtensionRuntime.optionalCapabilities.length}</span>
-                      </div>
-                    )}
                   </>
                 ) : null}
                 {activeExtension.activationEvents.length > 0 && (
@@ -345,14 +316,6 @@ export function WorkbenchInspector({ mobile }: { mobile?: boolean } = {}) {
                       }
                     >
                       {activeExtensionRuntime.enabled ? t('disable') : t('enable')}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1"
-                      onClick={resetCapabilityGrants}
-                    >
-                      {t("resetGrants")}
                     </Button>
                   </div>
                 )}
