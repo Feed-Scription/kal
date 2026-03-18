@@ -12,6 +12,7 @@
     "test:coverage": "bun run --filter='@kal-ai/*' test:coverage",
     "typecheck": "bun run --filter='@kal-ai/*' typecheck",
     "clean": "bun run --filter='@kal-ai/*' clean",
+    "generate-docs": "bun scripts/generate-docs.ts",
     "changeset": "changeset",
     "version": "changeset version",
     "release": "bun run build && changeset publish",
