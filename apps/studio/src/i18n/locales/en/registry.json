@@ -106,7 +106,9 @@
       "shortTitle": "Prompts",
       "description": "Official workflow extension for prompt preview and prompt-like configuration queries.",
       "viewTitle": "Prompt Preview",
-      "viewDescription": "Preview Session prompts and prompt-like configurations in Flows."
+      "viewDescription": "Preview Session prompts and prompt-like configurations in Flows.",
+      "inspectorTitle": "Prompt Preview",
+      "inspectorDescription": "Prompt preview card in the right inspector slot."
     },
     "debugger": {
       "title": "Debugger",
@@ -134,6 +136,8 @@
       "description": "Official workflow extension for async comment threads and review coordination.",
       "viewTitle": "Comments",
       "viewDescription": "View comment threads on proposals/resources/runs.",
+      "inspectorTitle": "Comments",
+      "inspectorDescription": "Comment threads card in the right inspector slot.",
       "panelTitle": "Comments Panel",
       "panelDescription": "Comment thread summary in the bottom panel slot."
     },
@@ -186,7 +190,9 @@
       "shortTitle": "Terminal",
       "description": "Official workflow extension providing a lightweight command executor for kal subcommands like lint/smoke.",
       "viewTitle": "Terminal",
-      "viewDescription": "Execute kal subcommands (lint, smoke, etc.)."
+      "viewDescription": "Execute kal subcommands (lint, smoke, etc.).",
+      "panelTitle": "Terminal",
+      "panelDescription": "Command executor in the bottom panel slot."
     },
     "vercelDeploy": {
       "title": "Vercel Deploy",

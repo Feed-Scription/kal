@@ -17,9 +17,10 @@
     "package": "分发",
     "packageDesc": "包管理与模板"
   },
-  "officialCoreExtensions": "官方核心扩展",
-  "officialWorkflowExtensions": "官方工作流扩展",
-  "flowResources": "Flow 资源",
+  "flowResources": "Flows",
+  "runs": "运行记录",
+  "noRuns": "暂无运行记录。",
+  "views": "视图",
   "projectCommands": "项目命令",
   "reloading": "重载中...",
   "reloadProject": "重载项目",
