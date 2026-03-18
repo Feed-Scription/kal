@@ -1,13 +1,19 @@
 import { createServer } from 'node:http';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
+import { writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import type { FlowDefinition, SessionDefinition, Fragment, StateValue } from '@kal-ai/core';
 import { renderPrompt, runEval, findPromptBuildNode } from '@kal-ai/core';
 import { EngineHttpError, formatEngineError, statusForError } from './errors';
 import { getGitLog, getGitStatus } from './git-service';
 import { loadProjectPackages } from './package-loader';
+import { buildPromptPreviewEntries } from './prompt-preview';
+import { RegistryClient } from './registry-client';
 import { RunManager } from './run-manager';
 import { TerminalSessionManager } from './terminal-session';
+import { loadStudioResource, saveStudioResource } from './studio-resource-store';
+import { loadTemplateBundle } from './template-bundles';
 import type {
   AdvanceRunRequest,
   CreateRunRequest,
@@ -446,6 +452,60 @@ export async function handleEngineRequest(
       const project = runtime.getProject();
       const index = buildSearchIndex(project);
       success(res, searchProject(index, q));
+      return;
+    }
+
+    if (method === 'GET' && pathname === '/api/prompt-preview') {
+      success(res, { entries: buildPromptPreviewEntries(runtime) });
+      return;
+    }
+
+    if (method === 'GET' && pathname === '/api/review') {
+      const review = await loadStudioResource(runtime.getProjectRoot(), 'review', {
+        proposals: [],
+        updatedAt: 0,
+      });
+      success(res, review);
+      return;
+    }
+
+    if (method === 'PUT' && pathname === '/api/review') {
+      const payload = await readJsonBody<{ proposals?: unknown[] }>(req);
+      const review = await saveStudioResource(runtime.getProjectRoot(), 'review', {
+        proposals: Array.isArray(payload.proposals) ? payload.proposals : [],
+        updatedAt: Date.now(),
+      });
+      eventBus?.emit({
+        type: 'resource.changed',
+        resourceId: 'review://proposals',
+        message: 'Review proposals updated',
+      });
+      success(res, review);
+      return;
+    }
+
+    if (method === 'GET' && pathname === '/api/comments') {
+      const comments = await loadStudioResource(runtime.getProjectRoot(), 'comments', {
+        threads: [],
+        updatedAt: 0,
+      });
+      success(res, comments);
+      return;
+    }
+
+    if (method === 'PUT' && pathname === '/api/comments') {
+      requireCapability(req, 'comment.write');
+      const payload = await readJsonBody<{ threads?: unknown[] }>(req);
+      const comments = await saveStudioResource(runtime.getProjectRoot(), 'comments', {
+        threads: Array.isArray(payload.threads) ? payload.threads : [],
+        updatedAt: Date.now(),
+      });
+      eventBus?.emit({
+        type: 'resource.changed',
+        resourceId: 'comments://threads',
+        message: 'Comment threads updated',
+      });
+      success(res, comments);
       return;
     }
 
@@ -920,16 +980,77 @@ export async function handleEngineRequest(
       return;
     }
 
-    // ── Registry API (Proxy) ──
-    // Note: Registry client implementation is available but requires configuration.
-    // To enable: set REGISTRY_URL and optionally REGISTRY_TOKEN in environment.
+    const templateMatch = pathname.match(/^\/api\/packages\/([^/]+)\/templates\/([^/]+)(?:\/(apply))?$/);
+    if (templateMatch) {
+      const packageId = decodeURIComponent(templateMatch[1]!);
+      const templateId = decodeURIComponent(templateMatch[2]!);
+      const action = templateMatch[3];
+
+      if (method === 'GET' && !action) {
+        success(res, await loadTemplateBundle(runtime.getProjectRoot(), packageId, templateId));
+        return;
+      }
+
+      if (method === 'POST' && action === 'apply') {
+        requireCapability(req, 'project.write');
+        const bundle = await loadTemplateBundle(runtime.getProjectRoot(), packageId, templateId);
+        for (const [flowId, flow] of Object.entries(bundle.flows)) {
+          await runtime.saveFlow(flowId, flow);
+        }
+        if (bundle.session) {
+          await runtime.saveSession(bundle.session);
+        }
+        const nextState = {
+          ...runtime.getProject().initialState,
+          ...bundle.state,
+        };
+        await writeFile(
+          join(runtime.getProjectRoot(), 'initial_state.json'),
+          JSON.stringify(nextState, null, 2),
+          'utf8',
+        );
+        await runtime.reload();
+        eventBus?.emit({
+          type: 'resource.changed',
+          resourceId: `template://${templateId}`,
+          message: `Template applied: ${templateId}`,
+        });
+        success(res, bundle);
+        return;
+      }
+    }
 
     if (pathname.startsWith('/api/registry/')) {
-      throw new EngineHttpError(
-        'Registry API not configured. Set REGISTRY_URL environment variable to enable.',
-        501,
-        'REGISTRY_NOT_CONFIGURED'
-      );
+      const registryUrl = process.env.REGISTRY_URL;
+      if (!registryUrl) {
+        throw new EngineHttpError(
+          'Registry API not configured. Set REGISTRY_URL environment variable to enable.',
+          501,
+          'REGISTRY_NOT_CONFIGURED'
+        );
+      }
+
+      const registry = new RegistryClient({
+        url: registryUrl,
+        token: process.env.REGISTRY_TOKEN,
+      });
+      const rest = pathname.slice('/api/registry'.length);
+
+      if (method === 'GET' && rest === '/packages') {
+        const q = url.searchParams.get('q') ?? undefined;
+        const page = Number(url.searchParams.get('page') ?? '1');
+        const pageSize = Number(url.searchParams.get('pageSize') ?? '20');
+        success(res, await registry.search(q, page, pageSize));
+        return;
+      }
+
+      const packageMatch = rest.match(/^\/packages\/([^/]+)$/);
+      if (method === 'GET' && packageMatch) {
+        success(res, await registry.getPackage(decodeURIComponent(packageMatch[1]!)));
+        return;
+      }
+
+      throw new EngineHttpError(`Registry route not found: ${method} ${pathname}`, 404, 'REGISTRY_ROUTE_NOT_FOUND');
     }
 
     throw new EngineHttpError(`Route not found: ${method} ${pathname}`, 404, 'ROUTE_NOT_FOUND');

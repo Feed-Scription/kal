@@ -14,13 +14,19 @@ import type {
   GitStatusResult,
   InstalledPackageRecord,
   ProjectState,
+  PromptPreviewEntry,
   PromptRenderResult,
+  ReviewProposalRecord,
+  ReviewStateRecord,
   RunStateView,
   RunStreamEvent,
   RunSummary,
   RunView,
   SessionDefinition,
   SmokeResult,
+  TemplateBundle,
+  CommentsStateRecord,
+  CommentThreadRecord,
   EvalRunResult,
   EvalCompareResult,
 } from '@/types/project';
@@ -105,6 +111,11 @@ export const engineApi = {
     );
   },
 
+  async listPromptPreviewEntries(): Promise<PromptPreviewEntry[]> {
+    const data = await request<{ entries: PromptPreviewEntry[] }>('/api/prompt-preview');
+    return data.entries;
+  },
+
   async saveFlow(flowId: string, flow: FlowDefinition): Promise<void> {
     await request(`/api/flows/${encodeURIComponent(flowId)}`, {
       method: 'PUT',
@@ -119,7 +130,7 @@ export const engineApi = {
     });
   },
 
-  async executeFlow(flowId: string, input: Record<string, any> = {}): Promise<ExecutionResult> {
+  async executeFlow(flowId: string, input: Record<string, unknown> = {}): Promise<ExecutionResult> {
     return request<ExecutionResult>('/api/executions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -302,14 +313,46 @@ export const engineApi = {
   // ── Package API ──
 
   async listPackages(): Promise<InstalledPackageRecord[]> {
-    const data = await request<Array<{ manifest: InstalledPackageRecord['manifest']; installPath: string; installedAt: number }>>('/api/packages');
-    return data.map((pkg) => ({
-      manifest: pkg.manifest,
-      installPath: pkg.installPath,
-      installedAt: pkg.installedAt,
-      trustLevel: 'unverified' as const,
-      enabled: true,
-    }));
+    return request<InstalledPackageRecord[]>('/api/packages');
+  },
+
+  async getTemplateBundle(packageId: string, templateId: string): Promise<TemplateBundle> {
+    return request<TemplateBundle>(
+      `/api/packages/${encodeURIComponent(packageId)}/templates/${encodeURIComponent(templateId)}`,
+    );
+  },
+
+  async applyTemplate(packageId: string, templateId: string): Promise<TemplateBundle> {
+    return request<TemplateBundle>(
+      `/api/packages/${encodeURIComponent(packageId)}/templates/${encodeURIComponent(templateId)}/apply`,
+      {
+        method: 'POST',
+      },
+    );
+  },
+
+  async getReviewState(): Promise<ReviewStateRecord> {
+    return request<ReviewStateRecord>('/api/review');
+  },
+
+  async saveReviewState(proposals: ReviewProposalRecord[]): Promise<ReviewStateRecord> {
+    return request<ReviewStateRecord>('/api/review', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ proposals }),
+    });
+  },
+
+  async getCommentsState(): Promise<CommentsStateRecord> {
+    return request<CommentsStateRecord>('/api/comments');
+  },
+
+  async saveCommentsState(threads: CommentThreadRecord[]): Promise<CommentsStateRecord> {
+    return request<CommentsStateRecord>('/api/comments', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ threads }),
+    });
   },
 
   // ── Reference Graph + Search API ──
@@ -385,9 +428,9 @@ export const engineApi = {
     flowId: string;
     nodeId: string;
     runs?: number;
-    variant?: { fragments: any[] };
-    input?: Record<string, any>;
-    state?: Record<string, any>;
+    variant?: { fragments: Array<Record<string, unknown>> };
+    input?: Record<string, unknown>;
+    state?: Record<string, unknown>;
     model?: string;
   }): Promise<EvalRunResult> {
     return request<EvalRunResult>('/api/tools/eval/run', {
