@@ -47,10 +47,6 @@
         ],
         "outputs": [
           {
-            "name": "messages",
-            "type": "ChatMessage[]"
-          },
-          {
             "name": "text",
             "type": "string"
           },
@@ -60,29 +56,26 @@
           }
         ],
         "config": {
-          "defaultRole": "system",
           "fragments": [
             {
               "type": "base",
               "id": "instruction",
-              "content": "你是一位经验丰富的 DND 地下城主。玩家提供了一个简短的背景故事，请将其扩展为 100-200 字的完整背景，包含：\n- 角色的出身和成长经历\n- 为何成为冒险者\n- 性格特点和动机\n\n保持第二人称叙事（\"你\"），风格生动具体。只输出背景文本，不要输出其他内容。",
-              "role": "system"
+              "content": "你是一位经验丰富的 DND 地下城主。玩家提供了一个简短的背景故事，请将其扩展为 100-200 字的完整背景，包含：\n- 角色的出身和成长经历\n- 为何成为冒险者\n- 性格特点和动机\n\n保持第二人称叙事（\"你\"），风格生动具体。只输出背景文本，不要输出其他内容。"
             },
             {
               "type": "field",
               "id": "race-info",
               "source": "state.race",
-              "template": "种族: {{items}}",
-              "role": "system"
+              "template": "种族: {{items}}"
             },
             {
               "type": "field",
               "id": "class-info",
               "source": "state.class",
-              "template": "职业: {{items}}",
-              "role": "system"
+              "template": "职业: {{items}}"
             }
-          ]
+          ],
+          "format": "xml"
         }
       },
       {
@@ -111,7 +104,6 @@
           }
         ],
         "config": {
-          "format": "xml",
           "historyKey": ""
         }
       },

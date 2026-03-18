@@ -223,6 +223,7 @@ function createId(prefix: string): string {
 const WORKBENCH_STORAGE_KEY = 'kal.studio.workbench';
 const EXTENSION_RUNTIME_STORAGE_KEY = 'kal.studio.extensions';
 const BREAKPOINTS_STORAGE_KEY = 'kal.studio.breakpoints';
+const CAPABILITY_GRANTS_STORAGE_KEY = 'kal.studio.capabilities';
 const runStreamSubscriptions = new Map<string, () => void>();
 let engineEventStreamUnsubscribe: (() => void) | null = null;
 
@@ -343,6 +344,27 @@ function cloneValue<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
+function deepMergeRecord<T extends Record<string, any>>(target: T, source: Record<string, any>): T {
+  const result = { ...target } as Record<string, any>;
+  for (const key of Object.keys(source)) {
+    const sourceValue = source[key];
+    const targetValue = target[key];
+    if (
+      sourceValue &&
+      typeof sourceValue === 'object' &&
+      !Array.isArray(sourceValue) &&
+      targetValue &&
+      typeof targetValue === 'object' &&
+      !Array.isArray(targetValue)
+    ) {
+      result[key] = deepMergeRecord(targetValue, sourceValue);
+      continue;
+    }
+    result[key] = sourceValue;
+  }
+  return result as T;
+}
+
 function getFlowResourceId(flowName: string): ResourceId {
   return `flow://${flowName}`;
 }
@@ -376,6 +398,41 @@ const DEFAULT_CAPABILITY_GRANTS: Record<StudioCapabilityId, boolean> = {
   'process.exec': false,
   'ai.invoke': false,
 };
+
+function loadCapabilityGrants(): Record<StudioCapabilityId, boolean> {
+  if (typeof window === 'undefined') {
+    return DEFAULT_CAPABILITY_GRANTS;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(CAPABILITY_GRANTS_STORAGE_KEY);
+    if (!raw) {
+      return DEFAULT_CAPABILITY_GRANTS;
+    }
+
+    const parsed = JSON.parse(raw) as Partial<Record<StudioCapabilityId, boolean>>;
+    return Object.fromEntries(
+      (Object.keys(DEFAULT_CAPABILITY_GRANTS) as StudioCapabilityId[]).map((capability) => [
+        capability,
+        typeof parsed[capability] === 'boolean'
+          ? parsed[capability]
+          : DEFAULT_CAPABILITY_GRANTS[capability],
+      ]),
+    ) as Record<StudioCapabilityId, boolean>;
+  } catch {
+    return DEFAULT_CAPABILITY_GRANTS;
+  }
+}
+
+function persistCapabilityGrants(grants: Record<StudioCapabilityId, boolean>) {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  window.localStorage.setItem(CAPABILITY_GRANTS_STORAGE_KEY, JSON.stringify(grants));
+}
+
+const INITIAL_CAPABILITY_GRANTS = loadCapabilityGrants();
 
 function splitCapabilityRequests(
   capabilities: ResolvedStudioCapabilityRequest[],
@@ -1302,10 +1359,10 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     redoStack: [],
   },
   capabilities: {
-    grants: DEFAULT_CAPABILITY_GRANTS,
+    grants: INITIAL_CAPABILITY_GRANTS,
   },
   extensions: {
-    records: createExtensionRuntimeRecords(DEFAULT_CAPABILITY_GRANTS),
+    records: createExtensionRuntimeRecords(INITIAL_CAPABILITY_GRANTS),
   },
   kernel: {
     events: [],
@@ -1809,7 +1866,10 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
       action: () => engineApi.saveConfig(patch),
       updateProject: (currentProject) => ({
         ...currentProject,
-        config: { ...currentProject.config, ...patch } as typeof currentProject.config,
+        config: deepMergeRecord(
+          currentProject.config as Record<string, any>,
+          patch as Record<string, any>,
+        ) as typeof currentProject.config,
       }),
     });
   },
@@ -2821,6 +2881,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
 
 useStudioStore.subscribe((state) => {
   persistWorkbenchState(state.workbench);
+  persistCapabilityGrants(state.capabilities.grants);
   persistExtensionPreferences(state.extensions.records);
   persistBreakpoints(state.runDebug.breakpoints);
 });

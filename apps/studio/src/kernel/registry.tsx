@@ -1,4 +1,4 @@
-import { Bug, Database, History, LayoutDashboard, MessageSquareQuote, MonitorPlay, Route, Settings } from 'lucide-react';
+import { Bug, Database, History, LayoutDashboard, MonitorPlay, Route, Settings } from 'lucide-react';
 import Flow from '@/Flow';
 import SessionEditor from '@/SessionEditor';
 import { ConfigEditor } from '@/components/ConfigEditor';
@@ -6,7 +6,7 @@ import { DebuggerSummaryView } from '@/components/DebuggerSummaryView';
 import { DebuggerView } from '@/components/DebuggerView';
 import { EventLogPanel } from '@/components/EventLogPanel';
 import { H5PreviewView } from '@/components/H5PreviewView';
-import { PromptPreviewView } from '@/components/PromptPreviewView';
+import { PromptPreviewInspector } from '@/components/PromptPreviewInspector';
 import { StateDiffPanel } from '@/components/StateDiffPanel';
 import { StateInspectorCard } from '@/components/StateInspectorCard';
 import { StateManager } from '@/components/StateManager';
@@ -324,27 +324,16 @@ const registry = createStudioRegistry([
     description: 'ext.promptPreview.description',
     kind: 'official-workflow',
     host: 'browser',
-    activationEvents: ['onView:kal.prompt-preview'],
+    activationEvents: [],
     capabilities: [{ capability: 'project.read' }],
     contributes: {
-      views: [
-        {
-          id: 'kal.prompt-preview',
-          extensionId: 'kal.prompt-preview',
-          title: 'ext.promptPreview.viewTitle',
-          shortTitle: 'ext.promptPreview.shortTitle',
-          description: 'ext.promptPreview.viewDescription',
-          icon: MessageSquareQuote,
-          component: PromptPreviewView,
-        },
-      ],
       inspectors: [
         {
           id: 'kal.prompt-preview.inspector',
           extensionId: 'kal.prompt-preview',
           title: 'ext.promptPreview.inspectorTitle',
           description: 'ext.promptPreview.inspectorDescription',
-          component: PromptPreviewView,
+          component: PromptPreviewInspector,
           slot: 'right',
         },
       ],

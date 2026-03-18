@@ -26,10 +26,6 @@
         ],
         "outputs": [
           {
-            "name": "messages",
-            "type": "ChatMessage[]"
-          },
-          {
             "name": "text",
             "type": "string"
           },
@@ -39,22 +35,47 @@
           }
         ],
         "config": {
-          "defaultRole": "system",
           "fragments": [
             {
               "type": "base",
               "id": "summary-instruction",
-              "content": "你是一个冒险故事摘要助手。请将下面的对话历史压缩为一段简洁的冒险摘要（200-300字）。\n\n要求：\n- 保留关键事件（重要战斗、NPC 互动、物品获取/消耗、位置变化）\n- 保留剧情进展和任务状态变化\n- 使用第二人称叙事（\"你\"）\n- 按时间顺序组织\n- 只输出摘要文本，不要输出其他内容",
-              "role": "system"
+              "content": "你是一个冒险故事摘要助手。请将下面的对话历史压缩为一段简洁的冒险摘要（200-300字）。\n\n要求：\n- 保留关键事件（重要战斗、NPC 互动、物品获取/消耗、位置变化）\n- 保留剧情进展和任务状态变化\n- 使用第二人称叙事（\"你\"）\n- 按时间顺序组织\n- 只输出摘要文本，不要输出其他内容"
             },
             {
               "type": "field",
               "id": "history-content",
-              "role": "user",
               "source": "state.history",
               "template": "以下是需要压缩的对话历史：\n\n{{items}}"
             }
           ]
+        }
+      },
+      {
+        "id": "message",
+        "type": "Message",
+        "label": "消息组装",
+        "inputs": [
+          {
+            "name": "system",
+            "type": "string"
+          },
+          {
+            "name": "context",
+            "type": "string"
+          },
+          {
+            "name": "user",
+            "type": "string"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "messages",
+            "type": "ChatMessage[]"
+          }
+        ],
+        "config": {
+          "historyKey": ""
         }
       },
       {
@@ -131,12 +152,6 @@
     ],
     "edges": [
       {
-        "source": "prompt-build",
-        "sourceHandle": "messages",
-        "target": "generate-text",
-        "targetHandle": "messages"
-      },
-      {
         "source": "generate-text",
         "sourceHandle": "text",
         "target": "compact",
@@ -147,6 +162,18 @@
         "sourceHandle": "text",
         "target": "signal-out",
         "targetHandle": "data"
+      },
+      {
+        "source": "prompt-build",
+        "sourceHandle": "text",
+        "target": "message",
+        "targetHandle": "system"
+      },
+      {
+        "source": "message",
+        "sourceHandle": "messages",
+        "target": "generate-text",
+        "targetHandle": "messages"
       }
     ]
   }

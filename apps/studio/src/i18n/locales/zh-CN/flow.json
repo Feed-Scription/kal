@@ -47,6 +47,9 @@
   "jsonFormatError": "JSON 格式错误",
   "searchNodes": "搜索节点...",
   "noResults": "没有匹配的节点。",
+  "addFragment": "添加 Fragment",
+  "collapseFragment": "收起",
+  "expandFragment": "展开",
   "nodeLabel": {
     "source": "来源",
     "template": "模板",

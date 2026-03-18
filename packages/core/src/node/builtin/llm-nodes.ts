@@ -5,7 +5,7 @@
 import type { CustomNode } from '../../types/node';
 import type { ChatMessage } from '../../types/types';
 import type { Fragment } from '../../prompt/fragments';
-import { compose, composeMessages, formatSection, estimateTokens } from '../../prompt/compose';
+import { compose, formatSection, estimateTokens } from '../../prompt/compose';
 import type { FormatType } from '../../prompt/compose';
 
 function extractAssistantContent(text: string, assistantPath?: string): string {
@@ -35,16 +35,15 @@ export const PromptBuild: CustomNode = {
     { name: 'data', type: 'object', defaultValue: {} },
   ],
   outputs: [
-    { name: 'messages', type: 'ChatMessage[]' },
     { name: 'text', type: 'string' },
     { name: 'estimatedTokens', type: 'number' },
   ],
   configSchema: {
     type: 'object',
     properties: {
-      defaultRole: {
+      format: {
         type: 'string',
-        enum: ['system', 'user', 'assistant'],
+        enum: ['xml', 'markdown'],
       },
       fragments: {
         type: 'array',
@@ -53,7 +52,6 @@ export const PromptBuild: CustomNode = {
     additionalProperties: true,
   },
   defaultConfig: {
-    defaultRole: 'system',
     fragments: [],
   },
   async execute(inputs, config, context) {
@@ -62,13 +60,13 @@ export const PromptBuild: CustomNode = {
       data: inputs.data ?? {},
       state: context.state,
     };
-    const text = compose(fragments, scope);
-    const messages = composeMessages(fragments, scope, {
-      defaultRole: config.defaultRole ?? 'system',
-    });
+    let text = compose(fragments, scope);
+    const format = config.format as FormatType | undefined;
+    if (format && text) {
+      text = formatSection('prompt', text, format);
+    }
 
     return {
-      messages,
       text,
       estimatedTokens: estimateTokens(text),
     };
@@ -90,10 +88,6 @@ export const Message: CustomNode = {
   configSchema: {
     type: 'object',
     properties: {
-      format: {
-        type: 'string',
-        enum: ['xml', 'markdown'],
-      },
       historyKey: {
         type: 'string',
       },
@@ -106,11 +100,8 @@ export const Message: CustomNode = {
     },
     additionalProperties: false,
   },
-  defaultConfig: {
-    format: 'xml',
-  },
+  defaultConfig: {},
   async execute(inputs, config, context) {
-    const format = config.format as FormatType | undefined;
     const historyKey = config.historyKey ?? 'history';
     let system = inputs.system as string | undefined;
     let userContext = inputs.context as string | undefined;
@@ -124,16 +115,6 @@ export const Message: CustomNode = {
     let history = (historyState?.value as ChatMessage[] | undefined) ?? [];
     if (typeof config.maxHistoryMessages === 'number') {
       history = history.slice(-config.maxHistoryMessages);
-    }
-
-    if (format && system) {
-      system = formatSection('system', system, format);
-    }
-    if (format && userContext) {
-      userContext = formatSection('context', userContext, format);
-    }
-    if (format && user) {
-      user = formatSection('user', user, format);
     }
 
     // If context is provided, prepend it to user message for prefix caching
