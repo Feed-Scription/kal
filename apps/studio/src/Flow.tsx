@@ -153,7 +153,11 @@ function FlowInner() {
   const [edges, setEdges] = useState<Edge[]>([]);
   const [executionDialogOpen, setExecutionDialogOpen] = useState(false);
   const [initialized, setInitialized] = useState(false);
+  const [layoutReady, setLayoutReady] = useState(false);
   const isLoadingRef = useRef(false);
+  const needsInitialLayoutRef = useRef(false);
+  const nodesRef = useRef<Node[]>([]);
+  const edgesRef = useRef<Edge[]>([]);
   const [contextMenu, setContextMenu] = useState<ContextMenuState>({
     open: false,
     x: 0,
@@ -162,6 +166,10 @@ function FlowInner() {
 
   // Track drag-connect origin for smart node suggestions
   const connectStartRef = useRef<{ nodeId: string; handleId: string | null; handleType: 'source' | 'target' } | null>(null);
+
+  // Keep refs in sync so handleAutoLayout always reads fresh state
+  nodesRef.current = nodes;
+  edgesRef.current = edges;
 
   /** Shared: apply ELK back-edge styling to an edge list */
   const applyEdgeRouting = useCallback(
@@ -205,67 +213,79 @@ function FlowInner() {
     const flowDef = project.flows[currentFlow];
 
     isLoadingRef.current = true;
+    setLayoutReady(false);
 
-    const nodeIds = flowDef.data.nodes.map((n) => n.id);
-    const simpleEdges = flowDef.data.edges.map((e) => ({ source: e.source, target: e.target }));
-
-    elkLayout(nodeIds, simpleEdges, ELK_FLOW_OPTS).then(({ positions: layoutPositions, backEdges }) => {
-      const reactFlowNodes: Node[] = flowDef.data.nodes.map((node) => {
-        const manifest = manifestMap.get(node.type);
-        return {
-          id: node.id,
-          type: node.type,
-          position: layoutPositions.get(node.id) ?? { x: 0, y: 0 },
-          selected: selectionContext === 'flow' && selectedNodeId === node.id,
-          data: {
-            label: node.label || manifest?.label || node.type,
-            manifest,
-            config: { ...(manifest?.defaultConfig || {}), ...(node.config || {}) },
-            inputs: node.inputs?.length ? node.inputs : manifest?.inputs || [],
-            outputs: node.outputs?.length ? node.outputs : manifest?.outputs || [],
-          },
-        };
-      });
-
-      // Build base edges with type-based coloring
-      const nodeOutputsMap = new Map<string, Array<{ name: string; type: string }>>();
-      for (const node of flowDef.data.nodes) {
-        const manifest = manifestMap.get(node.type);
-        nodeOutputsMap.set(node.id, node.outputs?.length ? node.outputs : manifest?.outputs || []);
-      }
-
-      const baseEdges: Edge[] = flowDef.data.edges.map((edge, idx) => {
-        const sourceOutputs = nodeOutputsMap.get(edge.source) ?? [];
-        const sourcePort = edge.sourceHandle
-          ? sourceOutputs.find((o) => o.name === edge.sourceHandle)
-          : sourceOutputs[0];
-        const color = edgeColorForType(sourcePort?.type);
-        return {
-          id: `e-${edge.source}-${edge.target}-${idx}`,
-          source: edge.source,
-          sourceHandle: edge.sourceHandle,
-          target: edge.target,
-          targetHandle: edge.targetHandle,
-          style: { stroke: color, strokeWidth: 2 },
-        };
-      });
-
-      setNodes(reactFlowNodes);
-      setEdges(applyEdgeRouting(baseEdges, backEdges));
+    // Empty flow: no nodes to measure, skip two-phase layout
+    if (flowDef.data.nodes.length === 0) {
+      needsInitialLayoutRef.current = false;
+      setNodes([]);
+      setEdges([]);
       setInitialized(true);
+      setLayoutReady(true);
+      requestAnimationFrame(() => { isLoadingRef.current = false; });
+      return;
+    }
 
-      if (
-        selectionContext === 'flow' &&
-        selectedNodeId &&
-        !flowDef.data.nodes.some((node) => node.id === selectedNodeId)
-      ) {
-        setSelection(null, 'flow');
-      }
+    needsInitialLayoutRef.current = true;
 
-      requestAnimationFrame(() => {
-        isLoadingRef.current = false;
-      });
+    const reactFlowNodes: Node[] = flowDef.data.nodes.map((node) => {
+      const manifest = manifestMap.get(node.type);
+      return {
+        id: node.id,
+        type: node.type,
+        position: { x: 0, y: 0 },
+        selected: selectionContext === 'flow' && selectedNodeId === node.id,
+        data: {
+          label: node.label || manifest?.label || node.type,
+          manifest,
+          config: { ...(manifest?.defaultConfig || {}), ...(node.config || {}) },
+          inputs: node.inputs?.length ? node.inputs : manifest?.inputs || [],
+          outputs: node.outputs?.length ? node.outputs : manifest?.outputs || [],
+        },
+      };
     });
+
+    // Build base edges with type-based coloring
+    const nodeOutputsMap = new Map<string, Array<{ name: string; type: string }>>();
+    for (const node of flowDef.data.nodes) {
+      const manifest = manifestMap.get(node.type);
+      nodeOutputsMap.set(node.id, node.outputs?.length ? node.outputs : manifest?.outputs || []);
+    }
+
+    const baseEdges: Edge[] = flowDef.data.edges.map((edge, idx) => {
+      const sourceOutputs = nodeOutputsMap.get(edge.source) ?? [];
+      const sourcePort = edge.sourceHandle
+        ? sourceOutputs.find((o) => o.name === edge.sourceHandle)
+        : sourceOutputs[0];
+      const color = edgeColorForType(sourcePort?.type);
+      return {
+        id: `e-${edge.source}-${edge.target}-${idx}`,
+        source: edge.source,
+        sourceHandle: edge.sourceHandle,
+        target: edge.target,
+        targetHandle: edge.targetHandle,
+        style: { stroke: color, strokeWidth: 2 },
+      };
+    });
+
+    // Synchronously detect back edges for styling (no layout yet)
+    const simpleEdges = flowDef.data.edges.map((e) => ({ source: e.source, target: e.target }));
+    const backEdges = detectBackEdges(
+      flowDef.data.nodes.map((n) => n.id),
+      simpleEdges,
+    );
+
+    setNodes(reactFlowNodes);
+    setEdges(applyEdgeRouting(baseEdges, backEdges));
+    setInitialized(true);
+
+    if (
+      selectionContext === 'flow' &&
+      selectedNodeId &&
+      !flowDef.data.nodes.some((node) => node.id === selectedNodeId)
+    ) {
+      setSelection(null, 'flow');
+    }
   }, [currentFlow, manifestMap, project, initialized, applyEdgeRouting, t, selectionContext, selectedNodeId, setSelection]);
 
   const onPaneContextMenu = useCallback(
@@ -366,9 +386,56 @@ function FlowInner() {
     [],
   );
 
+  const handleAutoLayout = useCallback(async () => {
+    const currentNodes = nodesRef.current;
+    const currentEdges = edgesRef.current;
+    const nodeIds = currentNodes.map((n) => n.id);
+    const simpleEdges = currentEdges.map((e) => ({ source: e.source, target: e.target }));
+
+    // Build node size map from actual rendered dimensions
+    const nodeSizes = new Map<string, { width: number; height: number }>();
+    for (const node of currentNodes) {
+      const width = node.measured?.width ?? node.width ?? 320;
+      const height = node.measured?.height ?? node.height ?? 200;
+      nodeSizes.set(node.id, { width, height });
+    }
+
+    const { positions, backEdges } = await elkLayout(nodeIds, simpleEdges, ELK_FLOW_OPTS, nodeSizes);
+    setNodes((nds) =>
+      nds.map((n) => {
+        const pos = positions.get(n.id);
+        return pos ? { ...n, position: pos } : n;
+      }),
+    );
+    setEdges((eds) => applyEdgeRouting(eds, backEdges));
+    requestAnimationFrame(() => reactFlowInstance.fitView({ padding: 0.15, duration: 300 }));
+  }, [reactFlowInstance, applyEdgeRouting]);
+
   const onNodesChange: OnNodesChange = useCallback(
-    (changes) => setNodes((nds) => applyNodeChanges(changes, nds)),
-    [setNodes],
+    (changes) => {
+      setNodes((nds) => applyNodeChanges(changes, nds));
+
+      // Detect when React Flow has measured all node dimensions after initial render
+      if (needsInitialLayoutRef.current) {
+        const hasDimensionChange = changes.some(
+          (c) => c.type === 'dimensions' && c.dimensions,
+        );
+        if (hasDimensionChange) {
+          requestAnimationFrame(() => {
+            if (needsInitialLayoutRef.current) {
+              needsInitialLayoutRef.current = false;
+              handleAutoLayout().then(() => {
+                setLayoutReady(true);
+                requestAnimationFrame(() => {
+                  isLoadingRef.current = false;
+                });
+              });
+            }
+          });
+        }
+      }
+    },
+    [handleAutoLayout],
   );
 
   const onEdgesChange: OnEdgesChange = useCallback(
@@ -576,29 +643,6 @@ function FlowInner() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleManualSave, nodes, reactFlowInstance]);
 
-  const handleAutoLayout = useCallback(async () => {
-    const nodeIds = nodes.map((n) => n.id);
-    const simpleEdges = edges.map((e) => ({ source: e.source, target: e.target }));
-
-    // Build node size map from actual rendered dimensions
-    const nodeSizes = new Map<string, { width: number; height: number }>();
-    for (const node of nodes) {
-      const width = node.measured?.width ?? node.width ?? 320;
-      const height = node.measured?.height ?? node.height ?? 200;
-      nodeSizes.set(node.id, { width, height });
-    }
-
-    const { positions, backEdges } = await elkLayout(nodeIds, simpleEdges, ELK_FLOW_OPTS, nodeSizes);
-    setNodes((nds) =>
-      nds.map((n) => {
-        const pos = positions.get(n.id);
-        return pos ? { ...n, position: pos } : n;
-      }),
-    );
-    setEdges((eds) => applyEdgeRouting(eds, backEdges));
-    requestAnimationFrame(() => reactFlowInstance.fitView({ padding: 0.15, duration: 300 }));
-  }, [nodes, edges, reactFlowInstance, applyEdgeRouting]);
-
   // 将 overlay state 注入到每个 node 的 data 中
   const nodesWithOverlay = useMemo(
     () =>
@@ -611,7 +655,7 @@ function FlowInner() {
   );
 
   return (
-    <div className="relative h-full w-full">
+    <div className="relative h-full w-full" style={{ opacity: layoutReady ? 1 : 0, transition: 'opacity 0.15s ease-in' }}>
       <FlowToolbar
         onSave={handleManualSave}
         onExport={handleExportFlow}

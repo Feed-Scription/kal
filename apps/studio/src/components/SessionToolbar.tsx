@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
-import { Save, Download, Trash2, Plus, Play } from "lucide-react";
+import { Save, Download, Trash2, Plus, Play, LayoutGrid } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -18,6 +18,7 @@ type SessionToolbarProps = {
   onDelete?: () => void;
   onCreate?: () => void;
   onRun?: () => void;
+  onAutoLayout?: () => void;
   canRun?: boolean;
 };
 
@@ -28,6 +29,7 @@ export function SessionToolbar({
   onDelete,
   onCreate,
   onRun,
+  onAutoLayout,
   canRun = false,
 }: SessionToolbarProps) {
   const { t } = useTranslation('session');
@@ -64,6 +66,11 @@ export function SessionToolbar({
         <Button variant="ghost" size="sm" onClick={onRun} title={t('runSession')} disabled={!canRun}>
           <Play className="mr-1.5 size-4" />
           {t('run')}
+        </Button>
+
+        <Button variant="ghost" size="sm" onClick={onAutoLayout} title={t('autoLayout')}>
+          <LayoutGrid className="mr-1.5 size-4" />
+          {t('layout')}
         </Button>
 
         <Button

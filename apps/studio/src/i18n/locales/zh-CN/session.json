@@ -14,6 +14,8 @@
   "saveFailed": "保存失败: {{message}}",
   "deleteFailed": "删除失败: {{message}}",
   "cycle": "循环",
+  "autoLayout": "自动排版",
+  "layout": "排版",
   "addStep": "添加步骤",
   "stepTypes": {
     "RunFlow": "执行 Flow",

@@ -6,6 +6,13 @@
  */
 import ELK, { type ElkNode, type ElkExtendedEdge } from 'elkjs/lib/elk-api.js';
 
+/** Default ELK options for Session editor (horizontal linear flow) */
+export const ELK_SESSION_OPTS: ElkLayoutOptions = {
+  nodeWidth: 400,
+  nodeHeight: 220,
+  direction: 'RIGHT',
+};
+
 export interface ElkLayoutOptions {
   /** Default width when a node has no measured size */
   nodeWidth: number;
