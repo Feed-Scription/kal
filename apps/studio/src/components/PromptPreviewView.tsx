@@ -1,24 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from 'react-i18next';
-import { Focus, Loader2, MessageSquareQuote, Search, Sparkles } from "lucide-react";
+import { Focus, Loader2, MessageSquareQuote, Search, Sparkles, WifiOff } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/EmptyState";
-import { useWorkbench } from "@/kernel/hooks";
-import { useCanvasSelection } from "@/hooks/use-canvas-selection";
-import { engineApi } from "@/api/engine-client";
-import type { PromptPreviewEntry, PromptRenderResult, RenderedFragment } from "@/types/project";
-
-/** 根据画布选中节点生成匹配的 entry id */
-function selectedEntryId(
-  nodeId: string | null,
-  context: 'flow' | 'session' | null,
-  activeFlowId: string | null,
-): string | null {
-  if (!nodeId || !context) return null;
-  if (context === 'session') return `session:${nodeId}`;
-  if (context === 'flow' && activeFlowId) return `flow:${activeFlowId}:${nodeId}`;
-  return null;
-}
+import { usePromptPreviewSelection } from "@/hooks/use-prompt-preview-selection";
+import { useConnectionState } from "@/kernel/hooks";
+import type { PromptRenderResult, RenderedFragment } from "@/types/project";
 
 function FragmentCard({ fragment }: { fragment: RenderedFragment }) {
   return (
@@ -107,50 +94,17 @@ function RenderResultPanel({
 
 export function PromptPreviewView() {
   const { t } = useTranslation('preview');
-  const { activeFlowId } = useWorkbench();
-  const { selectedNodeId, selectionContext } = useCanvasSelection();
   const [query, setQuery] = useState("");
   const highlightRef = useRef<HTMLElement>(null);
-  const [entries, setEntries] = useState<PromptPreviewEntry[]>([]);
-  const [loadingEntries, setLoadingEntries] = useState(true);
-
-  const [renderError, setRenderError] = useState<string | null>(null);
-  const total = entries.length;
-
-  const matchedId = useMemo(
-    () => selectedEntryId(selectedNodeId, selectionContext, activeFlowId),
-    [selectedNodeId, selectionContext, activeFlowId],
-  );
-
-  useEffect(() => {
-    let active = true;
-    engineApi.listPromptPreviewEntries()
-      .then((nextEntries) => {
-        if (!active) {
-          return;
-        }
-        setEntries(nextEntries);
-      })
-      .catch((error) => {
-        if (!active) {
-          return;
-        }
-        setRenderError((error as Error).message);
-      })
-      .finally(() => {
-        if (active) {
-          setLoadingEntries(false);
-        }
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  const matchedEntry = useMemo(
-    () => entries.find((entry) => entry.id === matchedId) ?? null,
-    [entries, matchedId],
-  );
+  const { engineConnected } = useConnectionState();
+  const {
+    entries,
+    loadingEntries,
+    matchedEntry,
+    matchedId,
+    renderError,
+    total,
+  } = usePromptPreviewSelection();
   const renderResult: PromptRenderResult | null = matchedEntry?.rendered ?? null;
 
   const filteredEntries = useMemo(() => {
@@ -189,6 +143,8 @@ export function PromptPreviewView() {
     }
   }, [matchedId]);
 
+  const hasContent = total > 0 || renderResult !== null;
+
   return (
     <div className="h-full w-full overflow-auto bg-background p-6">
       <div className="mx-auto max-w-6xl space-y-6">
@@ -206,21 +162,25 @@ export function PromptPreviewView() {
                 {t('prompt.linked')}
               </div>
             )}
-            <div className="rounded-full border px-3 py-1 text-sm text-muted-foreground">
-              {sortedEntries.length} / {total} entries
-            </div>
+            {hasContent && (
+              <div className="rounded-full border px-3 py-1 text-sm text-muted-foreground">
+                {sortedEntries.length} / {total} entries
+              </div>
+            )}
           </div>
         </div>
 
-        <div className="relative">
-          <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder={t('prompt.searchPlaceholder')}
-            className="pl-10"
-          />
-        </div>
+        {hasContent && (
+          <div className="relative">
+            <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={t('prompt.searchPlaceholder')}
+              className="pl-10"
+            />
+          </div>
+        )}
 
         <RenderResultPanel result={renderResult} loading={loadingEntries} error={renderError} />
 
@@ -229,8 +189,20 @@ export function PromptPreviewView() {
             <Loader2 className="size-4 animate-spin" />
             {t('prompt.rendering')}
           </div>
-        ) : sortedEntries.length === 0 && !renderResult ? (
-          <EmptyState message={t('prompt.noPreviewContent')} />
+        ) : !hasContent ? (
+          !engineConnected ? (
+            <EmptyState
+              icon={WifiOff}
+              message={t('prompt.engineDisconnected')}
+              description={t('prompt.engineDisconnectedHint')}
+            />
+          ) : (
+            <EmptyState
+              icon={MessageSquareQuote}
+              message={t('prompt.noPreviewContent')}
+              description={t('prompt.noPreviewHint')}
+            />
+          )
         ) : (
           <div className="grid gap-4 lg:grid-cols-2">
             {sortedEntries.map((entry) => {

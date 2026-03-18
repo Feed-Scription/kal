@@ -13,7 +13,20 @@ import { ProjectLoader } from "./components/ProjectLoader";
 import { StatusBar } from "./components/StatusBar";
 import { Button } from "./components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "./components/ui/sheet";
-import { useCapabilityGate, useExtensionRuntimeMap, useStudioCommands, useWorkbench, useStudioResources } from "./kernel/hooks";
+import { useCapabilityGate, useExtensionRuntimeMap, usePanelContributions, useStudioCommands, useWorkbench, useStudioResources } from "./kernel/hooks";
+
+function useIsDesktop() {
+  const [isDesktop, setIsDesktop] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth >= 1280 : true,
+  );
+  useEffect(() => {
+    const mql = window.matchMedia('(min-width: 1280px)');
+    const onChange = () => setIsDesktop(mql.matches);
+    mql.addEventListener('change', onChange);
+    return () => mql.removeEventListener('change', onChange);
+  }, []);
+  return isDesktop;
+}
 
 export default function App() {
   const { t } = useTranslation('workbench');
@@ -26,9 +39,32 @@ export default function App() {
   const activeView = views.find((view) => view.id === activeViewId) ?? views[0] ?? null;
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [inspectorVisible, setInspectorVisible] = useState(true);
+  const panelContributions = usePanelContributions();
+  const hasPanels = panelContributions.length > 0;
+  const isDesktop = useIsDesktop();
 
   const inspectorPanelRef = useRef<ImperativePanelHandle>(null);
   const bottomPanelRef = useRef<ImperativePanelHandle>(null);
+
+  // Auto-collapse/expand bottom panel when preset changes panel availability
+  useEffect(() => {
+    const panel = bottomPanelRef.current;
+    if (!panel) return;
+    if (!hasPanels && !panel.isCollapsed()) {
+      panel.collapse();
+    } else if (hasPanels && panel.isCollapsed()) {
+      panel.expand();
+    }
+  }, [hasPanels]);
+
+  // Auto-collapse inspector on small screens, restore on desktop
+  useEffect(() => {
+    const panel = inspectorPanelRef.current;
+    if (!panel) return;
+    if (!isDesktop && !panel.isCollapsed()) {
+      panel.collapse();
+    }
+  }, [isDesktop]);
 
   const toggleInspector = useCallback(() => {
     const panel = inspectorPanelRef.current;

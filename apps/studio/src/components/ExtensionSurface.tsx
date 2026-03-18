@@ -173,7 +173,7 @@ export function ExtensionSurface({ contribution, runtime, chrome = "card" }: Ext
   const SurfaceComponent = contribution.component;
 
   return (
-    <div className="h-full w-full">
+    <div className={chrome === "fill" ? "h-full w-full" : "w-full"}>
       {runtime.optionalCapabilities.length > 0 ? (
         <div className="border-b bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
           {t("restrictedMode", { capabilities: runtime.optionalCapabilities.join(", ") })}

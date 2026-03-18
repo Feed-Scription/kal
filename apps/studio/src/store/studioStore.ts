@@ -17,6 +17,7 @@ import type { RunAdvanceMode } from '@/api/engine-client';
 import {
   DEFAULT_STUDIO_VIEW_ID,
   OFFICIAL_STUDIO_EXTENSIONS,
+  getAllViews,
   getStudioExtensionForView,
 } from '@/kernel/registry';
 import { compareSnapshot } from '@/kernel/semantic-diff';
@@ -1748,12 +1749,41 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
   },
 
   setActivePreset: (preset) => {
-    set((state) => ({
-      workbench: {
-        ...state.workbench,
-        activePreset: preset,
-      },
-    }));
+    set((state) => {
+      const allViews = getAllViews();
+      const presetViews = allViews.filter(
+        (v) => !v.presets || v.presets.includes(preset),
+      );
+      const presetViewIds = new Set(presetViews.map((v) => v.id));
+
+      // Keep only open views that belong to the new preset
+      const filteredOpenIds = state.workbench.openViewIds.filter((id) =>
+        presetViewIds.has(id),
+      );
+
+      // If active view doesn't belong to new preset, pick the first available
+      const activeStillValid = presetViewIds.has(state.workbench.activeViewId);
+      const fallbackViewId = presetViews[0]?.id ?? DEFAULT_STUDIO_VIEW_ID;
+      const nextActiveId = activeStillValid
+        ? state.workbench.activeViewId
+        : filteredOpenIds[0] ?? fallbackViewId;
+
+      const nextOpenIds =
+        filteredOpenIds.length > 0
+          ? filteredOpenIds.includes(nextActiveId)
+            ? filteredOpenIds
+            : [nextActiveId, ...filteredOpenIds]
+          : [nextActiveId];
+
+      return {
+        workbench: {
+          ...state.workbench,
+          activePreset: preset,
+          activeViewId: nextActiveId,
+          openViewIds: nextOpenIds,
+        },
+      };
+    });
   },
 
   setCommandPaletteOpen: (open) => {
