@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import { useTranslation } from 'react-i18next';
 import { useDiagnostics, usePanelContributions } from "@/kernel/hooks";
@@ -15,23 +15,14 @@ export function WorkbenchPanels() {
   const warningCount = diagnostics?.summary?.warnings ?? 0;
   const issueCount = errorCount + warningCount;
 
-  // Keep activeTabId in sync with available panels
-  useEffect(() => {
-    if (panels.length === 0) {
-      setActiveTabId(null);
-      return;
-    }
-    const ids = panels.map((p) => p.contribution.id);
-    if (activeTabId === null || !ids.includes(activeTabId)) {
-      setActiveTabId(ids[0]!);
-    }
-  }, [panels, activeTabId]);
-
   if (panels.length === 0) {
     return null;
   }
 
-  const activePanel = panels.find((p) => p.contribution.id === activeTabId);
+  const resolvedActiveTabId = panels.some((panel) => panel.contribution.id === activeTabId)
+    ? activeTabId
+    : panels[0]!.contribution.id;
+  const activePanel = panels.find((p) => p.contribution.id === resolvedActiveTabId);
 
   return (
     <div className="flex h-full flex-col bg-background/70">
@@ -43,7 +34,7 @@ export function WorkbenchPanels() {
               type="button"
               onClick={() => setActiveTabId(contribution.id)}
               className={`shrink-0 rounded-sm px-2 py-1 transition-colors hover:bg-muted/40 ${
-                contribution.id === activeTabId
+                contribution.id === resolvedActiveTabId
                   ? 'bg-muted text-foreground font-medium'
                   : ''
               }`}
