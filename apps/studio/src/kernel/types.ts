@@ -11,10 +11,6 @@ export type StudioExtensionKind =
   | 'third-party';
 
 export type StudioExtensionHost = 'browser' | 'workspace' | 'service';
-export type StudioCapabilityHost = 'browser' | 'workspace' | 'service';
-export type StudioCapabilityScope = 'project' | 'user' | 'org';
-export type StudioCapabilityApprovalStrategy = 'auto' | 'prompt' | 'admin';
-export type StudioCapabilityRestrictedMode = 'block' | 'degrade';
 export type StudioContributionSurface = 'view' | 'panel' | 'inspector' | 'debug-view';
 export type StudioPanelSlot = 'left' | 'right' | 'down';
 export type StudioActivationEvent =
@@ -23,39 +19,6 @@ export type StudioActivationEvent =
   | `onEvent:${string}`;
 export type StudioContextValue = string | boolean | null;
 export type StudioRenderableComponent = ComponentType;
-export type StudioCapabilityId =
-  | 'project.read'
-  | 'project.write'
-  | 'engine.execute'
-  | 'engine.debug'
-  | 'trace.read'
-  | 'network.fetch'
-  | 'process.exec'
-  | 'ai.invoke';
-
-export interface StudioCapabilityCatalogEntry {
-  id: StudioCapabilityId;
-  title: string;
-  description: string;
-  host: StudioCapabilityHost;
-  scope: StudioCapabilityScope;
-  approvalStrategy: StudioCapabilityApprovalStrategy;
-  prompt: string;
-}
-
-export interface StudioExtensionCapabilityRequest {
-  capability: StudioCapabilityId;
-  required?: boolean;
-  restrictedMode?: StudioCapabilityRestrictedMode;
-  prompt?: string;
-}
-
-export interface ResolvedStudioCapabilityRequest extends StudioExtensionCapabilityRequest {
-  descriptor: StudioCapabilityCatalogEntry;
-  required: boolean;
-  restrictedMode: StudioCapabilityRestrictedMode;
-  prompt: string;
-}
 
 export interface StudioContributionBaseDescriptor {
   id: StudioContributionId;
@@ -111,20 +74,15 @@ export interface StudioExtensionDescriptor {
   kind: StudioExtensionKind;
   host: StudioExtensionHost;
   activationEvents: StudioActivationEvent[];
-  capabilities: StudioExtensionCapabilityRequest[];
   contributes: StudioExtensionContributions;
 }
 
-export interface StudioRegisteredExtensionDescriptor
-  extends Omit<StudioExtensionDescriptor, 'capabilities'> {
-  capabilities: ResolvedStudioCapabilityRequest[];
-}
+export type StudioRegisteredExtensionDescriptor = StudioExtensionDescriptor;
 
 export type StudioExtensionRuntimeStatus =
   | 'registered'
   | 'active'
   | 'disabled'
-  | 'blocked'
   | 'error';
 
 export interface StudioExtensionRuntimeRecord {
@@ -134,8 +92,6 @@ export interface StudioExtensionRuntimeRecord {
   status: StudioExtensionRuntimeStatus;
   activationReason?: string;
   lastActivatedAt?: number;
-  missingCapabilities: StudioCapabilityId[];
-  optionalCapabilities: StudioCapabilityId[];
   error?: string;
 }
 
@@ -154,7 +110,6 @@ export type StudioKernelEventName =
   | 'run.ended'
   | 'run.cancelled'
   | 'run.breakpoint.hit'
-  | 'capability.updated'
   | 'extension.activated'
   | 'extension.error'
   | 'job.updated';
@@ -241,7 +196,6 @@ export interface ThirdPartyExtensionManifest {
   repository?: string;
   host: StudioExtensionHost;
   activationEvents: StudioActivationEvent[];
-  capabilities: StudioExtensionCapabilityRequest[];
   contributes: StudioExtensionContributions;
   trustLevel: ExtensionTrustLevel;
   signature?: {

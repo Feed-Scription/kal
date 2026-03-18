@@ -1,5 +1,5 @@
 import { Component, type ReactNode, useEffect } from "react";
-import { AlertTriangle, Lock, PlugZap, RefreshCw } from "lucide-react";
+import { AlertTriangle, PlugZap, RefreshCw } from "lucide-react";
 import { useTranslation } from 'react-i18next';
 import { Button } from "@/components/ui/button";
 import { useStudioCommands } from "@/kernel/hooks";
@@ -52,7 +52,6 @@ function SurfaceFallback({
 }: ExtensionSurfaceProps) {
   const {
     clearExtensionError,
-    setCapabilityGrant,
     setExtensionEnabled,
   } = useStudioCommands();
   const { t } = useTranslation('workbench');
@@ -91,39 +90,6 @@ function SurfaceFallback({
     );
   }
 
-  if (runtime.status === "blocked") {
-    return (
-      <div className={shellClassName}>
-        <div className="space-y-3 text-sm">
-          <div className="flex items-center gap-2 font-medium">
-            <Lock className="size-4" />
-            {t("extensionBlocked", { title: translatedTitle })}
-          </div>
-          <div className="text-muted-foreground">
-            {t("missingCapabilities", { capabilities: runtime.missingCapabilities.join(", ") })}
-          </div>
-          {runtime.optionalCapabilities.length > 0 ? (
-            <div className="text-xs text-muted-foreground">
-              {t("degradedCapabilities", { capabilities: runtime.optionalCapabilities.join(", ") })}
-            </div>
-          ) : null}
-          <div className="flex flex-wrap gap-2">
-            {runtime.missingCapabilities.map((capability) => (
-              <Button
-                key={capability}
-                variant="outline"
-                size="sm"
-                onClick={() => setCapabilityGrant(capability, true)}
-              >
-                {t("authorize", { capability })}
-              </Button>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   if (runtime.status === "error") {
     return (
       <div className={shellClassName}>
@@ -151,7 +117,7 @@ export function ExtensionSurface({ contribution, runtime, chrome = "card" }: Ext
   const activationReason = `${contribution.surface ?? "surface"}:${contribution.id}`;
 
   useEffect(() => {
-    if (!runtime || !runtime.enabled || runtime.missingCapabilities.length > 0) {
+    if (!runtime || !runtime.enabled) {
       return;
     }
     if (runtime.activated) {
@@ -166,7 +132,7 @@ export function ExtensionSurface({ contribution, runtime, chrome = "card" }: Ext
     runtime,
   ]);
 
-  if (!runtime || runtime.status === "disabled" || runtime.status === "blocked" || runtime.status === "error") {
+  if (!runtime || runtime.status === "disabled" || runtime.status === "error") {
     return <SurfaceFallback contribution={contribution} runtime={runtime} chrome={chrome} />;
   }
 
@@ -174,11 +140,6 @@ export function ExtensionSurface({ contribution, runtime, chrome = "card" }: Ext
 
   return (
     <div className={chrome === "fill" ? "h-full w-full" : "w-full"}>
-      {runtime.optionalCapabilities.length > 0 ? (
-        <div className="border-b bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-          {t("restrictedMode", { capabilities: runtime.optionalCapabilities.join(", ") })}
-        </div>
-      ) : null}
       <ExtensionBoundary
         key={`${contribution.id}:${runtime.error ?? "ok"}`}
         onError={(error) => {

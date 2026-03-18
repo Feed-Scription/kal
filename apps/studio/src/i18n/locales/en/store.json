@@ -129,8 +129,6 @@
   "requestingEngineDiagnostics": "Requesting Engine diagnostics",
   "applyingUndoSnapshot": "Applying undo snapshot",
   "applyingRedoSnapshot": "Applying redo snapshot",
-  "capabilityChanged": "{{capability}} {{status}}",
-  "capabilityGrantsReset": "Capability grants reset to defaults",
   "extensionActivated": "Extension {{extensionId}} activated ({{reason}})",
   "extensionError": "Extension {{extensionId}} error: {{message}}",
   "historyRolledBack": "History rolled back to checkpoint {{label}}"
