@@ -41,6 +41,76 @@ kal studio examples/showcase-signal-watch --port 4399
 - `P2` 项用于体验和回归补充，不阻塞基础提测，但应定期回看。
 - 每个失败项都要补一条问题记录，至少注明复现步骤、预期结果、实际结果。
 
+## 双人分工建议（无重叠）
+
+建议按“创作与运行闭环”以及“治理与协作闭环”拆分。划分原则是按功能域归属，而不是按页面入口归属，避免两人反复进入同一条主链路，或对同一能力重复验收。
+
+### A 组：创作与运行闭环
+
+负责从项目连接、资源编辑到运行调试的主链路，不覆盖协作治理类能力。
+
+- 工作台 preset：`authoring`、`debug`
+- 负责功能域：
+  - 启动、连接与基础工作台骨架
+  - Flow 编辑闭环
+  - Session 编辑闭环
+  - Run / Debug / State / Problems
+  - Config 安全与持久化
+  - Prompt Preview / H5 Preview / Eval
+  - Inspector 中与 node / flow / session / state 相关内容
+- 对应视图：
+  - `kal.flow`
+  - `kal.session`
+  - `kal.state`
+  - `kal.config`
+  - `kal.problems`
+  - `kal.prompt-preview`
+  - `kal.debugger`
+  - `kal.h5-preview`
+  - `kal.prompt-eval`
+
+### B 组：治理、协作与工作区运维
+
+负责 review、历史、包管理、权限与工作区运维链路，不覆盖编辑器主闭环能力。
+
+- 工作台 preset：`review`、`history`、`package`
+- 负责功能域：
+  - Review / Comments / Version Control
+  - Terminal
+  - Package Manager / Template Browser
+  - Extension capability / trusted-restricted / enable-disable / reset grants
+  - Event Log / Collaborators / Deploy
+  - 命令面板、主题、语言、侧边栏折叠、移动端 Inspector 等工作台壳层体验
+  - Inspector 中 Extension tab 相关内容
+- 对应视图：
+  - `kal.review`
+  - `kal.comments`
+  - `kal.version-control`
+  - `kal.terminal`
+  - `kal.package-manager`
+  - `kal.template-browser`
+  - `kal.vercel-deploy`
+- 对应 panel / 附属区：
+  - `kal.review.history-panel`
+  - `kal.comments.panel`
+  - `kal.version-control.panel`
+  - `kal.event-log.panel`
+  - `kal.collaborators.panel`
+
+### 边界说明
+
+- A 组不覆盖：`review`、`comments`、`version control`、`terminal`、`packages`、`templates`、`deploy`、`extension permissions`
+- B 组不覆盖：`flow`、`session`、`run`、`debug`、`state`、`problems`、`config`、`prompt preview`、`h5 preview`、`eval`
+- `Problems` 虽然会以下方面板形式出现，仍统一归 A 组
+- `Event Log`、`Collaborators` 虽然会在 `debug` / `review` preset 下出现，仍统一归 B 组
+- `Inspector` 按内容归属，不按入口归属：Node / Flow / Session / State 归 A 组，Extension 归 B 组
+
+### 执行建议
+
+- A 组建议以 `examples/dnd-adventure` 为主，补充 `examples/showcase-signal-watch` 验证 H5 Preview / Signal / Eval
+- B 组建议先复制一份临时项目目录，再验证 checkpoint、rollback、template apply、review accept 等会改写工程状态的操作，避免污染 A 组测试环境
+- 两组都登记 bug，但按所属功能域归档，避免同一个问题被重复提单
+
 ## P0 启动、连接与工作台骨架
 
 - [ ] Engine 未启动时，Studio 会停留在加载失败态，并显示可点击的重试入口。
