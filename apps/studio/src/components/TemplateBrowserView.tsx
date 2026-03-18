@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LayoutTemplate, Eye, FolderInput } from 'lucide-react';
+import { engineApi } from '@/api/engine-client';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/EmptyState';
 import { usePackages, useStudioCommands } from '@/kernel/hooks';
-import type { TemplateEntry } from '@/types/project';
+import type { TemplateBundle, TemplateEntry } from '@/types/project';
 
 export function TemplateBrowserView() {
   const { t } = useTranslation('packages');
@@ -12,6 +13,8 @@ export function TemplateBrowserView() {
   const { loadPackages, applyTemplate } = useStudioCommands();
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [previewTemplate, setPreviewTemplate] = useState<TemplateEntry | null>(null);
+  const [previewBundles, setPreviewBundles] = useState<Record<string, TemplateBundle>>({});
+  const [loadingPreviewId, setLoadingPreviewId] = useState<string | null>(null);
   const [applying, setApplying] = useState<string | null>(null);
 
   useEffect(() => {
@@ -122,7 +125,25 @@ export function TemplateBrowserView() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setPreviewTemplate(previewTemplate?.id === tpl.id ? null : tpl)}
+                      onClick={async () => {
+                        if (previewTemplate?.id === tpl.id) {
+                          setPreviewTemplate(null);
+                          return;
+                        }
+                        setPreviewTemplate(tpl);
+                        const bundleKey = `${tpl.packageId}:${tpl.id}`;
+                        if (!previewBundles[bundleKey]) {
+                          setLoadingPreviewId(bundleKey);
+                          try {
+                            const bundle = await engineApi.getTemplateBundle(tpl.packageId, tpl.id);
+                            setPreviewBundles((prev) => ({ ...prev, [bundleKey]: bundle }));
+                          } catch {
+                            // Keep preview metadata-only when bundle fetch fails.
+                          } finally {
+                            setLoadingPreviewId(null);
+                          }
+                        }
+                      }}
                     >
                       <Eye className="mr-1 size-3" />
                       {previewTemplate?.id === tpl.id ? t('browser.collapsePreview') : t('browser.preview')}
@@ -149,13 +170,18 @@ export function TemplateBrowserView() {
                   {previewTemplate?.id === tpl.id ? (
                     <div className="mt-3 rounded-lg border bg-muted/30 p-3 text-xs">
                       <div className="font-medium">{t('browser.templateContentPreview')}</div>
+                      {loadingPreviewId === `${tpl.packageId}:${tpl.id}` ? (
+                        <div className="mt-2 text-muted-foreground">{t('browser.applying')}</div>
+                      ) : null}
                       <div className="mt-2 space-y-1 text-muted-foreground">
-                        {tpl.flows && tpl.flows.length > 0 ? (
-                          <div>{t('browser.flowsLabel', { list: tpl.flows.join(', ') })}</div>
+                        {(previewBundles[`${tpl.packageId}:${tpl.id}`]?.summary.flowIds ?? tpl.flows) && (previewBundles[`${tpl.packageId}:${tpl.id}`]?.summary.flowIds ?? tpl.flows)?.length > 0 ? (
+                          <div>{t('browser.flowsLabel', { list: (previewBundles[`${tpl.packageId}:${tpl.id}`]?.summary.flowIds ?? tpl.flows)?.join(', ') })}</div>
                         ) : null}
-                        {tpl.sessionRef ? <div>{t('browser.sessionLabel', { name: tpl.sessionRef })}</div> : null}
-                        {tpl.stateKeys && tpl.stateKeys.length > 0 ? (
-                          <div>{t('browser.stateKeysLabel', { list: tpl.stateKeys.join(', ') })}</div>
+                        {(previewBundles[`${tpl.packageId}:${tpl.id}`]?.summary.hasSession || tpl.sessionRef) ? (
+                          <div>{t('browser.sessionLabel', { name: previewBundles[`${tpl.packageId}:${tpl.id}`]?.session?.name || tpl.sessionRef || 'session.json' })}</div>
+                        ) : null}
+                        {(previewBundles[`${tpl.packageId}:${tpl.id}`]?.summary.stateKeys ?? tpl.stateKeys) && (previewBundles[`${tpl.packageId}:${tpl.id}`]?.summary.stateKeys ?? tpl.stateKeys)?.length > 0 ? (
+                          <div>{t('browser.stateKeysLabel', { list: (previewBundles[`${tpl.packageId}:${tpl.id}`]?.summary.stateKeys ?? tpl.stateKeys)?.join(', ') })}</div>
                         ) : null}
                       </div>
                     </div>

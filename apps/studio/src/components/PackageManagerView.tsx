@@ -47,15 +47,21 @@ export function PackageManagerView() {
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-semibold">{pkg.manifest.name}</h3>
-                        <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
-                          {pkg.manifest.kind}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          v{pkg.manifest.version}
-                        </span>
-                      </div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold">{pkg.manifest.name}</h3>
+                      <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                        {pkg.manifest.kind}
+                      </span>
+                      <span className="rounded-full border px-2 py-0.5 text-xs">
+                        {pkg.trustLevel}
+                      </span>
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${pkg.enabled ? 'bg-green-500/10 text-green-700' : 'bg-yellow-500/10 text-yellow-700'}`}>
+                        {pkg.enabled ? 'enabled' : 'disabled'}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        v{pkg.manifest.version}
+                      </span>
+                    </div>
                       {pkg.manifest.description ? (
                         <p className="mt-1 text-sm text-muted-foreground">
                           {pkg.manifest.description}

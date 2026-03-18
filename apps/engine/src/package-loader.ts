@@ -1,5 +1,6 @@
-import { readdir, readFile } from 'node:fs/promises';
+import { readdir, readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
+import { verifyPackage, type TrustLevel } from './package-verifier';
 
 export type PackageKind =
   | 'node-pack'
@@ -25,12 +26,19 @@ export type PackageManifest = {
   main?: string;
   runtime?: string;
   studio?: string;
+  enabled?: boolean;
+  signature?: string;
+  provenance?: string;
 };
 
 export type LoadedPackage = {
   manifest: PackageManifest;
   installPath: string;
   installedAt: number;
+  trustLevel: TrustLevel;
+  enabled: boolean;
+  signature?: string;
+  provenance?: string;
 };
 
 /**
@@ -61,10 +69,22 @@ export async function loadProjectPackages(projectRoot: string): Promise<LoadedPa
           continue;
         }
 
+        const verification = verifyPackage({
+          id: manifest.id,
+          author: manifest.author,
+          signature: manifest.signature,
+          provenance: manifest.provenance,
+        });
+        const manifestStat = await stat(manifestPath).catch(() => stat(packagePath));
+
         packages.push({
           manifest,
           installPath: packagePath,
-          installedAt: Date.now(),
+          installedAt: manifestStat.mtimeMs,
+          trustLevel: verification.trustLevel,
+          enabled: manifest.enabled !== false,
+          signature: manifest.signature,
+          provenance: manifest.provenance,
         });
       } catch (error) {
         console.warn(`[package-loader] Failed to load package ${entry.name}:`, error);

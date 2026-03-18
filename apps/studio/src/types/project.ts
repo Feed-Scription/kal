@@ -189,6 +189,8 @@ export type ResourceId =
   | 'config://project'
   | 'state://project'
   | 'session://default'
+  | 'review://proposals'
+  | 'comments://threads'
   | `flow://${string}`
   | `template://${string}`;
 
@@ -456,6 +458,10 @@ export type PromptPreviewEntry = {
   subtitle: string;
   promptText: string;
   bindings: PromptPreviewBinding[];
+  flowId?: string;
+  nodeId?: string;
+  stepId?: string;
+  rendered?: PromptRenderResult | null;
 };
 
 export type RenderedFragment = {
@@ -478,6 +484,7 @@ export type ReviewValidationRecord = {
   smokeStatus: 'idle' | 'running' | 'completed' | 'failed';
   diagnostics?: DiagnosticsPayload | null;
   smoke?: SmokeResult | null;
+  smokeRun?: RunView | null;
   lastValidatedAt?: number;
   error?: string;
 };
@@ -554,6 +561,30 @@ export type CommentThreadRecord = {
   createdAt: number;
   updatedAt: number;
   comments: CommentRecord[];
+};
+
+export type TemplateBundle = {
+  packageId: string;
+  templateId: string;
+  templatePath: string;
+  flows: Record<string, FlowDefinition>;
+  session: SessionDefinition | null;
+  state: ProjectState;
+  summary: {
+    flowIds: string[];
+    hasSession: boolean;
+    stateKeys: string[];
+  };
+};
+
+export type ReviewStateRecord = {
+  proposals: ReviewProposalRecord[];
+  updatedAt: number;
+};
+
+export type CommentsStateRecord = {
+  threads: CommentThreadRecord[];
+  updatedAt: number;
 };
 
 // ── Reference Graph + Search ──
@@ -680,6 +711,9 @@ export type PackageManifest = {
   main?: string;
   runtime?: string;
   studio?: string;
+  enabled?: boolean;
+  signature?: string;
+  provenance?: string;
 };
 
 export type InstalledPackageRecord = {
