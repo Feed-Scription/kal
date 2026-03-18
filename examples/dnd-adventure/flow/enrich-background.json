@@ -23,10 +23,6 @@
         "id": "signal-in",
         "type": "SignalIn",
         "label": "信号输入",
-        "position": {
-          "x": 0,
-          "y": -232
-        },
         "inputs": [],
         "outputs": [
           {
@@ -42,10 +38,6 @@
         "id": "prompt-build",
         "type": "PromptBuild",
         "label": "Prompt 构建",
-        "position": {
-          "x": 0,
-          "y": 32
-        },
         "inputs": [
           {
             "name": "data",
@@ -97,10 +89,6 @@
         "id": "message",
         "type": "Message",
         "label": "消息组装",
-        "position": {
-          "x": 426,
-          "y": -100
-        },
         "inputs": [
           {
             "name": "system",
@@ -131,10 +119,6 @@
         "id": "generate-text",
         "type": "GenerateText",
         "label": "生成文本",
-        "position": {
-          "x": 852,
-          "y": -100
-        },
         "inputs": [
           {
             "name": "messages",
@@ -164,10 +148,6 @@
         "id": "save-background",
         "type": "WriteState",
         "label": "修改状态",
-        "position": {
-          "x": 1278,
-          "y": -232
-        },
         "inputs": [
           {
             "name": "key",
@@ -198,10 +178,6 @@
         "id": "signal-out",
         "type": "SignalOut",
         "label": "信号输出",
-        "position": {
-          "x": 1278,
-          "y": 32
-        },
         "inputs": [
           {
             "name": "data",

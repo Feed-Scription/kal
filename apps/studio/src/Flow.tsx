@@ -29,12 +29,10 @@ import { useFlowResource, useStudioCommands, useStudioResources } from "@/kernel
 import { useFlowNodeOverlay } from "@/hooks/use-node-overlay";
 import { useCanvasSelection } from "@/hooks/use-canvas-selection";
 import { elkLayout, detectBackEdges } from "@/utils/elk-layout";
-import { layoutDag } from "@/utils/graph-layout";
 import { AUTO_SAVE_DEBOUNCE_MS } from "@/constants/editor";
 import { useTranslation } from "react-i18next";
-import type { FlowDefinition, NodeDefinition, EdgeDefinition, NodeManifest } from "@/types/project";
+import type { FlowDefinition, NodeDefinition, NodeManifest } from "@/types/project";
 
-const FLOW_LAYOUT = { nodeWidth: 320, nodeHeight: 200, gapX: 80, gapY: 40 };
 const ELK_FLOW_OPTS = { nodeWidth: 320, nodeHeight: 200, direction: 'RIGHT' as const };
 
 type Schema = {
@@ -80,37 +78,6 @@ function sanitizeConfigWithSchema(value: unknown, schema?: Schema): unknown {
     } else {
       result[key] = childValue;
     }
-  }
-
-  return result;
-}
-
-function autoLayout(
-  nodes: NodeDefinition[],
-  edges: EdgeDefinition[],
-): { positions: Map<string, { x: number; y: number }>; backEdges: Set<string> } {
-  if (nodes.length === 0) return { positions: new Map(), backEdges: new Set() };
-
-  // Always compute backEdges for visual differentiation
-  const result = layoutDag(
-    nodes.map((n) => n.id),
-    edges,
-    FLOW_LAYOUT,
-  );
-
-  // Determine whether to apply computed positions:
-  // Skip layout if all nodes already have valid, distinct positions
-  const withPos = nodes.filter((n) => n.position);
-  if (withPos.length === nodes.length && nodes.length > 1) {
-    const allSame = withPos.every(
-      (n) => n.position!.x === withPos[0].position!.x && n.position!.y === withPos[0].position!.y,
-    );
-    if (!allSame) {
-      // Positions are valid and distinct — keep them, but still return backEdges
-      return { positions: new Map(), backEdges: result.backEdges };
-    }
-  } else if (withPos.length === nodes.length) {
-    return { positions: new Map(), backEdges: result.backEdges };
   }
 
   return result;
@@ -196,21 +163,59 @@ function FlowInner() {
   // Track drag-connect origin for smart node suggestions
   const connectStartRef = useRef<{ nodeId: string; handleId: string | null; handleType: 'source' | 'target' } | null>(null);
 
-  // Load flow data when currentFlow changes (not when project updates from save)
+  /** Shared: apply ELK back-edge styling to an edge list */
+  const applyEdgeRouting = useCallback(
+    (
+      eds: Edge[],
+      backEdges: Set<string>,
+    ): Edge[] =>
+      eds.map((edge) => {
+        const edgeKey = `${edge.source}->${edge.target}`;
+        if (backEdges.has(edgeKey)) {
+          return {
+            ...edge,
+            type: 'smoothstep',
+            zIndex: 1000,
+            style: { stroke: '#f59e0b', strokeWidth: 2, strokeDasharray: '8 4' },
+            animated: true,
+            markerEnd: { type: MarkerType.ArrowClosed, color: '#f59e0b' },
+            label: t('cycle'),
+            labelStyle: { fill: '#f59e0b', fontWeight: 600, fontSize: 12 },
+          };
+        }
+        const { style: _s, label: _l, labelStyle: _ls, zIndex: _z, ...rest } = edge;
+        return { ...rest, type: 'elegant', animated: true };
+      }),
+    [t],
+  );
+
+  // Load flow data only when switching flows (not on project save updates).
+  const lastLoadedFlowRef = useRef<string | null>(null);
+
   useEffect(() => {
-    if (project && currentFlow && project.flows[currentFlow]) {
-      const flowDef = project.flows[currentFlow];
+    if (!project || !currentFlow || !project.flows[currentFlow]) {
+      setInitialized(false);
+      return;
+    }
 
-      isLoadingRef.current = true;
+    // Skip if we already loaded this flow (project changed due to auto-save)
+    if (lastLoadedFlowRef.current === currentFlow && initialized) return;
+    lastLoadedFlowRef.current = currentFlow;
 
-      const { positions: layoutPositions, backEdges } = autoLayout(flowDef.data.nodes, flowDef.data.edges);
+    const flowDef = project.flows[currentFlow];
 
+    isLoadingRef.current = true;
+
+    const nodeIds = flowDef.data.nodes.map((n) => n.id);
+    const simpleEdges = flowDef.data.edges.map((e) => ({ source: e.source, target: e.target }));
+
+    elkLayout(nodeIds, simpleEdges, ELK_FLOW_OPTS).then(({ positions: layoutPositions, backEdges }) => {
       const reactFlowNodes: Node[] = flowDef.data.nodes.map((node) => {
         const manifest = manifestMap.get(node.type);
         return {
           id: node.id,
           type: node.type,
-          position: layoutPositions.get(node.id) ?? node.position ?? { x: 0, y: 0 },
+          position: layoutPositions.get(node.id) ?? { x: 0, y: 0 },
           selected: selectionContext === 'flow' && selectedNodeId === node.id,
           data: {
             label: node.label || manifest?.label || node.type,
@@ -222,22 +227,20 @@ function FlowInner() {
         };
       });
 
-      // Build a lookup: nodeId → outputs array for edge coloring
+      // Build base edges with type-based coloring
       const nodeOutputsMap = new Map<string, Array<{ name: string; type: string }>>();
       for (const node of flowDef.data.nodes) {
         const manifest = manifestMap.get(node.type);
         nodeOutputsMap.set(node.id, node.outputs?.length ? node.outputs : manifest?.outputs || []);
       }
 
-      const reactFlowEdges: Edge[] = flowDef.data.edges.map((edge, idx) => {
-        // Resolve source port type for edge coloring
+      const baseEdges: Edge[] = flowDef.data.edges.map((edge, idx) => {
         const sourceOutputs = nodeOutputsMap.get(edge.source) ?? [];
         const sourcePort = edge.sourceHandle
           ? sourceOutputs.find((o) => o.name === edge.sourceHandle)
           : sourceOutputs[0];
         const color = edgeColorForType(sourcePort?.type);
-
-        const base: Edge = {
+        return {
           id: `e-${edge.source}-${edge.target}-${idx}`,
           source: edge.source,
           sourceHandle: edge.sourceHandle,
@@ -245,35 +248,10 @@ function FlowInner() {
           targetHandle: edge.targetHandle,
           style: { stroke: color, strokeWidth: 2 },
         };
-        const isBack = backEdges.has(`${edge.source}->${edge.target}`);
-        if (isBack) {
-          return {
-            ...base,
-            type: 'smoothstep',
-            zIndex: 1000,
-            style: {
-              stroke: '#f59e0b',
-              strokeWidth: 2,
-              strokeDasharray: '8 4',
-            },
-            animated: true,
-            markerEnd: {
-              type: MarkerType.ArrowClosed,
-              color: '#f59e0b',
-            },
-            label: t('cycle'),
-            labelStyle: {
-              fill: '#f59e0b',
-              fontWeight: 600,
-              fontSize: 12,
-            },
-          };
-        }
-        return base;
       });
 
       setNodes(reactFlowNodes);
-      setEdges(reactFlowEdges);
+      setEdges(applyEdgeRouting(baseEdges, backEdges));
       setInitialized(true);
 
       if (
@@ -284,14 +262,11 @@ function FlowInner() {
         setSelection(null, 'flow');
       }
 
-      // Reset loading flag after React processes the state updates
       requestAnimationFrame(() => {
         isLoadingRef.current = false;
       });
-    } else {
-      setInitialized(false);
-    }
-  }, [currentFlow, manifestMap, project, selectedNodeId, selectionContext, setSelection]);
+    });
+  }, [currentFlow, manifestMap, project, initialized, applyEdgeRouting, t, selectionContext, selectedNodeId, setSelection]);
 
   const onPaneContextMenu = useCallback(
     (event: React.MouseEvent | MouseEvent) => {
@@ -392,23 +367,8 @@ function FlowInner() {
   );
 
   const onNodesChange: OnNodesChange = useCallback(
-    (changes) => {
-      setNodes((nds) => applyNodeChanges(changes, nds));
-      // When nodes are dragged, ELK route waypoints become stale — clear them
-      const hasDrag = changes.some((c) => c.type === 'position' && c.dragging);
-      if (hasDrag) {
-        setEdges((eds) =>
-          eds.map((e) => {
-            const d = e.data as Record<string, unknown> | undefined;
-            if (d?.route) {
-              return { ...e, data: { ...d, route: undefined } };
-            }
-            return e;
-          }),
-        );
-      }
-    },
-    [setNodes, setEdges],
+    (changes) => setNodes((nds) => applyNodeChanges(changes, nds)),
+    [setNodes],
   );
 
   const onEdgesChange: OnEdgesChange = useCallback(
@@ -478,7 +438,6 @@ function FlowInner() {
             id: node.id,
             type: node.type || 'default',
             label: String(nodeData.label || node.type || 'Node'),
-            position: node.position,
             inputs: Array.isArray(nodeData.inputs) ? nodeData.inputs : [],
             outputs: Array.isArray(nodeData.outputs) ? nodeData.outputs : [],
             config: (sanitizeConfigWithSchema(
@@ -620,45 +579,25 @@ function FlowInner() {
   const handleAutoLayout = useCallback(async () => {
     const nodeIds = nodes.map((n) => n.id);
     const simpleEdges = edges.map((e) => ({ source: e.source, target: e.target }));
-    const { positions, edgeRoutes, backEdges } = await elkLayout(nodeIds, simpleEdges, ELK_FLOW_OPTS);
+
+    // Build node size map from actual rendered dimensions
+    const nodeSizes = new Map<string, { width: number; height: number }>();
+    for (const node of nodes) {
+      const width = node.measured?.width ?? node.width ?? 320;
+      const height = node.measured?.height ?? node.height ?? 200;
+      nodeSizes.set(node.id, { width, height });
+    }
+
+    const { positions, backEdges } = await elkLayout(nodeIds, simpleEdges, ELK_FLOW_OPTS, nodeSizes);
     setNodes((nds) =>
       nds.map((n) => {
         const pos = positions.get(n.id);
         return pos ? { ...n, position: pos } : n;
       }),
     );
-    // Re-apply back-edge styling after layout, inject ELK routes into edge data
-    setEdges((eds) =>
-      eds.map((edge) => {
-        const edgeKey = `${edge.source}->${edge.target}`;
-        const isBack = backEdges.has(edgeKey);
-        if (isBack) {
-          return {
-            ...edge,
-            type: 'smoothstep',
-            zIndex: 1000,
-            data: { ...((edge.data ?? {}) as Record<string, unknown>), route: undefined },
-            style: { stroke: '#f59e0b', strokeWidth: 2, strokeDasharray: '8 4' },
-            animated: true,
-            markerEnd: { type: MarkerType.ArrowClosed, color: '#f59e0b' },
-            label: t('cycle'),
-            labelStyle: { fill: '#f59e0b', fontWeight: 600, fontSize: 12 },
-          };
-        }
-        // Inject ELK route waypoints so ElegantEdge can draw around nodes
-        const route = edgeRoutes.get(edgeKey);
-        const { style: _s, label: _l, labelStyle: _ls, zIndex: _z, ...rest } = edge;
-        return {
-          ...rest,
-          type: 'elegant',
-          animated: true,
-          data: { ...((edge.data ?? {}) as Record<string, unknown>), route: route ?? undefined },
-        };
-      }),
-    );
-    // Fit view after layout
+    setEdges((eds) => applyEdgeRouting(eds, backEdges));
     requestAnimationFrame(() => reactFlowInstance.fitView({ padding: 0.15, duration: 300 }));
-  }, [nodes, edges, reactFlowInstance, t]);
+  }, [nodes, edges, reactFlowInstance, applyEdgeRouting]);
 
   // 将 overlay state 注入到每个 node 的 data 中
   const nodesWithOverlay = useMemo(
