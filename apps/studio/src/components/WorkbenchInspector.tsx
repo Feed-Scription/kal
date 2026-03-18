@@ -52,7 +52,7 @@ export function WorkbenchInspector({ mobile }: { mobile?: boolean } = {}) {
   const { t } = useTranslation('workbench');
   const { t: tc } = useTranslation('common');
   const { t: tr } = useTranslation('registry');
-  const { activeExtension, activeExtensionRuntime, activeFlowId, activePreset, activeView } = useWorkbench();
+  const { activeExtension, activeExtensionRuntime, activeFlowId, activeView } = useWorkbench();
   const { project, session } = useStudioResources();
   const { resetCapabilityGrants, setCapabilityGrant, setExtensionEnabled } = useStudioCommands();
   const inspectors = useInspectorContributions();
@@ -103,7 +103,7 @@ export function WorkbenchInspector({ mobile }: { mobile?: boolean } = {}) {
   }, [selectedNodeManifest?.config]);
 
   const hasContextCards = inspectors.length > 0 || debugViews.length > 0;
-  const showExtensionInfo = activePreset === 'package' || (activeExtension != null);
+  const showExtensionInfo = activeExtension != null;
 
   return (
     <aside className={mobile ? "flex flex-col" : "flex h-full flex-col overflow-hidden bg-background/70"}>
@@ -229,20 +229,18 @@ export function WorkbenchInspector({ mobile }: { mobile?: boolean } = {}) {
                 <span>{activeFlow.meta.outputs?.length ?? 0}</span>
               </div>
               {/* Session info folded into flow summary */}
-              {(activePreset === 'authoring' || activePreset === 'debug') && (
-                <CollapsibleSection title={t("sessionInfo")}>
-                  <div className="space-y-2 text-xs">
-                    <div className="flex items-center justify-between gap-4">
-                      <span className="text-muted-foreground">{t("status")}</span>
-                      <span>{session ? t('loaded') : t('notConfigured')}</span>
-                    </div>
-                    <div className="flex items-center justify-between gap-4">
-                      <span className="text-muted-foreground">{t("stepCount")}</span>
-                      <span>{session?.steps.length ?? 0}</span>
-                    </div>
+              <CollapsibleSection title={t("sessionInfo")}>
+                <div className="space-y-2 text-xs">
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-muted-foreground">{t("status")}</span>
+                    <span>{session ? t('loaded') : t('notConfigured')}</span>
                   </div>
-                </CollapsibleSection>
-              )}
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-muted-foreground">{t("stepCount")}</span>
+                    <span>{session?.steps.length ?? 0}</span>
+                  </div>
+                </div>
+              </CollapsibleSection>
             </div>
           </section>
         ) : (
