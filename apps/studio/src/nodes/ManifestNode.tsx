@@ -128,7 +128,7 @@ const JsonField = memo(function JsonField({
 
   // ── Structured object preview mode (for Record<string, unknown> without schema) ──
   if (isObject && !rawMode) {
-    const record = value as Record<string, unknown>;
+    const record = (value ?? {}) as Record<string, unknown>;
     const keys = Object.keys(record);
 
     return (
@@ -270,12 +270,12 @@ const JsonField = memo(function JsonField({
         <label className="text-xs text-muted-foreground">
           {labelFor(name)} {required ? "*" : ""}
         </label>
-        {isArray && (
+        {(isArray || isObject) && (
           <button
             type="button"
             onClick={() => setRawMode(false)}
             className="text-muted-foreground transition-colors hover:text-foreground"
-            title={t('switchToList')}
+            title={isObject ? t('switchToStructured') : t('switchToList')}
           >
             <List className="size-3" />
           </button>
