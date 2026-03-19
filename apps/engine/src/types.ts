@@ -187,4 +187,5 @@ export interface EngineEvent {
   sessionId?: string;
   runId?: string;
   message?: string;
+  external?: boolean;
 }

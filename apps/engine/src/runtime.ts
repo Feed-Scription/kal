@@ -10,6 +10,8 @@ import type {
 } from '@kal-ai/core';
 import { readFile, writeFile, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
+import { watch } from 'node:fs';
+import type { FSWatcher } from 'node:fs';
 import { EngineHttpError } from './errors';
 import { loadEngineProject } from './project-loader';
 import type { EngineProject, FlowListItem, ProjectInfo } from './types';
@@ -18,6 +20,11 @@ export class EngineRuntime {
   private projectRoot: string;
   private project: EngineProject | null = null;
   private core: ReturnType<typeof createKalCore> | null = null;
+  private watcher: FSWatcher | null = null;
+  private selfWriteSet = new Set<string>();
+  private cleanupTimers = new Map<string, NodeJS.Timeout>();
+  private debounceTimers = new Map<string, NodeJS.Timeout>();
+  public onExternalFlowChange?: (flowId: string) => void;
 
   private constructor(projectRoot: string) {
     this.projectRoot = projectRoot;
@@ -106,6 +113,21 @@ export class EngineRuntime {
     return flow;
   }
 
+  private markSelfWrite(filePath: string): void {
+    this.selfWriteSet.add(filePath);
+    const existing = this.cleanupTimers.get(filePath);
+    if (existing) clearTimeout(existing);
+    const timer = setTimeout(() => {
+      this.selfWriteSet.delete(filePath);
+      this.cleanupTimers.delete(filePath);
+    }, 2000);
+    this.cleanupTimers.set(filePath, timer);
+  }
+
+  private isSelfWrite(filePath: string): boolean {
+    return this.selfWriteSet.has(filePath);
+  }
+
   async saveFlow(flowId: string, flow: FlowDefinition): Promise<void> {
     const project = this.getProject();
     const nextTexts = {
@@ -131,6 +153,7 @@ export class EngineRuntime {
 
     // Write to disk before updating in-memory state
     const targetFile = project.flowFileMap[flowId] ?? `${project.projectRoot}/flow/${flowId}.json`;
+    this.markSelfWrite(targetFile);
     await writeFile(targetFile, nextTexts[flowId]!, 'utf8');
 
     // Atomically swap in-memory state only after all validation and I/O succeeded
@@ -306,6 +329,90 @@ export class EngineRuntime {
       getState: () => this.getState(),
       setState: (key, value) => this.setState(key, value),
     });
+  }
+
+  private async reloadSingleFlow(flowId: string, filePath: string): Promise<boolean> {
+    try {
+      const diskContent = await readFile(filePath, 'utf8');
+      const project = this.getProject();
+
+      // Content comparison: skip if identical
+      if (project.flowTextsById[flowId] === diskContent) {
+        return false;
+      }
+
+      // Validate the new flow
+      const builtinManifest = new Map(BUILTIN_NODES.map((n) => [n.type, { inputs: n.inputs, outputs: n.outputs }]));
+      const loader = new FlowLoader((nodeType) => builtinManifest.get(nodeType));
+      const nextTexts = { ...project.flowTextsById, [flowId]: diskContent };
+      const resolver = (id: string): string => {
+        const raw = nextTexts[id];
+        if (!raw) throw new Error(`Unknown flow: ${id}`);
+        return raw;
+      };
+
+      const nextFlows: Record<string, FlowDefinition> = {};
+      for (const id of Object.keys(nextTexts).sort()) {
+        nextFlows[id] = loader.load(id, resolver);
+      }
+
+      // Update in-memory state
+      this.project = {
+        ...project,
+        flowTextsById: nextTexts,
+        flowsById: nextFlows,
+      };
+
+      return true;
+    } catch (error) {
+      console.error(`Failed to reload flow ${flowId}:`, error);
+      return false;
+    }
+  }
+
+  startWatching(): void {
+    if (this.watcher) return;
+
+    const flowDir = join(this.projectRoot, 'flow');
+    this.watcher = watch(flowDir, { recursive: false }, (_eventType, filename) => {
+      if (!filename || !filename.endsWith('.json')) return;
+
+      const filePath = join(flowDir, filename);
+      if (this.isSelfWrite(filePath)) return;
+
+      const flowId = filename.replace(/\.json$/, '');
+
+      // Debounce: wait 500ms after last change
+      const existing = this.debounceTimers.get(flowId);
+      if (existing) clearTimeout(existing);
+
+      const timer = setTimeout(() => {
+        this.debounceTimers.delete(flowId);
+        this.reloadSingleFlow(flowId, filePath).then((changed) => {
+          if (changed && this.onExternalFlowChange) {
+            this.onExternalFlowChange(flowId);
+          }
+        });
+      }, 500);
+
+      this.debounceTimers.set(flowId, timer);
+    });
+  }
+
+  stopWatching(): void {
+    if (this.watcher) {
+      this.watcher.close();
+      this.watcher = null;
+    }
+    for (const timer of this.cleanupTimers.values()) {
+      clearTimeout(timer);
+    }
+    for (const timer of this.debounceTimers.values()) {
+      clearTimeout(timer);
+    }
+    this.cleanupTimers.clear();
+    this.debounceTimers.clear();
+    this.selfWriteSet.clear();
   }
 }
 

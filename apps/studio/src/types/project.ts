@@ -182,6 +182,7 @@ export type ProjectData = {
   state: ProjectState;
   session: SessionDefinition | null;
   nodeManifests: NodeManifest[];
+  flowVersions?: Record<string, number>;
 };
 
 export type ResourceId =
@@ -637,6 +638,7 @@ export type EngineEvent = {
   sessionId?: string;
   runId?: string;
   message?: string;
+  external?: boolean;
 };
 
 // ── Git ──
