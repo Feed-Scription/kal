@@ -167,6 +167,10 @@ function FlowInner() {
   // Track drag-connect origin for smart node suggestions
   const connectStartRef = useRef<{ nodeId: string; handleId: string | null; handleType: 'source' | 'target' } | null>(null);
 
+  // Track flowVersion to detect external changes
+  const flowVersion = currentFlow ? (project?.flowVersions?.[currentFlow] ?? 0) : 0;
+  const lastFlowVersionRef = useRef<number>(0);
+
   // Keep refs in sync so handleAutoLayout always reads fresh state
   nodesRef.current = nodes;
   edgesRef.current = edges;
@@ -206,8 +210,16 @@ function FlowInner() {
       return;
     }
 
+    // Detect external version bump
+    const versionChanged = flowVersion !== lastFlowVersionRef.current;
+    if (versionChanged) {
+      lastFlowVersionRef.current = flowVersion;
+      suppressAutoSaveRef.current = true;
+    }
+
     // Skip if we already loaded this flow (project changed due to auto-save)
-    if (lastLoadedFlowRef.current === currentFlow && initialized) return;
+    // BUT force reload when flowVersion changed (external modification)
+    if (lastLoadedFlowRef.current === currentFlow && initialized && !versionChanged) return;
     lastLoadedFlowRef.current = currentFlow;
 
     const flowDef = project.flows[currentFlow];
@@ -286,7 +298,7 @@ function FlowInner() {
     ) {
       setSelection(null, 'flow');
     }
-  }, [currentFlow, manifestMap, project, initialized, applyEdgeRouting, t, selectionContext, selectedNodeId, setSelection]);
+  }, [currentFlow, manifestMap, project, initialized, applyEdgeRouting, t, selectionContext, selectedNodeId, setSelection, flowVersion]);
 
   const onPaneContextMenu = useCallback(
     (event: React.MouseEvent | MouseEvent) => {
@@ -523,10 +535,17 @@ function FlowInner() {
     };
   }, [nodes, edges, project, currentFlow]);
 
-  // Auto-save flow when nodes or edges change (skip during load)
+  // Auto-save flow when nodes or edges change (skip during load and after external changes)
+  const suppressAutoSaveRef = useRef(false);
   useEffect(() => {
     if (!initialized || !project || !currentFlow) return;
     if (isLoadingRef.current) return;
+
+    // Skip one auto-save cycle after external flow version bump
+    if (suppressAutoSaveRef.current) {
+      suppressAutoSaveRef.current = false;
+      return;
+    }
 
     const timeoutId = setTimeout(async () => {
       const flowDef = buildFlowDef();

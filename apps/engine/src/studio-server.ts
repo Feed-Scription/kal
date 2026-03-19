@@ -6,8 +6,8 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { RunManager } from './run-manager';
 import { TerminalSessionManager } from './terminal-session';
-import { handleEngineRequest } from './server';
-import type { StartedEngineServer } from './types';
+import { handleEngineRequest, EngineEventBus } from './server';
+import type { StartedEngineServer, EngineEventName } from './types';
 import { EngineRuntime } from './runtime';
 
 const MIME_TYPES: Record<string, string> = {
@@ -70,6 +70,7 @@ async function handleStudioRequest(
   runtime: EngineRuntime,
   runs: RunManager,
   terminals: TerminalSessionManager,
+  eventBus: EngineEventBus,
   studioDir: string,
   req: IncomingMessage,
   res: ServerResponse,
@@ -80,7 +81,7 @@ async function handleStudioRequest(
 
   // All /api/* requests and non-GET requests go to the engine
   if (pathname.startsWith('/api/') || method !== 'GET') {
-    return handleEngineRequest(runtime, req, res, { runs, terminals });
+    return handleEngineRequest(runtime, req, res, { runs, eventBus, terminals });
   }
 
   // Try serving the exact static file
@@ -115,10 +116,31 @@ export async function startStudioServer(params: {
   const port = params.port ?? 3000;
   const studioDir = getStudioDistDir();
   const runs = RunManager.fromRuntime(params.runtime, params.runStateDir);
+  const eventBus = new EngineEventBus();
   const terminals = new TerminalSessionManager(params.runtime.getProjectRoot());
 
+  // Forward run events to unified event stream
+  runs.subscribe((runEvent) => {
+    eventBus.emit({
+      type: runEvent.type as EngineEventName,
+      runId: runEvent.run.run_id,
+      message: `Run ${runEvent.type.replace('run.', '')}`,
+    });
+  });
+
+  // Bridge file watcher events to SSE
+  params.runtime.onExternalFlowChange = (flowId) => {
+    eventBus.emit({
+      type: 'resource.changed',
+      flowId,
+      message: `Flow externally modified: ${flowId}`,
+      external: true,
+    });
+  };
+  params.runtime.startWatching();
+
   const server = createServer((req, res) => {
-    void handleStudioRequest(params.runtime, runs, terminals, studioDir, req, res);
+    void handleStudioRequest(params.runtime, runs, terminals, eventBus, studioDir, req, res);
   });
 
   await new Promise<void>((resolve, reject) => {
@@ -135,6 +157,8 @@ export async function startStudioServer(params: {
     port: address.port,
     url: `http://${address.address}:${address.port}`,
     close: async () => {
+      params.runtime.stopWatching();
+      terminals.dispose();
       await new Promise<void>((resolve, reject) => {
         server.close((error) => {
           if (error) {

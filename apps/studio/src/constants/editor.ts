@@ -1,1 +1,1 @@
-export const AUTO_SAVE_DEBOUNCE_MS = 3000;
+export const AUTO_SAVE_DEBOUNCE_MS = 10000;

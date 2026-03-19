@@ -1358,16 +1358,23 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
           // Auto-reload affected resources
           if (event.flowId && store.resources.project) {
             void engineApi.getFlow(event.flowId).then((flow) => {
-              set((state) => ({
-                resources: {
-                  project: state.resources.project
-                    ? {
-                        ...state.resources.project,
-                        flows: { ...state.resources.project.flows, [event.flowId!]: flow },
-                      }
-                    : null,
-                },
-              }));
+              set((state) => {
+                const proj = state.resources.project;
+                if (!proj) return {};
+                const updatedProject: ProjectData = {
+                  ...proj,
+                  flows: { ...proj.flows, [event.flowId!]: flow },
+                };
+                // Bump flowVersion counter for external changes so canvas refreshes
+                if (event.external) {
+                  const prev = proj.flowVersions ?? {};
+                  updatedProject.flowVersions = {
+                    ...prev,
+                    [event.flowId!]: (prev[event.flowId!] ?? 0) + 1,
+                  };
+                }
+                return { resources: { project: updatedProject } };
+              });
             });
           }
           store.recordKernelEvent({

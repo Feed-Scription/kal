@@ -144,7 +144,7 @@ function writeSseEvent(res: ServerResponse, event: RunStreamEvent | EngineEvent)
 
 type EngineEventListener = (event: EngineEvent) => void;
 
-class EngineEventBus {
+export class EngineEventBus {
   private listeners = new Set<EngineEventListener>();
 
   subscribe(listener: EngineEventListener): () => void {
@@ -1080,6 +1080,17 @@ export async function startEngineServer(params: {
     });
   });
 
+  // Bridge file watcher events to SSE
+  params.runtime.onExternalFlowChange = (flowId) => {
+    eventBus.emit({
+      type: 'resource.changed',
+      flowId,
+      message: `Flow externally modified: ${flowId}`,
+      external: true,
+    });
+  };
+  params.runtime.startWatching();
+
   const server = createServer((req, res) => {
     void handleEngineRequest(params.runtime, req, res, { runs, eventBus, terminals });
   });
@@ -1098,6 +1109,7 @@ export async function startEngineServer(params: {
     port: address.port,
     url: `http://${address.address}:${address.port}`,
     close: async () => {
+      params.runtime.stopWatching();
       terminals.dispose();
       await new Promise<void>((resolve, reject) => {
         server.close((error) => {
