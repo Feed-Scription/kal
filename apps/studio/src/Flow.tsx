@@ -29,7 +29,6 @@ import { useGraphEditor } from "@/hooks/use-graph-editor";
 import { detectBackEdges } from "@/utils/elk-layout";
 import { applyEdgeRouting, applyBackEdgeStyle } from "@/utils/edge-styling";
 import { useTranslation } from "react-i18next";
-import { AUTO_SAVE_DEBOUNCE_MS } from "@/constants/editor";
 import type { FlowDefinition, HandleDefinition, NodeDefinition, NodeManifest } from "@/types/project";
 
 const ELK_FLOW_OPTS = { nodeWidth: 320, nodeHeight: 200, direction: 'RIGHT' as const };
@@ -271,10 +270,6 @@ function FlowInner() {
   const flowVersion = currentFlow ? (project?.flowVersions?.[currentFlow] ?? 0) : 0;
   const lastFlowVersionRef = useRef<number>(0);
 
-  // Keep refs in sync so handleAutoLayout always reads fresh state
-  nodesRef.current = nodes;
-  edgesRef.current = edges;
-
   const onSelectionChange = useCallback(
     ({ nodes: selected }: { nodes: Node[] }) => {
       if (isLoading && selected.length === 0 && selectionContext === 'flow' && selectedNodeId) {
@@ -298,7 +293,6 @@ function FlowInner() {
     const versionChanged = flowVersion !== lastFlowVersionRef.current;
     if (versionChanged) {
       lastFlowVersionRef.current = flowVersion;
-      suppressAutoSaveRef.current = true;
     }
 
     // Skip if we already loaded this flow (project changed due to auto-save)
@@ -406,7 +400,7 @@ function FlowInner() {
 
         if (origin.handleType === 'source') {
           // Dragged from a specific source handle → smart-match to new node's inputs
-          const originNode = nodesRef.current.find((n) => n.id === origin.nodeId);
+          const originNode = nodes.find((n: Node) => n.id === origin.nodeId);
           const originOutputs = origin.handleId
             ? (originNode?.data as { outputs?: HandleDefinition[] })?.outputs?.filter((o) => o.name === origin.handleId) ?? []
             : (originNode?.data as { outputs?: HandleDefinition[] })?.outputs ?? [];
@@ -426,7 +420,7 @@ function FlowInner() {
           }
         } else {
           // Dragged from a specific target handle → smart-match from new node's outputs
-          const originNode = nodesRef.current.find((n) => n.id === origin.nodeId);
+          const originNode = nodes.find((n: Node) => n.id === origin.nodeId);
           const originInputs = origin.handleId
             ? (originNode?.data as { inputs?: HandleDefinition[] })?.inputs?.filter((i) => i.name === origin.handleId) ?? []
             : (originNode?.data as { inputs?: HandleDefinition[] })?.inputs ?? [];
@@ -472,8 +466,8 @@ function FlowInner() {
       if (origin && nodeElement) {
         const targetNodeId = nodeElement.getAttribute('data-id');
         if (targetNodeId && targetNodeId !== origin.nodeId) {
-          const originNode = nodesRef.current.find((n) => n.id === origin.nodeId);
-          const targetNode = nodesRef.current.find((n) => n.id === targetNodeId);
+          const originNode = nodes.find((n: Node) => n.id === origin.nodeId);
+          const targetNode = nodes.find((n: Node) => n.id === targetNodeId);
           if (originNode && targetNode) {
             const originData = originNode.data as { inputs?: HandleDefinition[]; outputs?: HandleDefinition[] };
             const targetData = targetNode.data as { inputs?: HandleDefinition[]; outputs?: HandleDefinition[] };
@@ -604,32 +598,6 @@ function FlowInner() {
       },
     };
   }, [nodes, edges, project, currentFlow]);
-
-  // Auto-save flow when nodes or edges change (skip during load and after external changes)
-  const suppressAutoSaveRef = useRef(false);
-  useEffect(() => {
-    if (!initialized || !project || !currentFlow) return;
-    if (isLoadingRef.current) return;
-
-    // Skip one auto-save cycle after external flow version bump
-    if (suppressAutoSaveRef.current) {
-      suppressAutoSaveRef.current = false;
-      return;
-    }
-
-    const timeoutId = setTimeout(async () => {
-      const flowDef = buildFlowDef();
-      if (!flowDef) return;
-
-      try {
-        await saveFlow(currentFlow, flowDef);
-      } catch (error) {
-        console.error('Auto-save failed:', error);
-      }
-    }, AUTO_SAVE_DEBOUNCE_MS);
-
-    return () => clearTimeout(timeoutId);
-  }, [nodes, edges, initialized, currentFlow, saveFlow, buildFlowDef]);
 
   const handleExportFlow = useCallback(() => {
     const flowDef = buildFlowDef();
