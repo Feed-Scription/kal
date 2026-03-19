@@ -5,14 +5,20 @@ type RaceBonus = { str: number; dex: number; int: number };
 
 const CLASS_BASE: Record<string, ClassBase> = {
   warrior: { str: 14, dex: 10, int: 8, hp: 120, skills: ['重击', '盾墙', '战吼'] },
+  '战士': { str: 14, dex: 10, int: 8, hp: 120, skills: ['重击', '盾墙', '战吼'] },
   mage: { str: 8, dex: 10, int: 14, hp: 80, skills: ['火球术', '冰冻', '魔法护盾'] },
+  '法师': { str: 8, dex: 10, int: 14, hp: 80, skills: ['火球术', '冰冻', '魔法护盾'] },
   rogue: { str: 10, dex: 14, int: 10, hp: 100, skills: ['背刺', '潜行', '毒刃'] },
+  '盗贼': { str: 10, dex: 14, int: 10, hp: 100, skills: ['背刺', '潜行', '毒刃'] },
 };
 
 const RACE_BONUS: Record<string, RaceBonus> = {
   human: { str: 2, dex: 2, int: 2 },
+  '人类': { str: 2, dex: 2, int: 2 },
   elf: { str: 0, dex: 4, int: 2 },
+  '精灵': { str: 0, dex: 4, int: 2 },
   dwarf: { str: 4, dex: -2, int: 0 },
+  '矮人': { str: 4, dex: -2, int: 0 },
 };
 
 const CharacterGen: CustomNode = {

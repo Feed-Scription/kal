@@ -160,6 +160,7 @@ export const SubFlow: CustomNode = {
     required: ['ref'],
     properties: {
       ref: { type: 'string' },
+      timeout: { type: 'number' },
     },
     additionalProperties: false,
   },

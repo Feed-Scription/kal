@@ -2,8 +2,8 @@ import { ScrollText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { EmptyState } from '@/components/EmptyState';
 import { Button } from '@/components/ui/button';
+import { TraceEntryCard } from '@/components/TraceEntryCard';
 import { useRunDebug, useStudioCommands } from '@/kernel/hooks';
-import { formatTimeFromTimestamp } from '@/i18n/format';
 
 export function TracePanel() {
   const { t } = useTranslation('debug');
@@ -17,7 +17,7 @@ export function TracePanel() {
         <div className="flex items-center gap-2">
           <ScrollText className="size-4" />
           <div>
-            <h3 className="text-sm font-semibold">Trace Panel</h3>
+            <h3 className="text-sm font-semibold">{t('trace.panelTitle')}</h3>
             <p className="text-xs text-muted-foreground">{t('trace.panelSubtitle')}</p>
           </div>
         </div>
@@ -31,30 +31,11 @@ export function TracePanel() {
       ) : (
         <>
           <div className="text-xs text-muted-foreground">
-            {selectedRun.run_id} · {selectedRun.status} · {selectedTimeline.length} timeline entries · {breakpoints.length} breakpoints
+            {selectedRun.run_id} · {t(`runStatusLabel.${selectedRun.status}`)} · {t('stream.footerEvents', { count: selectedTimeline.length })} · {t('stream.footerBreakpoints', { count: breakpoints.length })}
           </div>
           <div className="space-y-2">
             {preview.map((entry) => (
-              <div
-                key={entry.id}
-                className={`rounded-lg border px-3 py-2 text-sm ${
-                  entry.eventType === 'run.breakpoint' ? 'border-amber-400 bg-amber-50/60' : ''
-                }`}
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div className="font-medium">{entry.title}</div>
-                  <div className="text-xs text-muted-foreground">{formatTimeFromTimestamp(entry.timestamp)}</div>
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  {entry.eventType} · {entry.cursorStepId ?? 'null'} · {entry.status}
-                </div>
-                {entry.detail ? <div className="mt-1 text-xs">{entry.detail}</div> : null}
-                {entry.changedKeys.length > 0 ? (
-                  <div className="mt-1 text-xs text-muted-foreground">
-                    changed: {entry.changedKeys.slice(0, 4).join(', ')}
-                  </div>
-                ) : null}
-              </div>
+              <TraceEntryCard key={entry.id} entry={entry} />
             ))}
           </div>
         </>

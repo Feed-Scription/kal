@@ -2,6 +2,7 @@
   "cycle": "循环",
   "saveFailed": "保存失败: {{message}}",
   "nodeCount": "({{count}} 节点)",
+  "nodeProgress": "({{progress}} 节点)",
   "save": "保存",
   "saveFlow": "保存 Flow (Ctrl+S)",
   "export": "导出",
@@ -59,6 +60,11 @@
     "condition": "条件",
     "content": "内容",
     "type": "类型",
-    "role": "角色"
+    "role": "角色",
+    "maxTokens": "最大 Token 数",
+    "weights": "权重",
+    "fragmentId": "Id",
+    "seedRandom": "随机",
+    "seedFixed": "固定索引"
   }
 }

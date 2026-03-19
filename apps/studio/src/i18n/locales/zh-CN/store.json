@@ -131,5 +131,7 @@
   "applyingRedoSnapshot": "应用重做快照",
   "extensionActivated": "扩展 {{extensionId}} 已激活 ({{reason}})",
   "extensionError": "扩展 {{extensionId}} 发生错误: {{message}}",
-  "historyRolledBack": "历史已回滚到 checkpoint {{label}}"
+  "historyRolledBack": "历史已回滚到 checkpoint {{label}}",
+  "flowExecutionFailed": "Flow 执行失败",
+  "resourceChanged": "资源已变更"
 }

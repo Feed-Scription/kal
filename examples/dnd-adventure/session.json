@@ -64,15 +64,15 @@
       "options": [
         {
           "label": "人类 — 适应力强，全能型",
-          "value": "human"
+          "value": "人类"
         },
         {
           "label": "精灵 — 敏捷灵巧，擅长弓箭和魔法",
-          "value": "elf"
+          "value": "精灵"
         },
         {
           "label": "矮人 — 强壮耐打，擅长近战和锻造",
-          "value": "dwarf"
+          "value": "矮人"
         }
       ],
       "stateKey": "race",
@@ -85,15 +85,15 @@
       "options": [
         {
           "label": "战士 — 近战专家，高生命值",
-          "value": "warrior"
+          "value": "战士"
         },
         {
           "label": "法师 — 魔法大师，远程输出",
-          "value": "mage"
+          "value": "法师"
         },
         {
           "label": "盗贼 — 敏捷刺客，擅长潜行和暴击",
-          "value": "rogue"
+          "value": "盗贼"
         }
       ],
       "stateKey": "class",
@@ -146,24 +146,7 @@
           "next": "victory"
         }
       ],
-      "default": "compact-check"
-    },
-    {
-      "id": "compact-check",
-      "type": "Branch",
-      "conditions": [
-        {
-          "when": "state.history.length >= 10",
-          "next": "do-compact"
-        }
-      ],
       "default": "turn"
-    },
-    {
-      "id": "do-compact",
-      "type": "RunFlow",
-      "flowRef": "compact-history",
-      "next": "turn"
     },
     {
       "id": "death",

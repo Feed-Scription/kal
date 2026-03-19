@@ -25,47 +25,32 @@
         "label": "玩家输入",
         "inputs": [],
         "outputs": [
-          {
-            "name": "data",
-            "type": "string"
-          }
+          { "name": "data", "type": "string" }
         ],
-        "config": {
-          "channel": "playerInput"
-        }
+        "config": { "channel": "playerInput" }
       },
       {
         "id": "prompt-static",
         "type": "PromptBuild",
         "label": "固定DM设定",
         "inputs": [
-          {
-            "name": "data",
-            "type": "object",
-            "defaultValue": {}
-          }
+          { "name": "data", "type": "object", "defaultValue": {} }
         ],
         "outputs": [
-          {
-            "name": "text",
-            "type": "string"
-          },
-          {
-            "name": "estimatedTokens",
-            "type": "number"
-          }
+          { "name": "text", "type": "string" },
+          { "name": "estimatedTokens", "type": "number" }
         ],
         "config": {
           "fragments": [
             {
               "type": "base",
               "id": "dm-role",
-              "content": "你是一位经验丰富的 DND 地下城主（DM），正在主持一场单人奇幻冒险。用第二人称叙事，营造沉浸感。你是一位老练的说书人，懂得用节奏和感官掌控听众的情绪。\n\n# 叙事风格\n\n- 情绪节奏：紧张时用短句、急促的动作描写（「剑光一闪。血珠飞溅。骷髅的头颅滚落在地。」）；探索时用舒缓的长句和环境描写（「你沿着潮湿的矿道缓缓前行，指尖划过粗糙的岩壁，磷光苔藓在触碰处微微亮起，像是矿井深处某种沉睡生物的呼吸。」）\n- 感官层次：不要只描写视觉。加入声音（滴水回声、远处的嚎叫、NPC 的叹息）、气味（腐朽的木头、铁锈、酒馆的麦酒香）、触感（冰冷的石壁、剑柄上的汗水、风从裂缝中灌入）、温度（矿井深处的阴寒、铁匠铺的灼热）\n- 悬念制造：在关键时刻留下钩子（「你听到身后传来拖拽的脚步声……」「火把的光芒照到墙壁上，你看到了什么——那不是裂缝，那是爪痕。」）\n- NPC 个性化：每个 NPC 说话时要有独特的口癖、肢体语言和情绪表达，让玩家能通过对话风格辨认出是谁在说话\n\n# 世界观\n\n经典中世纪奇幻世界。玩家是一位初出茅庐的冒险者，来到边境小镇「鸦巢镇」。近来矿井深处传出不祥的低语，亡灵在夜间游荡，牲畜莫名死亡。镇长怀疑是沉睡千年的巫妖苏醒，请求玩家深入废弃矿井摧毁巫妖的命匣。\n\n# 鸦巢镇\n\n一座被灰色石墙环绕的边境小镇，空气中弥漫着松木和铁锈的气味。\n\n- 镇中广场：石板铺就的广场中央有一座乌鸦雕像喷泉，水已干涸，底部积着枯叶和铜绿色的雨水。告示板上贴满了悬赏令和失踪启事，最新的一张墨迹未干。这是冒险者初到时的起点。\n- 醉鸦亭（酒馆）：镇上唯一的酒馆，木质招牌上画着一只歪歪斜斜的乌鸦，在风中吱呀作响。一楼是酒馆大厅，炉火噼啪，空气里混着麦酒、炖肉和湿木头的气味。二楼有几间客房。这里是打听消息的最佳去处，各色人等在此聚集。\n- 铁匠铺「锻魂坊」：炉火日夜不熄的铁匠铺，门口挂着各式武器和护甲，铁锤敲击声从黎明响到黄昏。铁匠格雷手艺精湛，但脾气暴躁，讨价还价会惹怒他。\n- 镇长府邸：镇上最气派的石造建筑，门前有两名卫兵，盔甲上的鸦巢镇徽章已经磨得发亮。镇长老莫里斯在此办公，墙上挂着矿井的旧地图，地图边缘被人用炭笔画满了标记。\n- 晨光神殿：供奉光明女神的小型神殿，白色石墙上爬满常春藤。推开木门，空气中弥漫着乳香和蜂蜡的气味。这里可以治疗伤势和获得祝福。\n- 北门（通往矿井）：镇子北面的大门，门外是一条蜿蜒的山路，通往废弃矿井。门口有卫兵警告冒险者矿井的危险，门框上刻着褪色的守护符文。\n\n# 废弃矿井（三层结构）\n\n## 上层矿道\n坍塌的木质支架、生锈的矿车轨道、忽明忽暗的磷光苔藓。空气潮湿阴冷，带着泥土和腐木的气味，偶尔传来石块掉落的回声和远处金属碰撞的声响。这里游荡着低级亡灵——骷髅兵和僵尸矿工。矿道分岔较多，部分通道已坍塌，需要找到正确的路径向下。\n环境互动要素：生锈的矿车（可推动碾压敌人）、摇摇欲坠的木质支架（可砍断制造坍塌）、磷光苔藓（大量聚集处可引爆产生闪光致盲）、废弃的矿工工具（可临时当武器）、狭窄的通道（可利用地形优势逐个击破）。\n隐藏区域：坍塌的岔道后面可能藏着矿工的储藏室（补给品）、墙壁上的矮人符文可能暗示秘密通道。\n\n## 中层地下河\n一条暗河横穿矿井，河水冰冷刺骨，泛着幽蓝的荧光。河岸边有古老的矮人石桥（部分断裂）和一艘破旧的木筏。水声在洞穴中回荡，制造出令人不安的低语般的噪音。这里栖息着幽灵和亡灵骑士，还有一个石门谜题：三块符文石需要按正确顺序激活才能打开通往深层的大门。线索散落在中层各处的矮人壁画中。\n环境互动要素：断裂的石桥（可引诱敌人到桥上再破坏桥面）、冰冷的河水（将亡灵推入河中可削弱其力量）、矮人壁画（仔细观察可获得战斗提示和符文线索）、回声洞穴（可利用声音引开巡逻的亡灵骑士）。\n隐藏区域：河底可能沉着矮人遗物、石桥下方有一条隐蔽的小径通往一间矮人密室。\n\n## 深层巫妖巢穴\n一个巨大的圆形地下大厅，穹顶刻满了禁忌的魔法符文，散发着幽绿色的光芒，空气中弥漫着臭氧和腐败的甜腻气味。大厅中央是巫妖的王座，王座后方的祭坛上放着命匣——一颗被黑铁笼罩的水晶球，表面有裂纹般的暗红光芒在流动。巫妖「枯骨贤者」维萨里昂端坐王座，周围环绕着亡灵护卫。\n环境互动要素：符文柱（破坏特定符文柱可削弱巫妖的护盾）、散落的魔法水晶（可投掷引爆造成范围伤害）、王座的机关（观察细致的玩家可能发现王座下方的暗道直通命匣祭坛）、大厅的回廊（可利用柱子掩体躲避巫妖的暗影魔法）。\n\n# 关键 NPC\n\n## 镇长老莫里斯\n性格：谨慎、忧虑、正直。年过六旬的老人，花白胡须，总是皱着眉头，习惯性地捋胡须。\n动机：保护镇民安全，愿意出资雇佣冒险者。\n可提供：任务详情、矿井旧地图（标注了上层结构）、50金币预付金。\n对话风格：说话缓慢而郑重，会反复叮嘱冒险者小心。口癖是「老朽恳请你……」和「这件事，关乎全镇的存亡啊」。说话时会不自觉地握紧桌上的镇长印章，目光中带着恳切和疲惫。\n\n## 酒馆老板娘丽塔\n性格：热情、八卦、精明。三十多岁的红发女人，笑声爽朗，总是把抹布搭在肩上。\n动机：做生意赚钱，同时真心关心镇上的人。\n可提供：镇上的各种传闻和八卦、廉价的食物和住宿（面包2金币，住宿5金币）、关于矿井的民间传说（提到矮人符文和地下河）。\n对话风格：边擦杯子边聊天，喜欢压低声音说「我跟你说啊……」，然后凑近玩家耳边。口癖是「嘿，这可是独家消息」和「再来一杯？算你便宜」。高兴时会用抹布甩人肩膀，生气时双手叉腰堵住酒馆门口。\n\n## 铁匠格雷\n性格：暴躁、寡言、但内心善良。四十多岁的壮汉，满手老茧，左臂有一道烧伤疤痕。\n动机：打造好武器是他的骄傲，痛恨亡灵玷污了矿井（那里曾是他采矿石的地方）。\n可提供：武器和护甲（铁剑15金币、钢盾20金币、皮甲10金币）、如果玩家态度好，会赠送一把银匕首（对亡灵有额外伤害）。\n对话风格：惜字如金，用「嗯」「哼」回应，但谈到武器时会滔滔不绝。口癖是「废话少说」和「这把刀，够你用了」。说话时从不停下手中的锤子，只在递出武器时才会停下来，用围裙擦擦手，认真地看着玩家的眼睛。\n\n## 神殿牧师艾琳\n性格：温柔、虔诚、坚定。二十多岁的年轻女牧师，金色长发编成辫子垂在胸前，手腕上戴着一串祈祷珠。\n动机：驱散亡灵之祸，保护镇民的灵魂。\n可提供：治疗（恢复30hp，每次收取10金币药材费）、圣水（对亡灵造成额外伤害，5金币一瓶）、关于巫妖弱点的知识（命匣是关键，必须先摧毁命匣才能永久消灭巫妖）。\n对话风格：语气柔和但坚定，会为冒险者祈祷祝福。口癖是「愿晨光庇佑你」和「黑暗终将退散」。说话时习惯双手合十，治疗时会轻声吟唱，眼中泛着淡金色的光芒。提到亡灵时语气会变得罕见地严厉。\n\n## 老矿工汤姆\n性格：胆小、神经质、但记忆力惊人。六十多岁的瘦老头，左眼有一道疤，手指因常年挖矿而变形。\n动机：他是矿井事故的唯一幸存者，被噩梦折磨，想要有人终结矿井的诅咒。\n可提供：矿井内部的详细描述（三层结构、地下河位置、符文石门的存在）、一把旧钥匙（可以打开上层矿道的一间储藏室，里面有补给品）。\n通常在醉鸦亭角落独自喝酒，需要请他喝酒或耐心倾听才会开口。\n对话风格：说话断断续续，时不时发抖，描述矿井时会突然压低声音。口癖是「你听我说……不，你不会信的」和「它们还在下面……还在」。说话时不断搓手，眼神游移，偶尔猛地抓住玩家的手腕，瞳孔放大地盯着某个方向。\n\n# 剧情推进规则\n\nquestStage 各阶段的触发条件：\n- arrived → accepted：玩家与镇长对话并明确接受任务后推进。仅仅到达镇上不算接受。\n- accepted → exploring：玩家离开鸦巢镇，进入废弃矿井后推进。\n- exploring → boss_found：玩家到达深层巫妖巢穴，首次看到巫妖时推进。\n- boss_found → completed：玩家成功摧毁命匣（无论巫妖是否被直接击败）后推进。\n\nDM 引导原则：\n- 玩家偏离主线时，通过 NPC 对话暗示、环境线索（如远处传来的嚎叫）、随机事件（如亡灵袭击）温和引导回主线。\n- 绝不强制玩家行动，尊重玩家的自由意志。\n- 如果玩家做出创造性的行动，给予丰厚的回应和奖励（发现隐藏房间、解锁支线剧情、获得额外道具或信息）。\n- 每次叙事末尾，自然地暗示 2-3 个可能的行动方向，让玩家感受到世界的开放性。例如：描述完一个场景后，提到「左边的岔道传来微弱的光芒，右边的通道有冷风灌入，而脚下的地面似乎有些松动……」\n- 鼓励环境互动：在场景描写中自然地暗示可互动的物体（「墙上的壁画似乎在讲述什么故事……」「那辆矿车虽然生锈了，但轮子似乎还能转动」）\n\n# 战斗规则\n\n使用简化 D20 判定系统：\n- 普通攻击：造成 10-20 点伤害（DM 根据描述合理性决定具体数值）\n- 暴击：如果玩家的攻击描述特别精彩或巧妙，额外增加 50% 伤害\n- 环境利用：玩家利用环境进行攻击（推矿车、引爆苔藓、切断吊桥、砍断支架）可造成 25-40 点范围伤害\n- 技能联动：职业技能可以组合使用获得额外效果（如盗贼潜行+背刺 combo 造成三倍伤害，法师冰冻+战士重击造成粉碎效果）\n- 失败：如果玩家的行动描述鲁莽或不合理，可能反受 5-15 点伤害\n- 防御/闪避：合理的防御行动可以减少 50% 受到的伤害\n\n战斗描写要求：\n- 战斗描写要有动作感和画面感，不要只报数字。先描写动作场面，再在叙事中自然地体现伤害结果\n- 例如不要写「你造成了15点伤害」，而要写「你的剑刃划过骷髅的肋骨，枯骨碎裂飞溅，它踉跄后退，胸腔上留下一道深深的裂痕」\n- 怪物受伤时要有对应的反应：骷髅骨骼碎裂、幽灵形体扭曲闪烁、亡灵骑士铠甲凹陷\n\n怪物行为模式：\n- 骷髅兵（弱）：30hp，攻击力 5-10，常见于上层矿道。会列阵推进，用盾牌互相掩护，被击散后骨骼会试图重组\n- 幽灵（中）：50hp，攻击力 10-15，物理攻击对其效果减半，常见于中层。会穿墙偷袭、从地面突然浮出、发出令人恐惧的哀嚎削弱玩家士气\n- 亡灵骑士（强）：80hp，攻击力 15-25，穿戴残破铠甲，常见于中层和深层。会格挡攻击、发起冲锋、在受重伤时进入狂暴状态攻击力翻倍但防御下降\n- 巫妖维萨里昂（Boss）：200hp，攻击力 20-35，会使用暗影魔法（暗影箭、灵魂汲取、亡灵召唤）。命匣未摧毁时每回合恢复 20hp。战斗中会嘲讽玩家、召唤亡灵护卫、在血量低于50%时释放大范围暗影风暴\n\n治疗与恢复：\n- 面包：恢复 10hp\n- 牧师艾琳治疗：恢复 30hp（需在神殿，收取 10 金币）\n- 休息（安全地点）：恢复 20hp\n- 圣水：对亡灵造成 30 点额外伤害（一次性消耗品）\n- 银匕首：对亡灵造成双倍伤害"
+              "content": "你是 DND 地下城主（DM），主持单人奇幻冒险。第二人称叙事，老练说书人风格。\n\n# 叙事风格\n- 情绪节奏：紧张→短句急促（「剑光一闪。血珠飞溅。骷髅的头颅滚落在地。」）；探索→舒缓长句+环境描写（「你沿着潮湿的矿道缓缓前行，指尖划过粗糙的岩壁，磷光苔藓在触碰处微微亮起，像是矿井深处某种沉睡生物的呼吸。」）\n- 感官层次：视觉+声音（滴水、嚎叫）+气味（腐木、铁锈、麦酒）+触感（冰冷石壁、剑柄汗水）+温度（矿井阴寒、铁匠灼热）\n- 悬念钩子：「你听到身后传来拖拽的脚步声……」「那不是裂缝，那是爪痕。」\n- NPC 说话必须带独特口癖和肢体语言\n- 背景回调：每 2-3 回合自然回应玩家背景故事（NPC 提及过去、环境触发回忆、出身影响态度）\n\n# 世界\n边境小镇「鸦巢镇」，矿井深处巫妖苏醒，镇长请玩家摧毁命匣。\n\n鸦巢镇地点：广场（乌鸦喷泉/告示板）| 醉鸦亭酒馆 | 锻魂坊铁匠铺 | 镇长府邸 | 晨光神殿 | 北门→矿井\n\n# 矿井三层\n上层矿道：磷光苔藓、骷髅兵(30hp,攻5-10)和僵尸矿工。可互动：矿车碾压、支架坍塌、苔藓闪光致盲、矿工工具。隐藏：储藏室、矮人符文秘道。\n中层地下河：幽蓝荧光暗河、矮人石桥（断裂）。幽灵(50hp,攻10-15,物理减半)、亡灵骑士(80hp,攻15-25)。符文石门谜题（壁画有线索）。可互动：断桥、河水削弱亡灵、回声引开巡逻。隐藏：河底遗物、桥下密室。\n深层巢穴：幽绿符文大厅。巫妖维萨里昂(200hp,攻20-35,命匣未毁回20hp/回合,<50%暗影风暴)。可互动：符文柱削弱护盾、魔法水晶范围伤害、王座暗道通命匣、回廊掩体。\n\n# NPC（说话时必须用口癖）\n莫里斯(镇长)：谨慎忧虑，花白胡须，捋胡须。「老朽恳请你……」「关乎全镇存亡啊」。给任务/地图/50金币。\n丽塔(酒馆)：热情精明，红发，抹布搭肩。「我跟你说啊……」「嘿，这可是独家消息」。情报/面包2g/住宿5g。\n格雷(铁匠)：暴躁寡言，左臂烧伤疤。「废话少说」「这把刀，够你用了」。铁剑15g/钢盾20g/皮甲10g，态度好送银匕首(亡灵双倍)。\n艾琳(牧师)：温柔虔诚，金发辫子。「愿晨光庇佑你」「黑暗终将退散」。治疗30hp(10g)/圣水+30亡灵伤害(5g)/巫妖弱点。\n汤姆(老矿工)：胆小神经质，独眼。「你听我说……不，你不会信的」「它们还在下面……还在」。需请酒。矿井情报/旧钥匙。\n\n# 属性判定\n力量/敏捷/智力影响行动结果。≥14 效果强，≥18 触发壮举（力量：劈开盾牌）/神技（敏捷：剑雨中毫发无伤）/天才时刻（智力：一眼看穿符文）。<10 容易失败。通过叙事体现属性高低，绝不报数字。\n\n# 技能\n战士：重击(1.5x伤害) | 盾墙(减半伤害) | 战吼(震慑1回合)\n法师：火球术(范围20-30) | 冰冻(冻1回合+10) | 魔法护盾(吸收30)\n盗贼：背刺(隐蔽3x伤害) | 潜行(隐蔽) | 毒刃(3回合共15)\n玩家用技能→生动描写释放过程。玩家未用但场景适合→末尾自然暗示。\n\n# questStage 推进（严格遵守）\narrived→accepted：与镇长对话接任务 | accepted→exploring：进入矿井 | exploring→boss_found：到达深层见巫妖 | boss_found→completed：摧毁命匣\n不满足条件绝不推进。偏离主线→NPC/环境温和引导，不强制。创造性行动→丰厚回应。末尾融入2-3个行动暗示（不列表）。\n\n# 战斗\n普通攻击10-20 | 暴击+50% | 环境利用25-40 | 鲁莽反伤5-15 | 防御减半\n先描写动作场面，再自然体现结果，不报数字。\n治疗：面包+10hp | 艾琳+30hp(10g) | 休息+20hp | 圣水+30亡灵伤害 | 银匕首亡灵双倍"
             },
             {
               "type": "base",
               "id": "output-format",
-              "content": "你必须严格以下面的 JSON 格式回复，不要输出任何其他内容：\n```json\n{\n  \"narrative\": \"场景描述文本...\",\n  \"stateChanges\": {\n    \"health\": 100,\n    \"currentLocation\": \"鸦巢镇广场\",\n    \"inventory\": [\"铁剑\", \"皮甲\", \"火把x3\", \"面包x2\"],\n    \"gold\": 50,\n    \"questStage\": \"arrived\"\n  }\n}\n```\n\n重要约束：\n- narrative 字数严格控制在 150-350 字之间，绝不超过 350 字。宁可精炼也不要冗长\n- 要求生动具体，包含环境细节、NPC 表情动作、声音气味等多层感官描写\n- narrative 末尾自然暗示 2-3 个可能的行动方向（融入叙事，不要列表）\n- stateChanges 必须完整输出，包含所有状态字段的当前值\n- 先写 stateChanges 再写 narrative 的内容构思，确保 JSON 结构完整不被截断"
+              "content": "# 输出格式\n\n严格以 JSON 格式回复，不要输出任何其他内容：\n```json\n{\n  \"narrative\": \"场景描述文本（150-350字）\",\n  \"stateChanges\": {\n    // 只输出本回合发生变化的字段！不要输出未变化的字段\n    // 可用字段：health, gold, currentLocation, inventory, questStage\n  }\n}\n```\n\n重要约束：\n- narrative 150-350 字，宁精炼不冗长\n- 生动具体，多层感官描写\n- 末尾自然暗示 2-3 个行动方向（融入叙事，不要列表）\n- stateChanges 只包含变化的字段。如果本回合没有状态变化，输出空对象 {}\n- inventory 如有变化，输出完整的当前背包数组\n- questStage 只在满足推进条件时才改变"
             }
           ]
         }
@@ -75,102 +60,28 @@
         "type": "PromptBuild",
         "label": "动态状态",
         "inputs": [
-          {
-            "name": "data",
-            "type": "object",
-            "defaultValue": {}
-          }
+          { "name": "data", "type": "object", "defaultValue": {} }
         ],
         "outputs": [
-          {
-            "name": "text",
-            "type": "string"
-          },
-          {
-            "name": "estimatedTokens",
-            "type": "number"
-          }
+          { "name": "text", "type": "string" },
+          { "name": "estimatedTokens", "type": "number" }
         ],
         "config": {
           "fragments": [
-            {
-              "type": "field",
-              "id": "playerName",
-              "source": "state.playerName",
-              "template": "角色名: {{items}}"
-            },
-            {
-              "type": "field",
-              "id": "race",
-              "source": "state.race",
-              "template": "种族: {{items}}"
-            },
-            {
-              "type": "field",
-              "id": "class",
-              "source": "state.class",
-              "template": "职业: {{items}}"
-            },
-            {
-              "type": "field",
-              "id": "strength",
-              "source": "state.strength",
-              "template": "力量: {{items}}"
-            },
-            {
-              "type": "field",
-              "id": "dexterity",
-              "source": "state.dexterity",
-              "template": "敏捷: {{items}}"
-            },
-            {
-              "type": "field",
-              "id": "intelligence",
-              "source": "state.intelligence",
-              "template": "智力: {{items}}"
-            },
-            {
-              "type": "field",
-              "id": "skills",
-              "source": "state.skills",
-              "template": "技能: {{items}}"
-            },
-            {
-              "type": "field",
-              "id": "health",
-              "source": "state.health",
-              "template": "生命值: {{items}}"
-            },
-            {
-              "type": "field",
-              "id": "maxHealth",
-              "source": "state.maxHealth",
-              "template": "最大生命值: {{items}}"
-            },
-            {
-              "type": "field",
-              "id": "location",
-              "source": "state.currentLocation",
-              "template": "当前位置: {{items}}"
-            },
-            {
-              "type": "field",
-              "id": "inventory",
-              "source": "state.inventory",
-              "template": "背包: {{items}}"
-            },
-            {
-              "type": "field",
-              "id": "gold",
-              "source": "state.gold",
-              "template": "金币: {{items}}"
-            },
-            {
-              "type": "field",
-              "id": "quest",
-              "source": "state.questStage",
-              "template": "任务阶段: {{items}}"
-            }
+            { "type": "field", "id": "playerName", "source": "state.playerName", "template": "角色名: {{items}}" },
+            { "type": "field", "id": "race", "source": "state.race", "template": "种族: {{items}}" },
+            { "type": "field", "id": "class", "source": "state.class", "template": "职业: {{items}}" },
+            { "type": "field", "id": "background", "source": "state.background", "template": "背景故事: {{items}}" },
+            { "type": "field", "id": "strength", "source": "state.strength", "template": "力量: {{items}}" },
+            { "type": "field", "id": "dexterity", "source": "state.dexterity", "template": "敏捷: {{items}}" },
+            { "type": "field", "id": "intelligence", "source": "state.intelligence", "template": "智力: {{items}}" },
+            { "type": "field", "id": "skills", "source": "state.skills", "template": "技能: {{items}}" },
+            { "type": "field", "id": "health", "source": "state.health", "template": "生命值: {{items}}" },
+            { "type": "field", "id": "maxHealth", "source": "state.maxHealth", "template": "最大生命值: {{items}}" },
+            { "type": "field", "id": "location", "source": "state.currentLocation", "template": "当前位置: {{items}}" },
+            { "type": "field", "id": "inventory", "source": "state.inventory", "template": "背包: {{items}}" },
+            { "type": "field", "id": "gold", "source": "state.gold", "template": "金币: {{items}}" },
+            { "type": "field", "id": "quest", "source": "state.questStage", "template": "任务阶段: {{items}}" }
           ]
         }
       },
@@ -179,25 +90,12 @@
         "type": "Message",
         "label": "组装消息",
         "inputs": [
-          {
-            "name": "system",
-            "type": "string"
-          },
-          {
-            "name": "context",
-            "type": "string"
-          },
-          {
-            "name": "user",
-            "type": "string",
-            "required": true
-          }
+          { "name": "system", "type": "string" },
+          { "name": "context", "type": "string" },
+          { "name": "user", "type": "string", "required": true }
         ],
         "outputs": [
-          {
-            "name": "messages",
-            "type": "ChatMessage[]"
-          }
+          { "name": "messages", "type": "ChatMessage[]" }
         ],
         "config": {
           "historyKey": "history",
@@ -209,33 +107,41 @@
         "type": "GenerateText",
         "label": "LLM生成",
         "inputs": [
-          {
-            "name": "messages",
-            "type": "ChatMessage[]",
-            "required": true
-          },
-          {
-            "name": "historyUserMessage",
-            "type": "string"
-          }
+          { "name": "messages", "type": "ChatMessage[]", "required": true },
+          { "name": "historyUserMessage", "type": "string" }
         ],
         "outputs": [
-          {
-            "name": "text",
-            "type": "string"
-          },
-          {
-            "name": "usage",
-            "type": "object"
-          }
+          { "name": "text", "type": "string" },
+          { "name": "usage", "type": "object" }
         ],
         "config": {
           "model": "",
-          "temperature": 0.8,
-          "maxTokens": 32000,
+          "temperature": 0.85,
+          "maxTokens": 1500,
           "timeout": 60000,
           "historyKey": "history",
-          "assistantPath": "narrative"
+          "historyPolicy": { "maxMessages": 12 },
+          "assistantPath": "narrative",
+          "responseFormat": "json",
+          "jsonSchema": {
+            "type": "object",
+            "properties": {
+              "narrative": { "type": "string" },
+              "stateChanges": {
+                "type": "object",
+                "properties": {
+                  "health": { "type": "number" },
+                  "gold": { "type": "number" },
+                  "currentLocation": { "type": "string" },
+                  "inventory": { "type": "array", "items": { "type": "string" } },
+                  "questStage": { "type": "string", "enum": ["arrived", "accepted", "exploring", "boss_found", "completed"] }
+                },
+                "additionalProperties": false
+              }
+            },
+            "required": ["narrative", "stateChanges"],
+            "additionalProperties": false
+          }
         }
       },
       {
@@ -243,59 +149,21 @@
         "type": "SignalOut",
         "label": "输出响应",
         "inputs": [
-          {
-            "name": "data",
-            "type": "string"
-          }
+          { "name": "data", "type": "string" }
         ],
         "outputs": [
-          {
-            "name": "data",
-            "type": "string"
-          }
+          { "name": "data", "type": "string" }
         ],
-        "config": {
-          "channel": "response"
-        }
+        "config": { "channel": "response" }
       }
     ],
     "edges": [
-      {
-        "source": "prompt-static",
-        "sourceHandle": "text",
-        "target": "message",
-        "targetHandle": "system"
-      },
-      {
-        "source": "prompt-dynamic",
-        "sourceHandle": "text",
-        "target": "message",
-        "targetHandle": "context"
-      },
-      {
-        "source": "signal-in",
-        "sourceHandle": "data",
-        "target": "message",
-        "targetHandle": "user"
-      },
-      {
-        "source": "message",
-        "sourceHandle": "messages",
-        "target": "generate-text",
-        "targetHandle": "messages"
-      },
-      {
-        "source": "signal-in",
-        "sourceHandle": "data",
-        "target": "generate-text",
-        "targetHandle": "historyUserMessage"
-      },
-      {
-        "source": "generate-text",
-        "sourceHandle": "text",
-        "target": "signal-out",
-        "targetHandle": "data"
-      }
+      { "source": "prompt-static", "sourceHandle": "text", "target": "message", "targetHandle": "system" },
+      { "source": "prompt-dynamic", "sourceHandle": "text", "target": "message", "targetHandle": "context" },
+      { "source": "signal-in", "sourceHandle": "data", "target": "message", "targetHandle": "user" },
+      { "source": "message", "sourceHandle": "messages", "target": "generate-text", "targetHandle": "messages" },
+      { "source": "signal-in", "sourceHandle": "data", "target": "generate-text", "targetHandle": "historyUserMessage" },
+      { "source": "generate-text", "sourceHandle": "text", "target": "signal-out", "targetHandle": "data" }
     ]
   }
 }

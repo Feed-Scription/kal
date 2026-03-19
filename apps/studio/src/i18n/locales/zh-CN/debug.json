@@ -1,11 +1,13 @@
 {
   "title": "调试器",
+  "newRun": "新建 Run",
   "noRuns": "暂无托管 Run。可通过命令面板或工具栏创建。",
+  "noActiveRuns": "暂无活跃 Run。",
   "selectRun": "选择 Run",
   "runStatus": "状态",
   "currentStep": "当前步骤",
   "waitingFor": "等待中",
-  "stateKeys": "State Keys",
+  "stateKeys": "状态键",
   "changedKeys": "已变更 Keys",
   "recentEvents": "最近事件",
   "noEvents": "暂无最近事件。",
@@ -36,6 +38,7 @@
     "noEntries": "暂无追踪条目。",
     "source": "来源",
     "changedKeys": "已变更",
+    "changedPrefix": "已变更:",
     "panelTitle": "追踪面板",
     "panelSubtitle": "围绕选中的 Run 展示统一时间线。",
     "openDebugger": "打开调试器",
@@ -70,5 +73,20 @@
     "changedKeys": "已变更",
     "preview": "预览",
     "noState": "当前项目没有可展示的状态。"
+  },
+  "stream": {
+    "smokeRun": "冒烟测试",
+    "filterAll": "全部",
+    "filterBreakpoints": "断点",
+    "filterState": "状态",
+    "filterInput": "输入",
+    "footerBreakpoints": "{{count}} 个断点",
+    "footerEvents": "{{count}} 个事件"
+  },
+  "runStatusLabel": {
+    "paused": "已暂停",
+    "waiting_input": "等待输入",
+    "ended": "已结束",
+    "error": "错误"
   }
 }

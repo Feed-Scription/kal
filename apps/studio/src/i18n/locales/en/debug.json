@@ -1,6 +1,8 @@
 {
   "title": "Debugger",
+  "newRun": "New Run",
   "noRuns": "No managed runs. Create a run from the command palette or toolbar.",
+  "noActiveRuns": "No active runs.",
   "selectRun": "Select Run",
   "runStatus": "Status",
   "currentStep": "Current Step",
@@ -36,6 +38,7 @@
     "noEntries": "No trace entries.",
     "source": "Source",
     "changedKeys": "Changed",
+    "changedPrefix": "changed:",
     "panelTitle": "Trace Panel",
     "panelSubtitle": "Unified timeline around the selected run.",
     "openDebugger": "Open Debugger",
@@ -70,5 +73,20 @@
     "changedKeys": "Changed",
     "preview": "Preview",
     "noState": "No state to display for the current project."
+  },
+  "stream": {
+    "smokeRun": "Smoke",
+    "filterAll": "All",
+    "filterBreakpoints": "Breakpoints",
+    "filterState": "State",
+    "filterInput": "Input",
+    "footerBreakpoints": "{{count}} breakpoints",
+    "footerEvents": "{{count}} events"
+  },
+  "runStatusLabel": {
+    "paused": "Paused",
+    "waiting_input": "Waiting Input",
+    "ended": "Ended",
+    "error": "Error"
   }
 }

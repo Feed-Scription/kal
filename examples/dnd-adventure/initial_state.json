@@ -17,15 +17,21 @@
   },
   "strength": {
     "type": "number",
-    "value": 10
+    "value": 10,
+    "min": 1,
+    "max": 30
   },
   "dexterity": {
     "type": "number",
-    "value": 10
+    "value": 10,
+    "min": 1,
+    "max": 30
   },
   "intelligence": {
     "type": "number",
-    "value": 10
+    "value": 10,
+    "min": 1,
+    "max": 30
   },
   "skills": {
     "type": "array",
@@ -33,15 +39,21 @@
   },
   "health": {
     "type": "number",
-    "value": 100
+    "value": 100,
+    "min": 0,
+    "max": 200
   },
   "maxHealth": {
     "type": "number",
-    "value": 100
+    "value": 100,
+    "min": 50,
+    "max": 200
   },
   "gold": {
     "type": "number",
-    "value": 50
+    "value": 50,
+    "min": 0,
+    "max": 9999
   },
   "currentLocation": {
     "type": "string",
@@ -53,7 +65,8 @@
   },
   "questStage": {
     "type": "string",
-    "value": "arrived"
+    "value": "arrived",
+    "enum": ["arrived", "accepted", "exploring", "boss_found", "completed"]
   },
   "history": {
     "type": "array",
