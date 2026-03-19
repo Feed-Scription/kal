@@ -31,7 +31,7 @@ import { useCanvasSelection } from "@/hooks/use-canvas-selection";
 import { elkLayout, detectBackEdges } from "@/utils/elk-layout";
 import { AUTO_SAVE_DEBOUNCE_MS } from "@/constants/editor";
 import { useTranslation } from "react-i18next";
-import type { FlowDefinition, NodeDefinition, NodeManifest } from "@/types/project";
+import type { FlowDefinition, HandleDefinition, NodeDefinition, NodeManifest } from "@/types/project";
 
 const ELK_FLOW_OPTS = { nodeWidth: 320, nodeHeight: 200, direction: 'RIGHT' as const };
 
@@ -107,6 +107,56 @@ function edgeColorForType(portType?: string): string {
   if (t === 'boolean') return '#ef4444'; // red
   if (t === 'any' || t === 'unknown') return '#94a3b8'; // gray
   return '#8b5cf6'; // purple for other/custom types
+}
+
+/**
+ * Smart-connect: match source outputs to target inputs.
+ * Priority: 1) exact name match  2) type-compatible match  3) any/unknown wildcard
+ * Each output and input is used at most once.
+ */
+function matchHandles(
+  sourceOutputs: HandleDefinition[],
+  targetInputs: HandleDefinition[],
+): Array<{ sourceHandle: string; targetHandle: string }> {
+  const matches: Array<{ sourceHandle: string; targetHandle: string }> = [];
+  const usedOutputs = new Set<string>();
+  const usedInputs = new Set<string>();
+
+  // Pass 1: exact name + compatible type
+  for (const out of sourceOutputs) {
+    const inp = targetInputs.find(
+      (i) => !usedInputs.has(i.name) && i.name === out.name && typesCompatible(out.type, i.type),
+    );
+    if (inp) {
+      matches.push({ sourceHandle: out.name, targetHandle: inp.name });
+      usedOutputs.add(out.name);
+      usedInputs.add(inp.name);
+    }
+  }
+
+  // Pass 2: type-compatible (not yet matched)
+  for (const out of sourceOutputs) {
+    if (usedOutputs.has(out.name)) continue;
+    const inp = targetInputs.find(
+      (i) => !usedInputs.has(i.name) && typesCompatible(out.type, i.type),
+    );
+    if (inp) {
+      matches.push({ sourceHandle: out.name, targetHandle: inp.name });
+      usedOutputs.add(out.name);
+      usedInputs.add(inp.name);
+    }
+  }
+
+  return matches;
+}
+
+function typesCompatible(a: string, b: string): boolean {
+  if (a === b) return true;
+  const la = a.toLowerCase();
+  const lb = b.toLowerCase();
+  if (la === lb) return true;
+  if (la === 'any' || la === 'unknown' || lb === 'any' || lb === 'unknown') return true;
+  return false;
 }
 
 function FlowInner() {
@@ -339,23 +389,45 @@ function FlowInner() {
         const newOutputs = manifest?.outputs || [];
 
         if (origin.handleType === 'source') {
-          // Dragged from a source port → connect to the new node's first input
-          const targetHandle = newInputs[0]?.name ?? null;
-          setEdges((eds) =>
-            addEdge(
-              { source: origin.nodeId, sourceHandle: origin.handleId, target: newNodeId, targetHandle },
-              eds,
-            ),
-          );
+          // Dragged from a specific source handle → smart-match to new node's inputs
+          const originNode = nodesRef.current.find((n) => n.id === origin.nodeId);
+          const originOutputs = origin.handleId
+            ? (originNode?.data as { outputs?: HandleDefinition[] })?.outputs?.filter((o) => o.name === origin.handleId) ?? []
+            : (originNode?.data as { outputs?: HandleDefinition[] })?.outputs ?? [];
+          const pairs = matchHandles(originOutputs, newInputs);
+          if (pairs.length > 0) {
+            setEdges((eds) => {
+              let next = eds;
+              for (const { sourceHandle, targetHandle } of pairs) {
+                next = addEdge({ source: origin.nodeId, sourceHandle, target: newNodeId, targetHandle }, next);
+              }
+              return next;
+            });
+          } else {
+            // Fallback: connect the dragged handle to the first input
+            const targetHandle = newInputs[0]?.name ?? null;
+            setEdges((eds) => addEdge({ source: origin.nodeId, sourceHandle: origin.handleId, target: newNodeId, targetHandle }, eds));
+          }
         } else {
-          // Dragged from a target port → connect from the new node's first output
-          const sourceHandle = newOutputs[0]?.name ?? null;
-          setEdges((eds) =>
-            addEdge(
-              { source: newNodeId, sourceHandle, target: origin.nodeId, targetHandle: origin.handleId },
-              eds,
-            ),
-          );
+          // Dragged from a specific target handle → smart-match from new node's outputs
+          const originNode = nodesRef.current.find((n) => n.id === origin.nodeId);
+          const originInputs = origin.handleId
+            ? (originNode?.data as { inputs?: HandleDefinition[] })?.inputs?.filter((i) => i.name === origin.handleId) ?? []
+            : (originNode?.data as { inputs?: HandleDefinition[] })?.inputs ?? [];
+          const pairs = matchHandles(newOutputs, originInputs);
+          if (pairs.length > 0) {
+            setEdges((eds) => {
+              let next = eds;
+              for (const { sourceHandle, targetHandle } of pairs) {
+                next = addEdge({ source: newNodeId, sourceHandle, target: origin.nodeId, targetHandle }, next);
+              }
+              return next;
+            });
+          } else {
+            // Fallback: connect the first output to the dragged handle
+            const sourceHandle = newOutputs[0]?.name ?? null;
+            setEdges((eds) => addEdge({ source: newNodeId, sourceHandle, target: origin.nodeId, targetHandle: origin.handleId }, eds));
+          }
         }
         connectStartRef.current = null;
       }
@@ -376,8 +448,58 @@ function FlowInner() {
 
   const onConnectEnd = useCallback(
     (event: MouseEvent | TouchEvent) => {
-      // Only trigger if the connection was dropped on the pane (not on a node handle)
+      const origin = connectStartRef.current;
       const target = event.target as HTMLElement;
+
+      // Check if dropped on a node (not on a handle — handles trigger onConnect directly)
+      const nodeElement = target?.closest('.react-flow__node') as HTMLElement | null;
+      if (origin && nodeElement) {
+        const targetNodeId = nodeElement.getAttribute('data-id');
+        if (targetNodeId && targetNodeId !== origin.nodeId) {
+          const originNode = nodesRef.current.find((n) => n.id === origin.nodeId);
+          const targetNode = nodesRef.current.find((n) => n.id === targetNodeId);
+          if (originNode && targetNode) {
+            const originData = originNode.data as { inputs?: HandleDefinition[]; outputs?: HandleDefinition[] };
+            const targetData = targetNode.data as { inputs?: HandleDefinition[]; outputs?: HandleDefinition[] };
+
+            if (origin.handleType === 'source') {
+              // Dragged from source → smart-match to target's inputs
+              const sourceOutputs = origin.handleId
+                ? originData.outputs?.filter((o) => o.name === origin.handleId) ?? []
+                : originData.outputs ?? [];
+              const pairs = matchHandles(sourceOutputs, targetData.inputs ?? []);
+              if (pairs.length > 0) {
+                setEdges((eds) => {
+                  let next = eds;
+                  for (const { sourceHandle, targetHandle } of pairs) {
+                    next = addEdge({ source: origin.nodeId, sourceHandle, target: targetNodeId, targetHandle }, next);
+                  }
+                  return next;
+                });
+              }
+            } else {
+              // Dragged from target → smart-match from target node's outputs to origin's inputs
+              const originInputs = origin.handleId
+                ? originData.inputs?.filter((i) => i.name === origin.handleId) ?? []
+                : originData.inputs ?? [];
+              const pairs = matchHandles(targetData.outputs ?? [], originInputs);
+              if (pairs.length > 0) {
+                setEdges((eds) => {
+                  let next = eds;
+                  for (const { sourceHandle, targetHandle } of pairs) {
+                    next = addEdge({ source: targetNodeId, sourceHandle, target: origin.nodeId, targetHandle }, next);
+                  }
+                  return next;
+                });
+              }
+            }
+          }
+          connectStartRef.current = null;
+          return;
+        }
+      }
+
+      // Dropped on the pane → open context menu to create a new node
       if (!target?.classList?.contains('react-flow__pane') && !target?.closest('.react-flow__pane')) {
         connectStartRef.current = null;
         return;
