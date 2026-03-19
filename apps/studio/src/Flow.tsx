@@ -26,6 +26,7 @@ import { PaneContextMenu, type ContextMenuState } from "./PaneContextMenu";
 import { FlowToolbar } from "./components/FlowToolbar";
 import { ExecutionDialog } from "./components/ExecutionDialog";
 import { useFlowResource, useStudioCommands, useStudioResources } from "@/kernel/hooks";
+import { isEditableTarget } from "@/lib/keyboard";
 import { useFlowNodeOverlay } from "@/hooks/use-node-overlay";
 import { useCanvasSelection } from "@/hooks/use-canvas-selection";
 import { elkLayout, detectBackEdges } from "@/utils/elk-layout";
@@ -717,30 +718,26 @@ function FlowInner() {
 
   // Keyboard shortcuts
   useEffect(() => {
-    const isEditable = (target: EventTarget | null) => {
-      if (!(target instanceof HTMLElement)) return false;
-      return target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
-    };
-
     const handleKeyDown = (e: KeyboardEvent) => {
       const mod = e.ctrlKey || e.metaKey;
 
-      // Ctrl/Cmd + S to save
+      // Ctrl/Cmd + S to save (global — also intercepts in inputs to prevent browser save)
       if (mod && e.key === 's') {
         e.preventDefault();
         handleManualSave();
         return;
       }
 
-      // Ctrl/Cmd + Enter to run
+      // Ctrl/Cmd + Enter to run (global)
       if (mod && e.key === 'Enter') {
         e.preventDefault();
         setExecutionDialogOpen(true);
         return;
       }
 
-      // Ctrl/Cmd + D to duplicate selected nodes
+      // Ctrl/Cmd + D to duplicate selected nodes — skip in editable elements
       if (mod && e.key === 'd') {
+        if (isEditableTarget(e.target)) return;
         e.preventDefault();
         const selected = nodes.filter((n) => n.selected);
         if (selected.length === 0) return;
@@ -755,7 +752,7 @@ function FlowInner() {
       }
 
       // Skip single-key shortcuts when inside editable fields
-      if (isEditable(e.target)) return;
+      if (isEditableTarget(e.target)) return;
 
       // F to fit view
       if (e.key === 'f' && !mod && !e.shiftKey) {
