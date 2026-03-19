@@ -8,22 +8,25 @@ import type { Fragment } from '../../prompt/fragments';
 import { compose, formatSection, estimateTokens } from '../../prompt/compose';
 import type { FormatType } from '../../prompt/compose';
 
-function extractAssistantContent(text: string, assistantPath?: string): string {
+function extractAssistantContent(text: unknown, assistantPath?: string): string {
+  // Normalize: if text is already an object (JSON mode), stringify it first
+  const textStr = typeof text === 'string' ? text : JSON.stringify(text);
+
   if (!assistantPath) {
-    return text;
+    return textStr;
   }
 
   try {
-    let current: unknown = JSON.parse(text);
+    let current: unknown = typeof text === 'object' && text !== null ? text : JSON.parse(textStr);
     for (const part of assistantPath.split('.')) {
       if (!part || current == null || typeof current !== 'object' || !(part in current)) {
-        return text;
+        return textStr;
       }
       current = (current as Record<string, unknown>)[part];
     }
-    return typeof current === 'string' ? current : text;
+    return typeof current === 'string' ? current : textStr;
   } catch {
-    return text;
+    return textStr;
   }
 }
 
@@ -178,6 +181,15 @@ export const GenerateText: CustomNode = {
       assistantPath: { type: 'string' },
       responseFormat: { type: 'string', enum: ['text', 'json'] },
       jsonSchema: { type: 'object' },
+      reasoning: {
+        type: 'object',
+        properties: {
+          effort: { type: 'string', enum: ['none', 'minimal', 'low', 'medium', 'high', 'xhigh'] },
+          maxTokens: { type: 'number' },
+          exclude: { type: 'boolean' },
+        },
+        additionalProperties: false,
+      },
     },
     additionalProperties: true,
   },
@@ -202,6 +214,7 @@ export const GenerateText: CustomNode = {
       cache: config.cache,
       responseFormat: config.responseFormat as 'text' | 'json' | undefined,
       jsonSchema: config.jsonSchema as object | undefined,
+      reasoning: config.reasoning as any,
     });
 
     const historyKey = config.historyKey ?? 'history';

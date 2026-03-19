@@ -50,7 +50,7 @@ export function SessionToolbar({
     <>
       <div className="absolute left-4 top-4 z-10 flex gap-2 rounded-lg border bg-background/95 p-2 shadow-lg backdrop-blur">
         <div className="flex items-center gap-2 border-r pr-2">
-          <span className="text-sm font-medium">Session</span>
+          <span className="text-sm font-medium">{t('runSession')}</span>
         </div>
 
         <Button variant="ghost" size="sm" onClick={onSave} title={t('saveSession')}>

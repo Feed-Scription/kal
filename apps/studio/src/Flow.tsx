@@ -4,20 +4,15 @@ import {
   ReactFlow,
   ReactFlowProvider,
   addEdge,
-  applyNodeChanges,
-  applyEdgeChanges,
   useReactFlow,
   type Node,
   type Edge,
   type FitViewOptions,
   type OnConnect,
-  type OnNodesChange,
-  type OnEdgesChange,
   type OnConnectStart,
   type DefaultEdgeOptions,
   Controls,
   MiniMap,
-  MarkerType,
 } from '@xyflow/react';
 
 import { ManifestNode } from "./nodes/ManifestNode";
@@ -28,9 +23,11 @@ import { ExecutionDialog } from "./components/ExecutionDialog";
 import { useFlowResource, useStudioCommands, useStudioResources } from "@/kernel/hooks";
 import { isEditableTarget } from "@/lib/keyboard";
 import { useFlowNodeOverlay } from "@/hooks/use-node-overlay";
+import { useEdgeExecutionState } from "@/hooks/use-edge-execution-state";
 import { useCanvasSelection } from "@/hooks/use-canvas-selection";
-import { elkLayout, detectBackEdges } from "@/utils/elk-layout";
-import { AUTO_SAVE_DEBOUNCE_MS } from "@/constants/editor";
+import { useGraphEditor } from "@/hooks/use-graph-editor";
+import { detectBackEdges } from "@/utils/elk-layout";
+import { applyEdgeRouting, applyBackEdgeStyle } from "@/utils/edge-styling";
 import { useTranslation } from "react-i18next";
 import type { FlowDefinition, HandleDefinition, NodeDefinition, NodeManifest } from "@/types/project";
 
@@ -86,6 +83,7 @@ function sanitizeConfigWithSchema(value: unknown, schema?: Schema): unknown {
 
 const fitViewOptions: FitViewOptions = {
   padding: 100,
+  maxZoom: 1,
 };
 
 const defaultEdgeOptions: DefaultEdgeOptions = {
@@ -165,21 +163,12 @@ function FlowInner() {
   const { flowId: currentFlow } = useFlowResource();
   const { saveFlow } = useStudioCommands();
   const overlayMap = useFlowNodeOverlay(currentFlow);
+  const edgeExecState = useEdgeExecutionState(currentFlow);
   const setSelection = useCanvasSelection((s) => s.setSelection);
   const selectedNodeId = useCanvasSelection((s) => s.selectedNodeId);
   const selectionContext = useCanvasSelection((s) => s.selectionContext);
   const { t } = useTranslation('flow');
   const reactFlowInstance = useReactFlow();
-
-  const onSelectionChange = useCallback(
-    ({ nodes: selected }: { nodes: Node[] }) => {
-      if (isLoadingRef.current && selected.length === 0 && selectionContext === 'flow' && selectedNodeId) {
-        return;
-      }
-      setSelection(selected.length === 1 ? selected[0].id : null, 'flow');
-    },
-    [selectedNodeId, selectionContext, setSelection],
-  );
 
   const manifestMap = useMemo(() => {
     const map = new Map<string, NodeManifest>();
@@ -200,15 +189,74 @@ function FlowInner() {
     return types;
   }, [project?.nodeManifests, project?.flows, currentFlow]);
 
-  const [nodes, setNodes] = useState<Node[]>([]);
-  const [edges, setEdges] = useState<Edge[]>([]);
+  // ── Shared editor shell ──
+
+  const postLayoutEdges = useCallback(
+    (eds: Edge[], backEdges: Set<string>) =>
+      applyEdgeRouting(eds, backEdges, t('cycle')),
+    [t],
+  );
+
+  const onSave = useCallback(
+    async (currentNodes: Node[], currentEdges: Edge[]) => {
+      if (!project || !currentFlow) return;
+      const existingFlow = project.flows[currentFlow];
+      const flowDef: FlowDefinition = {
+        meta: existingFlow?.meta ?? { schemaVersion: '1.0' },
+        data: {
+          nodes: currentNodes.map((node) => {
+            const nodeData = node.data as {
+              label?: string;
+              config?: Record<string, unknown>;
+              inputs?: NodeDefinition['inputs'];
+              outputs?: NodeDefinition['outputs'];
+              manifest?: NodeManifest;
+            };
+            return {
+              id: node.id,
+              type: node.type || 'default',
+              label: String(nodeData.label || node.type || 'Node'),
+              inputs: Array.isArray(nodeData.inputs) ? nodeData.inputs : [],
+              outputs: Array.isArray(nodeData.outputs) ? nodeData.outputs : [],
+              config: (sanitizeConfigWithSchema(
+                nodeData.config || {},
+                nodeData.manifest?.configSchema as Schema | undefined,
+              ) as Record<string, unknown>) || {},
+            };
+          }),
+          edges: currentEdges.map((edge) => ({
+            source: edge.source,
+            sourceHandle: edge.sourceHandle || '',
+            target: edge.target,
+            targetHandle: edge.targetHandle || '',
+          })),
+        },
+      };
+      await saveFlow(currentFlow, flowDef);
+    },
+    [project, currentFlow, saveFlow],
+  );
+
+  const {
+    nodes,
+    edges,
+    setNodes,
+    setEdges,
+    layoutReady,
+    isLoading,
+    initialized,
+    handleAutoLayout,
+    handleManualSave,
+    onNodesChange,
+    onEdgesChange,
+    loadGraph,
+  } = useGraphEditor({
+    elkOptions: ELK_FLOW_OPTS,
+    onSave,
+    postLayoutEdges,
+  });
+
   const [executionDialogOpen, setExecutionDialogOpen] = useState(false);
-  const [initialized, setInitialized] = useState(false);
-  const [layoutReady, setLayoutReady] = useState(false);
-  const isLoadingRef = useRef(false);
-  const needsInitialLayoutRef = useRef(false);
-  const nodesRef = useRef<Node[]>([]);
-  const edgesRef = useRef<Edge[]>([]);
   const [contextMenu, setContextMenu] = useState<ContextMenuState>({
     open: false,
     x: 0,
@@ -222,34 +270,14 @@ function FlowInner() {
   const flowVersion = currentFlow ? (project?.flowVersions?.[currentFlow] ?? 0) : 0;
   const lastFlowVersionRef = useRef<number>(0);
 
-  // Keep refs in sync so handleAutoLayout always reads fresh state
-  nodesRef.current = nodes;
-  edgesRef.current = edges;
-
-  /** Shared: apply ELK back-edge styling to an edge list */
-  const applyEdgeRouting = useCallback(
-    (
-      eds: Edge[],
-      backEdges: Set<string>,
-    ): Edge[] =>
-      eds.map((edge) => {
-        const edgeKey = `${edge.source}->${edge.target}`;
-        if (backEdges.has(edgeKey)) {
-          return {
-            ...edge,
-            type: 'smoothstep',
-            zIndex: 1000,
-            style: { stroke: '#f59e0b', strokeWidth: 2, strokeDasharray: '8 4' },
-            animated: true,
-            markerEnd: { type: MarkerType.ArrowClosed, color: '#f59e0b' },
-            label: t('cycle'),
-            labelStyle: { fill: '#f59e0b', fontWeight: 600, fontSize: 12 },
-          };
-        }
-        const { style: _s, label: _l, labelStyle: _ls, zIndex: _z, ...rest } = edge;
-        return { ...rest, type: 'elegant', animated: true };
-      }),
-    [t],
+  const onSelectionChange = useCallback(
+    ({ nodes: selected }: { nodes: Node[] }) => {
+      if (isLoading && selected.length === 0 && selectionContext === 'flow' && selectedNodeId) {
+        return;
+      }
+      setSelection(selected.length === 1 ? selected[0].id : null, 'flow');
+    },
+    [isLoading, selectedNodeId, selectionContext, setSelection],
   );
 
   // Load flow data only when switching flows (not on project save updates).
@@ -257,7 +285,7 @@ function FlowInner() {
 
   useEffect(() => {
     if (!project || !currentFlow || !project.flows[currentFlow]) {
-      setInitialized(false);
+      loadGraph(null);
       return;
     }
 
@@ -265,7 +293,6 @@ function FlowInner() {
     const versionChanged = flowVersion !== lastFlowVersionRef.current;
     if (versionChanged) {
       lastFlowVersionRef.current = flowVersion;
-      suppressAutoSaveRef.current = true;
     }
 
     // Skip if we already loaded this flow (project changed due to auto-save)
@@ -274,22 +301,6 @@ function FlowInner() {
     lastLoadedFlowRef.current = currentFlow;
 
     const flowDef = project.flows[currentFlow];
-
-    isLoadingRef.current = true;
-    setLayoutReady(false);
-
-    // Empty flow: no nodes to measure, skip two-phase layout
-    if (flowDef.data.nodes.length === 0) {
-      needsInitialLayoutRef.current = false;
-      setNodes([]);
-      setEdges([]);
-      setInitialized(true);
-      setLayoutReady(true);
-      requestAnimationFrame(() => { isLoadingRef.current = false; });
-      return;
-    }
-
-    needsInitialLayoutRef.current = true;
 
     const reactFlowNodes: Node[] = flowDef.data.nodes.map((node) => {
       const manifest = manifestMap.get(node.type);
@@ -338,9 +349,7 @@ function FlowInner() {
       simpleEdges,
     );
 
-    setNodes(reactFlowNodes);
-    setEdges(applyEdgeRouting(baseEdges, backEdges));
-    setInitialized(true);
+    loadGraph({ nodes: reactFlowNodes, edges: applyEdgeRouting(baseEdges, backEdges, t('cycle')) });
 
     if (
       selectionContext === 'flow' &&
@@ -349,7 +358,7 @@ function FlowInner() {
     ) {
       setSelection(null, 'flow');
     }
-  }, [currentFlow, manifestMap, project, initialized, applyEdgeRouting, t, selectionContext, selectedNodeId, setSelection, flowVersion]);
+  }, [currentFlow, manifestMap, project, initialized, applyEdgeRouting, t, selectionContext, selectedNodeId, setSelection, loadGraph, flowVersion]);
 
   const onPaneContextMenu = useCallback(
     (event: React.MouseEvent | MouseEvent) => {
@@ -391,7 +400,7 @@ function FlowInner() {
 
         if (origin.handleType === 'source') {
           // Dragged from a specific source handle → smart-match to new node's inputs
-          const originNode = nodesRef.current.find((n) => n.id === origin.nodeId);
+          const originNode = nodes.find((n: Node) => n.id === origin.nodeId);
           const originOutputs = origin.handleId
             ? (originNode?.data as { outputs?: HandleDefinition[] })?.outputs?.filter((o) => o.name === origin.handleId) ?? []
             : (originNode?.data as { outputs?: HandleDefinition[] })?.outputs ?? [];
@@ -411,7 +420,7 @@ function FlowInner() {
           }
         } else {
           // Dragged from a specific target handle → smart-match from new node's outputs
-          const originNode = nodesRef.current.find((n) => n.id === origin.nodeId);
+          const originNode = nodes.find((n: Node) => n.id === origin.nodeId);
           const originInputs = origin.handleId
             ? (originNode?.data as { inputs?: HandleDefinition[] })?.inputs?.filter((i) => i.name === origin.handleId) ?? []
             : (originNode?.data as { inputs?: HandleDefinition[] })?.inputs ?? [];
@@ -433,7 +442,7 @@ function FlowInner() {
         connectStartRef.current = null;
       }
     },
-    [manifestMap],
+    [manifestMap, setNodes, setEdges],
   );
 
   const onConnectStart: OnConnectStart = useCallback(
@@ -457,8 +466,8 @@ function FlowInner() {
       if (origin && nodeElement) {
         const targetNodeId = nodeElement.getAttribute('data-id');
         if (targetNodeId && targetNodeId !== origin.nodeId) {
-          const originNode = nodesRef.current.find((n) => n.id === origin.nodeId);
-          const targetNode = nodesRef.current.find((n) => n.id === targetNodeId);
+          const originNode = nodes.find((n: Node) => n.id === origin.nodeId);
+          const targetNode = nodes.find((n: Node) => n.id === targetNodeId);
           if (originNode && targetNode) {
             const originData = originNode.data as { inputs?: HandleDefinition[]; outputs?: HandleDefinition[] };
             const targetData = targetNode.data as { inputs?: HandleDefinition[]; outputs?: HandleDefinition[] };
@@ -521,63 +530,6 @@ function FlowInner() {
     [],
   );
 
-  const handleAutoLayout = useCallback(async () => {
-    const currentNodes = nodesRef.current;
-    const currentEdges = edgesRef.current;
-    const nodeIds = currentNodes.map((n) => n.id);
-    const simpleEdges = currentEdges.map((e) => ({ source: e.source, target: e.target }));
-
-    // Build node size map from actual rendered dimensions
-    const nodeSizes = new Map<string, { width: number; height: number }>();
-    for (const node of currentNodes) {
-      const width = node.measured?.width ?? node.width ?? 320;
-      const height = node.measured?.height ?? node.height ?? 200;
-      nodeSizes.set(node.id, { width, height });
-    }
-
-    const { positions, backEdges } = await elkLayout(nodeIds, simpleEdges, ELK_FLOW_OPTS, nodeSizes);
-    setNodes((nds) =>
-      nds.map((n) => {
-        const pos = positions.get(n.id);
-        return pos ? { ...n, position: pos } : n;
-      }),
-    );
-    setEdges((eds) => applyEdgeRouting(eds, backEdges));
-    requestAnimationFrame(() => reactFlowInstance.fitView({ padding: 0.15, duration: 300 }));
-  }, [reactFlowInstance, applyEdgeRouting]);
-
-  const onNodesChange: OnNodesChange = useCallback(
-    (changes) => {
-      setNodes((nds) => applyNodeChanges(changes, nds));
-
-      // Detect when React Flow has measured all node dimensions after initial render
-      if (needsInitialLayoutRef.current) {
-        const hasDimensionChange = changes.some(
-          (c) => c.type === 'dimensions' && c.dimensions,
-        );
-        if (hasDimensionChange) {
-          requestAnimationFrame(() => {
-            if (needsInitialLayoutRef.current) {
-              needsInitialLayoutRef.current = false;
-              handleAutoLayout().then(() => {
-                setLayoutReady(true);
-                requestAnimationFrame(() => {
-                  isLoadingRef.current = false;
-                });
-              });
-            }
-          });
-        }
-      }
-    },
-    [handleAutoLayout],
-  );
-
-  const onEdgesChange: OnEdgesChange = useCallback(
-    (changes) => setEdges((eds) => applyEdgeChanges(changes, eds)),
-    [setEdges],
-  );
-
   const onConnect: OnConnect = useCallback(
     (connection) => {
       setEdges((eds) => {
@@ -588,19 +540,9 @@ function FlowInner() {
         const backEdges = detectBackEdges(nodeIds, simpleEdges);
 
         return nextEdges.map((edge) => {
-          const isBack = backEdges.has(`${edge.source}->${edge.target}`);
-          if (isBack) {
-            return {
-              ...edge,
-              type: 'smoothstep',
-              zIndex: 1000,
-              style: { stroke: '#f59e0b', strokeWidth: 2, strokeDasharray: '8 4' },
-              animated: true,
-              markerEnd: { type: MarkerType.ArrowClosed, color: '#f59e0b' },
-              label: t('cycle'),
-              labelStyle: { fill: '#f59e0b', fontWeight: 600, fontSize: 12 },
-            };
-          }
+          const styled = applyBackEdgeStyle(edge, backEdges, t('cycle'));
+          if (styled !== edge) return styled;
+
           // Preserve existing style for non-back edges, apply type-based color for new ones
           if (!edge.style?.stroke || edge.style.stroke === '#f59e0b') {
             const sourceOutputs = (() => {
@@ -635,7 +577,6 @@ function FlowInner() {
             outputs?: NodeDefinition['outputs'];
             manifest?: NodeManifest;
           };
-
           return {
             id: node.id,
             type: node.type || 'default',
@@ -658,32 +599,6 @@ function FlowInner() {
     };
   }, [nodes, edges, project, currentFlow]);
 
-  // Auto-save flow when nodes or edges change (skip during load and after external changes)
-  const suppressAutoSaveRef = useRef(false);
-  useEffect(() => {
-    if (!initialized || !project || !currentFlow) return;
-    if (isLoadingRef.current) return;
-
-    // Skip one auto-save cycle after external flow version bump
-    if (suppressAutoSaveRef.current) {
-      suppressAutoSaveRef.current = false;
-      return;
-    }
-
-    const timeoutId = setTimeout(async () => {
-      const flowDef = buildFlowDef();
-      if (!flowDef) return;
-
-      try {
-        await saveFlow(currentFlow, flowDef);
-      } catch (error) {
-        console.error('Auto-save failed:', error);
-      }
-    }, AUTO_SAVE_DEBOUNCE_MS);
-
-    return () => clearTimeout(timeoutId);
-  }, [nodes, edges, initialized, currentFlow, saveFlow, buildFlowDef]);
-
   const handleExportFlow = useCallback(() => {
     const flowDef = buildFlowDef();
     if (!flowDef || !currentFlow) return;
@@ -702,19 +617,14 @@ function FlowInner() {
     setExecutionDialogOpen(true);
   }, []);
 
-  const handleManualSave = useCallback(async () => {
-    if (!project || !currentFlow) return;
-
-    const flowDef = buildFlowDef();
-    if (!flowDef) return;
-
+  const wrappedManualSave = useCallback(async () => {
     try {
-      await saveFlow(currentFlow, flowDef);
+      await handleManualSave();
     } catch (error) {
       console.error('Manual save failed:', error);
       alert(t('saveFailed', { message: (error as Error).message }));
     }
-  }, [buildFlowDef, project, currentFlow, saveFlow]);
+  }, [handleManualSave, t]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -724,7 +634,7 @@ function FlowInner() {
       // Ctrl/Cmd + S to save (global — also intercepts in inputs to prevent browser save)
       if (mod && e.key === 's') {
         e.preventDefault();
-        handleManualSave();
+        wrappedManualSave();
         return;
       }
 
@@ -779,7 +689,7 @@ function FlowInner() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleManualSave, nodes, reactFlowInstance]);
+  }, [wrappedManualSave, nodes, setNodes, reactFlowInstance]);
 
   // 将 overlay state 注入到每个 node 的 data 中
   const nodesWithOverlay = useMemo(
@@ -792,17 +702,33 @@ function FlowInner() {
     [nodes, overlayMap],
   );
 
+  // Apply edge execution state CSS classes
+  const edgesWithExecState = useMemo(() => {
+    if (edgeExecState.size === 0) return edges;
+    return edges.map((edge) => {
+      const key = `${edge.source}->${edge.target}`;
+      const status = edgeExecState.get(key);
+      if (!status) {
+        // If any execution is happening, dim idle edges
+        return edgeExecState.size > 0
+          ? { ...edge, className: 'edge-idle' }
+          : edge;
+      }
+      return { ...edge, className: status === 'active' ? 'edge-active' : 'edge-executed' };
+    });
+  }, [edges, edgeExecState]);
+
   return (
     <div className="relative h-full w-full" style={{ opacity: layoutReady ? 1 : 0, transition: 'opacity 0.15s ease-in' }}>
       <FlowToolbar
-        onSave={handleManualSave}
+        onSave={wrappedManualSave}
         onExport={handleExportFlow}
         onRun={handleRunFlow}
         onAutoLayout={handleAutoLayout}
       />
       <ReactFlow
         nodes={nodesWithOverlay}
-        edges={edges}
+        edges={edgesWithExecState}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
@@ -814,7 +740,8 @@ function FlowInner() {
         edgeTypes={edgeTypes}
         fitView
         fitViewOptions={fitViewOptions}
-        defaultEdgeOptions={defaultEdgeOptions}>
+        defaultEdgeOptions={defaultEdgeOptions}
+        minZoom={0.1}>
           <Background />
           <Controls />
           <MiniMap

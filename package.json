@@ -12,7 +12,7 @@
     "build": "bun run --filter='@kal-ai/*' build",
     "test": "bun run --filter='@kal-ai/*' test",
     "test:coverage": "bun run --filter='@kal-ai/*' test:coverage",
-    "typecheck": "bun run --filter='@kal-ai/*' typecheck",
+    "typecheck": "bun run --filter='@kal-ai/*' typecheck && pnpm --filter studio typecheck",
     "clean": "bun run --filter='@kal-ai/*' clean",
     "generate-docs": "bun scripts/generate-docs.ts",
     "changeset": "changeset",

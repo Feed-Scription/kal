@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Loader2, Play, RotateCcw, Send, Square, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -12,54 +12,20 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import type { RunEvent, RunStateView, RunView } from '@/types/project';
-import { useRunService, useStudioCommands } from '@/kernel/hooks';
+import { useRunDebug, useStudioCommands } from '@/kernel/hooks';
 import { formatTime } from '@/i18n/format';
+import { runStatusClass } from '@/utils/run-status';
 
 type SessionRunDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 };
 
-function mergeEvents(existing: RunEvent[], incoming: RunEvent[]): RunEvent[] {
-  const seen = new Set(existing.map((event) => JSON.stringify(event)));
-  const merged = [...existing];
-
-  for (const event of incoming) {
-    const key = JSON.stringify(event);
-    if (seen.has(key)) {
-      continue;
-    }
-    seen.add(key);
-    merged.push(event);
-  }
-
-  return merged;
-}
-
-function statusClass(run: RunView | null): string {
-  if (!run) {
-    return 'border-border bg-muted text-muted-foreground';
-  }
-  switch (run.status) {
-    case 'waiting_input':
-      return 'border-emerald-200 bg-emerald-50 text-emerald-700';
-    case 'paused':
-      return 'border-amber-200 bg-amber-50 text-amber-700';
-    case 'ended':
-      return 'border-sky-200 bg-sky-50 text-sky-700';
-    case 'error':
-      return 'border-red-200 bg-red-50 text-red-700';
-    default:
-      return 'border-border bg-muted text-muted-foreground';
-  }
-}
-
 function useStatusLabel() {
   const { t } = useTranslation('session');
-  return (run: RunView | null): string => {
-    if (!run) return t('status.notStarted');
-    switch (run.status) {
+  return (status: string | null | undefined): string => {
+    if (!status) return t('status.notStarted');
+    switch (status) {
       case 'waiting_input':
         return t('status.waitingInput');
       case 'paused':
@@ -69,7 +35,7 @@ function useStatusLabel() {
       case 'error':
         return t('status.error');
       default:
-        return run.status;
+        return status;
     }
   };
 }
@@ -77,189 +43,105 @@ function useStatusLabel() {
 export function SessionRunDialog({ open, onOpenChange }: SessionRunDialogProps) {
   const { t } = useTranslation('session');
   const statusLabel = useStatusLabel();
-  const { createRun, listRuns, getRunState, advanceRun, cancelRun, replayRun, selectRun, stepRun } = useStudioCommands();
-  const runs = useRunService();
+  const {
+    selectedRun: run,
+    selectedRunState: runState,
+    selectedInputHistory: inputHistory,
+    runCommandLoading: loading,
+    runCommandError: error,
+  } = useRunDebug();
+  const {
+    createRun,
+    advanceRun,
+    cancelRun,
+    replayRun,
+    selectRun,
+    stepRun,
+    refreshRuns,
+  } = useStudioCommands();
 
-  const [loading, setLoading] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [run, setRun] = useState<RunView | null>(null);
-  const [runState, setRunState] = useState<RunStateView | null>(null);
-  const [history, setHistory] = useState<RunEvent[]>([]);
   const [inputValue, setInputValue] = useState('');
-  const [error, setError] = useState('');
-  const unsubscribeRef = useRef<(() => void) | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [localError, setLocalError] = useState('');
 
-  const closeSubscription = () => {
-    unsubscribeRef.current?.();
-    unsubscribeRef.current = null;
-  };
-
-  const refreshRunState = async (runId: string) => {
-    const nextState = await getRunState(runId);
-    setRunState(nextState);
-  };
-
+  // When dialog opens, refresh runs and select the active one
   useEffect(() => {
     if (!open) {
-      closeSubscription();
-      setLoading(false);
-      setSubmitting(false);
-      setRun(null);
-      setRunState(null);
-      setHistory([]);
       setInputValue('');
-      setError('');
+      setLocalError('');
+      setSubmitting(false);
       return;
     }
-
-    let cancelled = false;
-    setLoading(true);
-    setError('');
 
     void (async () => {
       try {
-        const runs = await listRuns();
-        if (cancelled) {
-          return;
-        }
-
+        const runs = await refreshRuns();
         const activeRun = runs.find((item) => item.active);
-        if (!activeRun) {
-          setRun(null);
-          setRunState(null);
-          setHistory([]);
-          return;
+        if (activeRun) {
+          await selectRun(activeRun.run_id);
         }
-
-        const nextState = await getRunState(activeRun.run_id);
-        if (cancelled) {
-          return;
-        }
-
-        setRun(nextState);
-        setRunState(nextState);
-        setHistory(nextState.recent_events);
-        void selectRun(nextState.run_id).catch(() => {
-          // Ignore selection sync failures here.
-        });
       } catch (err) {
-        if (!cancelled) {
-          setError((err as Error).message || t('runtime.loadFailed'));
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        setLocalError((err as Error).message || t('runtime.loadFailed'));
       }
     })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [open, getRunState, listRuns]);
-
-  useEffect(() => {
-    if (!open || !run?.run_id) {
-      closeSubscription();
-      return;
-    }
-
-    closeSubscription();
-    unsubscribeRef.current = runs.subscribe(run.run_id, (event) => {
-      setRun(event.run);
-      setHistory((existing) => mergeEvents(existing, event.run.recent_events));
-
-      if (event.type === 'run.cancelled') {
-        setRunState(null);
-        return;
-      }
-
-      void refreshRunState(event.run.run_id).catch(() => {
-        // Keep the last known state view if refresh fails.
-      });
-    });
-
-    return () => {
-      closeSubscription();
-    };
-  }, [open, run?.run_id, getRunState, runs]);
+  }, [open, refreshRuns, selectRun, t]);
 
   const handleStart = async (mode?: 'continue' | 'step') => {
     setSubmitting(true);
-    setError('');
+    setLocalError('');
     try {
       const created = await createRun(Boolean(run), mode);
-      setRun(created);
-      setHistory(created.recent_events);
       setInputValue('');
-      await refreshRunState(created.run_id);
       await selectRun(created.run_id);
     } catch (err) {
-      setError((err as Error).message || t('runtime.startFailed'));
+      setLocalError((err as Error).message || t('runtime.startFailed'));
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleAdvance = async (input?: string, mode?: 'continue' | 'step') => {
-    if (!run) {
-      return;
-    }
+    if (!run) return;
 
     setSubmitting(true);
-    setError('');
+    setLocalError('');
     try {
       const nextRun = mode === 'step' ? await stepRun(run.run_id, input) : await advanceRun(run.run_id, input);
-      setRun(nextRun);
-      setHistory((existing) => mergeEvents(existing, nextRun.recent_events));
       setInputValue('');
-      await refreshRunState(nextRun.run_id);
       await selectRun(nextRun.run_id);
     } catch (err) {
-      setError((err as Error).message || t('runtime.advanceFailed'));
+      setLocalError((err as Error).message || t('runtime.advanceFailed'));
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleReplay = async () => {
-    if (!run) {
-      return;
-    }
+    if (!run) return;
 
     setSubmitting(true);
-    setError('');
+    setLocalError('');
     try {
       const replayed = await replayRun(run.run_id);
-      setRun(replayed);
-      setHistory(replayed.recent_events);
       setInputValue('');
-      await refreshRunState(replayed.run_id);
       await selectRun(replayed.run_id);
     } catch (err) {
-      setError((err as Error).message || t('runtime.replayFailed'));
+      setLocalError((err as Error).message || t('runtime.replayFailed'));
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleCancel = async () => {
-    if (!run) {
-      return;
-    }
+    if (!run) return;
 
     setSubmitting(true);
-    setError('');
+    setLocalError('');
     try {
       await cancelRun(run.run_id);
-      closeSubscription();
-      setRun(null);
-      setRunState(null);
-      setHistory([]);
-      setInputValue('');
       await selectRun(null);
     } catch (err) {
-      setError((err as Error).message || t('runtime.cancelFailed'));
+      setLocalError((err as Error).message || t('runtime.cancelFailed'));
     } finally {
       setSubmitting(false);
     }
@@ -268,7 +150,8 @@ export function SessionRunDialog({ open, onOpenChange }: SessionRunDialogProps) 
   const waitingFor = run?.waiting_for;
   const statePreview = runState?.state_summary.preview ?? run?.state_summary.preview ?? {};
   const fullState = runState?.state ?? {};
-  const inputHistory = runState?.input_history ?? run?.input_history ?? [];
+  const history = run?.recent_events ?? [];
+  const displayError = localError || error;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -290,13 +173,13 @@ export function SessionRunDialog({ open, onOpenChange }: SessionRunDialogProps) 
                     {run ? t('runtime.updatedAt', { runId: run.run_id, time: formatTime(new Date(run.updated_at)) }) : t('runtime.notStarted')}
                   </div>
                 </div>
-                <span className={`rounded-full border px-2.5 py-1 text-xs font-medium ${statusClass(run)}`}>
-                  {statusLabel(run)}
+                <span className={`rounded-full border px-2.5 py-1 text-xs font-medium ${runStatusClass(run?.status ?? null)}`}>
+                  {statusLabel(run?.status ?? null)}
                 </span>
               </div>
 
               <div className="space-y-4 px-4 py-4">
-                {loading && (
+                {loading && !run && (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Loader2 className="size-4 animate-spin" />
                     {t('runtime.connecting')}
@@ -313,7 +196,7 @@ export function SessionRunDialog({ open, onOpenChange }: SessionRunDialogProps) 
                       <div>
                         <div className="text-xs uppercase tracking-wide text-muted-foreground">{t('runDialog.step')}</div>
                         <div className="mt-1 text-sm font-medium">
-                          {run.cursor.currentStepId ?? 'end'}
+                          {run.cursor.currentStepId ?? t('runDialog.end')}
                         </div>
                       </div>
                       <div>
@@ -338,7 +221,7 @@ export function SessionRunDialog({ open, onOpenChange }: SessionRunDialogProps) 
                         </div>
 
                         {waitingFor.prompt_text && (
-                          <div className="rounded-lg bg-muted/60 p-3 text-sm leading-6">
+                          <div className="rounded-md bg-muted/60 px-3 py-2 text-sm leading-6">
                             {waitingFor.prompt_text}
                           </div>
                         )}
@@ -347,12 +230,11 @@ export function SessionRunDialog({ open, onOpenChange }: SessionRunDialogProps) 
                           <div className="flex gap-2">
                             <Input
                               value={inputValue}
-                              onChange={(event) => setInputValue(event.target.value)}
+                              onChange={(e) => setInputValue(e.target.value)}
                               placeholder={t('runtime.inputPlaceholder')}
-                              disabled={submitting}
-                              onKeyDown={(event) => {
-                                if (event.key === 'Enter') {
-                                  event.preventDefault();
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' && !e.shiftKey) {
+                                  e.preventDefault();
                                   void handleAdvance(inputValue);
                                 }
                               }}
@@ -416,9 +298,9 @@ export function SessionRunDialog({ open, onOpenChange }: SessionRunDialogProps) 
                   </>
                 )}
 
-                {error && (
+                {displayError && (
                   <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                    {error}
+                    {displayError}
                   </div>
                 )}
               </div>
@@ -503,7 +385,7 @@ export function SessionRunDialog({ open, onOpenChange }: SessionRunDialogProps) 
                     <div key={`${entry.step_id}:${entry.timestamp}:${index}`} className="rounded-lg border p-3">
                       <div className="flex items-center justify-between gap-3">
                         <div className="text-sm font-medium">
-                          {entry.step_id} · step {entry.step_index}
+                          {entry.step_id} · {t('runDialog.step')} {entry.step_index}
                         </div>
                         <div className="text-xs text-muted-foreground">{formatTime(new Date(entry.timestamp))}</div>
                       </div>

@@ -52,7 +52,8 @@
           }
         ],
         "config": {
-          "ref": "narrate"
+          "ref": "narrate",
+          "timeout": 90000
         }
       },
       {
@@ -118,7 +119,16 @@
           ],
           "operations": {},
           "deduplicateBy": {},
-          "constraints": {}
+          "constraints": {
+            "health": {
+              "min": 0,
+              "max": 200
+            },
+            "gold": {
+              "min": 0,
+              "max": 9999
+            }
+          }
         }
       },
       {

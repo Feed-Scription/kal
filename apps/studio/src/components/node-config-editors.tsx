@@ -204,8 +204,8 @@ function FragmentTypeFields({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="random">random</SelectItem>
-                <SelectItem value="fixed">fixed index</SelectItem>
+                <SelectItem value="random">{t('nodeLabel.seedRandom')}</SelectItem>
+                <SelectItem value="fixed">{t('nodeLabel.seedFixed')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -282,7 +282,7 @@ function FragmentTypeFields({
       <div className="grid gap-3">
         <div className="grid gap-3 md:grid-cols-3">
           <div>
-            <label className="text-xs text-muted-foreground">Max Tokens</label>
+            <label className="text-xs text-muted-foreground">{t('nodeLabel.maxTokens')}</label>
             <Input
               type="number"
               className="mt-1"
@@ -310,7 +310,7 @@ function FragmentTypeFields({
         {normalized.strategy === "weighted" && (
           <div>
             <label className="text-xs text-muted-foreground">
-              Weights ({Object.keys(weights).length})
+              {t('nodeLabel.weights')} ({Object.keys(weights).length})
             </label>
             <div className="mt-1 space-y-1">
               {Object.entries(weights).map(([k, v]) => (
@@ -658,7 +658,7 @@ export function PromptBuildFragmentsField({
                   </div>
                 </div>
                 <div>
-                  <label className="text-xs text-muted-foreground">Id</label>
+                  <label className="text-xs text-muted-foreground">{t('nodeLabel.fragmentId')}</label>
                   <Input
                     className="mt-1"
                     value={normalized.id ?? ""}

@@ -828,6 +828,55 @@ export async function handleEngineRequest(
       return;
     }
 
+    if (method === 'POST' && pathname === '/api/executions/stream') {
+      requireCapability(req, 'engine.execute');
+      const payload = await readJsonBody<ExecuteFlowRequest>(req);
+      if (!payload.flowId) {
+        throw new EngineHttpError('flowId is required', 400, 'FLOW_ID_REQUIRED');
+      }
+
+      // SSE headers
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive',
+        'Access-Control-Allow-Origin': '*',
+      });
+
+      let closed = false;
+      const cleanup = () => { closed = true; };
+      req.on('close', cleanup);
+
+      const sendEvent = (event: Record<string, any>) => {
+        if (closed) return;
+        res.write(`event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`);
+      };
+
+      try {
+        await runtime.executeFlowStreaming(
+          payload.flowId,
+          payload.input ?? {},
+          sendEvent,
+        );
+        // Send final result as flow.end (already sent by hook, but ensure completion)
+        if (!closed) {
+          res.end();
+        }
+      } catch (error) {
+        if (!closed) {
+          sendEvent({
+            type: 'flow.error',
+            executionId: '',
+            flowId: payload.flowId,
+            error: { message: (error as Error).message },
+            timestamp: Date.now(),
+          });
+          res.end();
+        }
+      }
+      return;
+    }
+
     if (method === 'GET' && pathname === '/api/nodes') {
       success(res, { nodes: runtime.getNodeManifests() });
       return;

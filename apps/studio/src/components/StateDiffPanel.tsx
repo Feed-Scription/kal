@@ -2,14 +2,8 @@ import { SplitSquareVertical } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { EmptyState } from '@/components/EmptyState';
 import { Button } from '@/components/ui/button';
+import { StateDiffCard } from '@/components/StateDiffCard';
 import { useRunDebug, useStudioCommands } from '@/kernel/hooks';
-
-function formatValue(value: unknown) {
-  if (value === undefined) {
-    return 'undefined';
-  }
-  return JSON.stringify(value);
-}
 
 export function StateDiffPanel() {
   const { t } = useTranslation('debug');
@@ -39,19 +33,7 @@ export function StateDiffPanel() {
       ) : (
         <div className="space-y-2">
           {preview.map((entry) => (
-            <div key={entry.key} className="rounded-lg border px-3 py-2 text-sm">
-              <div className="font-medium">{entry.key}</div>
-              <div className="mt-1 grid gap-2 text-xs md:grid-cols-2">
-                <div className="rounded bg-muted/40 p-2">
-                  <div className="mb-1 text-muted-foreground">{t('stateDiff.before').toLowerCase()}</div>
-                  <pre className="whitespace-pre-wrap break-all">{formatValue(entry.before)}</pre>
-                </div>
-                <div className="rounded bg-muted/40 p-2">
-                  <div className="mb-1 text-muted-foreground">{t('stateDiff.after').toLowerCase()}</div>
-                  <pre className="whitespace-pre-wrap break-all">{formatValue(entry.after)}</pre>
-                </div>
-              </div>
-            </div>
+            <StateDiffCard key={entry.key} entry={entry} />
           ))}
         </div>
       )}

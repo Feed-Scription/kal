@@ -141,6 +141,11 @@
   50% { box-shadow: 0 0 0 5px rgba(34, 197, 94, 0); }
 }
 
+@keyframes edge-flow {
+  0% { stroke-dashoffset: 24; }
+  100% { stroke-dashoffset: 0; }
+}
+
 @layer utilities {
   .node-overlay-current {
     border-color: #3b82f6 !important;
@@ -184,5 +189,24 @@
   .node-overlay-warning {
     border-color: #f59e0b !important;
     border-width: 2px;
+  }
+
+  /* ── Edge Execution Animations (Phase 2) ── */
+
+  .react-flow__edge.edge-executed path {
+    stroke: #22c55e !important;
+    stroke-width: 2.5;
+    stroke-opacity: 0.8;
+    transition: stroke 0.3s ease, stroke-width 0.3s ease;
+  }
+  .react-flow__edge.edge-active path {
+    stroke: #3b82f6 !important;
+    stroke-width: 3;
+    stroke-dasharray: 8 4;
+    animation: edge-flow 1s linear infinite;
+  }
+  .react-flow__edge.edge-idle path {
+    stroke-opacity: 0.3;
+    transition: stroke-opacity 0.3s ease;
   }
 }
