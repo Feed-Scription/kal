@@ -157,4 +157,89 @@ describe('LLMClient', () => {
 
     expect(mockFetch).toHaveBeenCalledTimes(2); // No caching
   });
+
+  it('应该在 content 为 null 且 finish_reason 为 length 时抛出 token 耗尽错误', async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({
+        choices: [{ message: { content: null }, finish_reason: 'length' }],
+        usage: { prompt_tokens: 10, completion_tokens: 2048, total_tokens: 2058 },
+      }),
+    });
+
+    const client = new LLMClient(defaultConfig, mockFetch);
+
+    await expect(
+      client.invoke(messages, { executionId: 'exec-1', nodeId: 'node-1' })
+    ).rejects.toThrow(/exhausted max_tokens/);
+  });
+
+  it('应该在 content 为 null 且 finish_reason 非 length 时抛出通用空内容错误', async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({
+        choices: [{ message: { content: null }, finish_reason: 'stop' }],
+        usage: { prompt_tokens: 10, completion_tokens: 0, total_tokens: 10 },
+      }),
+    });
+
+    const client = new LLMClient(defaultConfig, mockFetch);
+
+    await expect(
+      client.invoke(messages, { executionId: 'exec-1', nodeId: 'node-1' })
+    ).rejects.toThrow(/empty content/);
+  });
+
+  it('应该在 content 为 object 时 stringify 为字符串', async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({
+        choices: [{ message: { content: { name: 'Alice', age: 30 } }, finish_reason: 'stop' }],
+        usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 },
+      }),
+    });
+
+    const client = new LLMClient(defaultConfig, mockFetch);
+    const result = await client.invoke(messages, { executionId: 'exec-1', nodeId: 'node-1' });
+
+    expect(result.text).toBe('{"name":"Alice","age":30}');
+  });
+
+  it('应该将 reasoning 配置传入请求体', async () => {
+    const client = new LLMClient(defaultConfig, mockFetch);
+
+    await client.invoke(messages, {
+      executionId: 'exec-1',
+      nodeId: 'node-1',
+      reasoning: { effort: 'none' },
+    });
+
+    const body = JSON.parse(mockFetch.mock.calls[0]![1].body);
+    expect(body.reasoning).toEqual({ effort: 'none' });
+  });
+
+  it('应该支持 reasoning.maxTokens 和 exclude', async () => {
+    const client = new LLMClient(defaultConfig, mockFetch);
+
+    await client.invoke(messages, {
+      executionId: 'exec-1',
+      nodeId: 'node-1',
+      reasoning: { effort: 'high', maxTokens: 4096, exclude: true },
+    });
+
+    const body = JSON.parse(mockFetch.mock.calls[0]![1].body);
+    expect(body.reasoning).toEqual({ effort: 'high', max_tokens: 4096, exclude: true });
+  });
+
+  it('不传 reasoning 时请求体中不应包含 reasoning 字段', async () => {
+    const client = new LLMClient(defaultConfig, mockFetch);
+
+    await client.invoke(messages, {
+      executionId: 'exec-1',
+      nodeId: 'node-1',
+    });
+
+    const body = JSON.parse(mockFetch.mock.calls[0]![1].body);
+    expect(body.reasoning).toBeUndefined();
+  });
 });

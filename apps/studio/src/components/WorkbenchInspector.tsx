@@ -11,6 +11,8 @@ import {
   useStudioResources,
 } from '@/kernel/hooks';
 import { useCanvasSelection } from '@/hooks/use-canvas-selection';
+import { useNodeExecutionData } from '@/hooks/use-node-execution-data';
+import { NodeExecutionInspector } from '@/components/NodeExecutionInspector';
 import { ExtensionSurface } from './ExtensionSurface';
 
 function CollapsibleSection({
@@ -58,6 +60,7 @@ export function WorkbenchInspector({ mobile }: { mobile?: boolean } = {}) {
   const debugViews = useDebugViewContributions();
   const activeFlow = activeFlowId ? project?.flows[activeFlowId] : null;
   const { selectedNodeId, selectionContext } = useCanvasSelection();
+  const nodeExecData = useNodeExecutionData(selectedNodeId);
 
   // 查找选中节点的 manifest 信息和 config
   const selectedNodeManifest = (() => {
@@ -139,7 +142,7 @@ export function WorkbenchInspector({ mobile }: { mobile?: boolean } = {}) {
           <section className="space-y-3">
             <div className="min-w-0 space-y-2 text-sm">
               <div className="flex min-w-0 items-center justify-between gap-4">
-                <span className="shrink-0 text-muted-foreground">ID</span>
+                <span className="shrink-0 text-muted-foreground">{t("nodeId")}</span>
                 <span className="truncate font-mono text-xs">{selectedNodeManifest.node.id}</span>
               </div>
               <div className="flex min-w-0 items-center justify-between gap-4">
@@ -201,13 +204,19 @@ export function WorkbenchInspector({ mobile }: { mobile?: boolean } = {}) {
                 </CollapsibleSection>
               )}
             </div>
+            {/* Execution data — shown when node has execution results */}
+            {nodeExecData && (
+              <>
+                <SectionDivider label={t('execution.title')} />
+                <NodeExecutionInspector data={nodeExecData} />
+              </>
+            )}
           </section>
         ) : activeFlow ? (
-          /* Flow summary — shown when no node is selected but a flow is active */
           <section className="space-y-3">
             <div className="min-w-0 space-y-2 text-sm">
               <div className="flex min-w-0 items-center justify-between gap-4">
-                <span className="shrink-0 text-muted-foreground">ID</span>
+                <span className="shrink-0 text-muted-foreground">{t("nodeId")}</span>
                 <span className="truncate font-medium">{activeFlowId}</span>
               </div>
               <div className="flex items-center justify-between gap-4">

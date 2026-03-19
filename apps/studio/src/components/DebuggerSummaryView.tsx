@@ -1,18 +1,12 @@
 import { useEffect } from "react";
-import { Bug, Circle, Pause, Play } from "lucide-react";
+import { Bug } from "lucide-react";
 import { useTranslation } from 'react-i18next';
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/EmptyState";
 import { useRunDebug, useStudioCommands } from "@/kernel/hooks";
 import { cn } from "@/lib/utils";
 import { formatTimeFromTimestamp } from '@/i18n/format';
-
-const STATUS_CONFIG = {
-  running: { icon: Play, color: 'text-blue-600', bg: 'bg-blue-50' },
-  waiting_input: { icon: Pause, color: 'text-amber-600', bg: 'bg-amber-50' },
-  completed: { icon: Circle, color: 'text-green-600', bg: 'bg-green-50' },
-  error: { icon: Circle, color: 'text-destructive', bg: 'bg-red-50' },
-} as const;
+import { getRunStatusConfig } from '@/utils/run-status';
 
 export function DebuggerSummaryView() {
   const { t } = useTranslation('debug');
@@ -54,8 +48,7 @@ export function DebuggerSummaryView() {
           />
         ) : (
           runs.slice(0, 4).map((record) => {
-            const status = record.run.status as keyof typeof STATUS_CONFIG;
-            const config = STATUS_CONFIG[status] ?? STATUS_CONFIG.completed;
+            const config = getRunStatusConfig(record.run.status);
             const Icon = config.icon;
 
             return (
@@ -75,7 +68,7 @@ export function DebuggerSummaryView() {
                   <div className="flex-1 truncate font-medium">{record.run.run_id}</div>
                 </div>
                 <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                  <span className={config.color}>{record.run.status}</span>
+                  <span className={config.color}>{t(`runStatusLabel.${record.run.status}`)}</span>
                   <span>·</span>
                   <span>{formatTimeFromTimestamp(record.run.updated_at)}</span>
                 </div>

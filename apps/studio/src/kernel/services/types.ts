@@ -129,6 +129,10 @@ export interface RunDebugServiceState {
   hasBreakpointAtStep: (stepId?: string | null) => boolean;
   runs: RunTraceRecord[];
   records: Record<string, RunTraceRecord>;
+  runCommandLoading: boolean;
+  runCommandError: string | null;
+  flowExecutionTrace: import('@/types/project').FlowExecutionTrace | null;
+  pinnedNodeData: Record<string, Record<string, unknown>>;
 }
 
 // ── Git Service ──

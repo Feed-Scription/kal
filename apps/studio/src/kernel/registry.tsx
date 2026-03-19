@@ -3,7 +3,7 @@ import Flow from '@/Flow';
 import SessionEditor from '@/SessionEditor';
 import { ConfigEditor } from '@/components/ConfigEditor';
 import { DebuggerSummaryView } from '@/components/DebuggerSummaryView';
-import { DebuggerView } from '@/components/DebuggerView';
+import { DebugStreamSidebar } from '@/components/DebugStreamSidebar';
 import { EventLogPanel } from '@/components/EventLogPanel';
 import { H5PreviewView } from '@/components/H5PreviewView';
 import { PromptPreviewInspector } from '@/components/PromptPreviewInspector';
@@ -235,7 +235,7 @@ const registry = createStudioRegistry([
           shortTitle: 'ext.debugger.shortTitle',
           description: 'ext.debugger.viewDescription',
           icon: Bug,
-          component: DebuggerView,
+          component: DebugStreamSidebar,
         },
       ],
       debugViews: [

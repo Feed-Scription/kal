@@ -34,6 +34,8 @@ import type {
   ExecutionResult,
   EngineEvent,
   FlowDefinition,
+  FlowExecutionTrace,
+  FlowExecutionStreamEvent,
   GitLogResult,
   GitStatusResult,
   KalConfig,
@@ -112,6 +114,11 @@ type RunDebugState = {
   runOrder: string[];
   records: Record<string, RunTraceRecord>;
   breakpoints: RunBreakpointRecord[];
+  runCommandLoading: boolean;
+  runCommandError: string | null;
+  flowExecutionTrace: FlowExecutionTrace | null;
+  /** Phase 5: pinned node data — nodeId → frozen output snapshot */
+  pinnedNodeData: Record<string, Record<string, unknown>>;
 };
 
 type GitState = {
@@ -176,6 +183,8 @@ type StudioStore = {
   toggleBreakpoint: (stepId: string) => void;
   clearBreakpoint: (stepId: string) => void;
   cancelRun: (runId: string) => Promise<void>;
+  pinNodeData: (nodeId: string, data: Record<string, unknown>) => void;
+  unpinNodeData: (nodeId: string) => void;
   createCheckpoint: (label?: string, description?: string) => CheckpointRecord | null;
   restoreCheckpoint: (checkpointId: string) => Promise<void>;
   refreshDiagnostics: () => Promise<void>;
@@ -215,6 +224,7 @@ const EXTENSION_RUNTIME_STORAGE_KEY = 'kal.studio.extensions';
 const BREAKPOINTS_STORAGE_KEY = 'kal.studio.breakpoints';
 const runStreamSubscriptions = new Map<string, () => void>();
 let engineEventStreamUnsubscribe: (() => void) | null = null;
+let currentFlowAbort: (() => void) | null = null;
 
 function getDefaultWorkbenchState(): WorkbenchState {
   return {
@@ -518,14 +528,14 @@ function summarizeRunEvent(event: RunView['recent_events'][number]): { title: st
   if (event.type === 'output') {
     return {
       title: i18n.t('store:stepOutput', { stepId: event.step_id }),
-      detail: event.normalized.narration ?? event.flow_id ?? 'run output',
+      detail: event.normalized.narration ?? event.flow_id ?? i18n.t('store:stepOutput', { stepId: event.step_id }),
       changedKeys: Object.keys(event.normalized.state_changes ?? {}),
     };
   }
 
   return {
     title: i18n.t('store:runEnded'),
-    detail: event.message ?? 'Session ended',
+    detail: event.message ?? i18n.t('store:runEnded'),
     changedKeys: [],
   };
 }
@@ -561,7 +571,7 @@ function createBreakpointTimelineEntry(
     timestamp,
     source: 'annotation',
     eventType: 'run.breakpoint',
-    title: `Breakpoint Hit · ${stepId}`,
+    title: i18n.t('store:breakpointHit', { runId: '', stepId }),
     detail: i18n.t('store:breakpointHitDetail'),
     status,
     cursorStepId: stepId,
@@ -1271,6 +1281,10 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     runOrder: [],
     records: {},
     breakpoints: loadBreakpoints(),
+    runCommandLoading: false,
+    runCommandError: null,
+    flowExecutionTrace: null,
+    pinnedNodeData: {},
   },
   git: {
     status: null,
@@ -1372,7 +1386,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
           }
           store.recordKernelEvent({
             type: 'resource.changed',
-            message: event.message ?? 'Resource changed',
+            message: event.message ?? i18n.t('store:resourceChanged'),
             resourceId:
               event.flowId
                 ? `flow://${event.flowId}`
@@ -1406,6 +1420,10 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
 
   disconnect: () => {
     stopAllRunSubscriptions();
+    if (currentFlowAbort) {
+      currentFlowAbort();
+      currentFlowAbort = null;
+    }
     if (engineEventStreamUnsubscribe) {
       engineEventStreamUnsubscribe();
       engineEventStreamUnsubscribe = null;
@@ -1436,6 +1454,10 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
         runOrder: [],
         records: {},
         breakpoints: state.runDebug.breakpoints,
+        runCommandLoading: false,
+        runCommandError: null,
+        flowExecutionTrace: null,
+        pinnedNodeData: state.runDebug.pinnedNodeData,
       },
       git: { status: null, log: null },
       presence: { users: [], activities: [], selfId: null },
@@ -1628,8 +1650,156 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
   },
 
   executeFlow: async (flowId, input = {}) => {
+    // Cancel any in-flight flow execution
+    if (currentFlowAbort) {
+      currentFlowAbort();
+      currentFlowAbort = null;
+    }
 
-    return engineApi.executeFlow(flowId, input);
+    // Initialize execution trace
+    const trace: FlowExecutionTrace = {
+      executionId: '',
+      flowId,
+      status: 'running',
+      nodeResults: {},
+      executionOrder: [],
+    };
+
+    set((state) => ({
+      runDebug: {
+        ...state.runDebug,
+        flowExecutionTrace: trace,
+      },
+    }));
+
+    return new Promise<ExecutionResult>((resolve, reject) => {
+      let finalResult: ExecutionResult | null = null;
+
+      const abort = engineApi.executeFlowStream(flowId, input, (event: FlowExecutionStreamEvent) => {
+        switch (event.type) {
+          case 'flow.start':
+            set((state) => ({
+              runDebug: {
+                ...state.runDebug,
+                flowExecutionTrace: {
+                  ...state.runDebug.flowExecutionTrace!,
+                  executionId: event.executionId,
+                },
+              },
+            }));
+            break;
+
+          case 'node.start':
+            set((state) => {
+              const prev = state.runDebug.flowExecutionTrace;
+              if (!prev) return state;
+              return {
+                runDebug: {
+                  ...state.runDebug,
+                  flowExecutionTrace: {
+                    ...prev,
+                    executionOrder: [...prev.executionOrder, event.nodeId],
+                    nodeResults: {
+                      ...prev.nodeResults,
+                      [event.nodeId]: {
+                        nodeId: event.nodeId,
+                        status: 'running',
+                        inputs: event.inputs as Record<string, unknown>,
+                      },
+                    },
+                  },
+                },
+              };
+            });
+            break;
+
+          case 'node.end':
+            set((state) => {
+              const prev = state.runDebug.flowExecutionTrace;
+              if (!prev) return state;
+              return {
+                runDebug: {
+                  ...state.runDebug,
+                  flowExecutionTrace: {
+                    ...prev,
+                    nodeResults: {
+                      ...prev.nodeResults,
+                      [event.nodeId]: {
+                        nodeId: event.nodeId,
+                        status: 'success',
+                        outputs: event.outputs as Record<string, unknown>,
+                        durationMs: event.durationMs,
+                      },
+                    },
+                  },
+                },
+              };
+            });
+            break;
+
+          case 'node.error':
+            set((state) => {
+              const prev = state.runDebug.flowExecutionTrace;
+              if (!prev) return state;
+              return {
+                runDebug: {
+                  ...state.runDebug,
+                  flowExecutionTrace: {
+                    ...prev,
+                    nodeResults: {
+                      ...prev.nodeResults,
+                      [event.nodeId]: {
+                        nodeId: event.nodeId,
+                        status: 'error',
+                        error: event.error.message,
+                      },
+                    },
+                  },
+                },
+              };
+            });
+            break;
+
+          case 'flow.end':
+            set((state) => ({
+              runDebug: {
+                ...state.runDebug,
+                flowExecutionTrace: state.runDebug.flowExecutionTrace
+                  ? {
+                      ...state.runDebug.flowExecutionTrace,
+                      status: event.errors.length > 0 ? 'error' : 'success',
+                    }
+                  : null,
+              },
+            }));
+            finalResult = {
+              outputs: event.outputs as Record<string, any>,
+              duration: event.durationMs,
+              error: event.errors.length > 0 ? event.errors[0].message : undefined,
+            };
+            resolve(finalResult);
+            break;
+
+          case 'flow.error':
+            set((state) => ({
+              runDebug: {
+                ...state.runDebug,
+                flowExecutionTrace: state.runDebug.flowExecutionTrace
+                  ? { ...state.runDebug.flowExecutionTrace, status: 'error' }
+                  : null,
+              },
+            }));
+            reject(new Error(event.error?.message ?? i18n.t('store:flowExecutionFailed')));
+            break;
+        }
+      });
+
+      // Wrap abort so it also settles the promise
+      currentFlowAbort = () => {
+        abort();
+        reject(new DOMException('Flow execution aborted', 'AbortError'));
+      };
+    });
   },
 
   reloadProject: async () => {
@@ -1838,7 +2008,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     const { run } = await withJob({
       set,
       get,
-      title: 'Smoke Run',
+      title: i18n.t('store:smokeRun'),
       detail: i18n.t('store:smokeRunDetail'),
       action: async (updateProgress) => {
         updateProgress(20, i18n.t('store:requestEngineSmokeRun'));
@@ -2219,6 +2389,30 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
         },
       },
     }));
+  },
+
+  pinNodeData: (nodeId, data) => {
+    set((state) => ({
+      runDebug: {
+        ...state.runDebug,
+        pinnedNodeData: {
+          ...state.runDebug.pinnedNodeData,
+          [nodeId]: data,
+        },
+      },
+    }));
+  },
+
+  unpinNodeData: (nodeId) => {
+    set((state) => {
+      const { [nodeId]: _, ...rest } = state.runDebug.pinnedNodeData;
+      return {
+        runDebug: {
+          ...state.runDebug,
+          pinnedNodeData: rest,
+        },
+      };
+    });
   },
 
   createCheckpoint: (label, description) => {

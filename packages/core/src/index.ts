@@ -23,7 +23,7 @@ export type { UserConfig } from './config';
 
 // LLM
 export { LLMClient } from './llm/llm-client';
-export type { InvokeOptions, InvokeResult } from './llm/llm-client';
+export type { InvokeOptions, InvokeResult, ReasoningConfig, ReasoningEffort } from './llm/llm-client';
 export { LLMCache } from './llm/cache';
 export type { CachedResponse } from './llm/cache';
 export { Telemetry } from './llm/telemetry';

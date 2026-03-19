@@ -14,6 +14,21 @@ import { LLMCache } from './cache';
 import { Telemetry } from './telemetry';
 
 /**
+ * Reasoning / thinking configuration (OpenRouter-compatible).
+ * Controls whether and how much the model "thinks" before answering.
+ */
+export type ReasoningEffort = 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh';
+
+export interface ReasoningConfig {
+  /** Reasoning intensity. "none" disables thinking entirely. */
+  effort?: ReasoningEffort;
+  /** Explicit reasoning token budget (Anthropic / Gemini style). */
+  maxTokens?: number;
+  /** Hide reasoning from response while still using it internally. */
+  exclude?: boolean;
+}
+
+/**
  * LLM invocation options (per-call)
  */
 export interface InvokeOptions {
@@ -26,6 +41,7 @@ export interface InvokeOptions {
   cache?: Partial<CacheConfig>;
   responseFormat?: 'text' | 'json';
   jsonSchema?: object;
+  reasoning?: ReasoningConfig;
 }
 
 /**
@@ -93,7 +109,7 @@ export class LLMClient {
 
     try {
       const result = await retry(
-        () => this.callApi(model, messages, temperature, maxTokens, options.responseFormat, options.jsonSchema),
+        () => this.callApi(model, messages, temperature, maxTokens, options.responseFormat, options.jsonSchema, options.reasoning),
         retryConfig,
         isRetryableError
       );
@@ -153,6 +169,7 @@ export class LLMClient {
     maxTokens: number,
     responseFormat?: 'text' | 'json',
     jsonSchema?: object,
+    reasoning?: ReasoningConfig,
   ): Promise<{ text: string; usage: TokenUsage }> {
     const baseUrl = this.config.baseUrl ?? 'https://api.openai.com/v1';
 
@@ -162,6 +179,15 @@ export class LLMClient {
       temperature,
       max_tokens: maxTokens,
     };
+
+    // Add reasoning config for thinking models (OpenRouter-compatible)
+    if (reasoning) {
+      const r: Record<string, any> = {};
+      if (reasoning.effort !== undefined) r.effort = reasoning.effort;
+      if (reasoning.maxTokens !== undefined) r.max_tokens = reasoning.maxTokens;
+      if (reasoning.exclude !== undefined) r.exclude = reasoning.exclude;
+      requestBody.reasoning = r;
+    }
 
     // Add response_format for structured output
     if (responseFormat === 'json') {
@@ -200,8 +226,30 @@ export class LLMClient {
 
     const data = await response.json() as any;
 
+    const choice = data.choices[0];
+    const rawContent = choice.message.content;
+    const finishReason = choice.finish_reason;
+
+    // Reasoning models (e.g. kimi-k2.5, DeepSeek-R1) may exhaust the token
+    // budget on reasoning and return content: null with finish_reason: "length".
+    if (rawContent == null) {
+      if (finishReason === 'length') {
+        throw new Error(
+          `LLM returned empty content: model exhausted max_tokens (${maxTokens}) before producing output — ` +
+          `this often happens with reasoning models that spend tokens on chain-of-thought. ` +
+          `Try increasing maxTokens.`
+        );
+      }
+      throw new Error(
+        `LLM returned empty content (finish_reason: ${finishReason ?? 'unknown'})`
+      );
+    }
+
+    // Normalize: some providers return parsed object in JSON mode instead of string
+    const text = typeof rawContent === 'string' ? rawContent : JSON.stringify(rawContent);
+
     return {
-      text: data.choices[0].message.content,
+      text,
       usage: {
         promptTokens: data.usage.prompt_tokens,
         completionTokens: data.usage.completion_tokens,
