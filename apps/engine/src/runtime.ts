@@ -16,8 +16,14 @@ import { EngineHttpError } from './errors';
 import { loadEngineProject } from './project-loader';
 import type { EngineProject, FlowListItem, ProjectInfo } from './types';
 
+export interface EngineRuntimeOptions {
+  /** When true, unset env vars in config are replaced with placeholders instead of throwing */
+  lenient?: boolean;
+}
+
 export class EngineRuntime {
   private projectRoot: string;
+  private options: EngineRuntimeOptions;
   private project: EngineProject | null = null;
   private core: ReturnType<typeof createKalCore> | null = null;
   private watcher: FSWatcher | null = null;
@@ -26,19 +32,20 @@ export class EngineRuntime {
   private debounceTimers = new Map<string, NodeJS.Timeout>();
   public onExternalFlowChange?: (flowId: string) => void;
 
-  private constructor(projectRoot: string) {
+  private constructor(projectRoot: string, options: EngineRuntimeOptions = {}) {
     this.projectRoot = projectRoot;
+    this.options = options;
   }
 
-  static async create(projectRoot: string): Promise<EngineRuntime> {
-    const runtime = new EngineRuntime(projectRoot);
+  static async create(projectRoot: string, options?: EngineRuntimeOptions): Promise<EngineRuntime> {
+    const runtime = new EngineRuntime(projectRoot, options);
     await runtime.reload();
     return runtime;
   }
 
   async reload(): Promise<void> {
     // loadEngineProject automatically bridges .kal/config.env → process.env
-    this.project = await loadEngineProject(this.projectRoot);
+    this.project = await loadEngineProject(this.projectRoot, { lenient: this.options.lenient });
 
     this.core = createKalCore({
       config: this.project.config,
@@ -61,6 +68,37 @@ export class EngineRuntime {
 
   getProjectRoot(): string {
     return this.projectRoot;
+  }
+
+  /**
+   * Guard: ensure config has no unresolved placeholders before executing.
+   * In lenient mode, env vars like ${OPENAI_API_KEY} are replaced with
+   * "<unset:OPENAI_API_KEY>" placeholders — this check catches them at
+   * execution time with a clear error message.
+   */
+  private assertConfigReady(): void {
+    const config = this.getProject().config;
+    const placeholders: string[] = [];
+    const check = (value: unknown, path: string) => {
+      if (typeof value === 'string' && value.includes('<unset:')) {
+        const match = value.match(/<unset:([^>]+)>/);
+        if (match) placeholders.push(match[1]!);
+      } else if (value && typeof value === 'object' && !Array.isArray(value)) {
+        for (const [key, child] of Object.entries(value)) {
+          check(child, `${path}.${key}`);
+        }
+      }
+    };
+    check(config, 'config');
+    if (placeholders.length > 0) {
+      const unique = [...new Set(placeholders)];
+      throw new EngineHttpError(
+        `Cannot execute: missing environment variables: ${unique.join(', ')}. Set them or run "kal config set-key" to configure.`,
+        400,
+        'CONFIG_ENV_NOT_SET',
+        { missingVars: unique },
+      );
+    }
   }
 
   registerHooks(hooks: Partial<import('@kal-ai/core').EngineHooks>): void {
@@ -211,6 +249,7 @@ export class EngineRuntime {
   }
 
   async executeFlow(flowId: string, inputData: Record<string, any> = {}): Promise<FlowExecutionResult> {
+    this.assertConfigReady();
     const project = this.getProject();
     const core = this.getCore();
     const flow = this.getFlow(flowId);

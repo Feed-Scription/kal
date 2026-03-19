@@ -1,4 +1,5 @@
 export { EngineRuntime } from './runtime';
+export type { EngineRuntimeOptions } from './runtime';
 export { loadEngineProject } from './project-loader';
 export { startEngineServer, handleEngineRequest } from './server';
 export { startStudioServer } from './studio-server';

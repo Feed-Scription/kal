@@ -16,7 +16,7 @@ import type { EngineCliIO, StartedEngineServer } from './types';
 export interface CliDependencies {
   cwd: string;
   io: EngineCliIO;
-  createRuntime(projectRoot: string): Promise<EngineRuntime>;
+  createRuntime(projectRoot: string, options?: import('./runtime').EngineRuntimeOptions): Promise<EngineRuntime>;
   startServer(params: {
     runtime: EngineRuntime;
     host?: string;
@@ -56,8 +56,8 @@ async function waitForShutdown(server: StartedEngineServer, io: EngineCliIO): Pr
 const defaultDependencies: CliDependencies = {
   cwd: process.cwd(),
   io: defaultIo(),
-  createRuntime(projectRoot: string) {
-    return EngineRuntime.create(projectRoot);
+  createRuntime(projectRoot: string, options?: import('./runtime').EngineRuntimeOptions) {
+    return EngineRuntime.create(projectRoot, options);
   },
   startServer: startEngineServer,
   waitForShutdown,
@@ -173,7 +173,7 @@ async function studioCommand(
   dependencies: CliDependencies
 ): Promise<number> {
   const { projectPath, flags } = parseCommandArgs(tokens);
-  const runtime = await dependencies.createRuntime(resolveProjectPath(projectPath, dependencies.cwd));
+  const runtime = await dependencies.createRuntime(resolveProjectPath(projectPath, dependencies.cwd), { lenient: true });
   const host = flags.host ?? '127.0.0.1';
   const port = flags.port ? Number(flags.port) : 3000;
   if (!Number.isFinite(port) || port < 0) {
