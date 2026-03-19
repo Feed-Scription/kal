@@ -1,4 +1,5 @@
 import { execFile } from 'node:child_process';
+import { resolve as resolvePath } from 'node:path';
 
 export interface GitStatusResult {
   available: boolean;
@@ -35,8 +36,8 @@ function git(args: string[], cwd: string): Promise<string> {
 
 async function isGitRepo(cwd: string): Promise<boolean> {
   try {
-    await git(['rev-parse', '--is-inside-work-tree'], cwd);
-    return true;
+    const toplevel = (await git(['rev-parse', '--show-toplevel'], cwd)).trim();
+    return resolvePath(toplevel) === resolvePath(cwd);
   } catch {
     return false;
   }
