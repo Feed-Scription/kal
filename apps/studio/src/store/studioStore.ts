@@ -136,6 +136,11 @@ type ReferenceGraphState = {
 
 type SaveScope = 'flow' | 'session' | 'project';
 
+type PanelCallbacks = {
+  toggleInspector?: () => void;
+  toggleBottomPanel?: () => void;
+};
+
 type StudioStore = {
   resources: StudioResources;
   workbench: WorkbenchState;
@@ -148,6 +153,7 @@ type StudioStore = {
   git: GitState;
   presence: PresenceStoreState;
   referenceGraph: ReferenceGraphState;
+  panelCallbacks: PanelCallbacks;
 
   connect: () => Promise<void>;
   disconnect: () => void;
@@ -197,6 +203,8 @@ type StudioStore = {
   refreshGitStatus: () => Promise<void>;
   refreshReferences: (resourceId?: string) => Promise<void>;
   searchProject: (query: string) => Promise<void>;
+  registerPanelCallbacks: (callbacks: PanelCallbacks) => void;
+  clearPanelCallbacks: () => void;
 };
 
 function updateSaveState(
@@ -1289,6 +1297,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     searchQuery: '',
     loading: false,
   },
+  panelCallbacks: {},
 
   connect: async () => {
     set({
@@ -2730,6 +2739,14 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
       console.warn('Failed to search project:', error);
       set((state) => ({ referenceGraph: { ...state.referenceGraph, loading: false } }));
     }
+  },
+
+  registerPanelCallbacks: (callbacks) => {
+    set({ panelCallbacks: callbacks });
+  },
+
+  clearPanelCallbacks: () => {
+    set({ panelCallbacks: {} });
   },
 }));
 

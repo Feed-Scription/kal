@@ -150,6 +150,8 @@ export interface StudioCommandDescriptor {
   section: string;
   keywords?: string[];
   shortcut?: string;
+  /** 快捷键在可编辑元素（input/textarea）中是否仍然生效，默认 false */
+  global?: boolean;
   when?: (context: StudioCommandContext) => boolean;
   run: () => void | Promise<void>;
 }
