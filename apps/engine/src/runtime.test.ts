@@ -228,18 +228,24 @@ describe('EngineRuntime', () => {
     expect(JSON.parse(rawConfig).engine.timeout).toBe(2000);
   });
 
-  it('saveConfig 应该拒绝通过配置 API 修改敏感 LLM 字段', async () => {
+  it('saveConfig 应该静默剥离敏感 LLM 字段而不是抛错', async () => {
     const fixture = await createTempProject();
     cleanups.push(fixture.cleanup);
 
     const runtime = await EngineRuntime.create(fixture.projectRoot);
     const currentConfig = runtime.getConfig();
 
-    await expect(runtime.saveConfig({
+    await runtime.saveConfig({
       llm: {
         ...currentConfig.llm,
         apiKey: 'new-secret-key',
+        defaultModel: 'changed-model',
       },
-    })).rejects.toThrow('Cannot modify llm.apiKey or llm.baseUrl via config API');
+    });
+
+    const rawConfig = JSON.parse(await readFile(join(fixture.projectRoot, 'kal_config.json'), 'utf8'));
+    // apiKey should remain the original file value, not the new one from the patch
+    expect(rawConfig.llm.apiKey).toBe('test-key');
+    expect(rawConfig.llm.defaultModel).toBe('changed-model');
   });
 });

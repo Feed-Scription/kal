@@ -29,5 +29,11 @@
   "closeCommandPalette": "Close Command Palette",
   "closeCommandPaletteDesc": "Close the current command palette.",
   "switchLanguage": "Switch Language",
-  "switchLanguageDesc": "Change Studio display language"
+  "switchLanguageDesc": "Change Studio display language",
+  "toggleCommandPalette": "Toggle Command Palette",
+  "toggleCommandPaletteDesc": "Open or close the command palette.",
+  "toggleInspector": "Toggle Inspector",
+  "toggleInspectorDesc": "Show or hide the inspector panel.",
+  "toggleBottomPanel": "Toggle Bottom Panel",
+  "toggleBottomPanelDesc": "Show or hide the bottom panel."
 }

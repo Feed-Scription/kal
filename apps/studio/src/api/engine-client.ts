@@ -201,6 +201,18 @@ export const engineApi = {
     return data.nodes;
   },
 
+  async getNodeSource(nodeType: string): Promise<{ source: string; fileName: string }> {
+    return request<{ source: string; fileName: string }>(`/api/nodes/${encodeURIComponent(nodeType)}/source`);
+  },
+
+  async saveNodeSource(nodeType: string, source: string): Promise<void> {
+    await request(`/api/nodes/${encodeURIComponent(nodeType)}/source`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ source }),
+    });
+  },
+
   async reloadProject(): Promise<void> {
     await request('/api/project/reload', { method: 'POST' });
   },

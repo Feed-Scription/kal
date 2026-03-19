@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { ChevronDown, ChevronRight, Layers2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, Code2, Layers2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { formatTimeFromTimestamp } from '@/i18n/format';
@@ -14,6 +14,7 @@ import { useCanvasSelection } from '@/hooks/use-canvas-selection';
 import { useNodeExecutionData } from '@/hooks/use-node-execution-data';
 import { NodeExecutionInspector } from '@/components/NodeExecutionInspector';
 import { ExtensionSurface } from './ExtensionSurface';
+import { NodeCodeEditorDialog } from './NodeCodeEditorDialog';
 
 function CollapsibleSection({
   title,
@@ -61,6 +62,8 @@ export function WorkbenchInspector({ mobile }: { mobile?: boolean } = {}) {
   const activeFlow = activeFlowId ? project?.flows[activeFlowId] : null;
   const { selectedNodeId, selectionContext } = useCanvasSelection();
   const nodeExecData = useNodeExecutionData(selectedNodeId);
+  const [codeEditorOpen, setCodeEditorOpen] = useState(false);
+  const [codeEditorNodeType, setCodeEditorNodeType] = useState('');
 
   // 查找选中节点的 manifest 信息和 config
   const selectedNodeManifest = (() => {
@@ -105,6 +108,7 @@ export function WorkbenchInspector({ mobile }: { mobile?: boolean } = {}) {
 
   const hasContextCards = inspectors.length > 0 || debugViews.length > 0;
   const showExtensionInfo = activeExtension != null;
+  const isCustomNode = selectedNodeManifest != null && project?.customNodes?.includes(selectedNodeManifest.node.type);
 
   return (
     <aside className={mobile ? "flex flex-col" : "flex h-full flex-col overflow-hidden bg-background/70"}>
@@ -204,6 +208,20 @@ export function WorkbenchInspector({ mobile }: { mobile?: boolean } = {}) {
                 </CollapsibleSection>
               )}
             </div>
+            {isCustomNode && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-2 w-full gap-1.5"
+                onClick={() => {
+                  setCodeEditorNodeType(selectedNodeManifest.node.type);
+                  setCodeEditorOpen(true);
+                }}
+              >
+                <Code2 className="size-3.5" />
+                {t('editCode')}
+              </Button>
+            )}
             {/* Execution data — shown when node has execution results */}
             {nodeExecData && (
               <>
@@ -333,6 +351,11 @@ export function WorkbenchInspector({ mobile }: { mobile?: boolean } = {}) {
           </>
         )}
       </div>
+      <NodeCodeEditorDialog
+        nodeType={codeEditorNodeType}
+        open={codeEditorOpen}
+        onOpenChange={setCodeEditorOpen}
+      />
     </aside>
   );
 }
