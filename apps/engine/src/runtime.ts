@@ -8,7 +8,7 @@ import type {
   SessionEvent,
   StateValue,
 } from '@kal-ai/core';
-import { readFile, writeFile, unlink } from 'node:fs/promises';
+import { readFile, writeFile, unlink, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { watch } from 'node:fs';
 import type { FSWatcher } from 'node:fs';
@@ -264,6 +264,38 @@ export class EngineRuntime {
 
   getNodeManifests(): NodeManifest[] {
     return this.getCore().registry.exportManifests();
+  }
+
+  async listCustomNodeFiles(): Promise<string[]> {
+    const nodeDir = this.getProject().customNodeDir;
+    try {
+      const files = await readdir(nodeDir);
+      return files.filter((f) => f.endsWith('.ts')).sort();
+    } catch {
+      return [];
+    }
+  }
+
+  async getCustomNodeSource(nodeType: string): Promise<{ source: string; fileName: string }> {
+    const nodeDir = this.getProject().customNodeDir;
+    const fileName = `${nodeType}.ts`;
+    const filePath = join(nodeDir, fileName);
+    try {
+      const source = await readFile(filePath, 'utf8');
+      return { source, fileName };
+    } catch (err: any) {
+      if (err.code === 'ENOENT') {
+        throw new EngineHttpError(`Custom node source not found: ${nodeType}`, 404, 'NODE_SOURCE_NOT_FOUND', { nodeType });
+      }
+      throw err;
+    }
+  }
+
+  async saveCustomNodeSource(nodeType: string, source: string): Promise<void> {
+    const nodeDir = this.getProject().customNodeDir;
+    const filePath = join(nodeDir, `${nodeType}.ts`);
+    await writeFile(filePath, source, 'utf8');
+    await this.reload();
   }
 
   getState(): Record<string, StateValue> {

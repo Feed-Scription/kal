@@ -149,6 +149,12 @@
     "dark": "Dark",
     "toggle": "Toggle theme"
   },
+  "editCode": "Edit Code",
+  "editNodeCode": "Edit {{nodeType}}",
+  "saveAndReload": "Save & Reload",
+  "loadingSource": "Loading source...",
+  "saveSuccess": "Saved successfully",
+  "saveFailed": "Save failed: {{message}}",
   "language": {
     "label": "Language",
     "importFromUrl": "Import from URL...",
