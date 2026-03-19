@@ -1109,6 +1109,7 @@ async function loadProjectSnapshot(previousFlow: string | null): Promise<{
     state,
     session,
     nodeManifests,
+    customNodes: projectInfo.customNodes ?? [],
   };
 
   const flowIds = Object.keys(flows);

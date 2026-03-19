@@ -833,6 +833,31 @@ export async function handleEngineRequest(
       return;
     }
 
+    // ── Custom Node Source API ──
+
+    const nodeSourceMatch = pathname.match(/^\/api\/nodes\/([^/]+)\/source$/);
+    if (nodeSourceMatch) {
+      const nodeType = decodeURIComponent(nodeSourceMatch[1]!);
+
+      if (method === 'GET') {
+        const result = await runtime.getCustomNodeSource(nodeType);
+        success(res, result);
+        return;
+      }
+
+      if (method === 'PUT') {
+        requireCapability(req, 'project.write');
+        const payload = await readJsonBody<{ source: string }>(req);
+        if (typeof payload.source !== 'string') {
+          throw new EngineHttpError('source field is required', 400, 'SOURCE_REQUIRED');
+        }
+        await runtime.saveCustomNodeSource(nodeType, payload.source);
+        eventBus?.emit({ type: 'resource.changed', message: `Custom node source saved: ${nodeType}` });
+        success(res, { savedAt: new Date().toISOString() });
+        return;
+      }
+    }
+
     if (method === 'POST' && pathname === '/api/runs') {
       requireCapability(req, 'engine.execute');
       const payload = await readJsonBody<CreateRunRequest>(req, { required: false });
