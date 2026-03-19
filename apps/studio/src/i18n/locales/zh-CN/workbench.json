@@ -150,6 +150,12 @@
     "dark": "深色",
     "toggle": "切换主题"
   },
+  "editCode": "编辑代码",
+  "editNodeCode": "编辑 {{nodeType}}",
+  "saveAndReload": "保存并重载",
+  "loadingSource": "加载源码中...",
+  "saveSuccess": "保存成功",
+  "saveFailed": "保存失败: {{message}}",
   "language": {
     "label": "语言",
     "importFromUrl": "从 URL 导入...",

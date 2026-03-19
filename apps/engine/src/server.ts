@@ -144,7 +144,7 @@ function writeSseEvent(res: ServerResponse, event: RunStreamEvent | EngineEvent)
 
 type EngineEventListener = (event: EngineEvent) => void;
 
-class EngineEventBus {
+export class EngineEventBus {
   private listeners = new Set<EngineEventListener>();
 
   subscribe(listener: EngineEventListener): () => void {
@@ -882,6 +882,31 @@ export async function handleEngineRequest(
       return;
     }
 
+    // ── Custom Node Source API ──
+
+    const nodeSourceMatch = pathname.match(/^\/api\/nodes\/([^/]+)\/source$/);
+    if (nodeSourceMatch) {
+      const nodeType = decodeURIComponent(nodeSourceMatch[1]!);
+
+      if (method === 'GET') {
+        const result = await runtime.getCustomNodeSource(nodeType);
+        success(res, result);
+        return;
+      }
+
+      if (method === 'PUT') {
+        requireCapability(req, 'project.write');
+        const payload = await readJsonBody<{ source: string }>(req);
+        if (typeof payload.source !== 'string') {
+          throw new EngineHttpError('source field is required', 400, 'SOURCE_REQUIRED');
+        }
+        await runtime.saveCustomNodeSource(nodeType, payload.source);
+        eventBus?.emit({ type: 'resource.changed', message: `Custom node source saved: ${nodeType}` });
+        success(res, { savedAt: new Date().toISOString() });
+        return;
+      }
+    }
+
     if (method === 'POST' && pathname === '/api/runs') {
       requireCapability(req, 'engine.execute');
       const payload = await readJsonBody<CreateRunRequest>(req, { required: false });
@@ -1129,6 +1154,17 @@ export async function startEngineServer(params: {
     });
   });
 
+  // Bridge file watcher events to SSE
+  params.runtime.onExternalFlowChange = (flowId) => {
+    eventBus.emit({
+      type: 'resource.changed',
+      flowId,
+      message: `Flow externally modified: ${flowId}`,
+      external: true,
+    });
+  };
+  params.runtime.startWatching();
+
   const server = createServer((req, res) => {
     void handleEngineRequest(params.runtime, req, res, { runs, eventBus, terminals });
   });
@@ -1147,6 +1183,7 @@ export async function startEngineServer(params: {
     port: address.port,
     url: `http://${address.address}:${address.port}`,
     close: async () => {
+      params.runtime.stopWatching();
       terminals.dispose();
       await new Promise<void>((resolve, reject) => {
         server.close((error) => {

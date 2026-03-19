@@ -243,6 +243,8 @@ export interface StudioCommandService {
   refreshGitStatus: () => Promise<void>;
   refreshReferences: (resourceId?: string) => Promise<void>;
   searchProject: (query: string) => Promise<void>;
+  registerPanelCallbacks: (callbacks: { toggleInspector?: () => void; toggleBottomPanel?: () => void }) => void;
+  clearPanelCallbacks: () => void;
 }
 
 // ── Run Service (non-React) ──

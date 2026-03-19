@@ -29,5 +29,11 @@
   "closeCommandPalette": "关闭命令面板",
   "closeCommandPaletteDesc": "关闭当前命令面板。",
   "switchLanguage": "切换语言",
-  "switchLanguageDesc": "更改 Studio 显示语言"
+  "switchLanguageDesc": "更改 Studio 显示语言",
+  "toggleCommandPalette": "切换命令面板",
+  "toggleCommandPaletteDesc": "打开或关闭命令面板。",
+  "toggleInspector": "切换检查器",
+  "toggleInspectorDesc": "显示或隐藏检查器面板。",
+  "toggleBottomPanel": "切换底部面板",
+  "toggleBottomPanelDesc": "显示或隐藏底部面板。"
 }

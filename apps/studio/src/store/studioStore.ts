@@ -143,6 +143,11 @@ type ReferenceGraphState = {
 
 type SaveScope = 'flow' | 'session' | 'project';
 
+type PanelCallbacks = {
+  toggleInspector?: () => void;
+  toggleBottomPanel?: () => void;
+};
+
 type StudioStore = {
   resources: StudioResources;
   workbench: WorkbenchState;
@@ -155,6 +160,7 @@ type StudioStore = {
   git: GitState;
   presence: PresenceStoreState;
   referenceGraph: ReferenceGraphState;
+  panelCallbacks: PanelCallbacks;
 
   connect: () => Promise<void>;
   disconnect: () => void;
@@ -206,6 +212,8 @@ type StudioStore = {
   refreshGitStatus: () => Promise<void>;
   refreshReferences: (resourceId?: string) => Promise<void>;
   searchProject: (query: string) => Promise<void>;
+  registerPanelCallbacks: (callbacks: PanelCallbacks) => void;
+  clearPanelCallbacks: () => void;
 };
 
 function updateSaveState(
@@ -795,7 +803,8 @@ async function restoreProjectSnapshot(snapshot: RestorableSnapshot, currentProje
   }
 
   if (snapshot.config) {
-    await engineApi.saveConfig(snapshot.config);
+    const { apiKey: _a, baseUrl: _b, ...safeLlm } = snapshot.config.llm ?? {} as any;
+    await engineApi.saveConfig({ ...snapshot.config, llm: safeLlm });
   }
 
   return loadProjectSnapshot(previousFlow);
@@ -1118,6 +1127,7 @@ async function loadProjectSnapshot(previousFlow: string | null): Promise<{
     state,
     session,
     nodeManifests,
+    customNodes: projectInfo.customNodes ?? [],
   };
 
   const flowIds = Object.keys(flows);
@@ -1301,6 +1311,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     searchQuery: '',
     loading: false,
   },
+  panelCallbacks: {},
 
   connect: async () => {
     set({
@@ -1372,16 +1383,23 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
           // Auto-reload affected resources
           if (event.flowId && store.resources.project) {
             void engineApi.getFlow(event.flowId).then((flow) => {
-              set((state) => ({
-                resources: {
-                  project: state.resources.project
-                    ? {
-                        ...state.resources.project,
-                        flows: { ...state.resources.project.flows, [event.flowId!]: flow },
-                      }
-                    : null,
-                },
-              }));
+              set((state) => {
+                const proj = state.resources.project;
+                if (!proj) return {};
+                const updatedProject: ProjectData = {
+                  ...proj,
+                  flows: { ...proj.flows, [event.flowId!]: flow },
+                };
+                // Bump flowVersion counter for external changes so canvas refreshes
+                if (event.external) {
+                  const prev = proj.flowVersions ?? {};
+                  updatedProject.flowVersions = {
+                    ...prev,
+                    [event.flowId!]: (prev[event.flowId!] ?? 0) + 1,
+                  };
+                }
+                return { resources: { project: updatedProject } };
+              });
             });
           }
           store.recordKernelEvent({
@@ -2915,6 +2933,14 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
       console.warn('Failed to search project:', error);
       set((state) => ({ referenceGraph: { ...state.referenceGraph, loading: false } }));
     }
+  },
+
+  registerPanelCallbacks: (callbacks) => {
+    set({ panelCallbacks: callbacks });
+  },
+
+  clearPanelCallbacks: () => {
+    set({ panelCallbacks: {} });
   },
 }));
 

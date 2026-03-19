@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import i18n from '@/i18n';
+import { useStudioStore } from '@/store/studioStore';
 import { useRunDebug, useWorkbench, useWorkbenchContext, useStudioCommands } from './hooks';
 import type { StudioCommandContext, StudioCommandDescriptor } from './types';
 
@@ -20,11 +21,15 @@ export function useCommandRegistry() {
     replayRun,
     setActiveView,
     setCommandPaletteOpen,
+    toggleCommandPalette,
     stepRun,
     toggleBreakpoint,
     undo,
     redo,
   } = useStudioCommands();
+
+  const panelCallbacks = useStudioStore((state) => state.panelCallbacks);
+
   const commands = useMemo<StudioCommandDescriptor[]>(() => {
     const viewCommands = views.map((view) => {
       const title = tr(view.title);
@@ -196,6 +201,44 @@ export function useCommandRegistry() {
           setCommandPaletteOpen(false);
         },
       },
+      {
+        id: 'workbench.command-palette.toggle',
+        title: t('toggleCommandPalette'),
+        description: t('toggleCommandPaletteDesc'),
+        section: 'Workbench',
+        keywords: ['palette', 'command', 'toggle'],
+        shortcut: 'Ctrl+K',
+        global: true,
+        run: () => {
+          toggleCommandPalette();
+        },
+      },
+      {
+        id: 'workbench.inspector.toggle',
+        title: t('toggleInspector'),
+        description: t('toggleInspectorDesc'),
+        section: 'Workbench',
+        keywords: ['inspector', 'panel', 'toggle', 'right'],
+        shortcut: 'Ctrl+I',
+        global: true,
+        when: (ctx) => Boolean(ctx.values['project.loaded']),
+        run: () => {
+          panelCallbacks.toggleInspector?.();
+        },
+      },
+      {
+        id: 'workbench.bottom-panel.toggle',
+        title: t('toggleBottomPanel'),
+        description: t('toggleBottomPanelDesc'),
+        section: 'Workbench',
+        keywords: ['bottom', 'panel', 'toggle', 'terminal'],
+        shortcut: 'Ctrl+J',
+        global: true,
+        when: (ctx) => Boolean(ctx.values['project.loaded']),
+        run: () => {
+          panelCallbacks.toggleBottomPanel?.();
+        },
+      },
     ];
 
     return [...viewCommands, ...projectCommands];
@@ -203,12 +246,14 @@ export function useCommandRegistry() {
     advanceRun,
     createCheckpoint,
     createRun,
+    panelCallbacks,
     redo,
     refreshDiagnostics,
     reloadProject,
     replayRun,
     setActiveView,
     setCommandPaletteOpen,
+    toggleCommandPalette,
     stepRun,
     toggleBreakpoint,
     undo,
