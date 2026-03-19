@@ -182,6 +182,7 @@ export type ProjectData = {
   state: ProjectState;
   session: SessionDefinition | null;
   nodeManifests: NodeManifest[];
+  customNodes: string[];
   flowVersions?: Record<string, number>;
 };
 
