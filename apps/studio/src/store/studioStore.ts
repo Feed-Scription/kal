@@ -785,7 +785,8 @@ async function restoreProjectSnapshot(snapshot: RestorableSnapshot, currentProje
   }
 
   if (snapshot.config) {
-    await engineApi.saveConfig(snapshot.config);
+    const { apiKey: _a, baseUrl: _b, ...safeLlm } = snapshot.config.llm ?? {} as any;
+    await engineApi.saveConfig({ ...snapshot.config, llm: safeLlm });
   }
 
   return loadProjectSnapshot(previousFlow);
