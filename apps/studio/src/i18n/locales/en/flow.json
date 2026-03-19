@@ -2,6 +2,7 @@
   "cycle": "Cycle",
   "saveFailed": "Save failed: {{message}}",
   "nodeCount": "({{count}} nodes)",
+  "nodeProgress": "({{progress}} nodes)",
   "save": "Save",
   "saveFlow": "Save Flow (Ctrl+S)",
   "export": "Export",
@@ -59,6 +60,11 @@
     "condition": "Condition",
     "content": "Content",
     "type": "Type",
-    "role": "Role"
+    "role": "Role",
+    "maxTokens": "Max Tokens",
+    "weights": "Weights",
+    "fragmentId": "Id",
+    "seedRandom": "Random",
+    "seedFixed": "Fixed index"
   }
 }

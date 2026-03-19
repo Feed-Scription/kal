@@ -274,6 +274,10 @@ export function useRunDebug(): RunDebugServiceState {
   const runOrder = useStudioStore((state) => state.runDebug.runOrder);
   const records = useStudioStore((state) => state.runDebug.records);
   const breakpoints = useStudioStore((state) => state.runDebug.breakpoints);
+  const runCommandLoading = useStudioStore((state) => state.runDebug.runCommandLoading);
+  const runCommandError = useStudioStore((state) => state.runDebug.runCommandError);
+  const flowExecutionTrace = useStudioStore((state) => state.runDebug.flowExecutionTrace);
+  const pinnedNodeData = useStudioStore((state) => state.runDebug.pinnedNodeData);
   const selectedRecord = selectedRunId ? records[selectedRunId] ?? null : null;
   const runs = runOrder
     .map((runId) => records[runId] ?? null)
@@ -295,6 +299,10 @@ export function useRunDebug(): RunDebugServiceState {
     hasBreakpointAtStep: (stepId?: string | null) => Boolean(stepId) && breakpoints.some((entry) => entry.step_id === stepId),
     runs,
     records,
+    runCommandLoading,
+    runCommandError,
+    flowExecutionTrace,
+    pinnedNodeData,
   };
 }
 

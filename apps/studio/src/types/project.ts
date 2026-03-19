@@ -276,6 +276,33 @@ export type ExecutionResult = {
   error?: string;
 };
 
+// ── Flow Execution Streaming ──
+
+export type FlowExecutionStreamEvent =
+  | { type: 'flow.start'; executionId: string; flowId: string; timestamp: number }
+  | { type: 'node.start'; executionId: string; nodeId: string; nodeType: string; inputs: Record<string, unknown>; timestamp: number }
+  | { type: 'node.end'; executionId: string; nodeId: string; nodeType: string; outputs: Record<string, unknown>; durationMs: number; timestamp: number; warnings?: string[] }
+  | { type: 'node.error'; executionId: string; nodeId: string; nodeType: string; error: { nodeId: string; message: string }; timestamp: number }
+  | { type: 'flow.end'; executionId: string; flowId: string; outputs: Record<string, unknown>; errors: any[]; durationMs: number; timestamp: number }
+  | { type: 'flow.error'; executionId: string; flowId: string; error: any; timestamp: number };
+
+export type FlowExecutionNodeResult = {
+  nodeId: string;
+  status: 'success' | 'error' | 'running' | 'skipped';
+  inputs?: Record<string, unknown>;
+  outputs?: Record<string, unknown>;
+  error?: string;
+  durationMs?: number;
+};
+
+export type FlowExecutionTrace = {
+  executionId: string;
+  flowId: string;
+  status: 'running' | 'success' | 'error';
+  nodeResults: Record<string, FlowExecutionNodeResult>;
+  executionOrder: string[];
+};
+
 export type RunWaitingFor = {
   kind: 'prompt' | 'choice';
   step_id: string;

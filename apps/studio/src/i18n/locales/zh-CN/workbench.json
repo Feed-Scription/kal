@@ -94,6 +94,7 @@
   "extensionInfo": "扩展信息",
   "noNodeSelected": "点击画布上的节点以查看详情。",
   "noActiveFlow": "暂无活跃 Flow。",
+  "nodeId": "ID",
   "sessionInfo": "Session",
   "problems": {
     "title": "问题",
@@ -170,5 +171,16 @@
     "community": "社区",
     "switchLanguage": "切换语言",
     "switchLanguageDesc": "更改 Studio 显示语言"
+  },
+  "execution": {
+    "title": "执行",
+    "inputs": "输入",
+    "outputs": "输出",
+    "status": {
+      "success": "成功",
+      "error": "错误",
+      "running": "运行中",
+      "skipped": "已跳过"
+    }
   }
 }

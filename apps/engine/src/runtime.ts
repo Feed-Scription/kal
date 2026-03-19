@@ -249,17 +249,63 @@ export class EngineRuntime {
   }
 
   async executeFlow(flowId: string, inputData: Record<string, any> = {}): Promise<FlowExecutionResult> {
+    // Delegate to streaming version, collect final result
+    return this.executeFlowStreaming(flowId, inputData, () => {});
+  }
+
+  /**
+   * Execute a flow with streaming node-level events.
+   *
+   * This is the single source of truth for flow execution. The non-streaming
+   * `executeFlow()` wraps this method and discards the events.
+   */
+  async executeFlowStreaming(
+    flowId: string,
+    inputData: Record<string, any> = {},
+    onEvent: (event: {
+      type: string;
+      executionId: string;
+      [key: string]: any;
+    }) => void,
+  ): Promise<FlowExecutionResult> {
     this.assertConfigReady();
     const project = this.getProject();
     const core = this.getCore();
     const flow = this.getFlow(flowId);
-    return core.executeFlow(flow, flowId, inputData, (id) => {
-      const raw = project.flowTextsById[id];
-      if (!raw) {
-        throw new EngineHttpError(`Unknown flow: ${id}`, 404, 'FLOW_NOT_FOUND', { flowId: id });
-      }
-      return raw;
-    });
+    const hooks = core.hooks;
+
+    // Register temporary listeners that forward events to onEvent
+    const onFlowStart = (e: any) => onEvent({ type: 'flow.start', ...e });
+    const onFlowEnd = (e: any) => onEvent({ type: 'flow.end', ...e });
+    const onFlowError = (e: any) => onEvent({ type: 'flow.error', ...e });
+    const onNodeStart = (e: any) => onEvent({ type: 'node.start', ...e });
+    const onNodeEnd = (e: any) => onEvent({ type: 'node.end', ...e });
+    const onNodeError = (e: any) => onEvent({ type: 'node.error', ...e });
+
+    hooks.on('onFlowStart', onFlowStart);
+    hooks.on('onFlowEnd', onFlowEnd);
+    hooks.on('onFlowError', onFlowError);
+    hooks.on('onNodeStart', onNodeStart);
+    hooks.on('onNodeEnd', onNodeEnd);
+    hooks.on('onNodeError', onNodeError);
+
+    try {
+      return await core.executeFlow(flow, flowId, inputData, (id) => {
+        const raw = project.flowTextsById[id];
+        if (!raw) {
+          throw new EngineHttpError(`Unknown flow: ${id}`, 404, 'FLOW_NOT_FOUND', { flowId: id });
+        }
+        return raw;
+      });
+    } finally {
+      // Always unregister listeners to prevent leaks
+      hooks.off('onFlowStart', onFlowStart);
+      hooks.off('onFlowEnd', onFlowEnd);
+      hooks.off('onFlowError', onFlowError);
+      hooks.off('onNodeStart', onNodeStart);
+      hooks.off('onNodeEnd', onNodeEnd);
+      hooks.off('onNodeError', onNodeError);
+    }
   }
 
   getNodeManifests(): NodeManifest[] {

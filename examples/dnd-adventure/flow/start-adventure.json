@@ -2,7 +2,7 @@
   "meta": {
     "schemaVersion": "1.0.0",
     "name": "start-adventure",
-    "description": "冒险开始旁白",
+    "description": "冒险开始旁白 — 根据角色背景个性化开场",
     "inputs": [],
     "outputs": [
       {
@@ -16,7 +16,7 @@
       {
         "id": "prompt-build",
         "type": "PromptBuild",
-        "label": "文本构建",
+        "label": "系统提示词",
         "inputs": [
           {
             "name": "data",
@@ -38,10 +38,103 @@
           "fragments": [
             {
               "type": "base",
-              "id": "opening-scene",
-              "content": "黄昏时分，你踏过鸦巢镇那扇吱呀作响的南门。\n\n脚下的石板路被无数双靴子磨得发亮，缝隙间长着倔强的野草。空气里混着松脂燃烧的焦香、铁匠铺飘来的金属热浪，以及某种更隐秘的气味——像是地窖深处陈年的霉味，又像是什么东西正在腐朽。\n\n广场中央，那座乌鸦雕像喷泉早已干涸，底部积着枯叶和铜绿色的雨水。告示板上贴满了悬赏令和失踪启事，最新的一张墨迹未干，边角在晚风中微微翻卷。你瞥见上面写着：「北矿失踪者已达七人，悬赏勇士调查，报酬从优——镇长莫里斯」。\n\n「醉鸦亭」酒馆的木门半敞着，暖黄色的灯光和嘈杂的人声一起涌出来，混着麦酒和炖肉的香气。隔壁「锻魂坊」的炉火将半边天空映成暗红色，铁锤敲击声沉稳而有力，像是这座小镇不安的心跳。镇长府邸门前，两名卫兵握紧了长矛，目光警惕地扫过每一个过路人。\n\n一个老妇人匆匆从你身边走过，怀里紧抱着一捆草药，头也不回地钻进了小巷。远处，晨光神殿的钟声敲响了——不是报时，而是在为什么人祈祷。\n\n镇子北面那扇紧闭的大门外，山路蜿蜒消失在暮色中。据说那条路的尽头，就是废弃矿井的入口。夜风从那个方向吹来，带着一丝不属于山林的阴冷。\n\n你的故事，从这里开始。"
+              "id": "instruction",
+              "content": "你是一位经验丰富的 DND 地下城主。请用第二人称为冒险者写一段踏入鸦巢镇的开场叙事。\n\n场景要求：\n- 黄昏时分，冒险者踏过鸦巢镇吱呀作响的南门\n- 描写广场的乌鸦喷泉（已干涸）、告示板上墨迹未干的悬赏令（北矿失踪七人）\n- 醉鸦亭酒馆的暖光和嘈杂人声、锻魂坊的炉火和锤击声\n- 镇长府邸门前警惕的卫兵、远处晨光神殿的钟声\n- 北门外山路消失在暮色中，夜风带着不属于山林的阴冷\n\n个性化要求：\n- 根据冒险者的种族和职业，描写镇民对冒险者的第一反应（精灵会引来好奇目光，矮人会让铁匠多看两眼，法师的法杖会让人退避三舍）\n- 根据冒险者的背景故事，加入一句内心独白或回忆闪回，暗示冒险者来到此地的动机\n- 以「你的故事，从这里开始。」结尾\n\n风格：多层感官描写（视觉、听觉、嗅觉、触觉），250-400字。纯文本叙事，不要输出JSON。"
+            },
+            {
+              "type": "field",
+              "id": "name",
+              "source": "state.playerName",
+              "template": "冒险者名字: {{items}}"
+            },
+            {
+              "type": "field",
+              "id": "race",
+              "source": "state.race",
+              "template": "种族: {{items}}"
+            },
+            {
+              "type": "field",
+              "id": "class",
+              "source": "state.class",
+              "template": "职业: {{items}}"
+            },
+            {
+              "type": "field",
+              "id": "background",
+              "source": "state.background",
+              "template": "背景故事: {{items}}"
             }
-          ]
+          ],
+          "format": "xml"
+        }
+      },
+      {
+        "id": "user-prompt",
+        "type": "Constant",
+        "label": "用户提示",
+        "inputs": [],
+        "outputs": [
+          {
+            "name": "value",
+            "type": "string"
+          }
+        ],
+        "config": {
+          "value": "描写冒险者踏入鸦巢镇的开场。",
+          "type": "string"
+        }
+      },
+      {
+        "id": "message",
+        "type": "Message",
+        "label": "组装消息",
+        "inputs": [
+          {
+            "name": "system",
+            "type": "string"
+          },
+          {
+            "name": "user",
+            "type": "string"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "messages",
+            "type": "ChatMessage[]"
+          }
+        ],
+        "config": {}
+      },
+      {
+        "id": "generate-text",
+        "type": "GenerateText",
+        "label": "生成开场叙事",
+        "inputs": [
+          {
+            "name": "messages",
+            "type": "ChatMessage[]",
+            "required": true
+          }
+        ],
+        "outputs": [
+          {
+            "name": "text",
+            "type": "string"
+          },
+          {
+            "name": "usage",
+            "type": "object"
+          }
+        ],
+        "config": {
+          "model": "",
+          "temperature": 0.85,
+          "maxTokens": 800,
+          "historyKey": "",
+          "assistantPath": "",
+          "timeout": 60000
         }
       },
       {
@@ -68,6 +161,24 @@
     "edges": [
       {
         "source": "prompt-build",
+        "sourceHandle": "text",
+        "target": "message",
+        "targetHandle": "system"
+      },
+      {
+        "source": "user-prompt",
+        "sourceHandle": "value",
+        "target": "message",
+        "targetHandle": "user"
+      },
+      {
+        "source": "message",
+        "sourceHandle": "messages",
+        "target": "generate-text",
+        "targetHandle": "messages"
+      },
+      {
+        "source": "generate-text",
         "sourceHandle": "text",
         "target": "signal-out",
         "targetHandle": "data"

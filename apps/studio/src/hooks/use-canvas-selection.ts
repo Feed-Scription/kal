@@ -13,10 +13,22 @@ interface CanvasSelectionState {
   /** 选中节点所属的上下文：flow 画布还是 session 画布 */
   selectionContext: 'flow' | 'session' | null;
   setSelection: (nodeId: string | null, context: 'flow' | 'session' | null) => void;
+  /** 临时高亮的节点 ID（sidebar hover 等场景，不改变选中状态） */
+  highlightedNodeId: string | null;
+  setHighlightedNode: (nodeId: string | null) => void;
+  /** 请求画布 fitView 到指定节点（由编辑器消费后清除） */
+  fitViewTarget: string | null;
+  requestFitView: (nodeId: string) => void;
+  clearFitViewTarget: () => void;
 }
 
 export const useCanvasSelection = create<CanvasSelectionState>((set) => ({
   selectedNodeId: null,
   selectionContext: null,
   setSelection: (nodeId, context) => set({ selectedNodeId: nodeId, selectionContext: context }),
+  highlightedNodeId: null,
+  setHighlightedNode: (nodeId) => set({ highlightedNodeId: nodeId }),
+  fitViewTarget: null,
+  requestFitView: (nodeId) => set({ fitViewTarget: nodeId }),
+  clearFitViewTarget: () => set({ fitViewTarget: null }),
 }));

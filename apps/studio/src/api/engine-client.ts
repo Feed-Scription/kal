@@ -4,6 +4,7 @@ import type {
   KalConfig,
   ProjectInfo,
   ExecutionResult,
+  FlowExecutionStreamEvent,
   NodeManifest,
   DiagnosticsPayload,
   EngineEvent,
@@ -135,6 +136,64 @@ export const engineApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ flowId, input }),
     });
+  },
+
+  /**
+   * Execute a flow with streaming node-level events via SSE.
+   * Returns an abort function to cancel the execution.
+   */
+  executeFlowStream(
+    flowId: string,
+    input: Record<string, unknown>,
+    onEvent: (event: FlowExecutionStreamEvent) => void,
+  ): () => void {
+    const controller = new AbortController();
+
+    void (async () => {
+      try {
+        const res = await fetch(buildApiUrl('/api/executions/stream'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ flowId, input }),
+          signal: controller.signal,
+        });
+
+        if (!res.ok || !res.body) {
+          notifyConnectionLost();
+          return;
+        }
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() ?? '';
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const event = JSON.parse(line.slice(6)) as FlowExecutionStreamEvent;
+                onEvent(event);
+              } catch {
+                // Skip malformed events
+              }
+            }
+          }
+        }
+      } catch (err) {
+        if ((err as Error).name !== 'AbortError') {
+          notifyConnectionLost();
+        }
+      }
+    })();
+
+    return () => controller.abort();
   },
 
   async getNodes(): Promise<NodeManifest[]> {

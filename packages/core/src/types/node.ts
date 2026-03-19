@@ -3,6 +3,7 @@
  */
 
 import type { HandleDefinition, ChatMessage, TokenUsage, StateValue, RetryConfig, CacheConfig, NodeDefinition } from './types';
+import type { ReasoningConfig } from '../llm/llm-client';
 
 export type { NodeDefinition };
 
@@ -69,6 +70,7 @@ export interface LLMOptions {
   cache?: Partial<CacheConfig>;
   responseFormat?: 'text' | 'json';
   jsonSchema?: object;
+  reasoning?: ReasoningConfig;
 }
 
 /**
