@@ -7,57 +7,14 @@ import { Input } from "@/components/ui/input";
 import { useStudioCommands, useWorkbench } from "@/kernel/hooks";
 import { useCommandRegistry } from "@/kernel/commands";
 
-function isEditableTarget(target: EventTarget | null) {
-  if (!(target instanceof HTMLElement)) {
-    return false;
-  }
-
-  return (
-    target.tagName === "INPUT" ||
-    target.tagName === "TEXTAREA" ||
-    target.isContentEditable
-  );
-}
-
 export function CommandPalette() {
   const { t } = useTranslation('workbench');
   const { t: tc } = useTranslation('common');
   const { commandPaletteOpen } = useWorkbench();
   const { commands } = useCommandRegistry();
-  const { redo, setCommandPaletteOpen, toggleCommandPalette, undo } = useStudioCommands();
+  const { setCommandPaletteOpen } = useStudioCommands();
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
-
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
-        event.preventDefault();
-        toggleCommandPalette();
-        return;
-      }
-
-      if (commandPaletteOpen || isEditableTarget(event.target)) {
-        return;
-      }
-
-      if ((event.metaKey || event.ctrlKey) && !event.shiftKey && event.key.toLowerCase() === "z") {
-        event.preventDefault();
-        void undo();
-        return;
-      }
-
-      if (
-        (event.metaKey || event.ctrlKey) &&
-        ((event.shiftKey && event.key.toLowerCase() === "z") || event.key.toLowerCase() === "y")
-      ) {
-        event.preventDefault();
-        void redo();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [commandPaletteOpen, redo, toggleCommandPalette, undo]);
 
   useEffect(() => {
     if (!commandPaletteOpen) {

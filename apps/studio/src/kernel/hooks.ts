@@ -410,6 +410,8 @@ export function useStudioCommands(): StudioCommandService {
   const refreshGitStatus = useStudioStore((state) => state.refreshGitStatus);
   const refreshReferences = useStudioStore((state) => state.refreshReferences);
   const searchProject = useStudioStore((state) => state.searchProject);
+  const registerPanelCallbacks = useStudioStore((state) => state.registerPanelCallbacks);
+  const clearPanelCallbacks = useStudioStore((state) => state.clearPanelCallbacks);
 
   return {
     connect,
@@ -452,6 +454,8 @@ export function useStudioCommands(): StudioCommandService {
     refreshGitStatus,
     refreshReferences,
     searchProject,
+    registerPanelCallbacks,
+    clearPanelCallbacks,
   };
 }
 

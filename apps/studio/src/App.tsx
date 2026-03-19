@@ -13,7 +13,8 @@ import { ProjectLoader } from "./components/ProjectLoader";
 import { StatusBar } from "./components/StatusBar";
 import { Button } from "./components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "./components/ui/sheet";
-import { useExtensionRuntimeMap, usePanelContributions, useWorkbench, useStudioResources } from "./kernel/hooks";
+import { useExtensionRuntimeMap, usePanelContributions, useWorkbench, useStudioResources, useStudioCommands } from "./kernel/hooks";
+import { useGlobalShortcuts } from "./hooks/use-global-shortcuts";
 
 function useIsDesktop() {
   const [isDesktop, setIsDesktop] = useState(() =>
@@ -39,6 +40,7 @@ export default function App() {
   const panelContributions = usePanelContributions();
   const hasPanels = panelContributions.length > 0;
   const isDesktop = useIsDesktop();
+  const { registerPanelCallbacks, clearPanelCallbacks } = useStudioCommands();
 
   const inspectorPanelRef = useRef<ImperativePanelHandle>(null);
   const bottomPanelRef = useRef<ImperativePanelHandle>(null);
@@ -83,21 +85,14 @@ export default function App() {
     }
   }, []);
 
-  // Cmd+I / Ctrl+I to toggle inspector, Cmd+J / Ctrl+J to toggle bottom panel
+  // Register panel callbacks so commands can toggle panels
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (!(e.metaKey || e.ctrlKey)) return;
-      if (e.key === 'i') {
-        e.preventDefault();
-        toggleInspector();
-      } else if (e.key === 'j') {
-        e.preventDefault();
-        toggleBottomPanel();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [toggleInspector, toggleBottomPanel]);
+    registerPanelCallbacks({ toggleInspector, toggleBottomPanel });
+    return () => clearPanelCallbacks();
+  }, [toggleInspector, toggleBottomPanel, registerPanelCallbacks, clearPanelCallbacks]);
+
+  // Mount global shortcuts hook
+  useGlobalShortcuts();
 
   if (!project) {
     return <ProjectLoader />;
