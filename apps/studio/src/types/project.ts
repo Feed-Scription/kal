@@ -29,6 +29,12 @@ export type EdgeDefinition = {
   targetHandle: string;
 };
 
+export type CanvasViewport = {
+  x: number;
+  y: number;
+  zoom: number;
+};
+
 // ── Flow (aligned with Core: { meta, data }) ──
 
 export type FlowMeta = {

@@ -128,6 +128,21 @@ export function AppSidebar({ children, onToggleInspector, inspectorVisible }: Ap
                 <SidebarGroupLabel>{t("resources")}</SidebarGroupLabel>
                 <SidebarGroupContent>
                   <SidebarMenu>
+                    {/* Session entry */}
+                    <SidebarMenuItem>
+                      <SidebarMenuButton
+                        tooltip={t("sessionEntry")}
+                        isActive={activeViewId === 'kal.session'}
+                        onClick={() => setActiveView('kal.session')}
+                      >
+                        <Route className="size-4" />
+                        <span className="flex-1">{t("sessionEntry")}</span>
+                        <span className={`text-xs ${session ? "text-green-500" : "text-muted-foreground"}`}>
+                          {session ? tc("configured") : tc("none")}
+                        </span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+
                     {/* Flow list */}
                     <SidebarMenuItem>
                       <div className="flex items-center justify-between px-2 py-1">
@@ -157,21 +172,6 @@ export function AppSidebar({ children, onToggleInspector, inspectorVisible }: Ap
                         </SidebarMenuButton>
                       </SidebarMenuItem>
                     ))}
-
-                    {/* Session entry */}
-                    <SidebarMenuItem>
-                      <SidebarMenuButton
-                        tooltip={t("sessionEntry")}
-                        isActive={activeViewId === 'kal.session'}
-                        onClick={() => setActiveView('kal.session')}
-                      >
-                        <Route className="size-4" />
-                        <span className="flex-1">{t("sessionEntry")}</span>
-                        <span className={`text-xs ${session ? "text-green-500" : "text-muted-foreground"}`}>
-                          {session ? tc("configured") : tc("none")}
-                        </span>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
 
                     {/* Run list */}
                     <SidebarMenuItem>

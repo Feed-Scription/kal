@@ -25,7 +25,7 @@ import {
 import { SessionPaneContextMenu, type ContextMenuState } from './SessionPaneContextMenu';
 import { SessionToolbar } from './components/SessionToolbar';
 import { StepControlToolbar } from './components/StepControlToolbar';
-import { useStudioCommands, useStudioResources, useRunDebug } from '@/kernel/hooks';
+import { useStudioCommands, useStudioResources, useRunDebug, useWorkbenchViewport } from '@/kernel/hooks';
 import { useSessionNodeOverlay } from '@/hooks/use-node-overlay';
 import { useCanvasSelection } from '@/hooks/use-canvas-selection';
 import { useGraphEditor } from '@/hooks/use-graph-editor';
@@ -262,10 +262,17 @@ function reactFlowToSession(
   };
 }
 
+function sessionCanvasSignature(session: SessionDefinition | null): string {
+  return JSON.stringify({
+    entryStep: session?.entryStep ?? null,
+    steps: session?.steps ?? [],
+  });
+}
+
 function SessionEditorInner() {
   const { t } = useTranslation('session');
   const { session } = useStudioResources();
-  const { saveSession, deleteSession } = useStudioCommands();
+  const { saveSession, deleteSession, setCanvasViewport } = useStudioCommands();
   const overlayMap = useSessionNodeOverlay();
   const edgeExecState = useSessionEdgeExecutionState();
   const setSelection = useCanvasSelection((s) => s.setSelection);
@@ -273,6 +280,7 @@ function SessionEditorInner() {
   const clearFitViewTarget = useCanvasSelection((s) => s.clearFitViewTarget);
   const highlightedNodeId = useCanvasSelection((s) => s.highlightedNodeId);
   const reactFlowInstance = useReactFlow();
+  const savedViewport = useWorkbenchViewport('session');
 
   // Phase 3: breakpoint auto-focus — when a run pauses at a breakpoint step,
   // fitView to that node so the user immediately sees where execution stopped.
@@ -341,6 +349,7 @@ function SessionEditorInner() {
     setInitialized,
     handleAutoLayout,
     handleManualSave,
+    onMoveEnd,
     onNodesChange,
     onEdgesChange,
     loadGraph,
@@ -348,7 +357,17 @@ function SessionEditorInner() {
     elkOptions: ELK_SESSION_OPTS,
     onSave,
     postLayoutEdges,
+    savedViewport,
+    onViewportChange: (viewport) => setCanvasViewport('session', viewport),
   });
+
+  const currentNodesRef = useRef<Node[]>([]);
+  const currentEdgesRef = useRef<Edge[]>([]);
+
+  useEffect(() => {
+    currentNodesRef.current = nodes;
+    currentEdgesRef.current = edges;
+  }, [nodes, edges]);
 
   const [contextMenu, setContextMenu] = useState<ContextMenuState>({
     open: false,
@@ -359,11 +378,17 @@ function SessionEditorInner() {
   // Load session data when session changes
   useEffect(() => {
     if (session) {
+      if (initialized) {
+        const currentGraph = reactFlowToSession(currentNodesRef.current, currentEdgesRef.current, session);
+        if (sessionCanvasSignature(currentGraph) === sessionCanvasSignature(session)) {
+          return;
+        }
+      }
       loadGraph(sessionToReactFlow(session));
     } else {
       loadGraph(null);
     }
-  }, [session, loadGraph]);
+  }, [session, initialized, loadGraph]);
 
   const onPaneContextMenu = useCallback((event: React.MouseEvent | MouseEvent) => {
     event.preventDefault();
@@ -496,6 +521,7 @@ function SessionEditorInner() {
         onConnect={onConnect}
         onSelectionChange={onSelectionChange}
         onPaneContextMenu={onPaneContextMenu}
+        onMoveEnd={onMoveEnd}
         nodeTypes={sessionNodeTypes}
         edgeTypes={sessionEdgeTypes}
         fitView
