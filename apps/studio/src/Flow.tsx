@@ -19,7 +19,7 @@ import { ManifestNode } from "./nodes/ManifestNode";
 import { ElegantEdge } from "./edges/ElegantEdge";
 import { PaneContextMenu, type ContextMenuState } from "./PaneContextMenu";
 import { FlowToolbar } from "./components/FlowToolbar";
-import { useFlowResource, useStudioCommands, useStudioResources } from "@/kernel/hooks";
+import { useFlowResource, useStudioCommands, useStudioResources, useWorkbenchViewport } from "@/kernel/hooks";
 import { isEditableTarget } from "@/lib/keyboard";
 import { useFlowNodeOverlay } from "@/hooks/use-node-overlay";
 import { useEdgeExecutionState } from "@/hooks/use-edge-execution-state";
@@ -160,7 +160,7 @@ function typesCompatible(a: string, b: string): boolean {
 function FlowInner() {
   const { project } = useStudioResources();
   const { flowId: currentFlow } = useFlowResource();
-  const { saveFlow, executeFlow } = useStudioCommands();
+  const { saveFlow, executeFlow, setCanvasViewport } = useStudioCommands();
   const overlayMap = useFlowNodeOverlay(currentFlow);
   const edgeExecState = useEdgeExecutionState(currentFlow);
   const setSelection = useCanvasSelection((s) => s.setSelection);
@@ -168,6 +168,8 @@ function FlowInner() {
   const selectionContext = useCanvasSelection((s) => s.selectionContext);
   const { t } = useTranslation('flow');
   const reactFlowInstance = useReactFlow();
+  const viewportKey = currentFlow ? `flow:${currentFlow}` : null;
+  const savedViewport = useWorkbenchViewport(viewportKey);
 
   const manifestMap = useMemo(() => {
     const map = new Map<string, NodeManifest>();
@@ -246,6 +248,7 @@ function FlowInner() {
     initialized,
     handleAutoLayout,
     handleManualSave,
+    onMoveEnd,
     onNodesChange,
     onEdgesChange,
     loadGraph,
@@ -253,6 +256,11 @@ function FlowInner() {
     elkOptions: ELK_FLOW_OPTS,
     onSave,
     postLayoutEdges,
+    savedViewport,
+    onViewportChange: (viewport) => {
+      if (!viewportKey) return;
+      setCanvasViewport(viewportKey, viewport);
+    },
   });
 
   const [contextMenu, setContextMenu] = useState<ContextMenuState>({
@@ -735,6 +743,7 @@ function FlowInner() {
         onConnectEnd={onConnectEnd}
         onSelectionChange={onSelectionChange}
         onPaneContextMenu={onPaneContextMenu}
+        onMoveEnd={onMoveEnd}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         fitView

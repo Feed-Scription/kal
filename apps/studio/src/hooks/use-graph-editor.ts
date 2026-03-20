@@ -12,12 +12,14 @@ import {
   useReactFlow,
   type Node,
   type Edge,
+  type OnMove,
   type OnNodesChange,
   type OnEdgesChange,
 } from '@xyflow/react';
 import { elkLayout } from '@/utils/elk-layout';
 import { AUTO_SAVE_DEBOUNCE_MS } from '@/constants/editor';
 import type { ElkLayoutOptions } from '@/utils/elk-layout';
+import type { CanvasViewport } from '@/types/project';
 
 export type UseGraphEditorOptions = {
   elkOptions: ElkLayoutOptions;
@@ -32,6 +34,8 @@ export type UseGraphEditorOptions = {
    * Receives edges and the back-edge set from ELK, returns styled edges.
    */
   postLayoutEdges?: (edges: Edge[], backEdges: Set<string>) => Edge[];
+  savedViewport?: CanvasViewport | null;
+  onViewportChange?: (viewport: CanvasViewport) => void;
 };
 
 export type UseGraphEditorReturn = {
@@ -47,6 +51,7 @@ export type UseGraphEditorReturn = {
   setInitialized: React.Dispatch<React.SetStateAction<boolean>>;
   handleAutoLayout: () => Promise<void>;
   handleManualSave: () => Promise<void>;
+  onMoveEnd: OnMove;
   onNodesChange: OnNodesChange;
   onEdgesChange: OnEdgesChange;
   /**
@@ -62,6 +67,8 @@ export function useGraphEditor(options: UseGraphEditorOptions): UseGraphEditorRe
     onSave,
     autoSaveDebounceMs = AUTO_SAVE_DEBOUNCE_MS,
     postLayoutEdges,
+    savedViewport = null,
+    onViewportChange,
   } = options;
 
   const reactFlowInstance = useReactFlow();
@@ -70,19 +77,37 @@ export function useGraphEditor(options: UseGraphEditorOptions): UseGraphEditorRe
   const [edges, setEdges] = useState<Edge[]>([]);
   const [initialized, setInitialized] = useState(false);
   const [layoutReady, setLayoutReady] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const isLoadingRef = useRef(false);
   const needsInitialLayoutRef = useRef(false);
   const nodesRef = useRef<Node[]>([]);
   const edgesRef = useRef<Edge[]>([]);
+  const savedViewportRef = useRef<CanvasViewport | null>(savedViewport);
+  const onViewportChangeRef = useRef<typeof onViewportChange>(onViewportChange);
 
-  // Keep refs in sync so handleAutoLayout always reads fresh state
-  nodesRef.current = nodes;
-  edgesRef.current = edges;
+  useEffect(() => {
+    nodesRef.current = nodes;
+    edgesRef.current = edges;
+  }, [nodes, edges]);
+
+  useEffect(() => {
+    savedViewportRef.current = savedViewport;
+    onViewportChangeRef.current = onViewportChange;
+  }, [savedViewport, onViewportChange]);
 
   // ── Two-phase layout ──
 
-  const handleAutoLayout = useCallback(async () => {
+  const persistViewport = useCallback((viewport?: CanvasViewport | null) => {
+    if (!viewport) return;
+    onViewportChangeRef.current?.(viewport);
+  }, []);
+
+  const snapshotViewport = useCallback(() => {
+    const { x, y, zoom } = reactFlowInstance.getViewport();
+    persistViewport({ x, y, zoom });
+  }, [persistViewport, reactFlowInstance]);
+
+  const runLayout = useCallback(async (preserveViewport: boolean) => {
     const currentNodes = nodesRef.current;
     const currentEdges = edgesRef.current;
     const nodeIds = currentNodes.map((n) => n.id);
@@ -105,8 +130,24 @@ export function useGraphEditor(options: UseGraphEditorOptions): UseGraphEditorRe
     if (postLayoutEdges) {
       setEdges((eds) => postLayoutEdges(eds, backEdges));
     }
-    requestAnimationFrame(() => reactFlowInstance.fitView({ padding: 0.15, duration: 300 }));
-  }, [reactFlowInstance, elkOptions, postLayoutEdges]);
+    requestAnimationFrame(() => {
+      const viewport = preserveViewport ? savedViewportRef.current : null;
+      if (viewport) {
+        void reactFlowInstance.setViewport(viewport, { duration: 0 }).finally(() => {
+          persistViewport(viewport);
+        });
+        return;
+      }
+
+      void reactFlowInstance.fitView({ padding: 0.15, duration: 300 }).finally(() => {
+        snapshotViewport();
+      });
+    });
+  }, [reactFlowInstance, elkOptions, postLayoutEdges, persistViewport, snapshotViewport]);
+
+  const handleAutoLayout = useCallback(async () => {
+    await runLayout(false);
+  }, [runLayout]);
 
   // ── Node/Edge change handlers ──
 
@@ -123,10 +164,10 @@ export function useGraphEditor(options: UseGraphEditorOptions): UseGraphEditorRe
           requestAnimationFrame(() => {
             if (needsInitialLayoutRef.current) {
               needsInitialLayoutRef.current = false;
-              handleAutoLayout().then(() => {
+              runLayout(true).then(() => {
                 setLayoutReady(true);
                 requestAnimationFrame(() => {
-                  isLoadingRef.current = false;
+                  setIsLoading(false);
                 });
               });
             }
@@ -134,7 +175,7 @@ export function useGraphEditor(options: UseGraphEditorOptions): UseGraphEditorRe
         }
       }
     },
-    [handleAutoLayout],
+    [runLayout],
   );
 
   const onEdgesChange: OnEdgesChange = useCallback(
@@ -146,7 +187,7 @@ export function useGraphEditor(options: UseGraphEditorOptions): UseGraphEditorRe
 
   useEffect(() => {
     if (!initialized) return;
-    if (isLoadingRef.current) return;
+    if (isLoading) return;
 
     const timeoutId = setTimeout(async () => {
       try {
@@ -157,13 +198,17 @@ export function useGraphEditor(options: UseGraphEditorOptions): UseGraphEditorRe
     }, autoSaveDebounceMs);
 
     return () => clearTimeout(timeoutId);
-  }, [nodes, edges, initialized, onSave, autoSaveDebounceMs]);
+  }, [nodes, edges, initialized, isLoading, onSave, autoSaveDebounceMs]);
 
   // ── Manual save ──
 
   const handleManualSave = useCallback(async () => {
     await onSave(nodesRef.current, edgesRef.current);
   }, [onSave]);
+
+  const onMoveEnd: OnMove = useCallback((_event, viewport) => {
+    persistViewport({ x: viewport.x, y: viewport.y, zoom: viewport.zoom });
+  }, [persistViewport]);
 
   // ── Load graph ──
 
@@ -173,10 +218,11 @@ export function useGraphEditor(options: UseGraphEditorOptions): UseGraphEditorRe
       setEdges([]);
       setInitialized(false);
       setLayoutReady(true);
+      setIsLoading(false);
       return;
     }
 
-    isLoadingRef.current = true;
+    setIsLoading(true);
     setLayoutReady(false);
 
     if (data.nodes.length === 0) {
@@ -185,7 +231,7 @@ export function useGraphEditor(options: UseGraphEditorOptions): UseGraphEditorRe
       setEdges(data.edges);
       setInitialized(true);
       setLayoutReady(true);
-      requestAnimationFrame(() => { isLoadingRef.current = false; });
+      requestAnimationFrame(() => { setIsLoading(false); });
       return;
     }
 
@@ -201,11 +247,12 @@ export function useGraphEditor(options: UseGraphEditorOptions): UseGraphEditorRe
     setNodes,
     setEdges,
     layoutReady,
-    isLoading: isLoadingRef.current,
+    isLoading,
     initialized,
     setInitialized,
     handleAutoLayout,
     handleManualSave,
+    onMoveEnd,
     onNodesChange,
     onEdgesChange,
     loadGraph,

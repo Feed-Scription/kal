@@ -6,6 +6,7 @@
  */
 
 import type {
+  CanvasViewport,
   CheckpointRecord,
   DiagnosticsPayload,
   FlowDefinition,
@@ -192,6 +193,7 @@ export interface StudioCommandService {
   setActiveView: (viewId: StudioViewId) => void;
   closeView: (viewId: StudioViewId) => void;
   openFlow: (flowName: string) => void;
+  setCanvasViewport: (viewportId: string, viewport: CanvasViewport | null) => void;
   saveFlow: (flowName: string, flow: FlowDefinition) => Promise<void>;
   createFlow: (flowName: string) => Promise<void>;
   executeFlow: (flowId: string, input?: Record<string, unknown>) => Promise<unknown>;
