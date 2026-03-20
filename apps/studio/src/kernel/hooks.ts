@@ -290,7 +290,11 @@ export function useRunDebug(): RunDebugServiceState {
     selectedRecord,
     selectedRun: selectedRecord?.run ?? null,
     selectedRunState: selectedRecord?.state ?? null,
-    selectedInputHistory: selectedRecord?.state?.input_history ?? selectedRecord?.run.input_history ?? [],
+    selectedInputHistory:
+      (selectedRecord?.run.input_history?.length
+        ? selectedRecord.run.input_history
+        : selectedRecord?.state?.input_history)
+      ?? [],
     selectedTimeline: selectedRecord?.timeline ?? [],
     selectedStateDiff: selectedRecord?.stateDiff ?? [],
     selectedStepId,
@@ -343,6 +347,7 @@ export function useWorkbenchContext(): WorkbenchContextState {
   const { engineConnected, connectionError } = useConnectionState();
   const saveState = useSaveState();
   const versionControl = useVersionControl();
+  const panelContributions = usePanelContributions();
   const selectedRunId = useStudioStore((state) => state.runDebug.selectedRunId);
   const selectedRunRecord = useStudioStore((state) =>
     state.runDebug.selectedRunId ? state.runDebug.records[state.runDebug.selectedRunId] ?? null : null,
@@ -359,6 +364,7 @@ export function useWorkbenchContext(): WorkbenchContextState {
     'session.available': Boolean(session),
     'save.status': saveState.status,
     'workbench.view': activeViewId,
+    'workbench.hasBottomPanels': panelContributions.length > 0,
     'extension.active': activeExtension?.id ?? null,
     'extension.status': activeExtensionRuntime?.status ?? null,
     'capability.project.write': true,
@@ -400,6 +406,7 @@ export function useStudioCommands(): StudioCommandService {
   const refreshRuns = useStudioStore((state) => state.refreshRuns);
   const selectRun = useStudioStore((state) => state.selectRun);
   const advanceRun = useStudioStore((state) => state.advanceRun);
+  const retryRun = useStudioStore((state) => state.retryRun);
   const stepRun = useStudioStore((state) => state.stepRun);
   const replayRun = useStudioStore((state) => state.replayRun);
   const toggleBreakpoint = useStudioStore((state) => state.toggleBreakpoint);
@@ -444,6 +451,7 @@ export function useStudioCommands(): StudioCommandService {
     getRunState,
     selectRun,
     advanceRun,
+    retryRun,
     stepRun,
     replayRun,
     toggleBreakpoint,

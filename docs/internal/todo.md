@@ -69,8 +69,8 @@
 
 ### 官方插件
 
-- [x] 终端插件：Quick Commands + Shell Session 双模式已落地
-  已完成：Engine 新增 `TerminalSessionManager`（基于 `child_process.spawn`），提供 create/write/kill/stream API + SSE 流式输出。Studio `TerminalView` 重构为 Quick/Shell 双模式切换：Quick 保留原有 7 命令白名单，Shell 支持创建持久 shell 会话、流式输出、Ctrl+C 中断、会话终止与重建。`engine-client.ts` 新增完整 terminal session API。
+- [x] Studio 游玩面板：底部 Play Panel 已接入 managed run
+  已完成：底部 `Terminal` 面板替换为原生 TUI 风格的 `PlayPanel`，直接复用 Engine managed runs（`createRun` / `advanceRun`）进行文字试玩。面板支持 transcript 累积、Prompt/Choice 输入、重新开始与停止；调试 trace/state 仍保留在现有 panel。旧的 terminal session API 仍在 Engine 中保留，但不再作为默认底部 panel 暴露。
 - [x] Vercel 部署插件：真实 Vercel API 集成 + 部署记录/重试 UI 已落地
   已完成：Engine `/api/tools/deploy` 从 501 stub 升级为真实 Vercel Deploy API 调用。支持 `VERCEL_TOKEN`、`VERCEL_PROJECT_ID`、`VERCEL_TEAM_ID` 环境变量配置，返回 deploymentId、url、readyState、createdAt。Studio `DeployView` 新增最近部署记录卡片（ID/URL/状态/时间）、外链跳转、重新部署按钮。`engine-client.ts` 的 `triggerDeploy()` 支持传入 projectId/teamId 参数。
 

@@ -312,6 +312,19 @@ export const engineApi = {
     return data.run;
   },
 
+  async retryRun(runId: string, input?: string, mode?: RunAdvanceMode, cleanup?: boolean): Promise<RunView> {
+    const data = await request<{ run: RunView }>(`/api/runs/${encodeURIComponent(runId)}/retry`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...(input === undefined ? {} : { input }),
+        ...(mode ? { mode } : {}),
+        ...(cleanup === undefined ? {} : { cleanup }),
+      }),
+    });
+    return data.run;
+  },
+
   async cancelRun(runId: string): Promise<void> {
     await request(`/api/runs/${encodeURIComponent(runId)}/cancel`, {
       method: 'POST',

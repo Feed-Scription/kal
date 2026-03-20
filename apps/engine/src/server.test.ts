@@ -8,7 +8,46 @@ import { createPassThroughFlow, createStateMutationFlow, createTempProject } fro
 
 const cleanups: Array<() => Promise<void>> = [];
 
+function createRetryableFlow() {
+  return {
+    meta: {
+      schemaVersion: '1.0.0',
+      inputs: [{ name: 'message', type: 'string', required: true }],
+      outputs: [{ name: 'reply', type: 'string' }],
+    },
+    data: {
+      nodes: [
+        {
+          id: 'signal-in',
+          type: 'SignalIn',
+          inputs: [],
+          outputs: [{ name: 'data', type: 'string' }],
+          config: { channel: 'message' },
+        },
+        {
+          id: 'retryable',
+          type: 'RetryableNode',
+          inputs: [{ name: 'message', type: 'string', required: true }],
+          outputs: [{ name: 'data', type: 'string' }],
+        },
+        {
+          id: 'signal-out',
+          type: 'SignalOut',
+          inputs: [{ name: 'data', type: 'string' }],
+          outputs: [{ name: 'data', type: 'string' }],
+          config: { channel: 'reply' },
+        },
+      ],
+      edges: [
+        { source: 'signal-in', sourceHandle: 'data', target: 'retryable', targetHandle: 'message' },
+        { source: 'retryable', sourceHandle: 'data', target: 'signal-out', targetHandle: 'data' },
+      ],
+    },
+  } as const;
+}
+
 afterEach(async () => {
+  delete process.env.KAL_RETRY_NODE_FAIL;
   while (cleanups.length > 0) {
     await cleanups.pop()!();
   }
@@ -504,6 +543,80 @@ describe('Engine HTTP server', () => {
 
     const missing = await fetch(`${server.url}/api/runs/${runId}`);
     expect(missing.status).toBe(404);
+  });
+
+  it('POST /api/runs/:id/retry 应该重试当前失败 step', async () => {
+    const session: SessionDefinition = {
+      schemaVersion: '1.0.0',
+      steps: [
+        { id: 'turn', type: 'Prompt', promptText: '你的行动？', flowRef: 'main', inputChannel: 'message', next: 'end' },
+        { id: 'end', type: 'End', message: 'done' },
+      ],
+    };
+    const fixture = await createTempProject({
+      flows: {
+        main: createRetryableFlow(),
+      },
+      customNodeSource: `export default {
+        type: 'RetryableNode',
+        label: 'Retryable Node',
+        inputs: [{ name: 'message', type: 'string', required: true }],
+        outputs: [{ name: 'data', type: 'string' }],
+        async execute(inputs) {
+          if (process.env.KAL_RETRY_NODE_FAIL === '1') {
+            throw new Error('model failed');
+          }
+          return { data: inputs.message };
+        }
+      };`,
+      session,
+    });
+    cleanups.push(fixture.cleanup);
+
+    const runtime = await EngineRuntime.create(fixture.projectRoot);
+    const server = await startEngineServer({ runtime, host: '127.0.0.1', port: 0 });
+    cleanups.push(server.close);
+
+    const created = await fetch(`${server.url}/api/runs`, { method: 'POST' }).then((response) => response.json());
+    const runId = created.data.run.run_id as string;
+
+    process.env.KAL_RETRY_NODE_FAIL = '1';
+    const failed = await fetch(`${server.url}/api/runs/${runId}/advance`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ input: 'attack' }),
+    }).then((response) => response.json());
+    expect(failed.success).toBe(true);
+    expect(failed.data.run.status).toBe('error');
+
+    process.env.KAL_RETRY_NODE_FAIL = '0';
+
+    const retried = await fetch(`${server.url}/api/runs/${runId}/retry`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    }).then((response) => response.json());
+
+    expect(retried.success).toBe(true);
+    expect(retried.data.run.run_id).toBe(runId);
+    expect(retried.data.run.status).toBe('ended');
+    expect(retried.data.run.recent_events).toMatchObject([
+      {
+        type: 'output',
+        raw: { reply: 'attack' },
+      },
+      {
+        type: 'end',
+        message: 'done',
+      },
+    ]);
+    expect(retried.data.run.input_history).toMatchObject([
+      {
+        step_id: 'turn',
+        step_index: 0,
+        input: 'attack',
+      },
+    ]);
   });
 
   it('GET /api/runs/:id/stream 应该推送 run 更新事件', async () => {

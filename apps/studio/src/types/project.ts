@@ -400,6 +400,17 @@ export type TraceTimelineEntry = {
   changedKeys: string[];
 };
 
+export type PlayTranscriptEntry = {
+  id: string;
+  mergeKey: string;
+  run_id: string;
+  timestamp: number;
+  inputCount: number;
+  eventType: RunEvent['type'];
+  stepId?: string;
+  text: string;
+};
+
 export type StateDiffEntry = {
   key: string;
   before: any;
@@ -412,6 +423,7 @@ export type RunTraceRecord = {
   state?: RunStateView;
   timeline: TraceTimelineEntry[];
   annotations: TraceTimelineEntry[];
+  playTranscript: PlayTranscriptEntry[];
   stateDiff: StateDiffEntry[];
   updatedAt: number;
   subscribed: boolean;

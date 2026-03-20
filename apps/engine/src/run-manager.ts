@@ -50,6 +50,13 @@ export interface AdvanceRunOptions extends RunSelection {
   onRuntimeCreated?: (runtime: EngineRuntime) => void;
 }
 
+export interface RetryRunOptions extends RunSelection {
+  cleanup?: boolean;
+  input?: string;
+  mode?: SessionAdvanceMode;
+  onRuntimeCreated?: (runtime: EngineRuntime) => void;
+}
+
 export interface GetRunOptions extends RunSelection {
   validateHash?: boolean;
 }
@@ -348,6 +355,96 @@ export class RunManager {
     };
   }
 
+  async retryRun(options: RetryRunOptions): Promise<RunExecutionResult> {
+    const snapshot = await this.resolveSnapshot(options, true);
+    if (snapshot.status !== 'error') {
+      throw new EngineHttpError(
+        `Run ${snapshot.runId} is not retryable because it is ${snapshot.status}`,
+        409,
+        'RUN_NOT_RETRYABLE',
+        this.buildRunErrorDetails(snapshot),
+      );
+    }
+
+    const runtime = await this.createRuntime();
+    if (options.onRuntimeCreated) {
+      options.onRuntimeCreated(runtime);
+    }
+    if (!runtime.hasSession()) {
+      throw new EngineHttpError('Project has no session.json', 400, 'NO_SESSION');
+    }
+
+    runtime.restoreState(snapshot.stateSnapshot);
+    const session = runtime.getSession()!;
+    const beforeState = runtime.getState();
+    const retryInput = this.resolveRetryInput(snapshot, options.input);
+    const currentStep = session.steps.find((step) => step.id === snapshot.cursor.currentStepId);
+    const acceptsRetryInput =
+      currentStep?.type === 'Prompt' ||
+      currentStep?.type === 'Choice' ||
+      currentStep?.type === 'DynamicChoice';
+    if (acceptsRetryInput && retryInput === undefined) {
+      throw new EngineHttpError(
+        `Run ${snapshot.runId} is retrying a step that requires input`,
+        400,
+        'INPUT_REQUIRED',
+        this.buildRunErrorDetails(snapshot),
+      );
+    }
+
+    if (!acceptsRetryInput && retryInput !== undefined) {
+      throw new EngineHttpError(
+        `Run ${snapshot.runId} does not accept input at the current step`,
+        400,
+        'INPUT_NOT_EXPECTED',
+        this.buildRunErrorDetails(snapshot),
+      );
+    }
+
+    const result = await advanceSession(session, createRunnerDeps(runtime), snapshot.cursor, {
+      mode: options.mode ?? 'continue',
+      userInput: retryInput,
+    });
+    const afterState = runtime.getState();
+    const timestamp = Date.now();
+    const stateChanges = RunManager.computeStateChanges(
+      beforeState, afterState,
+      snapshot.cursor.currentStepId ?? '',
+      snapshot.cursor.stepIndex,
+    );
+
+    const nextSnapshot: DebugRunSnapshot = {
+      ...snapshot,
+      cursor: result.cursor,
+      waitingFor: result.waitingFor,
+      status: result.status,
+      stateSnapshot: afterState,
+      recentEvents: result.events,
+      updatedAt: timestamp,
+      stateChangeLog: [...(snapshot.stateChangeLog ?? []), ...stateChanges],
+      inputHistory: this.buildRetryInputHistory(snapshot, options.input, timestamp),
+    };
+
+    const savedSnapshot = await this.finalizeSnapshot(nextSnapshot, result, options.cleanup ?? false);
+    const run = buildRunView(savedSnapshot, {
+      active: await this.isActiveRun(savedSnapshot.runId),
+      beforeState,
+    });
+    this.emit({
+      type: result.status === 'ended' ? 'run.ended' : 'run.updated',
+      run,
+    });
+
+    return {
+      runtime,
+      snapshot: savedSnapshot,
+      result,
+      beforeState,
+      afterState,
+      run,
+    };
+  }
+
   async cancelRun(selection: RunSelection): Promise<RunView> {
     const snapshot = await this.resolveSnapshot(selection, false);
     await this.store.clearActiveRun(this.projectRoot, snapshot.runId);
@@ -372,6 +469,51 @@ export class RunManager {
 
   private async createRuntime(): Promise<EngineRuntime> {
     return this.createRuntimeFn();
+  }
+
+  private resolveRetryInput(snapshot: DebugRunSnapshot, explicitInput?: string): string | undefined {
+    if (explicitInput !== undefined) {
+      return explicitInput;
+    }
+
+    const latestInput = snapshot.inputHistory[snapshot.inputHistory.length - 1];
+    if (!latestInput) {
+      return undefined;
+    }
+
+    return latestInput.stepId === snapshot.cursor.currentStepId && latestInput.stepIndex === snapshot.cursor.stepIndex
+      ? latestInput.input
+      : undefined;
+  }
+
+  private buildRetryInputHistory(
+    snapshot: DebugRunSnapshot,
+    explicitInput: string | undefined,
+    timestamp: number,
+  ): DebugRunSnapshot['inputHistory'] {
+    if (explicitInput === undefined) {
+      return snapshot.inputHistory;
+    }
+
+    const latestInput = snapshot.inputHistory[snapshot.inputHistory.length - 1];
+    const retriedRecord = {
+      stepId: snapshot.cursor.currentStepId ?? '',
+      stepIndex: snapshot.cursor.stepIndex,
+      input: explicitInput,
+      timestamp,
+    };
+
+    if (latestInput && latestInput.stepId === retriedRecord.stepId && latestInput.stepIndex === retriedRecord.stepIndex) {
+      return [
+        ...snapshot.inputHistory.slice(0, -1),
+        retriedRecord,
+      ];
+    }
+
+    return [
+      ...snapshot.inputHistory,
+      retriedRecord,
+    ];
   }
 
   private async isActiveRun(runId: string): Promise<boolean> {
