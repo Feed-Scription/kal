@@ -7,7 +7,7 @@ const shared = {
   sourcemap: true,
   splitting: false as const,
   target: 'node18',
-  external: ['@kal-ai/core'],
+  external: ['@kal-ai/core', 'chokidar'],
 };
 
 function copyStudioDist() {

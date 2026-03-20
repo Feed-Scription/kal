@@ -1401,6 +1401,14 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
                 return { resources: { project: updatedProject } };
               });
             });
+          } else if (event.sessionId && store.resources.project) {
+            void engineApi.getSession().then((session) => {
+              set((state) => {
+                const proj = state.resources.project;
+                if (!proj) return {};
+                return { resources: { project: { ...proj, session } } };
+              });
+            });
           }
           store.recordKernelEvent({
             type: 'resource.changed',
