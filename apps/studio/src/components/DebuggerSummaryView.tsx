@@ -1,7 +1,6 @@
 import { useEffect } from "react";
 import { Bug } from "lucide-react";
 import { useTranslation } from 'react-i18next';
-import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/EmptyState";
 import { useRunDebug, useStudioCommands } from "@/kernel/hooks";
 import { cn } from "@/lib/utils";
@@ -11,7 +10,7 @@ import { getRunStatusConfig } from '@/utils/run-status';
 export function DebuggerSummaryView() {
   const { t } = useTranslation('debug');
   const { breakpoints, runs } = useRunDebug();
-  const { refreshRuns, selectRun, setActiveView } = useStudioCommands();
+  const { refreshRuns, selectRun } = useStudioCommands();
 
   useEffect(() => {
     void refreshRuns().then((items) => {
@@ -24,14 +23,9 @@ export function DebuggerSummaryView() {
 
   return (
     <section className="space-y-3 rounded-xl border bg-card p-4">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2 text-sm font-medium">
+      <div className="flex items-center gap-2 text-sm font-medium">
           <Bug className="size-4" />
           {t('summary.title')}
-        </div>
-        <Button variant="outline" size="sm" onClick={() => setActiveView("kal.debugger")}>
-          {t('summary.openDebugger')}
-        </Button>
       </div>
 
       <div className="space-y-2 text-sm">

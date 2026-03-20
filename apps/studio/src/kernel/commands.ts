@@ -59,7 +59,6 @@ export function useCommandRegistry() {
         when: (ctx) => Boolean(ctx.values['project.loaded']),
         run: async () => {
           await createRun(true);
-          setActiveView('kal.debugger');
         },
       },
       {
@@ -78,7 +77,6 @@ export function useCommandRegistry() {
             return;
           }
           await stepRun(selectedRunId);
-          setActiveView('kal.debugger');
         },
       },
       {
@@ -97,7 +95,6 @@ export function useCommandRegistry() {
             return;
           }
           await advanceRun(selectedRunId);
-          setActiveView('kal.debugger');
         },
       },
       {
@@ -112,7 +109,6 @@ export function useCommandRegistry() {
             return;
           }
           await replayRun(selectedRunId);
-          setActiveView('kal.debugger');
         },
       },
       {
@@ -127,7 +123,6 @@ export function useCommandRegistry() {
             return;
           }
           toggleBreakpoint(selectedStepId);
-          setActiveView('kal.debugger');
         },
       },
       {

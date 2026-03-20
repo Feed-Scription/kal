@@ -89,6 +89,7 @@
   "notConfigured": "Not configured",
   "stepCount": "Step Count",
   "inspector": "Inspector",
+  "inspector.debug": "Debug",
   "properties": "Properties",
   "context": "Context",
   "extensionInfo": "Extension Info",
