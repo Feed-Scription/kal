@@ -12,7 +12,10 @@ export default defineCommand({
   },
   async run({ args }) {
     await runEnvelopeCommand('session.step.list', async () => {
-      const { runtime } = await ensureRuntime(typeof args.projectPath === 'string' ? args.projectPath : undefined);
+      const { runtime } = await ensureRuntime(
+        typeof args.projectPath === 'string' ? args.projectPath : undefined,
+        { sessionFlowValidationMode: 'warn' },
+      );
       const session = getRequiredSession(runtime);
       return {
         steps: session.steps.map((step) => summarizeStep(step)),

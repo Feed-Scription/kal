@@ -189,6 +189,11 @@ function buildSuggestions(project: EngineProject, error: SessionAdvanceError): s
         '检查 API 密钥与网络连接',
         '如有需要，增加节点 config.timeout',
       ];
+    case 'FLOW_RUN_TIMEOUT':
+      return [
+        '检查 flow 是否存在长时间等待的节点或子流程',
+        '如有需要，增加 engine.runTimeout 或将其设为 0 关闭总超时',
+      ];
     case 'CONDITION_EVAL_ERROR':
       return [
         `检查 Branch step "${error.stepId}" 的条件表达式`,

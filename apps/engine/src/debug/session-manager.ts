@@ -128,7 +128,7 @@ export class DebugSessionManager {
       const raw = await readFile(filePath, 'utf8');
       hash.update(relativePath);
       hash.update('\n');
-      hash.update(raw);
+      hash.update(this.normalizeHashContent(relativePath, raw));
       hash.update('\n');
     }
 
@@ -196,6 +196,35 @@ export class DebugSessionManager {
     }
 
     return files;
+  }
+
+  private normalizeHashContent(relativePath: string, raw: string): string {
+    if (!relativePath.startsWith('flow/') || !relativePath.endsWith('.json')) {
+      return raw;
+    }
+
+    try {
+      const parsed = JSON.parse(raw) as {
+        data?: {
+          nodes?: Array<{
+            config?: Record<string, unknown>;
+          }>;
+        };
+      };
+
+      if (Array.isArray(parsed.data?.nodes)) {
+        for (const node of parsed.data.nodes) {
+          if (!node.config || typeof node.config !== 'object') {
+            continue;
+          }
+          delete node.config.timeout;
+        }
+      }
+
+      return JSON.stringify(parsed);
+    } catch {
+      return raw;
+    }
   }
 
   private runFilePath(runId: string): string {

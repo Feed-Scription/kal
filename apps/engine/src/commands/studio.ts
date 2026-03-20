@@ -24,7 +24,10 @@ export default defineCommand({
   },
   async run({ args }) {
     const dependencies = getCliContext();
-    const { runtime } = await ensureRuntime(args.projectPath, { lenient: true });
+    const { runtime } = await ensureRuntime(args.projectPath, {
+      lenient: true,
+      sessionFlowValidationMode: 'warn',
+    });
     const port = Number(args.port ?? '3000');
     if (!Number.isFinite(port) || port < 0) {
       throw new EngineHttpError('CLI port must be a non-negative number', 400, 'CLI_PORT_INVALID', { port: args.port });

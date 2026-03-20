@@ -1,0 +1,109 @@
+{
+  "schemaVersion": "1.0",
+  "name": "荒岛余生",
+  "description": "在荒岛上生存15天，等待救援到来",
+  "entryStep": "intro",
+  "steps": [
+    {
+      "id": "intro",
+      "type": "RunFlow",
+      "flowRef": "intro",
+      "next": "turn"
+    },
+    {
+      "id": "turn",
+      "type": "Choice",
+      "promptText": "第 {{state.day}} 天 | 体力 {{state.stamina}} | 饱食 {{state.hunger}} | 心情 {{state.mood}} | 庇护所 Lv.{{state.shelter}} | 物资 {{state.supplies}}\n\n今天你打算做什么？",
+      "options": [
+        {
+          "label": "探索 — 深入岛屿寻找物资和秘密",
+          "value": "explore"
+        },
+        {
+          "label": "采集 — 捕鱼摘果填饱肚子",
+          "value": "gather"
+        },
+        {
+          "label": "建造 — 搭建或升级庇护所",
+          "value": "build"
+        },
+        {
+          "label": "休息 — 恢复体力养精蓄锐",
+          "value": "rest"
+        }
+      ],
+      "flowRef": "main-turn",
+      "inputChannel": "playerAction",
+      "next": "check-end"
+    },
+    {
+      "id": "check-end",
+      "type": "Branch",
+      "conditions": [
+        {
+          "when": "state.stamina <= 0",
+          "next": "outro-exhausted"
+        },
+        {
+          "when": "state.hunger <= 0",
+          "next": "outro-starved"
+        },
+        {
+          "when": "state.mood <= 0",
+          "next": "outro-despair"
+        },
+        {
+          "when": "state.day > 15",
+          "next": "outro-survive"
+        }
+      ],
+      "default": "check-compact"
+    },
+    {
+      "id": "check-compact",
+      "type": "Branch",
+      "conditions": [
+        {
+          "when": "state.history.length >= 8",
+          "next": "do-compact"
+        }
+      ],
+      "default": "turn"
+    },
+    {
+      "id": "do-compact",
+      "type": "RunFlow",
+      "flowRef": "compact-history",
+      "next": "turn"
+    },
+    {
+      "id": "outro-exhausted",
+      "type": "RunFlow",
+      "flowRef": "outro-exhausted",
+      "next": "end"
+    },
+    {
+      "id": "outro-starved",
+      "type": "RunFlow",
+      "flowRef": "outro-starved",
+      "next": "end"
+    },
+    {
+      "id": "outro-despair",
+      "type": "RunFlow",
+      "flowRef": "outro-despair",
+      "next": "end"
+    },
+    {
+      "id": "outro-survive",
+      "type": "RunFlow",
+      "flowRef": "outro-survive",
+      "next": "end"
+    },
+    {
+      "id": "end",
+      "type": "End",
+      "message": "感谢游玩《荒岛余生》"
+    }
+  ]
+}

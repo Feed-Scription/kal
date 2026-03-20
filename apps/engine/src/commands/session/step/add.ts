@@ -2,7 +2,7 @@ import { defineCommand } from 'citty';
 import type { SessionStep } from '@kal-ai/core';
 import { EngineHttpError } from '../../../errors';
 import { ensureRuntime, projectPathArg, readJsonInput, runEnvelopeCommand } from '../../_shared';
-import { mutateSession } from '../_helpers';
+import { flowCheckArg, mutateSession, resolveFlowValidationMode, skipFlowCheckArg } from '../_helpers';
 
 export default defineCommand({
   meta: {
@@ -17,7 +17,7 @@ export default defineCommand({
     },
     file: {
       type: 'string',
-      description: 'Read step JSON from a file',
+      description: 'Read step JSON from a file path, or use - for stdin',
     },
     json: {
       type: 'string',
@@ -25,19 +25,25 @@ export default defineCommand({
     },
     stdin: {
       type: 'boolean',
-      description: 'Read step JSON from stdin',
+      description: 'Force reading step JSON from stdin',
       default: false,
     },
+    'flow-check': flowCheckArg,
+    'skip-flow-check': skipFlowCheckArg,
   },
   async run({ args }) {
     await runEnvelopeCommand('session.step.add', async () => {
-      const { runtime } = await ensureRuntime(typeof args.projectPath === 'string' ? args.projectPath : undefined);
+      const flowValidationMode = resolveFlowValidationMode(args);
+      const { runtime } = await ensureRuntime(
+        typeof args.projectPath === 'string' ? args.projectPath : undefined,
+        { sessionFlowValidationMode: 'warn' },
+      );
       const step = await readJsonInput({
         file: typeof args.file === 'string' ? args.file : undefined,
         json: typeof args.json === 'string' ? args.json : undefined,
         stdin: args.stdin === true,
       }) as SessionStep;
-      const session = await mutateSession(runtime, (draft) => {
+      const result = await mutateSession(runtime, (draft) => {
         if (draft.steps.some((existing) => existing.id === step.id)) {
           throw new EngineHttpError(`Step already exists: ${step.id}`, 400, 'STEP_ALREADY_EXISTS', { stepId: step.id });
         }
@@ -51,10 +57,13 @@ export default defineCommand({
           draft.steps.splice(insertAfter + 1, 0, step);
         }
         return draft;
-      });
+      }, { flowValidationMode });
       return {
-        step,
-        session,
+        data: {
+          step,
+          session: result.session,
+        },
+        warnings: result.warnings,
       };
     });
   },

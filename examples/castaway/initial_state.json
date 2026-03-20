@@ -1,0 +1,56 @@
+{
+  "stamina": {
+    "type": "number",
+    "value": 80,
+    "min": 0,
+    "max": 100
+  },
+  "hunger": {
+    "type": "number",
+    "value": 60,
+    "min": 0,
+    "max": 100
+  },
+  "mood": {
+    "type": "number",
+    "value": 70,
+    "min": 0,
+    "max": 100
+  },
+  "shelter": {
+    "type": "number",
+    "value": 0,
+    "min": 0,
+    "max": 3
+  },
+  "supplies": {
+    "type": "number",
+    "value": 2,
+    "min": 0,
+    "max": 99
+  },
+  "day": {
+    "type": "number",
+    "value": 1,
+    "min": 1,
+    "max": 99
+  },
+  "lastAction": {
+    "type": "string",
+    "value": ""
+  },
+  "actionStreak": {
+    "type": "number",
+    "value": 0,
+    "min": 0,
+    "max": 99
+  },
+  "history": {
+    "type": "array",
+    "value": []
+  },
+  "summary": {
+    "type": "string",
+    "value": ""
+  }
+}

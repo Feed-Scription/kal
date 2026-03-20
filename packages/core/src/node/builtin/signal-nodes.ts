@@ -10,7 +10,7 @@ export const SignalIn: CustomNode = {
   category: 'signal',
   inputs: [],
   outputs: [
-    { name: 'data', type: 'object' },
+    { name: 'data', type: 'any' },
   ],
   configSchema: {
     type: 'object',
@@ -33,10 +33,10 @@ export const SignalOut: CustomNode = {
   label: '信号输出',
   category: 'signal',
   inputs: [
-    { name: 'data', type: 'object' },
+    { name: 'data', type: 'any' },
   ],
   outputs: [
-    { name: 'data', type: 'object' },
+    { name: 'data', type: 'any' },
   ],
   configSchema: {
     type: 'object',

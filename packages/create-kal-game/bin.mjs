@@ -70,7 +70,8 @@ function buildConfig(name) {
     engine: {
       logLevel: 'info',
       maxConcurrentFlows: 5,
-      timeout: 30000,
+      nodeTimeout: 30000,
+      runTimeout: 0,
     },
     llm: {
       provider: 'openai',

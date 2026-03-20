@@ -1,7 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { FlowDefinition, SessionDefinition, StateValue } from '@kal-ai/core';
+import { writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import type { EngineCliIO } from '../types';
 import { runLintCommand } from './lint';
+import { readJsonInput } from './_shared';
 import { runSmokeCommand } from './smoke';
 import { createTempProject } from '../test-helpers';
 
@@ -254,5 +257,165 @@ describe('smoke command', () => {
     expect(runtime.setState).toHaveBeenCalledWith('picked', 'left');
     expect(payload.steps[0].error).toBeUndefined();
     expect(payload.steps[1].error).toBeUndefined();
+  });
+
+  it('should prefer step-bound inputs over positional ordering', async () => {
+    const state: Record<string, StateValue> = {
+      mode: { type: 'string', value: '' },
+      action: { type: 'string', value: '' },
+    };
+    const session: SessionDefinition = {
+      schemaVersion: '1.0.0',
+      steps: [
+        {
+          id: 'mode',
+          type: 'Choice',
+          promptText: 'Pick a mode',
+          options: [
+            { label: 'Explore', value: 'explore' },
+            { label: 'Rest', value: 'rest' },
+          ],
+          stateKey: 'mode',
+          next: 'route',
+        },
+        {
+          id: 'route',
+          type: 'Branch',
+          conditions: [{ when: 'state.mode == "explore"', next: 'action' }],
+          default: 'end',
+        },
+        {
+          id: 'action',
+          type: 'Choice',
+          promptText: 'Pick an action',
+          options: [
+            { label: 'Gather', value: 'gather' },
+            { label: 'Rest', value: 'rest' },
+          ],
+          stateKey: 'action',
+          next: 'end',
+        },
+        { id: 'end', type: 'End' },
+      ],
+    };
+
+    const runtime = {
+      hasSession: () => true,
+      getSession: () => session,
+      getState: vi.fn(() => state),
+      getProject: () => ({ projectRoot: '/tmp/project' }),
+      executeFlow: vi.fn(async () => ({ executionId: 'exec', flowId: 'main', outputs: {}, errors: [], durationMs: 0 })),
+      setState: vi.fn((key: string, value: string) => {
+        state[key] = { ...state[key], value };
+      }),
+    };
+
+    const buffer = createIoBuffer();
+    const exitCode = await runSmokeCommand(
+      ['project', '--steps', '4', '--input', 'action=rest', '--input', 'mode=explore', '--format', 'json'],
+      {
+        cwd: '/tmp',
+        io: buffer.io,
+        createRuntime: vi.fn().mockResolvedValue(runtime as any),
+      },
+    );
+
+    const payload = parseJsonOutput(buffer);
+    expect(exitCode).toBe(0);
+    expect(state.mode.value).toBe('explore');
+    expect(state.action.value).toBe('rest');
+    expect(payload.finalStatus).toBe('ended');
+    expect(payload.steps[0].inputProvided).toBe('explore');
+    expect(payload.steps[2].inputProvided).toBe('rest');
+  });
+});
+
+describe('readJsonInput', () => {
+  function setStdinIsTTY(value: boolean): () => void {
+    const descriptor = Object.getOwnPropertyDescriptor(process.stdin, 'isTTY');
+    Object.defineProperty(process.stdin, 'isTTY', {
+      configurable: true,
+      value,
+    });
+    return () => {
+      if (descriptor) {
+        Object.defineProperty(process.stdin, 'isTTY', descriptor);
+      } else {
+        delete (process.stdin as NodeJS.ReadStream & { isTTY?: boolean }).isTTY;
+      }
+    };
+  }
+
+  async function withStdin<T>(params: {
+    isTTY: boolean;
+    payload: string;
+    run(): Promise<T>;
+  }): Promise<T> {
+    const restore = setStdinIsTTY(params.isTTY);
+    queueMicrotask(() => {
+      process.stdin.emit('data', params.payload);
+      process.stdin.emit('end');
+    });
+
+    try {
+      return await params.run();
+    } finally {
+      restore();
+      process.stdin.removeAllListeners('data');
+      process.stdin.removeAllListeners('end');
+      process.stdin.removeAllListeners('error');
+    }
+  }
+
+  it('supports --file - as an explicit stdin alias', async () => {
+    const result = await withStdin({
+      isTTY: true,
+      payload: '{"from":"stdin-file"}',
+      run: () => readJsonInput({ file: '-', cwd: process.cwd() }),
+    });
+
+    expect(result).toEqual({ from: 'stdin-file' });
+  });
+
+  it('supports explicit --stdin mode', async () => {
+    const result = await withStdin({
+      isTTY: true,
+      payload: '{"from":"stdin-flag"}',
+      run: () => readJsonInput({ stdin: true, cwd: process.cwd() }),
+    });
+
+    expect(result).toEqual({ from: 'stdin-flag' });
+  });
+
+  it('supports implicit piped stdin when no source flag is provided', async () => {
+    const result = await withStdin({
+      isTTY: false,
+      payload: '{"from":"pipe"}',
+      run: () => readJsonInput({ cwd: process.cwd() }),
+    });
+
+    expect(result).toEqual({ from: 'pipe' });
+  });
+
+  it('rejects conflicting input sources', async () => {
+    await expect(readJsonInput({
+      json: '{"from":"json"}',
+      file: '-',
+      cwd: process.cwd(),
+    })).rejects.toThrow('Exactly one input source');
+  });
+
+  it('supports reading JSON from a file path', async () => {
+    const fixture = await createTempProject();
+    cleanups.push(fixture.cleanup);
+    const inputPath = join(fixture.projectRoot, 'input.json');
+    await writeFile(inputPath, '{"from":"file"}', 'utf8');
+
+    const result = await readJsonInput({
+      file: inputPath,
+      cwd: '/',
+    });
+
+    expect(result).toEqual({ from: 'file' });
   });
 });

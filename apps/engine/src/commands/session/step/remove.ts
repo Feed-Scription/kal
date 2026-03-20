@@ -1,6 +1,6 @@
 import { defineCommand } from 'citty';
 import { ensureRuntime, projectPathArg, runEnvelopeCommand } from '../../_shared';
-import { collectRemovalWarnings, findStepIndex, getRequiredSession, mutateSession } from '../_helpers';
+import { collectRemovalWarnings, findStepIndex, flowCheckArg, getRequiredSession, mutateSession, resolveFlowValidationMode, skipFlowCheckArg } from '../_helpers';
 
 export default defineCommand({
   meta: {
@@ -14,25 +14,31 @@ export default defineCommand({
       required: false,
     },
     projectPath: projectPathArg,
+    'flow-check': flowCheckArg,
+    'skip-flow-check': skipFlowCheckArg,
   },
   async run({ args }) {
     await runEnvelopeCommand('session.step.remove', async () => {
       const stepId = typeof args.stepId === 'string' ? args.stepId : '';
-      const { runtime } = await ensureRuntime(typeof args.projectPath === 'string' ? args.projectPath : undefined);
+      const flowValidationMode = resolveFlowValidationMode(args);
+      const { runtime } = await ensureRuntime(
+        typeof args.projectPath === 'string' ? args.projectPath : undefined,
+        { sessionFlowValidationMode: 'warn' },
+      );
       const existing = getRequiredSession(runtime);
       const warnings = collectRemovalWarnings(existing, stepId);
-      const session = await mutateSession(runtime, (draft) => {
+      const result = await mutateSession(runtime, (draft) => {
         const index = findStepIndex(draft, stepId);
         draft.steps.splice(index, 1);
         return draft;
-      });
+      }, { flowValidationMode });
       return {
         data: {
           removed: true,
           stepId,
-          session,
+          session: result.session,
         },
-        warnings,
+        warnings: [...warnings, ...result.warnings],
       };
     });
   },

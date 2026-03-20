@@ -213,4 +213,49 @@ describe('Flow E2E - Minimal', () => {
     expect(onFlowEnd).toHaveBeenCalledOnce();
     expect(onNodeEnd).toHaveBeenCalledTimes(2);
   });
+
+  it('应该使用全局默认 node timeout 作为 fallback', async () => {
+    const flow = createFlow({
+      nodes: [
+        { id: 'timer', type: 'Timer', inputs: [], outputs: [{ name: 'timestamp', type: 'number' }], config: { delay: 20 } },
+      ],
+      edges: [],
+    }, {
+      schemaVersion: '1.0.0',
+    });
+
+    const executor = new FlowExecutor({
+      registry,
+      hookManager,
+      contextFactory: createContextFactory(),
+      defaultNodeTimeoutMs: 5,
+    });
+    const result = await executor.execute(flow, 'timeout-flow');
+
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]?.errorType).toBe('timeout');
+    expect(result.errors[0]?.message).toContain('timeout after 5ms');
+  });
+
+  it('应该在 run timeout 命中时抛出明确的总执行超时错误', async () => {
+    const flow = createFlow({
+      nodes: [
+        { id: 'timer', type: 'Timer', inputs: [], outputs: [{ name: 'timestamp', type: 'number' }], config: { delay: 20 } },
+      ],
+      edges: [],
+    }, {
+      schemaVersion: '1.0.0',
+    });
+
+    const executor = new FlowExecutor({
+      registry,
+      hookManager,
+      contextFactory: createContextFactory(),
+      defaultNodeTimeoutMs: 100,
+    });
+
+    await expect(executor.execute(flow, 'timeout-flow', undefined, undefined, Date.now() + 5, 5)).rejects.toThrow(
+      'execution timeout after 5ms',
+    );
+  });
 });

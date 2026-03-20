@@ -1,6 +1,6 @@
 import { defineCommand } from 'citty';
 import { ensureRuntime, projectPathArg, runEnvelopeCommand } from '../_shared';
-import { getRequiredSession, validateSession } from './_helpers';
+import { flowCheckArg, getRequiredSession, resolveFlowValidationMode, skipFlowCheckArg, validateSession } from './_helpers';
 
 export default defineCommand({
   meta: {
@@ -9,14 +9,25 @@ export default defineCommand({
   },
   args: {
     projectPath: projectPathArg,
+    'flow-check': flowCheckArg,
+    'skip-flow-check': skipFlowCheckArg,
   },
   async run({ args }) {
     await runEnvelopeCommand('session.validate', async () => {
-      const { runtime } = await ensureRuntime(typeof args.projectPath === 'string' ? args.projectPath : undefined);
+      const flowValidationMode = resolveFlowValidationMode(args);
+      const { runtime } = await ensureRuntime(
+        typeof args.projectPath === 'string' ? args.projectPath : undefined,
+        { sessionFlowValidationMode: 'warn' },
+      );
       const session = getRequiredSession(runtime);
-      const result = validateSession(session, runtime.listFlows().map((flow) => flow.id));
+      const result = validateSession(session, runtime.listFlows().map((flow) => flow.id), {
+        flowValidationMode,
+      });
       return {
         data: result,
+        warnings: result.warnings.map((warning) =>
+          warning.path ? `${warning.path}: ${warning.message}` : warning.message
+        ),
         exitCode: result.valid ? 0 : 1,
       };
     });

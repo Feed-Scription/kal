@@ -856,7 +856,13 @@ async function continueRunWithBreakpoints(options: {
   if (initialBreakpoint) {
     return { run: currentRun, breakpointStepId: initialBreakpoint };
   }
-  if (currentRun.status === 'waiting_input' || currentRun.status === 'ended' || currentRun.status === 'error') {
+  if (currentRun.status === 'ended' || currentRun.status === 'error') {
+    return { run: currentRun };
+  }
+  // When the run is waiting for input but the caller supplied input, we must
+  // advance at least once (handled by the while-loop below) instead of
+  // short-circuiting here.  Only bail early when there is no pending input.
+  if (currentRun.status === 'waiting_input' && pendingInput === undefined) {
     return { run: currentRun };
   }
 

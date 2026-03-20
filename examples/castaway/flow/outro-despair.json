@@ -1,0 +1,181 @@
+{
+  "meta": {
+    "schemaVersion": "1.0",
+    "name": "outro-despair",
+    "description": "Ending: 你彻底绝望了。",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "narration",
+        "type": "string"
+      }
+    ]
+  },
+  "data": {
+    "nodes": [
+      {
+        "id": "prompt",
+        "type": "PromptBuild",
+        "config": {
+          "defaultRole": "system",
+          "fragments": [
+            {
+              "id": "role",
+              "type": "base",
+              "content": "你是一个幽默冒险风格的荒岛生存游戏叙事者。像《鲁滨逊漂流记》遇上脱口秀。绝不用感叹号。"
+            },
+            {
+              "id": "state-day",
+              "type": "field",
+              "source": "state.day",
+              "label": "存活天数"
+            },
+            {
+              "id": "state-stamina",
+              "type": "field",
+              "source": "state.stamina",
+              "label": "体力"
+            },
+            {
+              "id": "state-hunger",
+              "type": "field",
+              "source": "state.hunger",
+              "label": "饱食度"
+            },
+            {
+              "id": "state-mood",
+              "type": "field",
+              "source": "state.mood",
+              "label": "心情"
+            },
+            {
+              "id": "state-shelter",
+              "type": "field",
+              "source": "state.shelter",
+              "label": "庇护所等级"
+            },
+            {
+              "id": "task",
+              "type": "base",
+              "content": "玩家因为心情跌至谷底而放弃了。用温柔但幽默的方式描述这个结局。 根据玩家的游戏历史和最终状态，生成一段3-5句话的结局叙事。像荒岛日记的最后一页。"
+            }
+          ]
+        },
+        "inputs": [
+          {
+            "name": "data",
+            "type": "object",
+            "defaultValue": {}
+          }
+        ],
+        "outputs": [
+          {
+            "name": "text",
+            "type": "string"
+          },
+          {
+            "name": "estimatedTokens",
+            "type": "number"
+          }
+        ]
+      },
+      {
+        "id": "message",
+        "type": "Message",
+        "config": {
+          "historyKey": "history",
+          "maxHistoryMessages": 6,
+          "summaryKey": "summary"
+        },
+        "inputs": [
+          {
+            "name": "system",
+            "type": "string"
+          },
+          {
+            "name": "context",
+            "type": "string"
+          },
+          {
+            "name": "user",
+            "type": "string"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "messages",
+            "type": "ChatMessage[]"
+          }
+        ]
+      },
+      {
+        "id": "llm",
+        "type": "GenerateText",
+        "config": {
+          "temperature": 0.8,
+          "timeout": 120000
+        },
+        "inputs": [
+          {
+            "name": "messages",
+            "type": "ChatMessage[]",
+            "required": true
+          },
+          {
+            "name": "historyUserMessage",
+            "type": "string"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "text",
+            "type": "string"
+          },
+          {
+            "name": "usage",
+            "type": "object"
+          }
+        ]
+      },
+      {
+        "id": "signal-out",
+        "type": "SignalOut",
+        "config": {
+          "channel": "narration"
+        },
+        "inputs": [
+          {
+            "name": "data",
+            "type": "string"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "data",
+            "type": "string"
+          }
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "source": "prompt",
+        "sourceHandle": "text",
+        "target": "message",
+        "targetHandle": "system"
+      },
+      {
+        "source": "message",
+        "sourceHandle": "messages",
+        "target": "llm",
+        "targetHandle": "messages"
+      },
+      {
+        "source": "llm",
+        "sourceHandle": "text",
+        "target": "signal-out",
+        "targetHandle": "data"
+      }
+    ]
+  }
+}

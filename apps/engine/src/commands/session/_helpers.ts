@@ -1,10 +1,52 @@
-import { validateSessionDefinition } from '@kal-ai/core';
-import type { SessionDefinition, SessionStep } from '@kal-ai/core';
+import { validateSessionDefinitionDetailed } from '@kal-ai/core';
+import type {
+  SessionDefinition,
+  SessionFlowValidationMode,
+  SessionStep,
+  SessionValidationError,
+} from '@kal-ai/core';
 import type { EngineRuntime } from '../../runtime';
 import { EngineHttpError } from '../../errors';
 
 export function cloneJson<T>(value: T): T {
   return structuredClone(value);
+}
+
+export const flowCheckArg = {
+  type: 'string' as const,
+  description: 'How to handle missing session step flowRef targets: strict, warn, or ignore',
+  default: 'warn',
+};
+
+export const skipFlowCheckArg = {
+  type: 'boolean' as const,
+  description: 'Compatibility alias for --flow-check ignore',
+  default: false,
+};
+
+export function resolveFlowValidationMode(args: {
+  'flow-check'?: unknown;
+  'skip-flow-check'?: unknown;
+}, defaultMode: SessionFlowValidationMode = 'warn'): SessionFlowValidationMode {
+  if (args['skip-flow-check'] === true) {
+    return 'ignore';
+  }
+  const rawMode = typeof args['flow-check'] === 'string' ? args['flow-check'] : defaultMode;
+  if (rawMode === 'strict' || rawMode === 'warn' || rawMode === 'ignore') {
+    return rawMode;
+  }
+  throw new EngineHttpError(
+    `Invalid --flow-check value: ${rawMode}`,
+    400,
+    'FLOW_CHECK_MODE_INVALID',
+    { value: rawMode },
+  );
+}
+
+export function formatSessionWarnings(warnings: SessionValidationError[]): string[] {
+  return warnings.map((warning) =>
+    warning.path ? `${warning.path}: ${warning.message}` : warning.message
+  );
 }
 
 export function getRequiredSession(runtime: EngineRuntime): SessionDefinition {
@@ -18,11 +60,17 @@ export function getRequiredSession(runtime: EngineRuntime): SessionDefinition {
 export async function mutateSession(
   runtime: EngineRuntime,
   mutator: (session: SessionDefinition) => SessionDefinition | void,
-): Promise<SessionDefinition> {
+  options: { flowValidationMode?: SessionFlowValidationMode } = {},
+): Promise<{ session: SessionDefinition; warnings: string[] }> {
   const session = getRequiredSession(runtime);
   const result = mutator(session) ?? session;
-  await runtime.saveSession(result);
-  return result;
+  const saveResult = await runtime.saveSession(result, {
+    flowValidationMode: options.flowValidationMode ?? 'warn',
+  });
+  return {
+    session: result,
+    warnings: formatSessionWarnings(saveResult.warnings),
+  };
 }
 
 export function findStepIndex(session: SessionDefinition, stepId: string): number {
@@ -46,17 +94,35 @@ export function summarizeStep(step: SessionStep): Record<string, unknown> {
   };
 }
 
-export function validateSession(session: SessionDefinition, flowIds: string[]): {
+export function validateSession(
+  session: SessionDefinition,
+  flowIds: string[],
+  options: { flowValidationMode?: SessionFlowValidationMode } = {},
+): {
   valid: boolean;
-  diagnostics: Array<{ path: string; message: string }>;
+  errors: Array<{ path: string; message: string }>;
+  warnings: Array<{ path: string; message: string }>;
+  diagnostics: Array<{ path: string; message: string; severity: 'error' | 'warning' }>;
 } {
-  const diagnostics = validateSessionDefinition(session, flowIds).map((error) => ({
+  const result = validateSessionDefinitionDetailed(session, flowIds, {
+    flowValidationMode: options.flowValidationMode ?? 'warn',
+  });
+  const errors = result.errors.map((error) => ({
     path: error.path,
     message: error.message,
   }));
+  const warnings = result.warnings.map((warning) => ({
+    path: warning.path,
+    message: warning.message,
+  }));
   return {
-    valid: diagnostics.length === 0,
-    diagnostics,
+    valid: errors.length === 0,
+    errors,
+    warnings,
+    diagnostics: [
+      ...errors.map((error) => ({ ...error, severity: 'error' as const })),
+      ...warnings.map((warning) => ({ ...warning, severity: 'warning' as const })),
+    ],
   };
 }
 

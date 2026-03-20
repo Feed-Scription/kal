@@ -18,7 +18,10 @@ export default defineCommand({
   async run({ args }) {
     await runEnvelopeCommand('flow.node.list', async () => {
       const flowId = typeof args.flowId === 'string' ? args.flowId : '';
-      const { runtime } = await ensureRuntime(typeof args.projectPath === 'string' ? args.projectPath : undefined);
+      const { runtime } = await ensureRuntime(
+        typeof args.projectPath === 'string' ? args.projectPath : undefined,
+        { sessionFlowValidationMode: 'warn' },
+      );
       const flow = runtime.getFlow(flowId);
       return {
         nodes: flow.data.nodes.map((node) => summarizeNode(node)),
