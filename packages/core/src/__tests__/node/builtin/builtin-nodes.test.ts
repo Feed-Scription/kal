@@ -140,6 +140,23 @@ describe('LLM 节点', () => {
     ]);
   });
 
+  it('GenerateText 在 JSON 模式下拿到 null 响应时不应污染 history', async () => {
+    const ctx = createMockContext();
+    ctx.state.set('history', { type: 'array', value: [] });
+    ctx.llm.invoke = vi.fn().mockResolvedValue({
+      text: 'null',
+      usage: { totalTokens: 10 },
+    });
+
+    await expect(GenerateText.execute(
+      { messages: [{ role: 'user', content: '观察四周' }] },
+      { historyKey: 'history', assistantPath: 'narrative', responseFormat: 'json' },
+      ctx
+    )).rejects.toThrow(/assistantPath|JSON object/);
+
+    expect(ctx.state.get('history')?.value).toEqual([]);
+  });
+
   it('GenerateImage 应该返回图像 URL', async () => {
     const result = await GenerateImage.execute(
       { prompt: 'a medieval castle' },

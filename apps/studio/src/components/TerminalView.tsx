@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useRunDebug, useStudioCommands } from '@/kernel/hooks';
 import { cn } from '@/lib/utils';
-import type { PlayTranscriptEntry, RunWaitingFor } from '@/types/project';
+import type { PlayTranscriptEntry, RunDiagnostic, RunWaitingFor } from '@/types/project';
 
 type TranscriptLine = {
   id: string;
@@ -30,6 +30,20 @@ type PendingSubmission = {
 };
 
 const generationFrames = ['|', '/', '-', '\\'];
+
+function formatDiagnosticDetails(details: unknown): string | null {
+  if (details === undefined) {
+    return null;
+  }
+  if (typeof details === 'string') {
+    return details;
+  }
+  try {
+    return JSON.stringify(details, null, 2);
+  } catch {
+    return String(details);
+  }
+}
 
 function buildTranscript(
   transcript: PlayTranscriptEntry[],
@@ -156,6 +170,65 @@ function TranscriptBubble({ entry }: { entry: TranscriptLine }) {
           {entry.text}
         </div>
       </div>
+    </div>
+  );
+}
+
+function RunErrorDetails({ diagnostic }: { diagnostic?: RunDiagnostic }) {
+  const { t } = useTranslation('terminal');
+  const details = formatDiagnosticDetails(diagnostic?.details);
+
+  if (!diagnostic) {
+    return (
+      <div className="text-[11px] text-destructive/80">
+        {t('noStructuredError')}
+      </div>
+    );
+  }
+
+  const meta = [
+    diagnostic.code ? { label: t('errorCodeLabel'), value: diagnostic.code } : null,
+    diagnostic.stepId ? { label: t('errorStepLabel'), value: diagnostic.stepId } : null,
+    diagnostic.flowId ? { label: t('errorFlowLabel'), value: diagnostic.flowId } : null,
+    diagnostic.nodeId
+      ? {
+          label: t('errorNodeLabel'),
+          value: diagnostic.nodeType ? `${diagnostic.nodeId} (${diagnostic.nodeType})` : diagnostic.nodeId,
+        }
+      : (diagnostic.nodeType ? { label: t('errorNodeLabel'), value: diagnostic.nodeType } : null),
+    diagnostic.errorType ? { label: t('errorTypeLabel'), value: diagnostic.errorType } : null,
+  ].filter(Boolean) as Array<{ label: string; value: string }>;
+
+  return (
+    <div className="space-y-3 rounded-md border border-destructive/30 bg-background/80 px-3 py-3 text-foreground">
+      <div>
+        <div className="mb-1 text-[10px] uppercase tracking-wide text-destructive/80">
+          {t('errorMessageLabel')}
+        </div>
+        <div className="whitespace-pre-wrap break-words font-medium leading-5 text-destructive">
+          {diagnostic.message || t('unknownErrorMessage')}
+        </div>
+      </div>
+      {meta.length > 0 ? (
+        <div className="grid gap-1.5 text-[11px]">
+          {meta.map((entry) => (
+            <div key={`${entry.label}:${entry.value}`} className="flex flex-wrap gap-2">
+              <span className="text-muted-foreground">{entry.label}</span>
+              <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px]">{entry.value}</code>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      {details ? (
+        <div>
+          <div className="mb-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+            {t('errorDetailsLabel')}
+          </div>
+          <pre className="max-h-48 overflow-auto rounded-md bg-muted px-3 py-2 font-mono text-[11px] leading-5 text-foreground/90">
+            {details}
+          </pre>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -531,6 +604,7 @@ export function PlayPanel() {
             ) : selectedRun.status === 'error' ? (
               <div className="space-y-3 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-3 text-xs text-destructive">
                 <div>{t('errorDescription')}</div>
+                <RunErrorDetails diagnostic={selectedRun.diagnostic} />
                 <div className="flex flex-wrap gap-2">
                   <Button
                     size="sm"

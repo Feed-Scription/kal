@@ -30,6 +30,33 @@ function extractAssistantContent(text: unknown, assistantPath?: string): string 
   }
 }
 
+function extractStrictAssistantContent(text: unknown, assistantPath: string): string {
+  const parsed = typeof text === 'object' && text !== null ? text : JSON.parse(String(text));
+  if (parsed == null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error(
+      `GenerateText expected a JSON object response when assistantPath="${assistantPath}", but received ${JSON.stringify(parsed)}`
+    );
+  }
+
+  let current: unknown = parsed;
+  for (const part of assistantPath.split('.')) {
+    if (!part || current == null || typeof current !== 'object' || !(part in current)) {
+      throw new Error(
+        `GenerateText could not extract assistantPath "${assistantPath}" from JSON response`
+      );
+    }
+    current = (current as Record<string, unknown>)[part];
+  }
+
+  if (typeof current !== 'string' || current.trim().length === 0) {
+    throw new Error(
+      `GenerateText expected assistantPath "${assistantPath}" to resolve to a non-empty string`
+    );
+  }
+
+  return current;
+}
+
 export const PromptBuild: CustomNode = {
   type: 'PromptBuild',
   label: 'Prompt 构建',
@@ -231,7 +258,11 @@ export const GenerateText: CustomNode = {
       const latestUserMessage = [...(inputs.messages as ChatMessage[])].reverse().find((message) => message.role === 'user');
       const historyUserMessage =
         typeof inputs.historyUserMessage === 'string' ? inputs.historyUserMessage : latestUserMessage?.content;
-      const assistantContent = extractAssistantContent(result.text, config.assistantPath as string | undefined);
+      const assistantPath = config.assistantPath as string | undefined;
+      const assistantContent =
+        config.responseFormat === 'json' && assistantPath
+          ? extractStrictAssistantContent(result.text, assistantPath)
+          : extractAssistantContent(result.text, assistantPath);
       if (historyUserMessage) {
         context.state.appendMany(historyKey, [
           { role: 'user', content: historyUserMessage },

@@ -367,6 +367,17 @@ export type RunSummary = {
   active: boolean;
 };
 
+export type RunDiagnostic = {
+  code: string;
+  message: string;
+  stepId?: string;
+  flowId?: string;
+  nodeId?: string;
+  nodeType?: string;
+  errorType?: string;
+  details?: unknown;
+};
+
 export type RunView = RunSummary & {
   cursor: {
     currentStepId: string | null;
@@ -375,6 +386,7 @@ export type RunView = RunSummary & {
   state_summary: RunStateSummary;
   recent_events: RunEvent[];
   input_history: RunInputRecord[];
+  diagnostic?: RunDiagnostic;
 };
 
 export type RunStateView = RunView & {
