@@ -1,0 +1,39 @@
+{
+  "title": "Prompt 评估",
+  "subtitle": "对同一个节点执行 N 次评估，并支持变体对比或模型对比。",
+  "flow": "Flow",
+  "node": "节点",
+  "runs": "运行次数",
+  "input": "输入 JSON",
+  "state": "状态 JSON",
+  "variantA": "方案 A",
+  "variantB": "方案 B",
+  "runA": "运行 A",
+  "runB": "运行 B",
+  "compare": "对比 A / B",
+  "resultA": "结果 A",
+  "resultB": "结果 B",
+  "resultRuns": "{{count}} 次",
+  "resultModelDefault": "默认",
+  "outputs": "输出",
+  "stats": "统计",
+  "compareTitle": "对比结果",
+  "metrics": {
+    "cost": "成本",
+    "latency": "延迟",
+    "costDelta": "成本差值",
+    "latencyDelta": "延迟差值"
+  },
+  "chooseFlow": "选择 Flow",
+  "chooseNode": "选择节点",
+  "missingSelection": "请先选择 Flow 和节点。",
+  "modelPlaceholder": "可选：覆盖模型",
+  "variantPlaceholder": "可选：变体 JSON 或 fragments 数组",
+  "inputPlaceholder": "{\n  \"message\": \"hello\"\n}",
+  "statePlaceholder": "{\n  \"playerName\": \"Hero\"\n}",
+  "invalid": {
+    "input": "输入 JSON 必须是对象。",
+    "state": "状态 JSON 必须是对象。",
+    "variant": "变体 JSON 必须是带 fragments 的对象或 fragments 数组。"
+  }
+}

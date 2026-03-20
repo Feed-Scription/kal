@@ -19,6 +19,7 @@ import {
 import { useCanvasSelection } from '@/hooks/use-canvas-selection';
 import { useNodeExecutionData } from '@/hooks/use-node-execution-data';
 import { NodeExecutionInspector } from '@/components/NodeExecutionInspector';
+import { DebugStateContextCard } from '@/components/DebugStateContextCard';
 import { DebugStreamSidebar } from '@/components/DebugStreamSidebar';
 import { ExtensionSurface } from './ExtensionSurface';
 import { NodeCodeEditorDialog } from './NodeCodeEditorDialog';
@@ -107,6 +108,8 @@ export function WorkbenchInspector({ mobile }: { mobile?: boolean } = {}) {
               <NodeExecutionInspector data={nodeExecData} />
             </>
           )}
+
+          <DebugStateContextCard />
 
           {/* Extension-contributed inspectors (e.g. Prompt Preview) */}
           {inspectors.length > 0 && inspectors.map(({ contribution, runtime }) => (

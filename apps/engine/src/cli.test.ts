@@ -103,7 +103,7 @@ describe('CLI', () => {
     cleanups.push(async () => rm(stateDir, { recursive: true, force: true }));
 
     const buffer = createIoBuffer();
-    const exitCode = await runCli(['debug', fixture.projectRoot, '--start', '--state-dir', stateDir], {
+    const exitCode = await runCli(['debug', 'start', fixture.projectRoot, '--state-dir', stateDir], {
       cwd: fixture.projectRoot,
       io: buffer.io,
     });
@@ -154,13 +154,13 @@ describe('CLI', () => {
     cleanups.push(async () => rm(stateDir, { recursive: true, force: true }));
 
     let buffer = createIoBuffer();
-    await runCli(['debug', fixture.projectRoot, '--start', '--state-dir', stateDir], {
+    await runCli(['debug', 'start', fixture.projectRoot, '--state-dir', stateDir], {
       cwd: fixture.projectRoot,
       io: buffer.io,
     });
 
     buffer = createIoBuffer();
-    const exitCode = await runCli(['debug', fixture.projectRoot, '--continue', '--state-dir', stateDir], {
+    const exitCode = await runCli(['debug', 'continue', fixture.projectRoot, '--state-dir', stateDir], {
       cwd: fixture.projectRoot,
       io: buffer.io,
     });
@@ -194,13 +194,13 @@ describe('CLI', () => {
     cleanups.push(async () => rm(stateDir, { recursive: true, force: true }));
 
     let buffer = createIoBuffer();
-    await runCli(['debug', fixture.projectRoot, '--start', '--state-dir', stateDir], {
+    await runCli(['debug', 'start', fixture.projectRoot, '--state-dir', stateDir], {
       cwd: fixture.projectRoot,
       io: buffer.io,
     });
 
     buffer = createIoBuffer();
-    const exitCode = await runCli(['debug', fixture.projectRoot, '--continue', 'attack', '--state-dir', stateDir], {
+    const exitCode = await runCli(['debug', 'continue', fixture.projectRoot, '--input', 'attack', '--state-dir', stateDir], {
       cwd: fixture.projectRoot,
       io: buffer.io,
     });
@@ -250,13 +250,13 @@ describe('CLI', () => {
     cleanups.push(async () => rm(stateDir, { recursive: true, force: true }));
 
     let buffer = createIoBuffer();
-    await runCli(['debug', fixture.projectRoot, '--start', '--state-dir', stateDir], {
+    await runCli(['debug', 'start', fixture.projectRoot, '--state-dir', stateDir], {
       cwd: fixture.projectRoot,
       io: buffer.io,
     });
 
     buffer = createIoBuffer();
-    const exitCode = await runCli(['debug', fixture.projectRoot, '--state', '--state-dir', stateDir], {
+    const exitCode = await runCli(['debug', 'state', fixture.projectRoot, '--state-dir', stateDir], {
       cwd: fixture.projectRoot,
       io: buffer.io,
     });
@@ -290,13 +290,13 @@ describe('CLI', () => {
     cleanups.push(async () => rm(stateDir, { recursive: true, force: true }));
 
     let buffer = createIoBuffer();
-    await runCli(['debug', fixture.projectRoot, '--start', '--state-dir', stateDir], {
+    await runCli(['debug', 'start', fixture.projectRoot, '--state-dir', stateDir], {
       cwd: fixture.projectRoot,
       io: buffer.io,
     });
 
     buffer = createIoBuffer();
-    const exitCode = await runCli(['debug', fixture.projectRoot, '--continue', 'attack', '--state-dir', stateDir], {
+    const exitCode = await runCli(['debug', 'continue', fixture.projectRoot, '--input', 'attack', '--state-dir', stateDir], {
       cwd: fixture.projectRoot,
       io: buffer.io,
     });
@@ -359,7 +359,7 @@ describe('CLI', () => {
     cleanups.push(async () => rm(stateDir, { recursive: true, force: true }));
 
     let buffer = createIoBuffer();
-    await runCli(['debug', fixture.projectRoot, '--start', '--state-dir', stateDir], {
+    await runCli(['debug', 'start', fixture.projectRoot, '--state-dir', stateDir], {
       cwd: fixture.projectRoot,
       io: buffer.io,
     });
@@ -374,7 +374,7 @@ describe('CLI', () => {
     };`, 'utf8');
 
     buffer = createIoBuffer();
-    const exitCode = await runCli(['debug', fixture.projectRoot, '--continue', 'attack', '--state-dir', stateDir], {
+    const exitCode = await runCli(['debug', 'continue', fixture.projectRoot, '--input', 'attack', '--state-dir', stateDir], {
       cwd: fixture.projectRoot,
       io: buffer.io,
     });

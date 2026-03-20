@@ -186,6 +186,8 @@ type StudioStore = {
   getRun: (runId: string) => Promise<RunView>;
   getRunState: (runId: string) => Promise<RunStateView>;
   selectRun: (runId: string | null) => Promise<void>;
+  deleteRun: (runId: string) => Promise<void>;
+  clearFinishedRuns: () => Promise<number>;
   advanceRun: (runId: string, input?: string, mode?: RunAdvanceMode) => Promise<RunView>;
   retryRun: (runId: string, input?: string, mode?: RunAdvanceMode) => Promise<RunView>;
   stepRun: (runId: string, input?: string) => Promise<RunView>;
@@ -885,6 +887,34 @@ function ensureRunOrder(runOrder: string[], runId: string): string[] {
   return [runId, ...runOrder.filter((candidate) => candidate !== runId)];
 }
 
+function removeRunIdsFromDebugState(
+  runDebug: RunDebugState,
+  runIds: string[],
+): RunDebugState {
+  if (runIds.length === 0) {
+    return runDebug;
+  }
+
+  const removed = new Set(runIds);
+  const nextRecords = { ...runDebug.records };
+  for (const runId of runIds) {
+    delete nextRecords[runId];
+  }
+
+  const nextOrder = runDebug.runOrder.filter((runId) => !removed.has(runId) && nextRecords[runId]);
+  const nextSelectedRunId =
+    runDebug.selectedRunId && nextRecords[runDebug.selectedRunId]
+      ? runDebug.selectedRunId
+      : (nextOrder.find((runId) => nextRecords[runId]?.run.active) ?? nextOrder[0] ?? null);
+
+  return {
+    ...runDebug,
+    selectedRunId: nextSelectedRunId,
+    runOrder: nextOrder,
+    records: nextRecords,
+  };
+}
+
 async function fetchDiagnosticsReport(): Promise<DiagnosticsPayload | null> {
   try {
     return await engineApi.getDiagnostics();
@@ -1209,11 +1239,10 @@ async function withJob<T>(options: {
   }
 }
 
-async function withRunCommand<T>(options: {
-  set: (updater: Partial<StudioStore> | ((state: StudioStore) => Partial<StudioStore>)) => void;
-  action: () => Promise<T>;
-}): Promise<T> {
-  const { set, action } = options;
+async function withRunCommandState<T>(
+  set: (updater: Partial<StudioStore> | ((state: StudioStore) => Partial<StudioStore>)) => void,
+  action: () => Promise<T>,
+): Promise<T> {
   set((state) => ({
     runDebug: {
       ...state.runDebug,
@@ -1223,22 +1252,25 @@ async function withRunCommand<T>(options: {
   }));
 
   try {
-    return await action();
-  } catch (error) {
-    set((state) => ({
-      runDebug: {
-        ...state.runDebug,
-        runCommandError: (error as Error).message,
-      },
-    }));
-    throw error;
-  } finally {
+    const result = await action();
     set((state) => ({
       runDebug: {
         ...state.runDebug,
         runCommandLoading: false,
+        runCommandError: null,
       },
     }));
+    return result;
+  } catch (error) {
+    const name = (error as Error).name;
+    set((state) => ({
+      runDebug: {
+        ...state.runDebug,
+        runCommandLoading: false,
+        runCommandError: name === 'AbortError' ? null : (error as Error).message,
+      },
+    }));
+    throw error;
   }
 }
 
@@ -1321,6 +1353,25 @@ function attachRunSubscription(
         },
       };
     });
+
+    if (event.type === 'run.ended' || event.type === 'run.cancelled') {
+      runStreamSubscriptions.get(runId)?.();
+      runStreamSubscriptions.delete(runId);
+      set((state) => ({
+        runDebug: {
+          ...state.runDebug,
+          records: {
+            ...state.runDebug.records,
+            [runId]: state.runDebug.records[runId]
+              ? {
+                  ...state.runDebug.records[runId],
+                  subscribed: false,
+                }
+              : state.runDebug.records[runId],
+          },
+        },
+      }));
+    }
 
     get().recordKernelEvent({
       type: event.type === 'run.invalidated' ? 'run.updated' : event.type,
@@ -1823,13 +1874,20 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
       currentFlowAbort = null;
     }
 
+    const stateBefore = cloneValue(get().resources.project?.state ?? {});
+
     // Initialize execution trace
     const trace: FlowExecutionTrace = {
       executionId: '',
       flowId,
+      active: true,
       status: 'running',
+      startedAt: Date.now(),
       nodeResults: {},
       executionOrder: [],
+      stateBefore,
+      stateAfter: stateBefore,
+      changedStateKeys: [],
     };
 
     set((state) => ({
@@ -1841,6 +1899,41 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
 
     return new Promise<ExecutionResult>((resolve, reject) => {
       let finalResult: ExecutionResult | null = null;
+      const syncStateAfterExecution = (status: FlowExecutionTrace['status']) => {
+        void engineApi.getState().then((nextState) => {
+          set((state) => {
+            const before = state.runDebug.flowExecutionTrace?.stateBefore ?? stateBefore;
+            const changedStateKeys = Object.keys(nextState).filter((key) => {
+              return JSON.stringify(before[key]) !== JSON.stringify(nextState[key]);
+            });
+
+            return {
+              resources: state.resources.project
+                ? {
+                    ...state.resources,
+                    project: {
+                      ...state.resources.project,
+                      state: nextState,
+                    },
+                  }
+                : state.resources,
+              runDebug: {
+                ...state.runDebug,
+                flowExecutionTrace: state.runDebug.flowExecutionTrace
+                  ? {
+                      ...state.runDebug.flowExecutionTrace,
+                      status,
+                      stateAfter: nextState,
+                      changedStateKeys,
+                    }
+                  : null,
+              },
+            };
+          });
+        }).catch(() => {
+          // Keep last known project state if sync fails.
+        });
+      };
 
       const abort = engineApi.executeFlowStream(flowId, input, (event: FlowExecutionStreamEvent) => {
         switch (event.type) {
@@ -1925,20 +2018,24 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
                 },
               };
             });
-            break;
+              break;
 
           case 'flow.end':
+            currentFlowAbort = null;
             set((state) => ({
               runDebug: {
                 ...state.runDebug,
                 flowExecutionTrace: state.runDebug.flowExecutionTrace
                   ? {
                       ...state.runDebug.flowExecutionTrace,
+                      active: false,
                       status: event.errors.length > 0 ? 'error' : 'success',
+                      finishedAt: event.timestamp,
                     }
                   : null,
               },
             }));
+            syncStateAfterExecution(event.errors.length > 0 ? 'error' : 'success');
             finalResult = {
               outputs: event.outputs as Record<string, any>,
               duration: event.durationMs,
@@ -1948,14 +2045,21 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
             break;
 
           case 'flow.error':
+            currentFlowAbort = null;
             set((state) => ({
               runDebug: {
                 ...state.runDebug,
                 flowExecutionTrace: state.runDebug.flowExecutionTrace
-                  ? { ...state.runDebug.flowExecutionTrace, status: 'error' }
+                  ? {
+                      ...state.runDebug.flowExecutionTrace,
+                      active: false,
+                      status: 'error',
+                      finishedAt: event.timestamp,
+                    }
                   : null,
               },
             }));
+            syncStateAfterExecution('error');
             reject(new Error(event.error?.message ?? i18n.t('store:flowExecutionFailed')));
             break;
         }
@@ -1963,6 +2067,7 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
 
       // Wrap abort so it also settles the promise
       currentFlowAbort = () => {
+        currentFlowAbort = null;
         abort();
         reject(new DOMException('Flow execution aborted', 'AbortError'));
       };
@@ -2105,118 +2210,112 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
   },
 
   createRun: async (forceNew = false, mode) => {
-    return withRunCommand({
-      set,
-      action: async () => {
-        const hasBreakpoints = get().runDebug.breakpoints.length > 0;
-        const resolvedMode = mode ?? 'continue';
-        const { run, breakpointStepId } = await withJob({
+    return withRunCommandState(set, async () => {
+      const hasBreakpoints = get().runDebug.breakpoints.length > 0;
+      const resolvedMode = mode ?? 'continue';
+      const { run, breakpointStepId } = await withJob({
+        set,
+        get,
+        title: i18n.t('store:createManagedRun'),
+        detail: forceNew ? i18n.t('store:createRunForceNew') : i18n.t('store:createRunReuse'),
+        action: async (updateProgress) => {
+          updateProgress(40, i18n.t('store:requestEngineCreateRun'));
+          if (resolvedMode === 'continue' && hasBreakpoints) {
+            const created = await engineApi.createRun(forceNew, 'step');
+            updateProgress(55, i18n.t('store:runCreatedWithBreakpoints', { runId: created.run_id }));
+            return continueRunWithBreakpoints({
+              get,
+              runId: created.run_id,
+              seedRun: created,
+              updateProgress,
+              skipInitialStepComparison: true,
+            });
+          }
+
+          const created = await engineApi.createRun(forceNew, mode);
+          updateProgress(85, i18n.t('store:runCreated', { runId: created.run_id }));
+          return { run: created };
+        },
+      });
+
+      get().recordKernelEvent({
+        type: 'run.created',
+        message: i18n.t('store:createRun', { runId: run.run_id }),
+        runId: run.run_id,
+        data: { status: run.status, active: run.active },
+      });
+      set((state) => {
+        const latestTx = state.versionControl.transactions[0];
+        const currentResourceVersion = latestTx?.nextVersion;
+        return {
+          runDebug: {
+            ...state.runDebug,
+            selectedRunId: run.run_id,
+            runOrder: ensureRunOrder(state.runDebug.runOrder, run.run_id),
+            records: {
+              ...state.runDebug.records,
+              [run.run_id]: mergeRunTraceRecord(state.runDebug.records[run.run_id], run, undefined, {
+                resourceVersion: currentResourceVersion,
+              }),
+            },
+          },
+        };
+      });
+      if (breakpointStepId) {
+        recordBreakpointHit({
           set,
           get,
-          title: i18n.t('store:createManagedRun'),
-          detail: forceNew ? i18n.t('store:createRunForceNew') : i18n.t('store:createRunReuse'),
-          action: async (updateProgress) => {
-            updateProgress(40, i18n.t('store:requestEngineCreateRun'));
-            if (resolvedMode === 'continue' && hasBreakpoints) {
-              const created = await engineApi.createRun(forceNew, 'step');
-              updateProgress(55, i18n.t('store:runCreatedWithBreakpoints', { runId: created.run_id }));
-              return continueRunWithBreakpoints({
-                get,
-                runId: created.run_id,
-                seedRun: created,
-                updateProgress,
-                skipInitialStepComparison: true,
-              });
-            }
-
-            const created = await engineApi.createRun(forceNew, mode);
-            updateProgress(85, i18n.t('store:runCreated', { runId: created.run_id }));
-            return { run: created };
-          },
-        });
-
-        get().recordKernelEvent({
-          type: 'run.created',
-          message: i18n.t('store:createRun', { runId: run.run_id }),
           runId: run.run_id,
-          data: { status: run.status, active: run.active },
+          run,
+          stepId: breakpointStepId,
         });
-        set((state) => {
-          const latestTx = state.versionControl.transactions[0];
-          const currentResourceVersion = latestTx?.nextVersion;
-          return {
-            runDebug: {
-              ...state.runDebug,
-              selectedRunId: run.run_id,
-              runOrder: ensureRunOrder(state.runDebug.runOrder, run.run_id),
-              records: {
-                ...state.runDebug.records,
-                [run.run_id]: mergeRunTraceRecord(state.runDebug.records[run.run_id], run, undefined, {
-                  resourceVersion: currentResourceVersion,
-                }),
-              },
-            },
-          };
-        });
-        if (breakpointStepId) {
-          recordBreakpointHit({
-            set,
-            get,
-            runId: run.run_id,
-            run,
-            stepId: breakpointStepId,
-          });
-        }
-        await get().selectRun(run.run_id);
+      }
+      await get().selectRun(run.run_id);
 
-        return run;
-      },
+      return run;
     });
   },
 
   createSmokeRun: async (inputs = []) => {
-    return withRunCommand({
-      set,
-      action: async () => {
-        const { run } = await withJob({
-          set,
-          get,
-          title: i18n.t('store:smokeRun'),
-          detail: i18n.t('store:smokeRunDetail'),
-          action: async (updateProgress) => {
-            updateProgress(20, i18n.t('store:requestEngineSmokeRun'));
-            const created = await engineApi.createSmokeRun(inputs);
-            updateProgress(90, i18n.t('store:smokeRunCompleted', { runId: created.run_id }));
-            return { run: created };
-          },
-        });
+    return withRunCommandState(set, async () => {
+      const { run } = await withJob({
+        set,
+        get,
+        title: i18n.t('store:smokeRun'),
+        detail: i18n.t('store:smokeRunDetail'),
+        action: async (updateProgress) => {
+          updateProgress(20, i18n.t('store:requestEngineSmokeRun'));
+          const created = await engineApi.createSmokeRun(inputs);
+          updateProgress(90, i18n.t('store:smokeRunCompleted', { runId: created.run_id }));
+          return { run: created };
+        },
+      });
 
-        get().recordKernelEvent({
-          type: 'run.created',
-          message: `Smoke run ${run.run_id}`,
-          runId: run.run_id,
-          data: { status: run.status, active: run.active, smoke: true },
-        });
-        set((state) => {
-          const latestTx = state.versionControl.transactions[0];
-          const currentResourceVersion = latestTx?.nextVersion;
-          return {
-            runDebug: {
-              ...state.runDebug,
-              selectedRunId: run.run_id,
-              runOrder: ensureRunOrder(state.runDebug.runOrder, run.run_id),
-              records: {
-                ...state.runDebug.records,
-                [run.run_id]: mergeRunTraceRecord(state.runDebug.records[run.run_id], run, undefined, {
-                  resourceVersion: currentResourceVersion,
-                }),
-              },
+      get().recordKernelEvent({
+        type: 'run.created',
+        message: `Smoke run ${run.run_id}`,
+        runId: run.run_id,
+        data: { status: run.status, active: run.active, smoke: true },
+      });
+      set((state) => {
+        const latestTx = state.versionControl.transactions[0];
+        const currentResourceVersion = latestTx?.nextVersion;
+        return {
+          runDebug: {
+            ...state.runDebug,
+            selectedRunId: run.run_id,
+            runOrder: ensureRunOrder(state.runDebug.runOrder, run.run_id),
+            records: {
+              ...state.runDebug.records,
+              [run.run_id]: mergeRunTraceRecord(state.runDebug.records[run.run_id], run, undefined, {
+                resourceVersion: currentResourceVersion,
+              }),
             },
-          };
-        });
-        await get().selectRun(run.run_id);
-        return run;
-      },
+          },
+        };
+      });
+      await get().selectRun(run.run_id);
+      return run;
     });
   },
 
@@ -2225,57 +2324,72 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
   },
 
   refreshRuns: async () => {
-    const runs = await engineApi.listRuns();
-    set((state) => {
-      const nextRecords = { ...state.runDebug.records };
-      const nextOrder = [...state.runDebug.runOrder];
-
-      for (const run of runs) {
-        nextRecords[run.run_id] = mergeRunTraceRecord(
-          state.runDebug.records[run.run_id],
-          {
-            ...state.runDebug.records[run.run_id]?.run,
-            ...run,
-            cursor: state.runDebug.records[run.run_id]?.run.cursor ?? {
-              currentStepId: null,
-              stepIndex: 0,
-            },
-            state_summary: state.runDebug.records[run.run_id]?.run.state_summary ?? {
-              total_keys: 0,
-              keys: [],
-              changed: [],
-              changed_values: {},
-              preview: {},
-            },
-            recent_events: state.runDebug.records[run.run_id]?.run.recent_events ?? [],
-            input_history: state.runDebug.records[run.run_id]?.run.input_history ?? [],
-          },
-          state.runDebug.records[run.run_id]?.state,
-          { subscribed: state.runDebug.records[run.run_id]?.subscribed ?? false },
+    return withRunCommandState(set, async () => {
+      const runs = await engineApi.listRuns();
+      set((state) => {
+        const visibleRunIds = new Set(runs.map((run) => run.run_id));
+        const removedRunIds = state.runDebug.runOrder.filter((runId) => !visibleRunIds.has(runId));
+        const nextRecords = Object.fromEntries(
+          Object.entries(state.runDebug.records).filter(([runId]) => visibleRunIds.has(runId)),
         );
-        if (!nextOrder.includes(run.run_id)) {
-          nextOrder.push(run.run_id);
+        const nextOrder = state.runDebug.runOrder.filter((runId) => visibleRunIds.has(runId));
+
+        for (const run of runs) {
+          nextRecords[run.run_id] = mergeRunTraceRecord(
+            state.runDebug.records[run.run_id],
+            {
+              ...state.runDebug.records[run.run_id]?.run,
+              ...run,
+              cursor: state.runDebug.records[run.run_id]?.run.cursor ?? {
+                currentStepId: null,
+                stepIndex: 0,
+              },
+              state_summary: state.runDebug.records[run.run_id]?.run.state_summary ?? {
+                total_keys: 0,
+                keys: [],
+                changed: [],
+                changed_values: {},
+                preview: {},
+              },
+              recent_events: state.runDebug.records[run.run_id]?.run.recent_events ?? [],
+              input_history: state.runDebug.records[run.run_id]?.run.input_history ?? [],
+            },
+            state.runDebug.records[run.run_id]?.state,
+            { subscribed: state.runDebug.records[run.run_id]?.subscribed ?? false },
+          );
+          if (!nextOrder.includes(run.run_id)) {
+            nextOrder.push(run.run_id);
+          }
         }
+
+        for (const runId of removedRunIds) {
+          runStreamSubscriptions.get(runId)?.();
+          runStreamSubscriptions.delete(runId);
+        }
+
+        const activeRun = runs.find((run) => run.active) ?? runs[0] ?? null;
+        const selectedRunId =
+          state.runDebug.selectedRunId && nextRecords[state.runDebug.selectedRunId]
+            ? state.runDebug.selectedRunId
+            : activeRun?.run_id ?? nextOrder[0] ?? null;
+
+        return {
+          runDebug: {
+            ...state.runDebug,
+            selectedRunId,
+            runOrder: nextOrder,
+            records: nextRecords,
+          },
+        };
+      });
+
+      const selectedRunId = get().runDebug.selectedRunId;
+      if (selectedRunId) {
+        await get().selectRun(selectedRunId);
       }
 
-      const activeRun = runs.find((run) => run.active) ?? runs[0] ?? null;
-
-      return {
-        runDebug: {
-          ...state.runDebug,
-          selectedRunId: state.runDebug.selectedRunId ?? activeRun?.run_id ?? null,
-          runOrder: nextOrder,
-          records: nextRecords,
-        },
-      };
+      return runs;
     });
-
-    const selectedRunId = get().runDebug.selectedRunId;
-    if (selectedRunId) {
-      await get().selectRun(selectedRunId);
-    }
-
-    return runs;
   },
 
   getRun: async (runId) => {
@@ -2363,106 +2477,178 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     }));
   },
 
+  deleteRun: async (runId) => {
+    return withRunCommandState(set, async () => {
+      await withJob({
+        set,
+        get,
+        title: i18n.t('store:deleteRun', { runId }),
+        detail: i18n.t('store:deleteRunDetail'),
+        action: async (updateProgress) => {
+          updateProgress(50, i18n.t('store:sendingDeleteRunRequest'));
+          await engineApi.deleteRun(runId);
+        },
+      });
+      runStreamSubscriptions.get(runId)?.();
+      runStreamSubscriptions.delete(runId);
+      set((state) => ({
+        runDebug: removeRunIdsFromDebugState(state.runDebug, [runId]),
+      }));
+      get().recordKernelEvent({
+        type: 'run.updated',
+        message: i18n.t('store:runDeleted', { runId }),
+        runId,
+      });
+    });
+  },
+
+  clearFinishedRuns: async () => {
+    return withRunCommandState(set, async () => {
+      const finishedRunIds = get()
+        .runDebug
+        .runOrder
+        .filter((runId) => {
+          const status = get().runDebug.records[runId]?.run.status;
+          return status === 'ended' || status === 'error';
+        });
+
+      if (finishedRunIds.length === 0) {
+        return 0;
+      }
+
+      await withJob({
+        set,
+        get,
+        title: i18n.t('store:clearFinishedRuns', { count: finishedRunIds.length }),
+        detail: i18n.t('store:clearFinishedRunsDetail'),
+        action: async (updateProgress) => {
+          for (const [index, runId] of finishedRunIds.entries()) {
+            updateProgress(
+              Math.round(((index + 1) / finishedRunIds.length) * 90),
+              i18n.t('store:deletingRunProgress', {
+                index: index + 1,
+                total: finishedRunIds.length,
+                runId,
+              }),
+            );
+            await engineApi.deleteRun(runId);
+          }
+        },
+      });
+
+      for (const runId of finishedRunIds) {
+        runStreamSubscriptions.get(runId)?.();
+        runStreamSubscriptions.delete(runId);
+      }
+
+      set((state) => ({
+        runDebug: removeRunIdsFromDebugState(state.runDebug, finishedRunIds),
+      }));
+
+      get().recordKernelEvent({
+        type: 'run.updated',
+        message: i18n.t('store:finishedRunsCleared', { count: finishedRunIds.length }),
+        data: { count: finishedRunIds.length },
+      });
+
+      return finishedRunIds.length;
+    });
+  },
+
   advanceRun: async (runId, input, mode = 'continue') => {
-    return withRunCommand({
-      set,
-      action: async () => {
-        const hasBreakpoints = get().runDebug.breakpoints.length > 0;
-        const { run, breakpointStepId } = await withJob({
+    return withRunCommandState(set, async () => {
+      const hasBreakpoints = get().runDebug.breakpoints.length > 0;
+      const { run, breakpointStepId } = await withJob({
+        set,
+        get,
+        title: i18n.t('store:advanceRun', { runId }),
+        detail:
+          mode === 'step'
+            ? (input ? i18n.t('store:advanceStepWithInput') : i18n.t('store:advanceStep'))
+            : (input ? i18n.t('store:advanceContinueWithInput') : i18n.t('store:advanceContinue')),
+        action: async (updateProgress) => {
+          updateProgress(45, i18n.t('store:callingEngineAdvance'));
+          const nextRun =
+            mode === 'continue' && hasBreakpoints
+              ? await continueRunWithBreakpoints({
+                  get,
+                  runId,
+                  input,
+                  updateProgress,
+                })
+              : { run: await engineApi.advanceRun(runId, input, mode) };
+          updateProgress(85, i18n.t('store:runUpdatedTo', { runId, status: nextRun.run.status }));
+          return nextRun;
+        },
+      });
+
+      get().recordKernelEvent({
+        type: run.status === 'ended' ? 'run.ended' : 'run.updated',
+        message: i18n.t('store:runStatusUpdated', { runId, status: run.status }),
+        runId,
+        data: { status: run.status, waitingFor: run.waiting_for?.kind ?? null },
+      });
+      set((state) => ({
+        runDebug: {
+          ...state.runDebug,
+          selectedRunId: runId,
+          runOrder: ensureRunOrder(state.runDebug.runOrder, runId),
+          records: {
+            ...state.runDebug.records,
+            [runId]: mergeRunTraceRecord(state.runDebug.records[runId], run),
+          },
+        },
+      }));
+      if (breakpointStepId) {
+        recordBreakpointHit({
           set,
           get,
-          title: i18n.t('store:advanceRun', { runId }),
-          detail:
-            mode === 'step'
-              ? (input ? i18n.t('store:advanceStepWithInput') : i18n.t('store:advanceStep'))
-              : (input ? i18n.t('store:advanceContinueWithInput') : i18n.t('store:advanceContinue')),
-          action: async (updateProgress) => {
-            updateProgress(45, i18n.t('store:callingEngineAdvance'));
-            const nextRun =
-              mode === 'continue' && hasBreakpoints
-                ? await continueRunWithBreakpoints({
-                    get,
-                    runId,
-                    input,
-                    updateProgress,
-                  })
-                : { run: await engineApi.advanceRun(runId, input, mode) };
-            updateProgress(85, i18n.t('store:runUpdatedTo', { runId, status: nextRun.run.status }));
-            return nextRun;
-          },
-        });
-
-        get().recordKernelEvent({
-          type: run.status === 'ended' ? 'run.ended' : 'run.updated',
-          message: i18n.t('store:runStatusUpdated', { runId, status: run.status }),
           runId,
-          data: { status: run.status, waitingFor: run.waiting_for?.kind ?? null },
+          run,
+          stepId: breakpointStepId,
         });
-        set((state) => ({
-          runDebug: {
-            ...state.runDebug,
-            selectedRunId: runId,
-            runOrder: ensureRunOrder(state.runDebug.runOrder, runId),
-            records: {
-              ...state.runDebug.records,
-              [runId]: mergeRunTraceRecord(state.runDebug.records[runId], run),
-            },
-          },
-        }));
-        if (breakpointStepId) {
-          recordBreakpointHit({
-            set,
-            get,
-            runId,
-            run,
-            stepId: breakpointStepId,
-          });
-        }
-        await get().selectRun(runId);
+      }
+      await get().selectRun(runId);
 
-        return run;
-      },
+      return run;
     });
   },
 
   retryRun: async (runId, input, mode = 'continue') => {
-    return withRunCommand({
-      set,
-      action: async () => {
-        const { run } = await withJob({
-          set,
-          get,
-          title: i18n.t('store:retryRun', { runId }),
-          detail: i18n.t('store:retryRunDetail'),
-          action: async (updateProgress) => {
-            updateProgress(45, i18n.t('store:callingEngineRetry'));
-            const nextRun = await engineApi.retryRun(runId, input, mode);
-            updateProgress(85, i18n.t('store:runUpdatedTo', { runId, status: nextRun.status }));
-            return { run: nextRun };
-          },
-        });
+    return withRunCommandState(set, async () => {
+      const { run } = await withJob({
+        set,
+        get,
+        title: i18n.t('store:retryRun', { runId }),
+        detail: i18n.t('store:retryRunDetail'),
+        action: async (updateProgress) => {
+          updateProgress(45, i18n.t('store:callingEngineRetry'));
+          const nextRun = await engineApi.retryRun(runId, input, mode);
+          updateProgress(85, i18n.t('store:runUpdatedTo', { runId, status: nextRun.status }));
+          return { run: nextRun };
+        },
+      });
 
-        get().recordKernelEvent({
-          type: run.status === 'ended' ? 'run.ended' : 'run.updated',
-          message: i18n.t('store:runStatusUpdated', { runId, status: run.status }),
-          runId,
-          data: { status: run.status, waitingFor: run.waiting_for?.kind ?? null, retried: true },
-        });
-        set((state) => ({
-          runDebug: {
-            ...state.runDebug,
-            selectedRunId: runId,
-            runOrder: ensureRunOrder(state.runDebug.runOrder, runId),
-            records: {
-              ...state.runDebug.records,
-              [runId]: mergeRunTraceRecord(state.runDebug.records[runId], run),
-            },
+      get().recordKernelEvent({
+        type: run.status === 'ended' ? 'run.ended' : 'run.updated',
+        message: i18n.t('store:runStatusUpdated', { runId, status: run.status }),
+        runId,
+        data: { status: run.status, waitingFor: run.waiting_for?.kind ?? null, retried: true },
+      });
+      set((state) => ({
+        runDebug: {
+          ...state.runDebug,
+          selectedRunId: runId,
+          runOrder: ensureRunOrder(state.runDebug.runOrder, runId),
+          records: {
+            ...state.runDebug.records,
+            [runId]: mergeRunTraceRecord(state.runDebug.records[runId], run),
           },
-        }));
-        await get().selectRun(runId);
+        },
+      }));
+      await get().selectRun(runId);
 
-        return run;
-      },
+      return run;
     });
   },
 
@@ -2472,53 +2658,50 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
   },
 
   replayRun: async (runId) => {
-    return withRunCommand({
-      set,
-      action: async () => {
-        const sourceRun = await get().getRun(runId);
-        const replayedRun = await withJob({
-          set,
-          get,
-          title: i18n.t('store:replayRun', { runId }),
-          detail: i18n.t('store:replayRunDetail'),
-          action: async (updateProgress) => {
-            updateProgress(15, i18n.t('store:readOriginalSnapshot'));
-            const currentRun = await replayRunFromHistory(engineApi, sourceRun.input_history ?? [], {
-              onRunCreated: (nextRun) => {
-                updateProgress(35, i18n.t('store:replayRunCreated', { runId: nextRun.run_id }));
-              },
-              onInputReplayed: ({ input, index, total }) => {
-                updateProgress(
-                  Math.min(90, 35 + Math.round(((index + 1) / Math.max(total, 1)) * 55)),
-                  i18n.t('store:replayInput', { index: index + 1, total, stepId: input.step_id }),
-                );
-              },
-            });
-            updateProgress(95, i18n.t('store:runReplayed', { runId: currentRun.run_id }));
-            return currentRun;
-          },
-        });
-
-        get().recordKernelEvent({
-          type: replayedRun.status === 'ended' ? 'run.ended' : 'run.updated',
-          message: i18n.t('store:runReplayedAs', { runId, newRunId: replayedRun.run_id }),
-          runId: replayedRun.run_id,
-          data: { replayOf: runId, status: replayedRun.status },
-        });
-        set((state) => ({
-          runDebug: {
-            ...state.runDebug,
-            selectedRunId: replayedRun.run_id,
-            runOrder: ensureRunOrder(state.runDebug.runOrder, replayedRun.run_id),
-            records: {
-              ...state.runDebug.records,
-              [replayedRun.run_id]: mergeRunTraceRecord(state.runDebug.records[replayedRun.run_id], replayedRun),
+    return withRunCommandState(set, async () => {
+      const sourceRun = await get().getRun(runId);
+      const replayedRun = await withJob({
+        set,
+        get,
+        title: i18n.t('store:replayRun', { runId }),
+        detail: i18n.t('store:replayRunDetail'),
+        action: async (updateProgress) => {
+          updateProgress(15, i18n.t('store:readOriginalSnapshot'));
+          const currentRun = await replayRunFromHistory(engineApi, sourceRun.input_history ?? [], {
+            onRunCreated: (nextRun) => {
+              updateProgress(35, i18n.t('store:replayRunCreated', { runId: nextRun.run_id }));
             },
+            onInputReplayed: ({ input, index, total }) => {
+              updateProgress(
+                Math.min(90, 35 + Math.round(((index + 1) / Math.max(total, 1)) * 55)),
+                i18n.t('store:replayInput', { index: index + 1, total, stepId: input.step_id }),
+              );
+            },
+          });
+          updateProgress(95, i18n.t('store:runReplayed', { runId: currentRun.run_id }));
+          return currentRun;
+        },
+      });
+
+      get().recordKernelEvent({
+        type: replayedRun.status === 'ended' ? 'run.ended' : 'run.updated',
+        message: i18n.t('store:runReplayedAs', { runId, newRunId: replayedRun.run_id }),
+        runId: replayedRun.run_id,
+        data: { replayOf: runId, status: replayedRun.status },
+      });
+      set((state) => ({
+        runDebug: {
+          ...state.runDebug,
+          selectedRunId: replayedRun.run_id,
+          runOrder: ensureRunOrder(state.runDebug.runOrder, replayedRun.run_id),
+          records: {
+            ...state.runDebug.records,
+            [replayedRun.run_id]: mergeRunTraceRecord(state.runDebug.records[replayedRun.run_id], replayedRun),
           },
-        }));
-        await get().selectRun(replayedRun.run_id);
-        return replayedRun;
-      },
+        },
+      }));
+      await get().selectRun(replayedRun.run_id);
+      return replayedRun;
     });
   },
 
@@ -2576,41 +2759,38 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
   },
 
   cancelRun: async (runId) => {
-    await withRunCommand({
-      set,
-      action: async () => {
-        await withJob({
-          set,
-          get,
-          title: i18n.t('store:cancelRun', { runId }),
-          detail: i18n.t('store:cancelRunDetail'),
-          action: async (updateProgress) => {
-            updateProgress(50, i18n.t('store:sendingCancelRequest'));
-            await engineApi.cancelRun(runId);
+    return withRunCommandState(set, async () => {
+      await withJob({
+        set,
+        get,
+        title: i18n.t('store:cancelRun', { runId }),
+        detail: i18n.t('store:cancelRunDetail'),
+        action: async (updateProgress) => {
+          updateProgress(50, i18n.t('store:sendingCancelRequest'));
+          await engineApi.cancelRun(runId);
+        },
+      });
+      runStreamSubscriptions.get(runId)?.();
+      runStreamSubscriptions.delete(runId);
+      get().recordKernelEvent({
+        type: 'run.cancelled',
+        message: i18n.t('store:runCancelled', { runId }),
+        runId,
+      });
+      set((state) => ({
+        runDebug: {
+          ...state.runDebug,
+          records: {
+            ...state.runDebug.records,
+            [runId]: state.runDebug.records[runId]
+              ? {
+                  ...state.runDebug.records[runId],
+                  subscribed: false,
+                }
+              : state.runDebug.records[runId],
           },
-        });
-        runStreamSubscriptions.get(runId)?.();
-        runStreamSubscriptions.delete(runId);
-        get().recordKernelEvent({
-          type: 'run.cancelled',
-          message: i18n.t('store:runCancelled', { runId }),
-          runId,
-        });
-        set((state) => ({
-          runDebug: {
-            ...state.runDebug,
-            records: {
-              ...state.runDebug.records,
-              [runId]: state.runDebug.records[runId]
-                ? {
-                    ...state.runDebug.records[runId],
-                    subscribed: false,
-                  }
-                : state.runDebug.records[runId],
-            },
-          },
-        }));
-      },
+        },
+      }));
     });
   },
 

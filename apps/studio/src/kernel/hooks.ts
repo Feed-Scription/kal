@@ -405,6 +405,8 @@ export function useStudioCommands(): StudioCommandService {
   const getRunState = useStudioStore((state) => state.getRunState);
   const refreshRuns = useStudioStore((state) => state.refreshRuns);
   const selectRun = useStudioStore((state) => state.selectRun);
+  const deleteRun = useStudioStore((state) => state.deleteRun);
+  const clearFinishedRuns = useStudioStore((state) => state.clearFinishedRuns);
   const advanceRun = useStudioStore((state) => state.advanceRun);
   const retryRun = useStudioStore((state) => state.retryRun);
   const stepRun = useStudioStore((state) => state.stepRun);
@@ -450,6 +452,8 @@ export function useStudioCommands(): StudioCommandService {
     getRun,
     getRunState,
     selectRun,
+    deleteRun,
+    clearFinishedRuns,
     advanceRun,
     retryRun,
     stepRun,
