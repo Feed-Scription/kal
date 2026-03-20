@@ -16,6 +16,7 @@ import type { RunAdvanceMode } from '@/api/engine-client';
 import {
   DEFAULT_STUDIO_VIEW_ID,
   OFFICIAL_STUDIO_EXTENSIONS,
+  STUDIO_VIEWS,
   getStudioExtensionForView,
 } from '@/kernel/registry';
 import type {
@@ -255,16 +256,21 @@ function loadWorkbenchState(): WorkbenchState {
     }
 
     const parsed = JSON.parse(raw) as Partial<WorkbenchState>;
-    const openViewIds =
-      Array.isArray(parsed.openViewIds) && parsed.openViewIds.length > 0
-        ? parsed.openViewIds
-        : [DEFAULT_STUDIO_VIEW_ID];
+    const validViewIds = new Set<StudioViewId>(STUDIO_VIEWS.map((view) => view.id));
+    const openViewIds = Array.isArray(parsed.openViewIds)
+      ? parsed.openViewIds.filter((viewId): viewId is StudioViewId => typeof viewId === 'string' && validViewIds.has(viewId as StudioViewId))
+      : [];
     const activeViewId =
-      typeof parsed.activeViewId === 'string' ? parsed.activeViewId : DEFAULT_STUDIO_VIEW_ID;
+      typeof parsed.activeViewId === 'string' && validViewIds.has(parsed.activeViewId as StudioViewId)
+        ? parsed.activeViewId as StudioViewId
+        : DEFAULT_STUDIO_VIEW_ID;
 
     return {
       activeViewId,
-      openViewIds: openViewIds.includes(activeViewId) ? openViewIds : [activeViewId, ...openViewIds],
+      openViewIds:
+        openViewIds.length > 0
+          ? (openViewIds.includes(activeViewId) ? openViewIds : [activeViewId, ...openViewIds])
+          : [activeViewId],
       activeFlowId: typeof parsed.activeFlowId === 'string' ? parsed.activeFlowId : null,
       commandPaletteOpen: false,
     };

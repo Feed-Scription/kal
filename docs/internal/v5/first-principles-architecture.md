@@ -451,7 +451,7 @@ debug 不该只有一个肥大的 JSON。
 更准确的判断是：
 
 - Flow / Session editor 先作为官方发布、可选安装的受控核心扩展演进，不要在 view 注册 API 还不稳定时就强行开放为普通插件
-- 官方能力如 `problems`、`prompt-preview`、`debugger`、`terminal`、`h5-preview`、`vercel-deploy` 应作为官方发布、可选安装的一方扩展先行 dogfood
+- 官方能力如 `problems`、`prompt-preview`、`debugger`、`terminal`、`vercel-deploy` 应作为官方发布、可选安装的一方扩展先行 dogfood
 - 等 panel / view / inspector API 被官方能力验证过，再迁移最重的编辑器视图
 
 ### 2. 暂缓完整 MCP 化

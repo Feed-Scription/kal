@@ -43,7 +43,7 @@ pnpm dev
 - 单次 Flow 执行与 Prompt Preview
 - Managed run / Debugger / Trace / State Diff
 - Problems、Config、Version Control、Review、Comments
-- Packages、Template Browser、Terminal、H5 Preview
+- Packages、Template Browser、Terminal
 - Session runtime 面板，基于 `/api/runs` 与 SSE 驱动交互
 
 ## 开发

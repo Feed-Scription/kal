@@ -61,13 +61,6 @@
       "stateDiffPanelTitle": "State Diff Panel",
       "stateDiffPanelDescription": "Selected run state diff in the bottom panel slot."
     },
-    "h5Preview": {
-      "title": "H5 Preview",
-      "shortTitle": "Preview",
-      "description": "Official workflow extension for in-browser project/active run preview.",
-      "viewTitle": "H5 Preview",
-      "viewDescription": "View browser preview generated from the current project and active run."
-    },
     "comments": {
       "title": "Comments",
       "shortTitle": "Comments",

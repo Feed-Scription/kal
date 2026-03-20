@@ -37,7 +37,7 @@ type AppSidebarProps = {
   inspectorVisible?: boolean;
 };
 
-const TOOL_VIEW_IDS = ['kal.config', 'kal.h5-preview', 'kal.prompt-preview', 'kal.version-control'];
+const TOOL_VIEW_IDS = ['kal.config', 'kal.prompt-preview', 'kal.version-control'];
 
 export function AppSidebar({ children, onToggleInspector, inspectorVisible }: AppSidebarProps) {
   const { t } = useTranslation('workbench');
