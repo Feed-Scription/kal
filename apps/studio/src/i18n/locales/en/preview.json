@@ -1,18 +1,4 @@
 {
-  "h5": {
-    "title": "H5 Preview",
-    "subtitle": "Browser preview with run/state/signal sync",
-    "noPreview": "No preview available. Run a flow or session to generate a preview.",
-    "refresh": "Refresh",
-    "reload": "Reload",
-    "openInNewTab": "Open in New Tab",
-    "loading": "Loading...",
-    "loadFailed": "Preview failed to load",
-    "retry": "Retry",
-    "connected": "Connected",
-    "clearLog": "Clear",
-    "signalLog": "Signal Log ({{count}})"
-  },
   "prompt": {
     "title": "Prompt Preview",
     "subtitle": "Preview Session prompts and Flow prompt-like configurations. Select a PromptBuild node on the canvas to view the final render result.",
