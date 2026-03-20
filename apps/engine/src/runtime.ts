@@ -9,12 +9,11 @@ import type {
   StateValue,
 } from '@kal-ai/core';
 import { readFile, writeFile, unlink, readdir } from 'node:fs/promises';
-import { join } from 'node:path';
-import { watch } from 'node:fs';
-import type { FSWatcher } from 'node:fs';
+import { join, relative, basename, dirname } from 'node:path';
+import { watch as chokidarWatch, type FSWatcher as ChokidarWatcher } from 'chokidar';
 import { EngineHttpError } from './errors';
 import { loadEngineProject } from './project-loader';
-import type { EngineProject, FlowListItem, ProjectInfo } from './types';
+import type { EngineProject, ExternalChangeEvent, FlowListItem, ProjectInfo } from './types';
 
 export interface EngineRuntimeOptions {
   /** When true, unset env vars in config are replaced with placeholders instead of throwing */
@@ -26,11 +25,10 @@ export class EngineRuntime {
   private options: EngineRuntimeOptions;
   private project: EngineProject | null = null;
   private core: ReturnType<typeof createKalCore> | null = null;
-  private watcher: FSWatcher | null = null;
+  private watcher: ChokidarWatcher | null = null;
   private selfWriteSet = new Set<string>();
   private cleanupTimers = new Map<string, NodeJS.Timeout>();
-  private debounceTimers = new Map<string, NodeJS.Timeout>();
-  public onExternalFlowChange?: (flowId: string) => void;
+  public onExternalChange?: (event: ExternalChangeEvent) => void;
 
   private constructor(projectRoot: string, options: EngineRuntimeOptions = {}) {
     this.projectRoot = projectRoot;
@@ -231,6 +229,7 @@ export class EngineRuntime {
 
     const targetFile = project.flowFileMap[flowId];
     if (targetFile) {
+      this.markSelfWrite(targetFile);
       try {
         await unlink(targetFile);
       } catch (err: any) {
@@ -340,6 +339,7 @@ export class EngineRuntime {
   async saveCustomNodeSource(nodeType: string, source: string): Promise<void> {
     const nodeDir = this.getProject().customNodeDir;
     const filePath = join(nodeDir, `${nodeType}.ts`);
+    this.markSelfWrite(filePath);
     await writeFile(filePath, source, 'utf8');
     await this.reload();
   }
@@ -389,6 +389,7 @@ export class EngineRuntime {
 
     // Deep merge patch into raw config (preserving env var references in untouched fields)
     const merged = deepMerge(rawConfig, patch);
+    this.markSelfWrite(configPath);
     await writeFile(configPath, JSON.stringify(merged, null, 2), 'utf8');
 
     // Reload to re-resolve env vars and update in-memory state
@@ -411,6 +412,7 @@ export class EngineRuntime {
       throw new EngineHttpError('Invalid session definition', 400, 'INVALID_SESSION', { errors });
     }
     const sessionPath = join(project.projectRoot, 'session.json');
+    this.markSelfWrite(sessionPath);
     await writeFile(sessionPath, JSON.stringify(session, null, 2), 'utf8');
     this.project = { ...project, session };
   }
@@ -418,6 +420,7 @@ export class EngineRuntime {
   async deleteSession(): Promise<void> {
     const project = this.getProject();
     const sessionPath = join(project.projectRoot, 'session.json');
+    this.markSelfWrite(sessionPath);
     try {
       await unlink(sessionPath);
     } catch (err: any) {
@@ -477,48 +480,100 @@ export class EngineRuntime {
     }
   }
 
+  private async reloadSession(): Promise<boolean> {
+    try {
+      const project = this.getProject();
+      const sessionPath = join(project.projectRoot, 'session.json');
+      let session: SessionDefinition | undefined;
+      try {
+        const raw = await readFile(sessionPath, 'utf8');
+        session = JSON.parse(raw) as SessionDefinition;
+      } catch (err: any) {
+        if (err.code === 'ENOENT') {
+          // External deletion
+          session = undefined;
+        } else {
+          throw err;
+        }
+      }
+
+      if (session) {
+        const flowIds = Object.keys(project.flowsById);
+        const errors = validateSessionDefinition(session, flowIds);
+        if (errors.length > 0) {
+          console.error('Externally modified session.json is invalid:', errors);
+          return false;
+        }
+      }
+
+      this.project = { ...project, session };
+      return true;
+    } catch (error) {
+      console.error('Failed to reload session:', error);
+      return false;
+    }
+  }
+
   startWatching(): void {
     if (this.watcher) return;
 
-    const flowDir = join(this.projectRoot, 'flow');
-    this.watcher = watch(flowDir, { recursive: false }, (_eventType, filename) => {
-      if (!filename || !filename.endsWith('.json')) return;
+    const watchPaths = [
+      join(this.projectRoot, 'flow'),
+      join(this.projectRoot, 'kal_config.json'),
+      join(this.projectRoot, 'initial_state.json'),
+      join(this.projectRoot, 'session.json'),
+      join(this.projectRoot, 'node'),
+    ];
 
-      const filePath = join(flowDir, filename);
+    this.watcher = chokidarWatch(watchPaths, {
+      ignoreInitial: true,
+      awaitWriteFinish: { stabilityThreshold: 300, pollInterval: 50 },
+      depth: 0,
+    });
+
+    this.watcher.on('error', (err) => {
+      console.error('[watcher] Chokidar error:', err);
+    });
+
+    const handleChange = async (filePath: string) => {
       if (this.isSelfWrite(filePath)) return;
 
-      const flowId = filename.replace(/\.json$/, '');
+      const rel = relative(this.projectRoot, filePath);
+      const dir = dirname(rel);
+      const base = basename(rel);
 
-      // Debounce: wait 500ms after last change
-      const existing = this.debounceTimers.get(flowId);
-      if (existing) clearTimeout(existing);
+      if (dir === 'flow' && base.endsWith('.json')) {
+        const flowId = base.replace(/\.json$/, '');
+        const changed = await this.reloadSingleFlow(flowId, filePath);
+        if (changed) this.onExternalChange?.({ kind: 'flow', flowId });
+      } else if (base === 'kal_config.json') {
+        await this.reload();
+        this.onExternalChange?.({ kind: 'config' });
+      } else if (base === 'initial_state.json') {
+        await this.reload();
+        this.onExternalChange?.({ kind: 'initialState' });
+      } else if (base === 'session.json') {
+        const changed = await this.reloadSession();
+        if (changed) this.onExternalChange?.({ kind: 'session' });
+      } else if (dir === 'node' && base.endsWith('.ts')) {
+        const nodeType = base.replace(/\.ts$/, '');
+        await this.reload();
+        this.onExternalChange?.({ kind: 'customNode', nodeType });
+      }
+    };
 
-      const timer = setTimeout(() => {
-        this.debounceTimers.delete(flowId);
-        this.reloadSingleFlow(flowId, filePath).then((changed) => {
-          if (changed && this.onExternalFlowChange) {
-            this.onExternalFlowChange(flowId);
-          }
-        });
-      }, 500);
-
-      this.debounceTimers.set(flowId, timer);
-    });
+    this.watcher.on('change', (p) => void handleChange(p));
+    this.watcher.on('add', (p) => void handleChange(p));
+    this.watcher.on('unlink', (p) => void handleChange(p));
   }
 
-  stopWatching(): void {
+  async stopWatching(): Promise<void> {
     if (this.watcher) {
-      this.watcher.close();
+      await this.watcher.close();
       this.watcher = null;
     }
-    for (const timer of this.cleanupTimers.values()) {
-      clearTimeout(timer);
-    }
-    for (const timer of this.debounceTimers.values()) {
-      clearTimeout(timer);
-    }
+    for (const timer of this.cleanupTimers.values()) clearTimeout(timer);
     this.cleanupTimers.clear();
-    this.debounceTimers.clear();
     this.selfWriteSet.clear();
   }
 }

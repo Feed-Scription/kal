@@ -1155,13 +1155,34 @@ export async function startEngineServer(params: {
   });
 
   // Bridge file watcher events to SSE
-  params.runtime.onExternalFlowChange = (flowId) => {
-    eventBus.emit({
-      type: 'resource.changed',
-      flowId,
-      message: `Flow externally modified: ${flowId}`,
-      external: true,
-    });
+  params.runtime.onExternalChange = (event) => {
+    switch (event.kind) {
+      case 'flow':
+        eventBus.emit({
+          type: 'resource.changed',
+          flowId: event.flowId,
+          message: `Flow externally modified: ${event.flowId}`,
+          external: true,
+        });
+        break;
+      case 'config':
+      case 'initialState':
+      case 'customNode':
+        eventBus.emit({
+          type: 'project.reloaded',
+          message: `Project externally modified (${event.kind})`,
+          external: true,
+        });
+        break;
+      case 'session':
+        eventBus.emit({
+          type: 'resource.changed',
+          sessionId: 'default',
+          message: 'Session externally modified',
+          external: true,
+        });
+        break;
+    }
   };
   params.runtime.startWatching();
 
@@ -1183,7 +1204,7 @@ export async function startEngineServer(params: {
     port: address.port,
     url: `http://${address.address}:${address.port}`,
     close: async () => {
-      params.runtime.stopWatching();
+      await params.runtime.stopWatching();
       terminals.dispose();
       await new Promise<void>((resolve, reject) => {
         server.close((error) => {
