@@ -178,7 +178,7 @@ Editor -> Engine -> Core
 
 - Studio 是 Engine 之上的工作台组合，而不是 Engine 的启动前提；`kal studio` 只是“Engine API + Editor 静态资源”的一体化入口，不应改变 `kal serve`、`kal play`、`kal debug` 等无 Studio 路径的最小依赖面
 - Phase 1 中，Flow / Session editor 建议先作为官方发布、可选安装的受控核心扩展演进，而不是立刻开放为普通插件
-- 官方能力如 `problems`、`prompt-preview`、`debugger`、`version-control`、`h5-preview`、`terminal`、`vercel-deploy` 更适合作为官方发布、可选安装的一方扩展先行 dogfood
+- 官方能力如 `problems`、`prompt-preview`、`debugger`、`version-control`、`terminal`、`vercel-deploy` 更适合作为官方发布、可选安装的一方扩展先行 dogfood
 - 这意味着 Engine 需要从“CRUD + run SSE”继续演进为一层更完整的 Studio platform services
 - Query / Command / Event Stream 三通道会比单纯 REST 更适合承接后续的 diagnostics、trace、process、deploy 等能力
 

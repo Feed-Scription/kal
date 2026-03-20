@@ -69,8 +69,6 @@
 
 ### 官方插件
 
-- [x] H5 预览插件：postMessage 协议 + run/state/signal 双向同步 + UI 绑定 demo 已落地
-  已完成：定义了 `kal:state.sync`、`kal:run.sync`、`kal:signal.out`（Studio→Preview）和 `kal:signal.in`、`kal:preview.ready`（Preview→Studio）五类 postMessage 协议。Engine H5 preview HTML 注入了桥接脚本，暴露 `kalSignalIn()`、`kalGetState()`、`kalGetRun()` 全局 API。Studio `H5PreviewView` 实现了连接状态指示、state/run 自动同步、SignalIn 日志面板。H5 preview 页面内嵌 UI Binding Demo 区域，含两个 SignalIn 按钮（user_action / choice）和 SignalOut 实时展示区，验证双向通信端到端可用。
 - [x] 终端插件：Quick Commands + Shell Session 双模式已落地
   已完成：Engine 新增 `TerminalSessionManager`（基于 `child_process.spawn`），提供 create/write/kill/stream API + SSE 流式输出。Studio `TerminalView` 重构为 Quick/Shell 双模式切换：Quick 保留原有 7 命令白名单，Shell 支持创建持久 shell 会话、流式输出、Ctrl+C 中断、会话终止与重建。`engine-client.ts` 新增完整 terminal session API。
 - [x] Vercel 部署插件：真实 Vercel API 集成 + 部署记录/重试 UI 已落地
@@ -92,13 +90,6 @@
 
 ### 功能
 
-- [ ] UI 绑定方案：定义 SignalIn/SignalOut 作为 UI 绑定契约，H5 预览插件作为首个落地场景
-  现状：Core 侧已经有 `SignalIn` / `SignalOut` 通道契约和校验，但 Studio / H5 preview 还没有 DOM 绑定协议、selector 模型、事件映射或数据回传格式；这项还是设计空白，不是差收尾。
-  小 todo：
-  - [ ] 定义绑定模型：元素选择器、方向、事件名、channel 名、payload 形状
-  - [ ] 定义运行时桥接协议：UI 事件如何进入 `SignalIn`，`SignalOut` 如何回推到 UI
-  - [ ] 定义 Studio 里的配置入口：节点侧配置、preview overlay 还是独立面板
-  - [ ] 选一个示例项目做首个契约验证，并沉淀文档
 - [ ] `kal generate` 从自然语言生成 flow JSON
   现状：CLI 入口 `apps/engine/src/cli.ts` 目前只有 `studio / serve / play / debug / lint / smoke / eval / init / schema / config`，仓库里也没有同名命令或 API，属于未开工。
   小 todo：

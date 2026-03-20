@@ -1,10 +1,9 @@
-import { Database, History, LayoutDashboard, MonitorPlay, Route, Settings } from 'lucide-react';
+import { Database, History, LayoutDashboard, Route, Settings } from 'lucide-react';
 import Flow from '@/Flow';
 import SessionEditor from '@/SessionEditor';
 import { ConfigEditor } from '@/components/ConfigEditor';
 import { DebuggerSummaryView } from '@/components/DebuggerSummaryView';
 import { EventLogPanel } from '@/components/EventLogPanel';
-import { H5PreviewView } from '@/components/H5PreviewView';
 import { PromptPreviewInspector } from '@/components/PromptPreviewInspector';
 import { StateInspectorCard } from '@/components/StateInspectorCard';
 import { StateManager } from '@/components/StateManager';
@@ -235,27 +234,6 @@ const registry = createStudioRegistry([
           component: DebuggerSummaryView,
           slot: 'right',
           order: 20,
-        },
-      ],
-    },
-  },
-  {
-    id: 'kal.h5-preview',
-    title: 'ext.h5Preview.title',
-    description: 'ext.h5Preview.description',
-    kind: 'official-workflow',
-    host: 'browser',
-    activationEvents: ['onView:kal.h5-preview', 'onEvent:run.updated'],
-    contributes: {
-      views: [
-        {
-          id: 'kal.h5-preview',
-          extensionId: 'kal.h5-preview',
-          title: 'ext.h5Preview.viewTitle',
-          shortTitle: 'ext.h5Preview.shortTitle',
-          description: 'ext.h5Preview.viewDescription',
-          icon: MonitorPlay,
-          component: H5PreviewView,
         },
       ],
     },
