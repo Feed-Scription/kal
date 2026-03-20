@@ -40,7 +40,6 @@ import type {
   StudioRegisteredExtensionDescriptor,
   StudioViewDescriptor,
   StudioViewId,
-  StudioContextValue,
   StudioPanelDescriptor,
   StudioInspectorDescriptor,
   StudioDebugViewDescriptor,
@@ -76,7 +75,6 @@ export interface WorkbenchServiceState {
   openViewIds: StudioViewId[];
   openViews: StudioViewDescriptor[];
   activeFlowId: string | null;
-  commandPaletteOpen: boolean;
   activeView: StudioViewDescriptor;
   activeExtension: StudioRegisteredExtensionDescriptor | null;
   activeExtensionRuntime: StudioExtensionRuntimeRecord | null;
@@ -175,12 +173,6 @@ export interface ReferenceGraphServiceState {
   updatedAt?: number;
 }
 
-// ── Workbench Context ──
-
-export interface WorkbenchContextState {
-  values: Record<string, StudioContextValue>;
-}
-
 // ── Contribution Resolution ──
 
 export interface ResolvedContribution<T> {
@@ -199,8 +191,6 @@ export interface StudioCommandService {
   disconnect: () => void;
   setActiveView: (viewId: StudioViewId) => void;
   closeView: (viewId: StudioViewId) => void;
-  setCommandPaletteOpen: (open: boolean) => void;
-  toggleCommandPalette: () => void;
   openFlow: (flowName: string) => void;
   saveFlow: (flowName: string, flow: FlowDefinition) => Promise<void>;
   createFlow: (flowName: string) => Promise<void>;
@@ -210,7 +200,6 @@ export interface StudioCommandService {
   deleteSession: () => Promise<void>;
   updateConfig: (patch: Partial<KalConfig>) => Promise<void>;
   createRun: (forceNew?: boolean, mode?: RunAdvanceMode) => Promise<RunView>;
-  createSmokeRun: (inputs?: string[]) => Promise<RunView>;
   listRuns: () => Promise<RunSummary[]>;
   refreshRuns: () => Promise<RunSummary[]>;
   getRun: (runId: string) => Promise<RunView>;
@@ -227,6 +216,7 @@ export interface StudioCommandService {
   cancelRun: (runId: string) => Promise<void>;
   createCheckpoint: (label?: string, description?: string) => CheckpointRecord | null;
   restoreCheckpoint: (checkpointId: string) => Promise<void>;
+  deleteCheckpoint: (checkpointId: string) => void;
   refreshDiagnostics: () => Promise<void>;
   undo: () => Promise<void>;
   redo: () => Promise<void>;
@@ -246,8 +236,6 @@ export interface StudioCommandService {
   refreshGitStatus: () => Promise<void>;
   refreshReferences: (resourceId?: string) => Promise<void>;
   searchProject: (query: string) => Promise<void>;
-  registerPanelCallbacks: (callbacks: { toggleInspector?: () => void; toggleBottomPanel?: () => void }) => void;
-  clearPanelCallbacks: () => void;
 }
 
 // ── Run Service (non-React) ──

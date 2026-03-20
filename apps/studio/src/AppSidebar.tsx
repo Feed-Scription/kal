@@ -15,7 +15,7 @@ import {
   SidebarRail,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { Command, LayoutDashboard, PanelRight, Play, Plus, PlayCircle, Route, Zap, Bookmark, ChevronDown, ChevronRight, Trash2 } from "lucide-react";
+import { LayoutDashboard, PanelRight, Play, Plus, Route, ChevronDown, ChevronRight, Settings, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useMemo, useState } from "react";
 import { useTranslation } from 'react-i18next';
@@ -38,7 +38,7 @@ type AppSidebarProps = {
   inspectorVisible?: boolean;
 };
 
-const TOOL_VIEW_IDS = ['kal.play', 'kal.config', 'kal.prompt-eval', 'kal.prompt-preview', 'kal.version-control'];
+const TOOL_VIEW_IDS = ['kal.play', 'kal.prompt-eval', 'kal.prompt-preview', 'kal.version-control'];
 
 export function AppSidebar({ children, onToggleInspector, inspectorVisible }: AppSidebarProps) {
   const { t } = useTranslation('workbench');
@@ -46,12 +46,12 @@ export function AppSidebar({ children, onToggleInspector, inspectorVisible }: Ap
   const { t: tr } = useTranslation('registry');
   const { project, session } = useStudioResources();
   const { flowId: currentFlow } = useFlowResource();
-  const { activeViewId } = useWorkbench();
+  const { activeViewId, openViewIds } = useWorkbench();
   const { runs, selectedRunId, runCommandLoading } = useRunDebug();
   const {
-    setActiveView, setCommandPaletteOpen,
+    setActiveView, closeView,
     openFlow, createFlow, selectRun,
-    createRun, createSmokeRun, createCheckpoint, clearFinishedRuns, deleteRun,
+    clearFinishedRuns, deleteRun,
   } = useStudioCommands();
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -83,20 +83,6 @@ export function AppSidebar({ children, onToggleInspector, inspectorVisible }: Ap
     }
   };
 
-  const handleNewRun = async () => {
-    await createRun(true);
-    setActiveView('kal.play');
-  };
-
-  const handleSmokeRun = async () => {
-    await createSmokeRun();
-  };
-
-  const handleCreateCheckpoint = () => {
-    createCheckpoint();
-    setActiveView('kal.version-control');
-  };
-
   const finishedRunCount = runs.filter(
     (record) => record.run.status === 'ended' || record.run.status === 'error',
   ).length;
@@ -108,6 +94,8 @@ export function AppSidebar({ children, onToggleInspector, inspectorVisible }: Ap
       })
       .filter((v): v is NonNullable<typeof v> => v !== null && v.id !== 'kal.flow');
   }, []);
+
+  const configToolbarView = useMemo(() => getStudioView('kal.config'), []);
 
   return (
     <SidebarProvider>
@@ -224,7 +212,7 @@ export function AppSidebar({ children, onToggleInspector, inspectorVisible }: Ap
                             isActive={selectedRunId === record.runId}
                             onClick={() => selectRun(record.runId)}
                           >
-                            <PlayCircle className="size-4" />
+                            <Play className="size-4" />
                             <span className="flex-1 truncate">
                               {record.runId.slice(0, 8)}
                             </span>
@@ -290,32 +278,6 @@ export function AppSidebar({ children, onToggleInspector, inspectorVisible }: Ap
                 </SidebarGroup>
               )}
 
-              {/* Quick actions section */}
-              <SidebarGroup>
-                <SidebarGroupLabel>{t("quickActions")}</SidebarGroupLabel>
-                <SidebarGroupContent>
-                  <SidebarMenu>
-                    <SidebarMenuItem>
-                      <Button variant="ghost" size="sm" className="w-full justify-start" onClick={handleNewRun}>
-                        <Zap className="mr-2 size-4" />
-                        {t("newRun")}
-                      </Button>
-                    </SidebarMenuItem>
-                    <SidebarMenuItem>
-                      <Button variant="ghost" size="sm" className="w-full justify-start" onClick={handleSmokeRun}>
-                        <PlayCircle className="mr-2 size-4" />
-                        {t("smokeRun")}
-                      </Button>
-                    </SidebarMenuItem>
-                    <SidebarMenuItem>
-                      <Button variant="ghost" size="sm" className="w-full justify-start" onClick={handleCreateCheckpoint}>
-                        <Bookmark className="mr-2 size-4" />
-                        {t("createCheckpoint")}
-                      </Button>
-                    </SidebarMenuItem>
-                  </SidebarMenu>
-                </SidebarGroupContent>
-              </SidebarGroup>
             </>
           )}
         </SidebarContent>
@@ -354,32 +316,30 @@ export function AppSidebar({ children, onToggleInspector, inspectorVisible }: Ap
             variant={inspectorVisible ? "secondary" : "ghost"}
             size="icon-sm"
             onClick={onToggleInspector}
-            title={`${t('inspector')} (⌘I)`}
+            title={t('inspector')}
             aria-label={t('inspector')}
           >
             <PanelRight className="size-4" />
           </Button>
           <Button
-            variant="ghost"
+            variant={activeViewId === 'kal.config' ? 'secondary' : 'ghost'}
             size="icon-sm"
-            onClick={async () => {
-              await createRun(false);
-              setActiveView('kal.play');
+            onClick={() => {
+              if (activeViewId === 'kal.config') {
+                if (openViewIds.length === 1 && openViewIds[0] === 'kal.config') {
+                  setActiveView('kal.flow');
+                  closeView('kal.config');
+                  return;
+                }
+                closeView('kal.config');
+                return;
+              }
+              setActiveView('kal.config');
             }}
-            title={t('tooltips.run')}
-            aria-label={t('tooltips.run')}
+            title={tr(configToolbarView.description)}
+            aria-label={tr(configToolbarView.shortTitle)}
           >
-            <Play className="size-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="hidden gap-2 md:inline-flex"
-            onClick={() => setCommandPaletteOpen(true)}
-          >
-            <Command className="size-4" />
-            {t("commandPalette")}
-            <span className="rounded border px-1.5 py-0.5 text-[11px] text-muted-foreground">Ctrl K</span>
+            <Settings className="size-4" />
           </Button>
         </div>
         <div className="min-h-0 flex-1 overflow-hidden pb-[33px]">

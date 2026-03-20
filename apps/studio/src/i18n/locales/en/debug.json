@@ -1,7 +1,7 @@
 {
   "title": "Debugger",
   "newRun": "New Run",
-  "noRuns": "No managed runs. Create a run from the command palette or toolbar.",
+  "noRuns": "No managed runs. Create a run from the toolbar.",
   "noActiveRuns": "No active runs.",
   "selectRun": "Select Run",
   "runStatus": "Status",
@@ -84,7 +84,6 @@
     "unknownType": "unknown"
   },
   "stream": {
-    "smokeRun": "Smoke",
     "filterAll": "All",
     "filterBreakpoints": "Breakpoints",
     "filterState": "State",

@@ -19,6 +19,8 @@
   "noCheckpoints": "暂无检查点。",
   "noCheckpointsDetail": "还没有检查点。先创建一个，再进行语义编辑和恢复验证。",
   "createCheckpoint": "创建检查点",
+  "deleteCheckpoint": "删除",
+  "confirmDeleteCheckpoint": "确定删除检查点「{{label}}」吗？",
   "create": "创建",
   "restore": "恢复",
   "restoring": "恢复中...",

@@ -9,9 +9,9 @@
   },
   "llm": {
     "provider": "openai",
-    "apiKey": "${OPENAI_API_KEY}",
-    "baseUrl": "${OPENAI_BASE_URL}",
-    "defaultModel": "moonshotai/kimi-k2-0905",
+    "apiKey": "***REDACTED_KIMI_KEY***",
+    "baseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    "defaultModel": "GLM-5",
     "retry": {
       "maxRetries": 2,
       "initialDelayMs": 1000,

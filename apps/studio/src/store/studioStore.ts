@@ -103,7 +103,6 @@ type WorkbenchState = {
   activeViewId: StudioViewId;
   openViewIds: StudioViewId[];
   activeFlowId: string | null;
-  commandPaletteOpen: boolean;
 };
 
 type ConnectionState = {
@@ -146,11 +145,6 @@ type ReferenceGraphState = {
 
 type SaveScope = 'flow' | 'session' | 'project';
 
-type PanelCallbacks = {
-  toggleInspector?: () => void;
-  toggleBottomPanel?: () => void;
-};
-
 type StudioStore = {
   resources: StudioResources;
   workbench: WorkbenchState;
@@ -163,14 +157,11 @@ type StudioStore = {
   git: GitState;
   presence: PresenceStoreState;
   referenceGraph: ReferenceGraphState;
-  panelCallbacks: PanelCallbacks;
 
   connect: () => Promise<void>;
   disconnect: () => void;
   setActiveView: (viewId: StudioViewId) => void;
   closeView: (viewId: StudioViewId) => void;
-  setCommandPaletteOpen: (open: boolean) => void;
-  toggleCommandPalette: () => void;
   setCurrentFlow: (flowName: string) => void;
   saveFlow: (flowName: string, flow: FlowDefinition) => Promise<void>;
   createFlow: (flowName: string) => Promise<void>;
@@ -180,7 +171,6 @@ type StudioStore = {
   deleteSession: () => Promise<void>;
   updateConfig: (patch: Partial<KalConfig>) => Promise<void>;
   createRun: (forceNew?: boolean, mode?: RunAdvanceMode) => Promise<RunView>;
-  createSmokeRun: (inputs?: string[]) => Promise<RunView>;
   listRuns: () => Promise<RunSummary[]>;
   refreshRuns: () => Promise<RunSummary[]>;
   getRun: (runId: string) => Promise<RunView>;
@@ -199,6 +189,7 @@ type StudioStore = {
   unpinNodeData: (nodeId: string) => void;
   createCheckpoint: (label?: string, description?: string) => CheckpointRecord | null;
   restoreCheckpoint: (checkpointId: string) => Promise<void>;
+  deleteCheckpoint: (checkpointId: string) => void;
   refreshDiagnostics: () => Promise<void>;
   undo: () => Promise<void>;
   redo: () => Promise<void>;
@@ -218,8 +209,6 @@ type StudioStore = {
   refreshGitStatus: () => Promise<void>;
   refreshReferences: (resourceId?: string) => Promise<void>;
   searchProject: (query: string) => Promise<void>;
-  registerPanelCallbacks: (callbacks: PanelCallbacks) => void;
-  clearPanelCallbacks: () => void;
 };
 
 function updateSaveState(
@@ -245,7 +234,6 @@ function getDefaultWorkbenchState(): WorkbenchState {
     activeViewId: DEFAULT_STUDIO_VIEW_ID,
     openViewIds: [DEFAULT_STUDIO_VIEW_ID],
     activeFlowId: null,
-    commandPaletteOpen: false,
   };
 }
 
@@ -277,7 +265,6 @@ function loadWorkbenchState(): WorkbenchState {
           ? (openViewIds.includes(activeViewId) ? openViewIds : [activeViewId, ...openViewIds])
           : [activeViewId],
       activeFlowId: typeof parsed.activeFlowId === 'string' ? parsed.activeFlowId : null,
-      commandPaletteOpen: false,
     };
   } catch {
     return getDefaultWorkbenchState();
@@ -289,9 +276,7 @@ function persistWorkbenchState(workbench: WorkbenchState) {
     return;
   }
 
-  const { commandPaletteOpen, ...persistedWorkbench } = workbench;
-  void commandPaletteOpen;
-  window.localStorage.setItem(WORKBENCH_STORAGE_KEY, JSON.stringify(persistedWorkbench));
+  window.localStorage.setItem(WORKBENCH_STORAGE_KEY, JSON.stringify(workbench));
 }
 
 function loadExtensionPreferences(): Record<string, { enabled: boolean }> {
@@ -947,8 +932,7 @@ async function restoreProjectSnapshot(snapshot: RestorableSnapshot, currentProje
   }
 
   if (snapshot.config) {
-    const { apiKey: _a, baseUrl: _b, ...safeLlm } = snapshot.config.llm ?? {} as any;
-    await engineApi.saveConfig({ ...snapshot.config, llm: safeLlm });
+    await engineApi.saveConfig(snapshot.config);
   }
 
   return loadProjectSnapshot(previousFlow);
@@ -1509,7 +1493,6 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     searchQuery: '',
     loading: false,
   },
-  panelCallbacks: {},
 
   connect: async () => {
     set({
@@ -1657,7 +1640,6 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
       workbench: {
         ...state.workbench,
         activeFlowId: null,
-        commandPaletteOpen: false,
       },
       connection: {
         engineConnected: false,
@@ -1746,24 +1728,6 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
         },
       };
     });
-  },
-
-  setCommandPaletteOpen: (open) => {
-    set((state) => ({
-      workbench: {
-        ...state.workbench,
-        commandPaletteOpen: open,
-      },
-    }));
-  },
-
-  toggleCommandPalette: () => {
-    set((state) => ({
-      workbench: {
-        ...state.workbench,
-        commandPaletteOpen: !state.workbench.commandPaletteOpen,
-      },
-    }));
   },
 
   setCurrentFlow: (flowName) => {
@@ -2278,49 +2242,6 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
       }
       await get().selectRun(run.run_id);
 
-      return run;
-    });
-  },
-
-  createSmokeRun: async (inputs = []) => {
-    return withRunCommandState(set, async () => {
-      const { run } = await withJob({
-        set,
-        get,
-        title: i18n.t('store:smokeRun'),
-        detail: i18n.t('store:smokeRunDetail'),
-        action: async (updateProgress) => {
-          updateProgress(20, i18n.t('store:requestEngineSmokeRun'));
-          const created = await engineApi.createSmokeRun(inputs);
-          updateProgress(90, i18n.t('store:smokeRunCompleted', { runId: created.run_id }));
-          return { run: created };
-        },
-      });
-
-      get().recordKernelEvent({
-        type: 'run.created',
-        message: `Smoke run ${run.run_id}`,
-        runId: run.run_id,
-        data: { status: run.status, active: run.active, smoke: true },
-      });
-      set((state) => {
-        const latestTx = state.versionControl.transactions[0];
-        const currentResourceVersion = latestTx?.nextVersion;
-        return {
-          runDebug: {
-            ...state.runDebug,
-            selectedRunId: run.run_id,
-            runOrder: ensureRunOrder(state.runDebug.runOrder, run.run_id),
-            records: {
-              ...state.runDebug.records,
-              [run.run_id]: mergeRunTraceRecord(state.runDebug.records[run.run_id], run, undefined, {
-                resourceVersion: currentResourceVersion,
-              }),
-            },
-          },
-        };
-      });
-      await get().selectRun(run.run_id);
       return run;
     });
   },
@@ -2958,6 +2879,33 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
     });
   },
 
+  deleteCheckpoint: (checkpointId) => {
+    const checkpoint = get().versionControl.checkpoints.find((entry) => entry.id === checkpointId);
+    if (!checkpoint) {
+      return;
+    }
+
+    set((state) => ({
+      versionControl: {
+        ...state.versionControl,
+        checkpoints: state.versionControl.checkpoints.filter((entry) => entry.id !== checkpointId),
+      },
+    }));
+
+    get().recordKernelEvent({
+      type: 'checkpoint.deleted',
+      message: i18n.t('store:checkpointDeleted', { label: checkpoint.label }),
+      resourceId: 'project://current',
+      data: { checkpointId: checkpoint.id },
+    });
+    get().recordKernelEvent({
+      type: 'history.updated',
+      message: i18n.t('store:checkpointDeleted', { label: checkpoint.label }),
+      resourceId: 'project://current',
+      data: { checkpointId: checkpoint.id },
+    });
+  },
+
   refreshDiagnostics: async () => {
     const diagnostics = await withJob({
       set,
@@ -3324,14 +3272,6 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
       console.warn('Failed to search project:', error);
       set((state) => ({ referenceGraph: { ...state.referenceGraph, loading: false } }));
     }
-  },
-
-  registerPanelCallbacks: (callbacks) => {
-    set({ panelCallbacks: callbacks });
-  },
-
-  clearPanelCallbacks: () => {
-    set({ panelCallbacks: {} });
   },
 }));
 

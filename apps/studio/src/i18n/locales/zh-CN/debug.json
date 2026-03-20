@@ -1,7 +1,7 @@
 {
   "title": "调试器",
   "newRun": "新建 Run",
-  "noRuns": "暂无托管 Run。可通过命令面板或工具栏创建。",
+  "noRuns": "暂无托管 Run。可通过工具栏创建。",
   "noActiveRuns": "暂无活跃 Run。",
   "selectRun": "选择 Run",
   "runStatus": "状态",
@@ -84,7 +84,6 @@
     "unknownType": "未知"
   },
   "stream": {
-    "smokeRun": "冒烟测试",
     "filterAll": "全部",
     "filterBreakpoints": "断点",
     "filterState": "状态",

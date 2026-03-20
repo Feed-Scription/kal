@@ -615,7 +615,6 @@ export type ReviewValidationRecord = {
   smokeStatus: 'idle' | 'running' | 'completed' | 'failed';
   diagnostics?: DiagnosticsPayload | null;
   smoke?: SmokeResult | null;
-  smokeRun?: RunView | null;
   lastValidatedAt?: number;
   error?: string;
 };
