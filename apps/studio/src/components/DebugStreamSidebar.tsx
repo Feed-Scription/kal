@@ -7,7 +7,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Bug, Filter, Play, Rocket, RefreshCw, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Bug, Filter, Play, RefreshCw, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -351,7 +351,7 @@ export function DebugStreamSidebar({ compact }: { compact?: boolean } = {}) {
   } = useRunDebug();
   const { session } = useStudioResources();
   const { activeViewId } = useWorkbench();
-  const { createRun, createSmokeRun, refreshRuns, selectRun, executeFlow, advanceRun, stepRun } = useStudioCommands();
+  const { createRun, refreshRuns, selectRun, executeFlow, advanceRun, stepRun } = useStudioCommands();
   const { flowId: activeFlowId, flow: activeFlow } = useFlowResource();
   const setHighlightedNode = useCanvasSelection((s) => s.setHighlightedNode);
   const requestFitView = useCanvasSelection((s) => s.requestFitView);
@@ -470,16 +470,6 @@ export function DebugStreamSidebar({ compact }: { compact?: boolean } = {}) {
               onClick={() => void createRun(true, 'step')}
             >
               {t('step')}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 gap-1 text-xs"
-              disabled={loading || !session}
-              onClick={() => void createSmokeRun()}
-            >
-              <Rocket className="size-3" />
-              {t('stream.smokeRun')}
             </Button>
           </div>
         ) : null}

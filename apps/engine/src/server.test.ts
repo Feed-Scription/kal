@@ -514,6 +514,37 @@ describe('Engine HTTP server', () => {
     expect(finished.data.run.status).toBe('ended');
   });
 
+  it('POST /api/runs 应该拒绝已移除的 smokeInputs 参数', async () => {
+    const fixture = await createTempProject({
+      session: {
+        schemaVersion: '1.0.0',
+        steps: [
+          { id: 'turn', type: 'Prompt', promptText: '你的行动？', flowRef: 'main', inputChannel: 'message', next: 'end' },
+          { id: 'end', type: 'End', message: 'done' },
+        ],
+      },
+      flows: {
+        main: createPassThroughFlow(),
+      },
+    });
+    cleanups.push(fixture.cleanup);
+
+    const runtime = await EngineRuntime.create(fixture.projectRoot);
+    const server = await startEngineServer({ runtime, host: '127.0.0.1', port: 0 });
+    cleanups.push(server.close);
+
+    const response = await fetch(`${server.url}/api/runs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ smokeInputs: ['attack'] }),
+    });
+    const result = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(result.success).toBe(false);
+    expect(result.error.code).toBe('SMOKE_RUN_REMOVED');
+  });
+
   it('POST /api/runs/:id/cancel 应该取消并删除 run', async () => {
     const session: SessionDefinition = {
       schemaVersion: '1.0.0',
@@ -760,44 +791,6 @@ describe('Engine HTTP server', () => {
     const missingResult = await fetch(`${server.url}/api/flows/prompt/render-prompt`).then((r) => r.json());
     expect(missingResult.success).toBe(false);
     expect(missingResult.error.code).toBe('MISSING_PARAM');
-  });
-
-  it('POST /api/runs with smokeInputs 应该自动推进 session', async () => {
-    const session: SessionDefinition = {
-      schemaVersion: '1.0.0',
-      steps: [
-        { id: 'intro', type: 'RunFlow', flowRef: 'intro', next: 'turn' },
-        { id: 'turn', type: 'Prompt', promptText: '你的行动？', flowRef: 'main', inputChannel: 'message', next: 'end' },
-        { id: 'end', type: 'End', message: 'done' },
-      ],
-    };
-    const fixture = await createTempProject({
-      flows: {
-        intro: createStateMutationFlow(),
-        main: createPassThroughFlow(),
-      },
-      initialState: {
-        visited: { type: 'boolean', value: false },
-      },
-      session,
-    });
-    cleanups.push(fixture.cleanup);
-
-    const runtime = await EngineRuntime.create(fixture.projectRoot);
-    const server = await startEngineServer({ runtime, host: '127.0.0.1', port: 0 });
-    cleanups.push(server.close);
-
-    const result = await fetch(`${server.url}/api/runs`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ smokeInputs: ['attack'] }),
-    }).then((r) => r.json());
-
-    expect(result.success).toBe(true);
-    expect(result.data.run.status).toBe('ended');
-    // The smoke run should have auto-advanced through all steps
-    expect(result.data.run.input_history.length).toBeGreaterThanOrEqual(1);
-    expect(result.data.run.input_history[0].input).toBe('attack');
   });
 
   it('GET /api/prompt-preview 应该返回统一的 prompt 预览数据', async () => {

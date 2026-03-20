@@ -17,7 +17,6 @@ export type StudioActivationEvent =
   | `onView:${string}`
   | `onCommand:${string}`
   | `onEvent:${string}`;
-export type StudioContextValue = string | boolean | null;
 export type StudioRenderableComponent = ComponentType;
 
 export interface StudioContributionBaseDescriptor {
@@ -104,6 +103,7 @@ export type StudioKernelEventName =
   | 'history.updated'
   | 'review.changed'
   | 'checkpoint.created'
+  | 'checkpoint.deleted'
   | 'checkpoint.restored'
   | 'run.created'
   | 'run.updated'
@@ -137,23 +137,6 @@ export interface StudioJobRecord {
   startedAt: number;
   updatedAt: number;
   completedAt?: number;
-}
-
-export interface StudioCommandContext {
-  values: Record<string, StudioContextValue>;
-}
-
-export interface StudioCommandDescriptor {
-  id: string;
-  title: string;
-  description: string;
-  section: string;
-  keywords?: string[];
-  shortcut?: string;
-  /** 快捷键在可编辑元素（input/textarea）中是否仍然生效，默认 false */
-  global?: boolean;
-  when?: (context: StudioCommandContext) => boolean;
-  run: () => void | Promise<void>;
 }
 
 // ── Third-party Extension System ──

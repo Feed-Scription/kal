@@ -25,7 +25,6 @@ export {
   usePanelContributions,
   useInspectorContributions,
   useDebugViewContributions,
-  useWorkbenchContext,
   useStudioCommands,
   useRunService,
   useReferences,
