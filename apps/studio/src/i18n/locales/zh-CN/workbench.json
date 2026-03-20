@@ -89,6 +89,7 @@
   "notConfigured": "未配置",
   "stepCount": "步骤数",
   "inspector": "检查器",
+  "inspector.debug": "调试",
   "properties": "属性",
   "context": "上下文",
   "extensionInfo": "扩展信息",

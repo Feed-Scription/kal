@@ -7,16 +7,18 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Bug, Filter, Play, Rocket, RefreshCw } from 'lucide-react';
+import { Bug, Filter, Play, Rocket, RefreshCw, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { EmptyState } from '@/components/EmptyState';
 import { TraceEntryCard } from '@/components/TraceEntryCard';
 import { StepControlToolbar } from '@/components/StepControlToolbar';
-import { useRunDebug, useStudioCommands } from '@/kernel/hooks';
+import { useRunDebug, useStudioCommands, useFlowResource } from '@/kernel/hooks';
 import { useCanvasSelection } from '@/hooks/use-canvas-selection';
 import { getRunStatusConfig } from '@/utils/run-status';
 import { cn } from '@/lib/utils';
-import type { TraceTimelineEntry } from '@/types/project';
+import type { TraceTimelineEntry, FlowExecutionTrace, HandleDefinition } from '@/types/project';
 
 type FilterKey = 'all' | 'breakpoint' | 'state' | 'input';
 
@@ -38,7 +40,170 @@ const FILTER_I18N: Record<FilterKey, string> = {
   input: 'stream.filterInput',
 };
 
-export function DebugStreamSidebar() {
+// ── Flow Execution Panel ──────────────────────────────────────────────
+
+type FlowExecutionPanelProps = {
+  flowId: string;
+  inputs: HandleDefinition[];
+  trace: FlowExecutionTrace | null;
+  loading: boolean;
+  onExecute: (flowId: string, input: Record<string, unknown>) => void;
+};
+
+function FlowExecutionPanel({ flowId, inputs, trace, loading, onExecute }: FlowExecutionPanelProps) {
+  const { t } = useTranslation('flow');
+  const [inputValues, setInputValues] = useState<Record<string, string>>({});
+
+  // Reset input values when flowId changes
+  useEffect(() => {
+    const defaults: Record<string, string> = {};
+    for (const input of inputs) {
+      if (input.defaultValue != null) {
+        defaults[input.name] = String(input.defaultValue);
+      }
+    }
+    setInputValues(defaults);
+  }, [flowId]);
+
+  const isRunning = trace?.flowId === flowId && trace.status === 'running';
+  const nodeResults = trace?.flowId === flowId ? trace.nodeResults : {};
+  const executionOrder = trace?.flowId === flowId ? trace.executionOrder : [];
+  const completedCount = Object.values(nodeResults).filter(
+    (r) => r.status === 'success' || r.status === 'error',
+  ).length;
+  const runningNode = Object.values(nodeResults).find((r) => r.status === 'running');
+  const traceStatus = trace?.flowId === flowId ? trace.status : null;
+
+  const handleRun = () => {
+    const parsed: Record<string, unknown> = {};
+    for (const input of inputs) {
+      const raw = inputValues[input.name];
+      if (raw !== undefined && raw !== '') {
+        try {
+          parsed[input.name] = JSON.parse(raw);
+        } catch {
+          parsed[input.name] = raw;
+        }
+      }
+    }
+    onExecute(flowId, parsed);
+  };
+
+  return (
+    <div className="space-y-3 border-b px-4 py-3">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-medium text-muted-foreground">{t('runFlowTitle', { flowId })}</span>
+      </div>
+
+      {/* Input fields */}
+      {inputs.length > 0 && (
+        <div className="space-y-2">
+          {inputs.map((input) => (
+            <div key={input.name} className="space-y-1">
+              <Label htmlFor={`flow-input-${input.name}`} className="text-xs">
+                {input.name}
+                {input.type && (
+                  <span className="ml-1 text-[10px] text-muted-foreground">({input.type})</span>
+                )}
+              </Label>
+              <Input
+                id={`flow-input-${input.name}`}
+                className="h-7 text-xs"
+                value={inputValues[input.name] ?? ''}
+                onChange={(e) =>
+                  setInputValues((prev) => ({ ...prev, [input.name]: e.target.value }))
+                }
+                placeholder={input.defaultValue != null ? String(input.defaultValue) : undefined}
+                disabled={isRunning}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Run button */}
+      <Button
+        size="sm"
+        className="h-7 w-full gap-1 text-xs"
+        disabled={isRunning || loading}
+        onClick={handleRun}
+      >
+        {isRunning ? (
+          <Loader2 className="size-3 animate-spin" />
+        ) : (
+          <Play className="size-3" />
+        )}
+        {isRunning ? t('executing') : t('run')}
+      </Button>
+
+      {/* Streaming progress */}
+      {isRunning && executionOrder.length > 0 && (
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+            <span>{completedCount} / {executionOrder.length}</span>
+            {runningNode && (
+              <span className="flex items-center gap-1">
+                <Loader2 className="size-2.5 animate-spin" />
+                {runningNode.nodeId}
+              </span>
+            )}
+          </div>
+          <div className="flex gap-0.5">
+            {executionOrder.map((nodeId) => {
+              const nr = nodeResults[nodeId];
+              let bg = 'bg-muted';
+              if (nr?.status === 'success') bg = 'bg-green-500';
+              else if (nr?.status === 'error') bg = 'bg-red-500';
+              else if (nr?.status === 'running') bg = 'bg-blue-500 animate-pulse';
+              return (
+                <div
+                  key={nodeId}
+                  className={`h-1 flex-1 rounded-full ${bg} transition-colors`}
+                  title={`${nodeId}: ${nr?.status ?? 'pending'}`}
+                />
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {isRunning && executionOrder.length === 0 && (
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Loader2 className="size-3 animate-spin" />
+          {t('executing')}
+        </div>
+      )}
+
+      {/* Completed status */}
+      {traceStatus === 'success' && (
+        <div className="flex items-center gap-1.5 text-xs text-green-600">
+          <CheckCircle2 className="size-3" />
+          {t('executionSuccess')}
+        </div>
+      )}
+
+      {traceStatus === 'error' && (
+        <div className="space-y-1">
+          <div className="flex items-center gap-1.5 text-xs text-destructive">
+            <AlertCircle className="size-3" />
+            {t('executionFailed')}
+          </div>
+          {Object.values(nodeResults)
+            .filter((r) => r.status === 'error' && r.error)
+            .map((r) => (
+              <div key={r.nodeId} className="rounded border border-destructive/30 bg-destructive/5 px-2 py-1 text-[10px] text-destructive">
+                {r.nodeId}: {r.error}
+              </div>
+            ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Main Sidebar ──────────────────────────────────────────────────────
+
+export function DebugStreamSidebar({ compact }: { compact?: boolean } = {}) {
   const { t } = useTranslation('debug');
   const {
     runs,
@@ -46,15 +211,19 @@ export function DebugStreamSidebar() {
     selectedRunId,
     selectedTimeline,
     breakpoints,
+    flowExecutionTrace,
     runCommandLoading: loading,
     runCommandError: error,
   } = useRunDebug();
-  const { createRun, createSmokeRun, refreshRuns, selectRun } = useStudioCommands();
+  const { createRun, createSmokeRun, refreshRuns, selectRun, executeFlow } = useStudioCommands();
+  const { flowId: activeFlowId, flow: activeFlow } = useFlowResource();
   const setHighlightedNode = useCanvasSelection((s) => s.setHighlightedNode);
   const requestFitView = useCanvasSelection((s) => s.requestFitView);
 
   const [filter, setFilter] = useState<FilterKey>('all');
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const flowInputs = activeFlow?.meta?.inputs ?? [];
 
   // Auto-scroll to latest entry
   useEffect(() => {
@@ -86,30 +255,47 @@ export function DebugStreamSidebar() {
     requestFitView(stepId);
   }, [requestFitView]);
 
+  const handleFlowExecute = useCallback((flowId: string, input: Record<string, unknown>) => {
+    void executeFlow(flowId, input);
+  }, [executeFlow]);
+
   const filteredTimeline = selectedTimeline.filter((entry) => matchesFilter(entry, filter));
   const statusConfig = selectedRun ? getRunStatusConfig(selectedRun.status) : null;
   const StatusIcon = statusConfig?.icon;
 
   return (
     <div className="flex h-full flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-2 border-b px-4 py-3">
-        <div className="flex items-center gap-2 text-sm font-medium">
-          <Bug className="size-4" />
-          {t('title')}
+      {/* Header — hidden in compact mode (embedded in inspector tab) */}
+      {!compact && (
+        <div className="flex items-center justify-between gap-2 border-b px-4 py-3">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <Bug className="size-4" />
+            {t('title')}
+          </div>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 w-7 p-0"
+              disabled={loading}
+              onClick={() => void refreshRuns()}
+            >
+              <RefreshCw className={cn("size-3.5", loading && "animate-spin")} />
+            </Button>
+          </div>
         </div>
-        <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 w-7 p-0"
-            disabled={loading}
-            onClick={() => void refreshRuns()}
-          >
-            <RefreshCw className={cn("size-3.5", loading && "animate-spin")} />
-          </Button>
-        </div>
-      </div>
+      )}
+
+      {/* Flow execution panel — shown when a flow is active */}
+      {activeFlowId && (
+        <FlowExecutionPanel
+          flowId={activeFlowId}
+          inputs={flowInputs}
+          trace={flowExecutionTrace}
+          loading={loading}
+          onExecute={handleFlowExecute}
+        />
+      )}
 
       {/* Run selector + actions */}
       <div className="space-y-2 border-b px-4 py-3">
