@@ -31,6 +31,7 @@ import type {
   PresenceActivity,
 } from '@/kernel/types';
 import type {
+  CanvasViewport,
   CheckpointRecord,
   DiagnosticsPayload,
   ExecutionResult,
@@ -103,6 +104,7 @@ type WorkbenchState = {
   activeViewId: StudioViewId;
   openViewIds: StudioViewId[];
   activeFlowId: string | null;
+  canvasViewports: Record<string, CanvasViewport>;
 };
 
 type ConnectionState = {
@@ -163,6 +165,7 @@ type StudioStore = {
   setActiveView: (viewId: StudioViewId) => void;
   closeView: (viewId: StudioViewId) => void;
   setCurrentFlow: (flowName: string) => void;
+  setCanvasViewport: (viewportId: string, viewport: CanvasViewport | null) => void;
   saveFlow: (flowName: string, flow: FlowDefinition) => Promise<void>;
   createFlow: (flowName: string) => Promise<void>;
   executeFlow: (flowId: string, input?: Record<string, unknown>) => Promise<ExecutionResult>;
@@ -234,7 +237,18 @@ function getDefaultWorkbenchState(): WorkbenchState {
     activeViewId: DEFAULT_STUDIO_VIEW_ID,
     openViewIds: [DEFAULT_STUDIO_VIEW_ID],
     activeFlowId: null,
+    canvasViewports: {},
   };
+}
+
+function isCanvasViewport(value: unknown): value is CanvasViewport {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    Number.isFinite((value as CanvasViewport).x) &&
+    Number.isFinite((value as CanvasViewport).y) &&
+    Number.isFinite((value as CanvasViewport).zoom)
+  );
 }
 
 function loadWorkbenchState(): WorkbenchState {
@@ -257,6 +271,14 @@ function loadWorkbenchState(): WorkbenchState {
       typeof parsed.activeViewId === 'string' && validViewIds.has(parsed.activeViewId as StudioViewId)
         ? parsed.activeViewId as StudioViewId
         : DEFAULT_STUDIO_VIEW_ID;
+    const canvasViewports =
+      parsed.canvasViewports && typeof parsed.canvasViewports === 'object'
+        ? Object.fromEntries(
+            Object.entries(parsed.canvasViewports).filter((entry): entry is [string, CanvasViewport] =>
+              typeof entry[0] === 'string' && isCanvasViewport(entry[1]),
+            ),
+          )
+        : {};
 
     return {
       activeViewId,
@@ -265,6 +287,7 @@ function loadWorkbenchState(): WorkbenchState {
           ? (openViewIds.includes(activeViewId) ? openViewIds : [activeViewId, ...openViewIds])
           : [activeViewId],
       activeFlowId: typeof parsed.activeFlowId === 'string' ? parsed.activeFlowId : null,
+      canvasViewports,
     };
   } catch {
     return getDefaultWorkbenchState();
@@ -1757,6 +1780,24 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
         },
       },
     }));
+  },
+
+  setCanvasViewport: (viewportId, viewport) => {
+    set((state) => {
+      const canvasViewports = { ...state.workbench.canvasViewports };
+      if (viewport) {
+        canvasViewports[viewportId] = viewport;
+      } else {
+        delete canvasViewports[viewportId];
+      }
+
+      return {
+        workbench: {
+          ...state.workbench,
+          canvasViewports,
+        },
+      };
+    });
   },
 
   saveFlow: async (flowName, flow) => {
