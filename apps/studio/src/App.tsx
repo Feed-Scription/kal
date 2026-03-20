@@ -106,7 +106,7 @@ export default function App() {
           <Panel defaultSize={75} minSize={40}>
             <PanelGroup direction="vertical" autoSaveId="studio-workbench-v">
               {/* Editor area */}
-              <Panel defaultSize={70} minSize={30}>
+              <Panel defaultSize={hasPanels ? 70 : 100} minSize={30}>
                 <div className="flex h-full flex-col">
                   <div className="relative min-h-0 flex-1">
                     {activeView ? (
@@ -122,19 +122,23 @@ export default function App() {
                 </div>
               </Panel>
 
-              {/* Bottom panel resize handle */}
-              <ResizeHandle direction="horizontal" />
+              {hasPanels ? (
+                <>
+                  {/* Bottom panel resize handle */}
+                  <ResizeHandle direction="horizontal" />
 
-              {/* Bottom panels (collapsible) */}
-              <Panel
-                ref={bottomPanelRef}
-                defaultSize={30}
-                minSize={10}
-                collapsible
-                collapsedSize={0}
-              >
-                <WorkbenchPanels />
-              </Panel>
+                  {/* Bottom panels (collapsible) */}
+                  <Panel
+                    ref={bottomPanelRef}
+                    defaultSize={30}
+                    minSize={10}
+                    collapsible
+                    collapsedSize={0}
+                  >
+                    <WorkbenchPanels />
+                  </Panel>
+                </>
+              ) : null}
             </PanelGroup>
           </Panel>
 

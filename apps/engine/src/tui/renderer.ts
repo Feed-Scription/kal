@@ -16,42 +16,100 @@ const c = {
   gray: '\x1b[90m',
 };
 
-export function renderOutput(outputs: Record<string, any>): string {
-  // Unwrap single-key output
+export interface OutputViewModel {
+  primaryText?: string;
+  stateChanges: Array<{ key: string; value: unknown }>;
+  fallback?: string;
+}
+
+export interface StateRow {
+  key: string;
+  type: string;
+  value: unknown;
+}
+
+function unwrapOutput(outputs: Record<string, any>): unknown {
   const keys = Object.keys(outputs);
-  const data = keys.length === 1 ? outputs[keys[0]!] : outputs;
+  return keys.length === 1 ? outputs[keys[0]!] : outputs;
+}
+
+export function formatStateValueText(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => formatStateValueText(item)).join(', ')}]`;
+  }
+  if (value && typeof value === 'object') {
+    return JSON.stringify(value) ?? String(value);
+  }
+  return String(value);
+}
+
+export function createOutputViewModel(outputs: Record<string, any>): OutputViewModel {
+  const data = unwrapOutput(outputs);
 
   if (typeof data === 'string') {
-    return data;
+    return {
+      primaryText: data,
+      stateChanges: [],
+    };
   }
 
   if (data && typeof data === 'object' && !Array.isArray(data)) {
-    const parts: string[] = [];
+    const outputRecord = data as {
+      narrative?: unknown;
+      stateChanges?: unknown;
+    };
+    const primaryText = typeof outputRecord.narrative === 'string' ? outputRecord.narrative : undefined;
+    const stateChanges = outputRecord.stateChanges && typeof outputRecord.stateChanges === 'object'
+      ? Object.entries(outputRecord.stateChanges).map(([key, value]) => ({ key, value }))
+      : [];
 
-    // Render narrative
-    if (typeof data.narrative === 'string') {
-      parts.push(data.narrative);
+    if (primaryText || stateChanges.length > 0) {
+      return {
+        primaryText,
+        stateChanges,
+      };
     }
 
-    // Render state changes summary
-    if (data.stateChanges && typeof data.stateChanges === 'object') {
-      const changes = Object.entries(data.stateChanges)
-        .map(([k, v]) => `  ${c.dim}${k}${c.reset}: ${formatStateValue(v)}`)
-        .join('\n');
-      if (changes) {
-        parts.push(`\n${c.gray}── 状态变化 ──${c.reset}\n${changes}`);
-      }
-    }
-
-    if (parts.length > 0) {
-      return parts.join('\n');
-    }
-
-    // Fallback: formatted JSON
-    return JSON.stringify(data, null, 2);
+    return {
+      stateChanges: [],
+      fallback: JSON.stringify(data, null, 2),
+    };
   }
 
-  return String(data);
+  return {
+    primaryText: String(data),
+    stateChanges: [],
+  };
+}
+
+export function createStateRows(state: Record<string, StateValue>): StateRow[] {
+  return Object.entries(state).map(([key, stateValue]) => ({
+    key,
+    type: stateValue.type,
+    value: stateValue.value,
+  }));
+}
+
+export function renderOutput(outputs: Record<string, any>): string {
+  const viewModel = createOutputViewModel(outputs);
+  const parts: string[] = [];
+
+  if (viewModel.primaryText) {
+    parts.push(viewModel.primaryText);
+  }
+
+  if (viewModel.stateChanges.length > 0) {
+    const changes = viewModel.stateChanges
+      .map(({ key, value }) => `  ${c.dim}${key}${c.reset}: ${formatStateValue(value)}`)
+      .join('\n');
+    parts.push(`\n${c.gray}── 状态变化 ──${c.reset}\n${changes}`);
+  }
+
+  if (parts.length > 0) {
+    return parts.join('\n');
+  }
+
+  return viewModel.fallback ?? '';
 }
 
 function formatStateValue(value: unknown): string {
@@ -64,19 +122,19 @@ function formatStateValue(value: unknown): string {
   if (Array.isArray(value)) {
     return `${c.dim}[${value.join(', ')}]${c.reset}`;
   }
-  return String(value);
+  return formatStateValueText(value);
 }
 
 export function renderStateTable(state: Record<string, StateValue>): string {
-  const entries = Object.entries(state);
-  if (entries.length === 0) {
+  const rows = createStateRows(state);
+  if (rows.length === 0) {
     return `${c.dim}(空)${c.reset}`;
   }
 
-  const lines = entries.map(([key, sv]) => {
-    const label = `${c.bold}${key}${c.reset}`;
-    const type = `${c.dim}(${sv.type})${c.reset}`;
-    const val = formatStateValue(sv.value);
+  const lines = rows.map((row) => {
+    const label = `${c.bold}${row.key}${c.reset}`;
+    const type = `${c.dim}(${row.type})${c.reset}`;
+    const val = formatStateValue(row.value);
     return `  ${label} ${type}: ${val}`;
   });
 

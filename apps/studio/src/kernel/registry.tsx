@@ -1,13 +1,12 @@
-import { Database, History, LayoutDashboard, Route, Settings } from 'lucide-react';
+import { Database, Gamepad2, History, LayoutDashboard, Route, Settings } from 'lucide-react';
 import Flow from '@/Flow';
 import SessionEditor from '@/SessionEditor';
 import { ConfigEditor } from '@/components/ConfigEditor';
 import { DebuggerSummaryView } from '@/components/DebuggerSummaryView';
-import { EventLogPanel } from '@/components/EventLogPanel';
 import { PromptPreviewInspector } from '@/components/PromptPreviewInspector';
 import { StateInspectorCard } from '@/components/StateInspectorCard';
 import { StateManager } from '@/components/StateManager';
-import { TerminalView } from '@/components/TerminalView';
+import { PlayPanel } from '@/components/TerminalView';
 import { VersionControlView } from '@/components/VersionControlView';
 import type {
   StudioContributionDescriptor,
@@ -260,43 +259,22 @@ const registry = createStudioRegistry([
     },
   },
   {
-    id: 'kal.event-log',
-    title: 'ext.eventLog.title',
-    description: 'ext.eventLog.description',
-    kind: 'official-workflow',
-    host: 'browser',
-    activationEvents: ['onView:kal.debugger', 'onEvent:diagnostics.updated', 'onEvent:run.updated', 'onEvent:history.updated'],
-    contributes: {
-      panels: [
-        {
-          id: 'kal.event-log.panel',
-          extensionId: 'kal.event-log',
-          title: 'ext.eventLog.panelTitle',
-          description: 'ext.eventLog.panelDescription',
-          component: EventLogPanel,
-          slot: 'down',
-          order: 30,
-        },
-      ],
-    },
-  },
-  {
     id: 'kal.terminal',
     title: 'ext.terminal.title',
     description: 'ext.terminal.description',
     kind: 'official-workflow',
     host: 'workspace',
-    activationEvents: ['onView:kal.terminal'],
+    activationEvents: ['onView:kal.play'],
     contributes: {
-      panels: [
+      views: [
         {
-          id: 'kal.terminal.panel',
+          id: 'kal.play',
           extensionId: 'kal.terminal',
-          title: 'ext.terminal.panelTitle',
-          description: 'ext.terminal.panelDescription',
-          component: TerminalView,
-          slot: 'down',
-          order: 40,
+          title: 'ext.terminal.viewTitle',
+          shortTitle: 'ext.terminal.shortTitle',
+          description: 'ext.terminal.viewDescription',
+          icon: Gamepad2,
+          component: PlayPanel,
         },
       ],
     },

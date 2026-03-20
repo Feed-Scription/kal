@@ -197,18 +197,31 @@ function toPreviewValue(value: any): any {
 }
 
 function extractNarration(data: Record<string, any>): string | undefined {
+  const unwrapped = unwrapSingleEntryObject(data);
   const preferredKeys = ['narration', 'text', 'message', 'reply'];
   for (const key of preferredKeys) {
-    if (typeof data[key] === 'string' && data[key].trim().length > 0) {
-      return data[key];
+    if (typeof unwrapped[key] === 'string' && unwrapped[key].trim().length > 0) {
+      return unwrapped[key];
     }
   }
 
-  for (const value of Object.values(data)) {
+  for (const value of Object.values(unwrapped)) {
     if (typeof value === 'string' && value.trim().length > 0) {
       return value;
     }
   }
 
   return undefined;
+}
+
+function unwrapSingleEntryObject(data: Record<string, any>): Record<string, any> {
+  const entries = Object.entries(data);
+  if (entries.length !== 1) {
+    return data;
+  }
+
+  const onlyValue = entries[0]?.[1];
+  return onlyValue && typeof onlyValue === 'object' && !Array.isArray(onlyValue)
+    ? onlyValue as Record<string, any>
+    : data;
 }
