@@ -11,7 +11,7 @@
     "provider": "openai",
     "apiKey": "sk-449dc11a2adf4d80b2c099bd63b33116",
     "baseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
-    "defaultModel": "GLM-5",
+    "defaultModel": "glm-5",
     "retry": {
       "maxRetries": 2,
       "initialDelayMs": 1000,
