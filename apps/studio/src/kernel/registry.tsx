@@ -1,9 +1,8 @@
-import { Bug, Database, History, LayoutDashboard, MonitorPlay, Route, Settings } from 'lucide-react';
+import { Database, History, LayoutDashboard, MonitorPlay, Route, Settings } from 'lucide-react';
 import Flow from '@/Flow';
 import SessionEditor from '@/SessionEditor';
 import { ConfigEditor } from '@/components/ConfigEditor';
 import { DebuggerSummaryView } from '@/components/DebuggerSummaryView';
-import { DebugStreamSidebar } from '@/components/DebugStreamSidebar';
 import { EventLogPanel } from '@/components/EventLogPanel';
 import { H5PreviewView } from '@/components/H5PreviewView';
 import { PromptPreviewInspector } from '@/components/PromptPreviewInspector';
@@ -225,19 +224,8 @@ const registry = createStudioRegistry([
     description: 'ext.debugger.description',
     kind: 'official-workflow',
     host: 'browser',
-    activationEvents: ['onView:kal.debugger', 'onEvent:run.updated'],
+    activationEvents: ['onEvent:run.updated'],
     contributes: {
-      views: [
-        {
-          id: 'kal.debugger',
-          extensionId: 'kal.debugger',
-          title: 'ext.debugger.viewTitle',
-          shortTitle: 'ext.debugger.shortTitle',
-          description: 'ext.debugger.viewDescription',
-          icon: Bug,
-          component: DebugStreamSidebar,
-        },
-      ],
       debugViews: [
         {
           id: 'kal.debugger.summary',

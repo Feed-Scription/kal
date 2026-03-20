@@ -24,7 +24,6 @@ import {
 } from './session-nodes';
 import { SessionPaneContextMenu, type ContextMenuState } from './SessionPaneContextMenu';
 import { SessionToolbar } from './components/SessionToolbar';
-import { SessionRunDialog } from './components/SessionRunDialog';
 import { StepControlToolbar } from './components/StepControlToolbar';
 import { useStudioCommands, useStudioResources, useRunDebug } from '@/kernel/hooks';
 import { useSessionNodeOverlay } from '@/hooks/use-node-overlay';
@@ -266,7 +265,7 @@ function reactFlowToSession(
 function SessionEditorInner() {
   const { t } = useTranslation('session');
   const { session } = useStudioResources();
-  const { saveSession, deleteSession } = useStudioCommands();
+  const { saveSession, deleteSession, createRun } = useStudioCommands();
   const overlayMap = useSessionNodeOverlay();
   const edgeExecState = useSessionEdgeExecutionState();
   const setSelection = useCanvasSelection((s) => s.setSelection);
@@ -351,7 +350,6 @@ function SessionEditorInner() {
     postLayoutEdges,
   });
 
-  const [runDialogOpen, setRunDialogOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState<ContextMenuState>({
     open: false,
     x: 0,
@@ -484,11 +482,10 @@ function SessionEditorInner() {
         onExport={handleExport}
         onDelete={handleDelete}
         onCreate={handleCreate}
-        onRun={() => setRunDialogOpen(true)}
+        onRun={() => { void createRun(true); }}
         onAutoLayout={handleAutoLayout}
         canRun={!!session}
       />
-      <SessionRunDialog open={runDialogOpen} onOpenChange={setRunDialogOpen} />
       {/* Phase 3: floating step control toolbar when run is paused */}
       <div className="absolute top-14 left-1/2 z-20 -translate-x-1/2">
         <StepControlToolbar />
