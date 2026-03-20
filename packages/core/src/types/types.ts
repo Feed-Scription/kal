@@ -124,7 +124,8 @@ export interface ImageConfig {
 export interface EngineConfig {
   logLevel: 'debug' | 'info' | 'warn' | 'error';
   maxConcurrentFlows: number;
-  timeout: number;
+  nodeTimeout: number;
+  runTimeout: number;
 }
 
 export interface KalConfig {

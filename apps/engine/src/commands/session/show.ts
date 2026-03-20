@@ -11,7 +11,10 @@ export default defineCommand({
   },
   async run({ args }) {
     await runEnvelopeCommand('session.show', async () => {
-      const { runtime } = await ensureRuntime(typeof args.projectPath === 'string' ? args.projectPath : undefined);
+      const { runtime } = await ensureRuntime(
+        typeof args.projectPath === 'string' ? args.projectPath : undefined,
+        { sessionFlowValidationMode: 'warn' },
+      );
       return runtime.getSession() ?? null;
     });
   },

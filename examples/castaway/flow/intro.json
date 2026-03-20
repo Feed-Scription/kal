@@ -1,0 +1,149 @@
+{
+  "meta": {
+    "schemaVersion": "1.0",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "narration",
+        "type": "string"
+      }
+    ]
+  },
+  "data": {
+    "nodes": [
+      {
+        "id": "prompt",
+        "type": "PromptBuild",
+        "config": {
+          "defaultRole": "system",
+          "fragments": [
+            {
+              "id": "role",
+              "type": "base",
+              "content": "你是一个幽默冒险风格的荒岛生存游戏叙事者。像《鲁滨逊漂流记》遇上脱口秀——用冷静的幽默描写荒谬的生存处境。绝不用感叹号。"
+            },
+            {
+              "id": "task",
+              "type": "base",
+              "content": "生成游戏开场叙事。场景：玩家刚从船难中醒来，躺在一座无人岛的沙滩上。嘴里全是沙子，口袋里只有一张湿透的登机牌和半块压碎的能量棒。身边散落着几件从船上冲下来的物资。沙滩上除了玩家的脚印，还有另一串脚印消失在丛林边缘。\n\n用2-3段文字描述这个场景，建立幽默冒险的基调，制造好奇心。最后告诉玩家：你有15天时间等待救援，需要管理体力、饱食度和心情来生存下去。"
+            }
+          ]
+        },
+        "inputs": [
+          {
+            "name": "data",
+            "type": "object",
+            "defaultValue": {}
+          }
+        ],
+        "outputs": [
+          {
+            "name": "text",
+            "type": "string"
+          },
+          {
+            "name": "estimatedTokens",
+            "type": "number"
+          }
+        ]
+      },
+      {
+        "id": "message",
+        "type": "Message",
+        "config": {
+          "historyKey": "history",
+          "maxHistoryMessages": 0
+        },
+        "inputs": [
+          {
+            "name": "system",
+            "type": "string"
+          },
+          {
+            "name": "context",
+            "type": "string"
+          },
+          {
+            "name": "user",
+            "type": "string"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "messages",
+            "type": "ChatMessage[]"
+          }
+        ]
+      },
+      {
+        "id": "llm",
+        "type": "GenerateText",
+        "config": {
+          "historyKey": "history",
+          "temperature": 0.8,
+          "timeout": 120000
+        },
+        "inputs": [
+          {
+            "name": "messages",
+            "type": "ChatMessage[]",
+            "required": true
+          },
+          {
+            "name": "historyUserMessage",
+            "type": "string"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "text",
+            "type": "string"
+          },
+          {
+            "name": "usage",
+            "type": "object"
+          }
+        ]
+      },
+      {
+        "id": "signal-out",
+        "type": "SignalOut",
+        "config": {
+          "channel": "narration"
+        },
+        "inputs": [
+          {
+            "name": "data",
+            "type": "string"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "data",
+            "type": "string"
+          }
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "source": "prompt",
+        "sourceHandle": "text",
+        "target": "message",
+        "targetHandle": "system"
+      },
+      {
+        "source": "message",
+        "sourceHandle": "messages",
+        "target": "llm",
+        "targetHandle": "messages"
+      },
+      {
+        "source": "llm",
+        "sourceHandle": "text",
+        "target": "signal-out",
+        "targetHandle": "data"
+      }
+    ]
+  }
+}

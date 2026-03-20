@@ -55,7 +55,7 @@ export default defineCommand({
     },
     file: {
       type: 'string',
-      description: 'Read fragment JSON from a file',
+      description: 'Read fragment JSON from a file path, or use - for stdin',
     },
     json: {
       type: 'string',
@@ -87,7 +87,10 @@ export default defineCommand({
     await runEnvelopeCommand('flow.node.fragment.add', async () => {
       const flowId = typeof args.flowId === 'string' ? args.flowId : '';
       const nodeId = typeof args.nodeId === 'string' ? args.nodeId : '';
-      const { runtime } = await ensureRuntime(typeof args.projectPath === 'string' ? args.projectPath : undefined);
+      const { runtime } = await ensureRuntime(
+        typeof args.projectPath === 'string' ? args.projectPath : undefined,
+        { sessionFlowValidationMode: 'warn' },
+      );
       const fragment = args.stdin === true || (!process.stdin.isTTY && !args.file && !args.json)
         ? buildFragmentFromFlags(args, await readStdin())
         : await readJsonInput({

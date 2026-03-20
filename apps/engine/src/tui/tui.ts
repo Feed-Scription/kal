@@ -5,6 +5,7 @@
 import type { EngineRuntime } from '../runtime';
 import { render } from 'ink';
 import { createElement } from 'react';
+import type { TuiLocale } from './i18n';
 import { InkTuiApp } from './ink-app';
 import { runLegacyTui } from './legacy-tui';
 
@@ -12,6 +13,7 @@ export interface TuiOptions {
   runtime: EngineRuntime;
   input?: NodeJS.ReadableStream;
   output?: NodeJS.WritableStream;
+  locale?: TuiLocale;
 }
 
 export async function runTui(options: TuiOptions): Promise<void> {
@@ -23,7 +25,7 @@ export async function runTui(options: TuiOptions): Promise<void> {
   }
 
   const instance = render(
-    createElement(InkTuiApp, { runtime: options.runtime }),
+    createElement(InkTuiApp, { runtime: options.runtime, locale: options.locale }),
     {
       stdin: input as any,
       stdout: output as any,

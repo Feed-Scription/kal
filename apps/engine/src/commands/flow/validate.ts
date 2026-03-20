@@ -18,7 +18,10 @@ export default defineCommand({
   async run({ args }) {
     await runEnvelopeCommand('flow.validate', async () => {
       const flowId = typeof args.flowId === 'string' ? args.flowId : '';
-      const { runtime, projectRoot } = await ensureRuntime(typeof args.projectPath === 'string' ? args.projectPath : undefined);
+      const { runtime, projectRoot } = await ensureRuntime(
+        typeof args.projectPath === 'string' ? args.projectPath : undefined,
+        { sessionFlowValidationMode: 'warn' },
+      );
       runtime.getFlow(flowId);
       const payload = await collectLintPayload(projectRoot);
       const diagnostics = payload.diagnostics.filter((diagnostic) => diagnostic.flowId === flowId || diagnostic.file === `flow/${flowId}.json`);

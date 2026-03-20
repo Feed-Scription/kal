@@ -2,7 +2,7 @@ import { defineCommand } from 'citty';
 import type { SessionStep } from '@kal-ai/core';
 import { EngineHttpError } from '../../../errors';
 import { ensureRuntime, projectPathArg, readJsonInput, runEnvelopeCommand } from '../../_shared';
-import { findStepIndex, mutateSession } from '../_helpers';
+import { findStepIndex, flowCheckArg, mutateSession, resolveFlowValidationMode, skipFlowCheckArg } from '../_helpers';
 
 export default defineCommand({
   meta: {
@@ -18,7 +18,7 @@ export default defineCommand({
     projectPath: projectPathArg,
     file: {
       type: 'string',
-      description: 'Read step JSON from a file',
+      description: 'Read step JSON from a file path, or use - for stdin',
     },
     json: {
       type: 'string',
@@ -26,14 +26,20 @@ export default defineCommand({
     },
     stdin: {
       type: 'boolean',
-      description: 'Read step JSON from stdin',
+      description: 'Force reading step JSON from stdin',
       default: false,
     },
+    'flow-check': flowCheckArg,
+    'skip-flow-check': skipFlowCheckArg,
   },
   async run({ args }) {
     await runEnvelopeCommand('session.step.update', async () => {
       const stepId = typeof args.stepId === 'string' ? args.stepId : '';
-      const { runtime } = await ensureRuntime(typeof args.projectPath === 'string' ? args.projectPath : undefined);
+      const flowValidationMode = resolveFlowValidationMode(args);
+      const { runtime } = await ensureRuntime(
+        typeof args.projectPath === 'string' ? args.projectPath : undefined,
+        { sessionFlowValidationMode: 'warn' },
+      );
       const step = await readJsonInput({
         file: typeof args.file === 'string' ? args.file : undefined,
         json: typeof args.json === 'string' ? args.json : undefined,
@@ -42,14 +48,17 @@ export default defineCommand({
       if (step.id !== stepId) {
         throw new EngineHttpError(`Replacement step id must stay "${stepId}"`, 400, 'STEP_ID_MISMATCH', { expected: stepId, received: step.id });
       }
-      const session = await mutateSession(runtime, (draft) => {
+      const result = await mutateSession(runtime, (draft) => {
         const index = findStepIndex(draft, stepId);
         draft.steps[index] = step;
         return draft;
-      });
+      }, { flowValidationMode });
       return {
-        step,
-        session,
+        data: {
+          step,
+          session: result.session,
+        },
+        warnings: result.warnings,
       };
     });
   },

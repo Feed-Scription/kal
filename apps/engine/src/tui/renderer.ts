@@ -3,6 +3,7 @@
  */
 
 import type { StateValue } from '@kal-ai/core';
+import { t, type TuiLocale } from './i18n';
 
 // ANSI color helpers
 const c = {
@@ -44,7 +45,19 @@ export function formatStateValueText(value: unknown): string {
 }
 
 export function createOutputViewModel(outputs: Record<string, any>): OutputViewModel {
-  const data = unwrapOutput(outputs);
+  let data = unwrapOutput(outputs);
+
+  // LLM nodes often output structured data as a JSON string — try to parse it
+  if (typeof data === 'string') {
+    const trimmed = data.trim();
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      try {
+        data = JSON.parse(trimmed);
+      } catch {
+        // not valid JSON, treat as plain text below
+      }
+    }
+  }
 
   if (typeof data === 'string') {
     return {
@@ -90,7 +103,7 @@ export function createStateRows(state: Record<string, StateValue>): StateRow[] {
   }));
 }
 
-export function renderOutput(outputs: Record<string, any>): string {
+export function renderOutput(outputs: Record<string, any>, locale: TuiLocale = 'en'): string {
   const viewModel = createOutputViewModel(outputs);
   const parts: string[] = [];
 
@@ -102,7 +115,7 @@ export function renderOutput(outputs: Record<string, any>): string {
     const changes = viewModel.stateChanges
       .map(({ key, value }) => `  ${c.dim}${key}${c.reset}: ${formatStateValue(value)}`)
       .join('\n');
-    parts.push(`\n${c.gray}── 状态变化 ──${c.reset}\n${changes}`);
+    parts.push(`\n${c.gray}${t(locale, 'render.stateChanges')}${c.reset}\n${changes}`);
   }
 
   if (parts.length > 0) {
@@ -125,10 +138,10 @@ function formatStateValue(value: unknown): string {
   return formatStateValueText(value);
 }
 
-export function renderStateTable(state: Record<string, StateValue>): string {
+export function renderStateTable(state: Record<string, StateValue>, locale: TuiLocale = 'en'): string {
   const rows = createStateRows(state);
   if (rows.length === 0) {
-    return `${c.dim}(空)${c.reset}`;
+    return `${c.dim}${t(locale, 'ui.empty')}${c.reset}`;
   }
 
   const lines = rows.map((row) => {
@@ -138,10 +151,10 @@ export function renderStateTable(state: Record<string, StateValue>): string {
     return `  ${label} ${type}: ${val}`;
   });
 
-  return `${c.gray}── 当前状态 ──${c.reset}\n${lines.join('\n')}`;
+  return `${c.gray}${t(locale, 'render.currentState')}${c.reset}\n${lines.join('\n')}`;
 }
 
-export function renderWelcome(name: string, description?: string, flowId?: string): string {
+export function renderWelcome(name: string, description?: string, flowId?: string, locale: TuiLocale = 'en'): string {
   const parts = [
     `${c.bold}${c.cyan}KAL-AI Play${c.reset} — ${name}`,
   ];
@@ -151,21 +164,21 @@ export function renderWelcome(name: string, description?: string, flowId?: strin
   if (flowId) {
     parts.push(`${c.dim}Flow: ${flowId}${c.reset}`);
   }
-  parts.push(`${c.dim}输入 /help 查看命令, /quit 退出${c.reset}`);
+  parts.push(`${c.dim}${t(locale, 'render.welcomeHint')}${c.reset}`);
   parts.push('');
   return parts.join('\n');
 }
 
-export function renderHelp(): string {
+export function renderHelp(locale: TuiLocale = 'en'): string {
   return [
-    `${c.bold}可用命令:${c.reset}`,
-    `  ${c.cyan}/quit${c.reset}    退出游戏`,
-    `  ${c.cyan}/state${c.reset}   查看当前状态`,
-    `  ${c.cyan}/help${c.reset}    显示此帮助`,
+    `${c.bold}${t(locale, 'render.commands')}${c.reset}`,
+    `  ${c.cyan}/quit${c.reset}    ${t(locale, 'render.cmdQuit')}`,
+    `  ${c.cyan}/state${c.reset}   ${t(locale, 'render.cmdState')}`,
+    `  ${c.cyan}/help${c.reset}    ${t(locale, 'render.cmdHelp')}`,
     '',
   ].join('\n');
 }
 
-export function renderError(message: string): string {
-  return `${c.red}错误: ${message}${c.reset}`;
+export function renderError(message: string, locale: TuiLocale = 'en'): string {
+  return `${c.red}${t(locale, 'render.error', { message })}${c.reset}`;
 }

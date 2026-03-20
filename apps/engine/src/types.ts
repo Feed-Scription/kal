@@ -4,6 +4,7 @@ import type {
   FlowMeta,
   InitialState,
   KalConfig,
+  SessionValidationError,
   SessionAdvanceStatus,
   SessionCursor,
   SessionDefinition,
@@ -20,6 +21,7 @@ export interface EngineProject {
   flowFileMap: Record<string, string>;
   customNodeDir: string;
   session?: SessionDefinition;
+  sessionValidationWarnings: SessionValidationError[];
 }
 
 export interface ProjectInfo {
@@ -79,6 +81,7 @@ export interface CliErrorDetail {
   message: string;
   retryable: boolean;
   hint?: string;
+  details?: unknown;
 }
 
 export interface CliEnvelope<T = unknown> {

@@ -18,7 +18,8 @@ export async function createTempProject(params?: {
     engine: {
       logLevel: 'error',
       maxConcurrentFlows: 4,
-      timeout: 1000,
+      nodeTimeout: 1000,
+      runTimeout: 0,
     },
     llm: {
       provider: 'openai',

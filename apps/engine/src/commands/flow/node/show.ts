@@ -24,7 +24,10 @@ export default defineCommand({
     await runEnvelopeCommand('flow.node.show', async () => {
       const flowId = typeof args.flowId === 'string' ? args.flowId : '';
       const nodeId = typeof args.nodeId === 'string' ? args.nodeId : '';
-      const { runtime } = await ensureRuntime(typeof args.projectPath === 'string' ? args.projectPath : undefined);
+      const { runtime } = await ensureRuntime(
+        typeof args.projectPath === 'string' ? args.projectPath : undefined,
+        { sessionFlowValidationMode: 'warn' },
+      );
       return getNode(runtime.getFlow(flowId), nodeId);
     });
   },

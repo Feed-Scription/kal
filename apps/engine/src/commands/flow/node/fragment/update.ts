@@ -50,7 +50,7 @@ export default defineCommand({
     },
     file: {
       type: 'string',
-      description: 'Read fragment JSON from a file',
+      description: 'Read fragment JSON from a file path, or use - for stdin',
     },
     json: {
       type: 'string',
@@ -79,7 +79,10 @@ export default defineCommand({
       const flowId = typeof args.flowId === 'string' ? args.flowId : '';
       const nodeId = typeof args.nodeId === 'string' ? args.nodeId : '';
       const fragmentId = typeof args.fragmentId === 'string' ? args.fragmentId : undefined;
-      const { runtime } = await ensureRuntime(typeof args.projectPath === 'string' ? args.projectPath : undefined);
+      const { runtime } = await ensureRuntime(
+        typeof args.projectPath === 'string' ? args.projectPath : undefined,
+        { sessionFlowValidationMode: 'warn' },
+      );
       const currentFlow = runtime.getFlow(flowId);
       const currentNode = getPromptBuildNode(currentFlow, nodeId);
       const currentFragments = getFragments(currentNode);

@@ -1,11 +1,19 @@
-import { BUILTIN_NODES, FlowLoader, createKalCore, runSession, validateSessionDefinition } from '@kal-ai/core';
+import {
+  BUILTIN_NODES,
+  FlowLoader,
+  createKalCore,
+  runSession,
+  validateSessionDefinitionDetailed,
+} from '@kal-ai/core';
 import type {
   FlowDefinition,
   FlowExecutionResult,
   KalConfig,
   NodeManifest,
+  SessionFlowValidationMode,
   SessionDefinition,
   SessionEvent,
+  SessionValidationError,
   StateValue,
 } from '@kal-ai/core';
 import { readFile, writeFile, unlink, readdir } from 'node:fs/promises';
@@ -18,6 +26,8 @@ import type { EngineProject, ExternalChangeEvent, FlowListItem, ProjectInfo } fr
 export interface EngineRuntimeOptions {
   /** When true, unset env vars in config are replaced with placeholders instead of throwing */
   lenient?: boolean;
+  /** Controls how missing session step flowRef targets are handled while loading/editing project resources */
+  sessionFlowValidationMode?: SessionFlowValidationMode;
 }
 
 export class EngineRuntime {
@@ -43,7 +53,10 @@ export class EngineRuntime {
 
   async reload(): Promise<void> {
     // loadEngineProject automatically bridges .kal/config.env → process.env
-    this.project = await loadEngineProject(this.projectRoot, { lenient: this.options.lenient });
+    this.project = await loadEngineProject(this.projectRoot, {
+      lenient: this.options.lenient,
+      sessionFlowValidationMode: this.options.sessionFlowValidationMode,
+    });
 
     this.core = createKalCore({
       config: this.project.config,
@@ -187,6 +200,13 @@ export class EngineRuntime {
       nextFlows[id] = loader.load(id, resolver);
     }
 
+    const sessionValidation = this.revalidateProjectSession(project, nextFlows);
+    if (sessionValidation.errors.length > 0) {
+      throw new EngineHttpError('Session becomes invalid after saving flow', 400, 'INVALID_SESSION', {
+        errors: sessionValidation.errors,
+      });
+    }
+
     // Write to disk before updating in-memory state
     const targetFile = project.flowFileMap[flowId] ?? `${project.projectRoot}/flow/${flowId}.json`;
     this.markSelfWrite(targetFile);
@@ -198,6 +218,7 @@ export class EngineRuntime {
       flowTextsById: nextTexts,
       flowFileMap: { ...project.flowFileMap, [flowId]: targetFile },
       flowsById: nextFlows,
+      sessionValidationWarnings: sessionValidation.warnings,
     };
   }
 
@@ -227,6 +248,13 @@ export class EngineRuntime {
       nextFlows[id] = loader.load(id, resolver);
     }
 
+    const sessionValidation = this.revalidateProjectSession(project, nextFlows);
+    if (sessionValidation.errors.length > 0) {
+      throw new EngineHttpError('Session becomes invalid after deleting flow', 400, 'INVALID_SESSION', {
+        errors: sessionValidation.errors,
+      });
+    }
+
     const targetFile = project.flowFileMap[flowId];
     if (targetFile) {
       this.markSelfWrite(targetFile);
@@ -244,6 +272,7 @@ export class EngineRuntime {
       flowTextsById: nextTexts,
       flowFileMap: nextFileMap,
       flowsById: nextFlows,
+      sessionValidationWarnings: sessionValidation.warnings,
     };
   }
 
@@ -289,13 +318,25 @@ export class EngineRuntime {
     hooks.on('onNodeError', onNodeError);
 
     try {
-      return await core.executeFlow(flow, flowId, inputData, (id) => {
-        const raw = project.flowTextsById[id];
-        if (!raw) {
-          throw new EngineHttpError(`Unknown flow: ${id}`, 404, 'FLOW_NOT_FOUND', { flowId: id });
+      try {
+        return await core.executeFlow(flow, flowId, inputData, (id) => {
+          const raw = project.flowTextsById[id];
+          if (!raw) {
+            throw new EngineHttpError(`Unknown flow: ${id}`, 404, 'FLOW_NOT_FOUND', { flowId: id });
+          }
+          return raw;
+        });
+      } catch (error) {
+        if ((error as { code?: string }).code === 'FLOW_RUN_TIMEOUT') {
+          throw new EngineHttpError(
+            (error as Error).message,
+            408,
+            'FLOW_RUN_TIMEOUT',
+            (error as { details?: unknown }).details,
+          );
         }
-        return raw;
-      });
+        throw error;
+      }
     } finally {
       // Always unregister listeners to prevent leaks
       hooks.off('onFlowStart', onFlowStart);
@@ -404,17 +445,63 @@ export class EngineRuntime {
     return this.getProject().session;
   }
 
-  async saveSession(session: SessionDefinition): Promise<void> {
+  getSessionValidationWarnings(): SessionValidationError[] {
+    return [...this.getProject().sessionValidationWarnings];
+  }
+
+  private validateSessionDefinition(
+    session: SessionDefinition,
+    flowValidationMode: SessionFlowValidationMode,
+  ): {
+    errors: SessionValidationError[];
+    warnings: SessionValidationError[];
+  } {
     const project = this.getProject();
     const flowIds = Object.keys(project.flowsById);
-    const errors = validateSessionDefinition(session, flowIds);
-    if (errors.length > 0) {
-      throw new EngineHttpError('Invalid session definition', 400, 'INVALID_SESSION', { errors });
+    return validateSessionDefinitionDetailed(session, flowIds, {
+      flowValidationMode,
+    });
+  }
+
+  private revalidateProjectSession(
+    project: EngineProject,
+    flowsById: Record<string, FlowDefinition>,
+  ): {
+    errors: SessionValidationError[];
+    warnings: SessionValidationError[];
+  } {
+    if (!project.session) {
+      return { errors: [], warnings: [] };
+    }
+
+    return validateSessionDefinitionDetailed(project.session, Object.keys(flowsById), {
+      flowValidationMode: this.options.sessionFlowValidationMode ?? 'strict',
+    });
+  }
+
+  async saveSession(
+    session: SessionDefinition,
+    options: { flowValidationMode?: SessionFlowValidationMode } = {},
+  ): Promise<{ warnings: SessionValidationError[] }> {
+    const project = this.getProject();
+    const validationResult = this.validateSessionDefinition(
+      session,
+      options.flowValidationMode ?? 'strict',
+    );
+    if (validationResult.errors.length > 0) {
+      throw new EngineHttpError('Invalid session definition', 400, 'INVALID_SESSION', {
+        errors: validationResult.errors,
+      });
     }
     const sessionPath = join(project.projectRoot, 'session.json');
     this.markSelfWrite(sessionPath);
     await writeFile(sessionPath, JSON.stringify(session, null, 2), 'utf8');
-    this.project = { ...project, session };
+    this.project = {
+      ...project,
+      session,
+      sessionValidationWarnings: validationResult.warnings,
+    };
+    return { warnings: validationResult.warnings };
   }
 
   async deleteSession(): Promise<void> {
@@ -426,7 +513,7 @@ export class EngineRuntime {
     } catch (err: any) {
       if (err.code !== 'ENOENT') throw err;
     }
-    this.project = { ...project, session: undefined };
+    this.project = { ...project, session: undefined, sessionValidationWarnings: [] };
   }
 
   createSession(): AsyncGenerator<SessionEvent, void, string | undefined> {
@@ -466,11 +553,18 @@ export class EngineRuntime {
         nextFlows[id] = loader.load(id, resolver);
       }
 
+      const sessionValidation = this.revalidateProjectSession(project, nextFlows);
+      if (sessionValidation.errors.length > 0) {
+        console.error('Externally modified flow makes session invalid:', sessionValidation.errors);
+        return false;
+      }
+
       // Update in-memory state
       this.project = {
         ...project,
         flowTextsById: nextTexts,
         flowsById: nextFlows,
+        sessionValidationWarnings: sessionValidation.warnings,
       };
 
       return true;
@@ -498,15 +592,23 @@ export class EngineRuntime {
       }
 
       if (session) {
-        const flowIds = Object.keys(project.flowsById);
-        const errors = validateSessionDefinition(session, flowIds);
-        if (errors.length > 0) {
-          console.error('Externally modified session.json is invalid:', errors);
+        const validationResult = this.validateSessionDefinition(
+          session,
+          this.options.sessionFlowValidationMode ?? 'strict',
+        );
+        if (validationResult.errors.length > 0) {
+          console.error('Externally modified session.json is invalid:', validationResult.errors);
           return false;
         }
+        this.project = {
+          ...project,
+          session,
+          sessionValidationWarnings: validationResult.warnings,
+        };
+        return true;
       }
 
-      this.project = { ...project, session };
+      this.project = { ...project, session, sessionValidationWarnings: [] };
       return true;
     } catch (error) {
       console.error('Failed to reload session:', error);

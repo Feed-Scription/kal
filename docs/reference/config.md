@@ -20,7 +20,8 @@
 |-------|------|----------|
 | `logLevel` | `'debug' \| 'info' \| 'warn' \| 'error'` | Yes |
 | `maxConcurrentFlows` | `number` | Yes |
-| `timeout` | `number` | Yes |
+| `nodeTimeout` | `number` | Yes |
+| `runTimeout` | `number` | Yes |
 
 ## LLMConfig
 
@@ -97,4 +98,3 @@ type StateValueType = 'string' | 'number' | 'boolean' | 'object' | 'array';
 | `min` | `number` | No |
 | `max` | `number` | No |
 | `enum` | `string[]` | No |
-
