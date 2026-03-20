@@ -222,23 +222,6 @@ describe('Engine HTTP server', () => {
     expect(Array.isArray(smoke.data.steps)).toBe(true);
   });
 
-  it('GET /api/tools/h5-preview 应该返回 HTML preview', async () => {
-    const fixture = await createTempProject();
-    cleanups.push(fixture.cleanup);
-
-    const runtime = await EngineRuntime.create(fixture.projectRoot);
-    const server = await startEngineServer({ runtime, host: '127.0.0.1', port: 0 });
-    cleanups.push(server.close);
-
-    const response = await fetch(`${server.url}/api/tools/h5-preview`);
-    const html = await response.text();
-
-    expect(response.status).toBe(200);
-    expect(response.headers.get('content-type')).toContain('text/html');
-    expect(html).toContain('Preview');
-    expect(html).toContain('Project Flows');
-  });
-
   it('GET /api/session 无 session 时返回 null', async () => {
     const fixture = await createTempProject();
     cleanups.push(fixture.cleanup);

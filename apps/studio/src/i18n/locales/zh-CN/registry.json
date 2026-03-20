@@ -61,13 +61,6 @@
       "stateDiffPanelTitle": "State Diff 面板",
       "stateDiffPanelDescription": "底部 panel slot 中的 selected run state diff。"
     },
-    "h5Preview": {
-      "title": "H5 预览",
-      "shortTitle": "预览",
-      "description": "官方工作流扩展，承载浏览器内的项目/active run 预览。",
-      "viewTitle": "H5 预览",
-      "viewDescription": "查看基于当前项目与 active run 生成的浏览器预览。"
-    },
     "comments": {
       "title": "评论",
       "shortTitle": "评论",
