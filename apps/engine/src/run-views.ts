@@ -117,6 +117,7 @@ export function buildRunView(
       input: record.input,
       timestamp: record.timestamp,
     })),
+    diagnostic: snapshot.diagnostic,
   };
 }
 

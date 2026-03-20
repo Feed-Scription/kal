@@ -4,6 +4,7 @@ import type {
   FlowMeta,
   InitialState,
   KalConfig,
+  SessionAdvanceError,
   SessionValidationError,
   SessionAdvanceStatus,
   SessionCursor,
@@ -143,11 +144,14 @@ export interface RunSummary {
   active: boolean;
 }
 
+export type RunDiagnostic = SessionAdvanceError;
+
 export interface RunView extends RunSummary {
   cursor: SessionCursor;
   state_summary: RunStateSummary;
   recent_events: RunEvent[];
   input_history: RunInputRecord[];
+  diagnostic?: RunDiagnostic;
 }
 
 export interface RunStateView extends RunView {

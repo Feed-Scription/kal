@@ -1,4 +1,5 @@
 import type {
+  SessionAdvanceError,
   SessionAdvanceStatus,
   SessionCursor,
   SessionTraceEvent,
@@ -29,6 +30,7 @@ export interface DebugRunSnapshot {
   cursor: SessionCursor;
   waitingFor: SessionWaitingFor | null;
   status: SessionAdvanceStatus;
+  diagnostic?: SessionAdvanceError;
   stateSnapshot: Record<string, StateValue>;
   recentEvents: SessionTraceEvent[];
   inputHistory: DebugInputRecord[];

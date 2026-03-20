@@ -30,7 +30,16 @@
   "autoGeneratingDescription": "Please wait while the game advances to the next part {{indicator}}",
   "pausedDescription": "This run is paused before the next boundary. Continue to keep playing.",
   "endedDescription": "This run has ended. Restart to play again.",
-  "errorDescription": "This run hit an error. Review the message above or retry the failed step directly.",
+  "errorDescription": "This run hit an error. Review the details below or retry the failed step directly.",
+  "errorMessageLabel": "Error Message",
+  "errorCodeLabel": "Error Code",
+  "errorStepLabel": "Step",
+  "errorFlowLabel": "Flow",
+  "errorNodeLabel": "Node",
+  "errorTypeLabel": "Error Type",
+  "errorDetailsLabel": "Error Details",
+  "unknownErrorMessage": "No additional error details were provided.",
+  "noStructuredError": "This run did not include a structured error payload. It may come from an older snapshot or an uncovered error path.",
   "retryStepDescription": "This re-executes only the failed step while keeping the current run progress. If that step already had player input, the same input is reused automatically.",
   "runningDescription": "The run is advancing. New output will appear here automatically."
 }

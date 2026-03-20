@@ -235,6 +235,15 @@ describe('RunManager', () => {
       input: 'attack',
     });
     expect(failed.run.status).toBe('error');
+    expect(failed.run.diagnostic).toMatchObject({
+      code: 'FLOW_EXECUTION_FAILED',
+      stepId: 'turn',
+      flowId: 'main',
+      nodeId: 'retryable',
+      nodeType: 'RetryableNode',
+      errorType: 'execution',
+    });
+    expect(failed.run.diagnostic?.message).toContain('model failed');
     expect(failed.run.input_history).toMatchObject([
       {
         step_id: 'turn',
@@ -242,6 +251,8 @@ describe('RunManager', () => {
         input: 'attack',
       },
     ]);
+    const persistedFailed = await runs.getRun({ runId: created.run.run_id });
+    expect(persistedFailed.diagnostic?.message).toContain('model failed');
 
     process.env.KAL_RETRY_NODE_FAIL = '0';
 
@@ -249,6 +260,7 @@ describe('RunManager', () => {
 
     expect(retried.run.run_id).toBe(created.run.run_id);
     expect(retried.run.status).toBe('ended');
+    expect(retried.run.diagnostic).toBeUndefined();
     expect(retried.run.recent_events).toMatchObject([
       {
         type: 'output',
