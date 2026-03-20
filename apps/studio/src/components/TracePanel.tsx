@@ -1,29 +1,22 @@
 import { ScrollText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { EmptyState } from '@/components/EmptyState';
-import { Button } from '@/components/ui/button';
 import { TraceEntryCard } from '@/components/TraceEntryCard';
-import { useRunDebug, useStudioCommands } from '@/kernel/hooks';
+import { useRunDebug } from '@/kernel/hooks';
 
 export function TracePanel() {
   const { t } = useTranslation('debug');
   const { breakpoints, selectedRun, selectedTimeline } = useRunDebug();
-  const { setActiveView } = useStudioCommands();
   const preview = selectedTimeline.slice(0, 6);
 
   return (
     <section className="min-w-0 space-y-3 rounded-xl border bg-card p-4">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2">
           <ScrollText className="size-4" />
           <div>
             <h3 className="text-sm font-semibold">{t('trace.panelTitle')}</h3>
             <p className="text-xs text-muted-foreground">{t('trace.panelSubtitle')}</p>
           </div>
-        </div>
-        <Button variant="outline" size="sm" onClick={() => setActiveView('kal.debugger')}>
-          {t('trace.openDebugger')}
-        </Button>
       </div>
 
       {!selectedRun ? (

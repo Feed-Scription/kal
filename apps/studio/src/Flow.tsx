@@ -19,7 +19,6 @@ import { ManifestNode } from "./nodes/ManifestNode";
 import { ElegantEdge } from "./edges/ElegantEdge";
 import { PaneContextMenu, type ContextMenuState } from "./PaneContextMenu";
 import { FlowToolbar } from "./components/FlowToolbar";
-import { ExecutionDialog } from "./components/ExecutionDialog";
 import { useFlowResource, useStudioCommands, useStudioResources } from "@/kernel/hooks";
 import { isEditableTarget } from "@/lib/keyboard";
 import { useFlowNodeOverlay } from "@/hooks/use-node-overlay";
@@ -161,7 +160,7 @@ function typesCompatible(a: string, b: string): boolean {
 function FlowInner() {
   const { project } = useStudioResources();
   const { flowId: currentFlow } = useFlowResource();
-  const { saveFlow } = useStudioCommands();
+  const { saveFlow, executeFlow } = useStudioCommands();
   const overlayMap = useFlowNodeOverlay(currentFlow);
   const edgeExecState = useEdgeExecutionState(currentFlow);
   const setSelection = useCanvasSelection((s) => s.setSelection);
@@ -256,7 +255,6 @@ function FlowInner() {
     postLayoutEdges,
   });
 
-  const [executionDialogOpen, setExecutionDialogOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState<ContextMenuState>({
     open: false,
     x: 0,
@@ -614,8 +612,9 @@ function FlowInner() {
   }, [buildFlowDef, currentFlow]);
 
   const handleRunFlow = useCallback(() => {
-    setExecutionDialogOpen(true);
-  }, []);
+    if (!currentFlow) return;
+    void executeFlow(currentFlow);
+  }, [currentFlow, executeFlow]);
 
   const wrappedManualSave = useCallback(async () => {
     try {
@@ -641,7 +640,7 @@ function FlowInner() {
       // Ctrl/Cmd + Enter to run (global)
       if (mod && e.key === 'Enter') {
         e.preventDefault();
-        setExecutionDialogOpen(true);
+        handleRunFlow();
         return;
       }
 
@@ -765,14 +764,6 @@ function FlowInner() {
             onAddNode={addNodeAtPosition}
           />
       </ReactFlow>
-      {currentFlow && (
-        <ExecutionDialog
-          open={executionDialogOpen}
-          onOpenChange={setExecutionDialogOpen}
-          flowId={currentFlow}
-          flowMeta={project?.flows[currentFlow]?.meta}
-        />
-      )}
     </div>
   );
 }
