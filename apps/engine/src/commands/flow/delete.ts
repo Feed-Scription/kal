@@ -1,0 +1,28 @@
+import { defineCommand } from 'citty';
+import { ensureRuntime, projectPathArg, runEnvelopeCommand } from '../_shared';
+
+export default defineCommand({
+  meta: {
+    name: 'delete',
+    description: 'Delete a flow file',
+  },
+  args: {
+    flowId: {
+      type: 'positional',
+      description: 'Flow id',
+      required: false,
+    },
+    projectPath: projectPathArg,
+  },
+  async run({ args }) {
+    await runEnvelopeCommand('flow.delete', async () => {
+      const flowId = typeof args.flowId === 'string' ? args.flowId : '';
+      const { runtime } = await ensureRuntime(typeof args.projectPath === 'string' ? args.projectPath : undefined);
+      await runtime.deleteFlow(flowId);
+      return {
+        deleted: true,
+        flowId,
+      };
+    });
+  },
+});

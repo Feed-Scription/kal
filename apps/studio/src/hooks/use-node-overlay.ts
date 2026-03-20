@@ -134,7 +134,7 @@ export function useFlowNodeOverlay(flowId: string | null): Map<string, NodeOverl
     if (!flowId) return map;
 
     // Merge execution trace data (from streaming flow execution)
-    const trace = flowExecutionTrace?.flowId === flowId ? flowExecutionTrace : null;
+    const trace = flowExecutionTrace?.flowId === flowId && flowExecutionTrace.active ? flowExecutionTrace : null;
     if (trace) {
       for (const [nodeId, result] of Object.entries(trace.nodeResults)) {
         map.set(nodeId, {

@@ -1,0 +1,39 @@
+{
+  "title": "Prompt Eval",
+  "subtitle": "Run N-shot prompt evaluations, compare variants, or compare models on the same node.",
+  "flow": "Flow",
+  "node": "Node",
+  "runs": "Runs",
+  "input": "Input JSON",
+  "state": "State JSON",
+  "variantA": "Variant A",
+  "variantB": "Variant B",
+  "runA": "Run A",
+  "runB": "Run B",
+  "compare": "Compare A vs B",
+  "resultA": "Result A",
+  "resultB": "Result B",
+  "resultRuns": "{{count}} runs",
+  "resultModelDefault": "default",
+  "outputs": "Outputs",
+  "stats": "Stats",
+  "compareTitle": "Compare",
+  "metrics": {
+    "cost": "Cost",
+    "latency": "Latency",
+    "costDelta": "Cost Delta",
+    "latencyDelta": "Latency Delta"
+  },
+  "chooseFlow": "Choose a flow",
+  "chooseNode": "Choose a node",
+  "missingSelection": "Please choose both a flow and a node.",
+  "modelPlaceholder": "Optional model override",
+  "variantPlaceholder": "Optional variant JSON or fragments array",
+  "inputPlaceholder": "{\n  \"message\": \"hello\"\n}",
+  "statePlaceholder": "{\n  \"playerName\": \"Hero\"\n}",
+  "invalid": {
+    "input": "Input JSON must be an object.",
+    "state": "State JSON must be an object.",
+    "variant": "Variant JSON must be an object with fragments or a fragments array."
+  }
+}

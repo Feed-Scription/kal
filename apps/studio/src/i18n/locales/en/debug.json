@@ -74,6 +74,15 @@
     "preview": "Preview",
     "noState": "No state to display for the current project."
   },
+  "stateContext": {
+    "title": "Related State",
+    "sessionStepSubtitle": "State keys referenced by session step {{id}}",
+    "sessionCurrentSubtitle": "State keys referenced by the current session step {{id}}",
+    "flowNodeSubtitle": "State keys referenced by flow node {{id}}",
+    "flowTraceSubtitle": "State keys touched or referenced by the latest flow debug trace",
+    "changed": "Changed",
+    "unknownType": "unknown"
+  },
   "stream": {
     "smokeRun": "Smoke",
     "filterAll": "All",

@@ -4,6 +4,9 @@ import type {
   KalConfig,
   ProjectInfo,
   ExecutionResult,
+  EvalComparisonResult,
+  EvalRunResult,
+  EvalRunVariant,
   FlowExecutionStreamEvent,
   NodeManifest,
   DiagnosticsPayload,
@@ -235,6 +238,30 @@ export const engineApi = {
     return data.state;
   },
 
+  async runEval(payload: {
+    flowId: string;
+    nodeId: string;
+    runs?: number;
+    variant?: EvalRunVariant;
+    input?: Record<string, unknown>;
+    state?: Record<string, unknown>;
+    model?: string;
+  }): Promise<EvalRunResult> {
+    return request<EvalRunResult>('/api/tools/eval/run', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async compareEval(a: EvalRunResult, b: EvalRunResult): Promise<EvalComparisonResult> {
+    return request<EvalComparisonResult>('/api/tools/eval/compare', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ a, b }),
+    });
+  },
+
   async getDiagnostics(): Promise<DiagnosticsPayload> {
     return request<DiagnosticsPayload>('/api/diagnostics');
   },
@@ -293,6 +320,12 @@ export const engineApi = {
   async getRun(runId: string): Promise<RunView> {
     const data = await request<{ run: RunView }>(`/api/runs/${encodeURIComponent(runId)}`);
     return data.run;
+  },
+
+  async deleteRun(runId: string): Promise<void> {
+    await request(`/api/runs/${encodeURIComponent(runId)}`, {
+      method: 'DELETE',
+    });
   },
 
   async getRunState(runId: string): Promise<RunStateView> {

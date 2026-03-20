@@ -1,3 +1,4 @@
+import { defineCommand } from 'citty';
 import {
   advanceSession,
   createSessionCursor,
@@ -9,6 +10,8 @@ import {
 import { resolve } from 'node:path';
 import type { EngineCliIO } from '../types';
 import type { EngineRuntime } from '../runtime';
+import { getCliContext, setExitCode } from '../cli-context';
+import { formatArg, projectPathArg } from './_shared';
 
 interface SmokeCommandDependencies {
   cwd: string;
@@ -148,6 +151,54 @@ export async function runSmokeCommand(
     return 1;
   }
 }
+
+export default defineCommand({
+  meta: {
+    name: 'smoke',
+    description: 'Run a smoke test through the session',
+  },
+  args: {
+    projectPath: projectPathArg,
+    steps: {
+      type: 'string',
+      description: 'Maximum number of steps to execute',
+      default: '10',
+    },
+    input: {
+      type: 'string',
+      description: 'Provide an input value (repeatable)',
+    },
+    dryRun: {
+      type: 'boolean',
+      description: 'Preview steps without executing flows',
+      default: false,
+    },
+    format: formatArg,
+  },
+  async run({ rawArgs, args }) {
+    const { cwd, io, createRuntime } = getCliContext();
+    const tokens: string[] = [];
+    if (typeof args.projectPath === 'string') {
+      tokens.push(args.projectPath);
+    }
+    if (typeof args.steps === 'string') {
+      tokens.push('--steps', args.steps);
+    }
+    const parsedInputs = rawArgs
+      .flatMap((token, index) => token === '--input' || token === '-i' ? [rawArgs[index + 1]] : [])
+      .filter((value): value is string => typeof value === 'string');
+    for (const value of parsedInputs) {
+      tokens.push('--input', value);
+    }
+    if (args.dryRun === true) {
+      tokens.push('--dry-run');
+    }
+    if (typeof args.format === 'string') {
+      tokens.push('--format', args.format);
+    }
+    setExitCode(await runSmokeCommand(tokens, { cwd, io, createRuntime }));
+  },
+});
 
 export async function collectSmokePayload(
   runtime: EngineRuntime,

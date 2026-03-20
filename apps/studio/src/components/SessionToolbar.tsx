@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
-import { Save, Download, Trash2, Plus, Play, LayoutGrid } from "lucide-react";
+import { Save, Download, Trash2, Plus, LayoutGrid } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -17,9 +17,7 @@ type SessionToolbarProps = {
   onExport?: () => void;
   onDelete?: () => void;
   onCreate?: () => void;
-  onRun?: () => void;
   onAutoLayout?: () => void;
-  canRun?: boolean;
 };
 
 export function SessionToolbar({
@@ -28,9 +26,7 @@ export function SessionToolbar({
   onExport,
   onDelete,
   onCreate,
-  onRun,
   onAutoLayout,
-  canRun = false,
 }: SessionToolbarProps) {
   const { t } = useTranslation('session');
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -49,10 +45,6 @@ export function SessionToolbar({
   return (
     <>
       <div className="absolute left-4 top-4 z-10 flex gap-2 rounded-lg border bg-background/95 p-2 shadow-lg backdrop-blur">
-        <div className="flex items-center gap-2 border-r pr-2">
-          <span className="text-sm font-medium">{t('runSession')}</span>
-        </div>
-
         <Button variant="ghost" size="sm" onClick={onSave} title={t('saveSession')}>
           <Save className="mr-1.5 size-4" />
           {t('save')}
@@ -61,11 +53,6 @@ export function SessionToolbar({
         <Button variant="ghost" size="sm" onClick={onExport} title={t('exportJson')}>
           <Download className="mr-1.5 size-4" />
           {t('export')}
-        </Button>
-
-        <Button variant="ghost" size="sm" onClick={onRun} title={t('runSession')} disabled={!canRun}>
-          <Play className="mr-1.5 size-4" />
-          {t('run')}
         </Button>
 
         <Button variant="ghost" size="sm" onClick={onAutoLayout} title={t('autoLayout')}>
@@ -78,7 +65,7 @@ export function SessionToolbar({
           size="sm"
           onClick={() => setConfirmOpen(true)}
           title={t('deleteSession')}
-          className="text-destructive hover:text-destructive"
+          className="border-l pl-4 text-destructive hover:text-destructive"
         >
           <Trash2 className="mr-1.5 size-4" />
           {t('delete')}

@@ -73,6 +73,23 @@ export interface EngineCliIO {
   stderr(message: string): void;
 }
 
+export interface CliErrorDetail {
+  error_class: 'validation' | 'not_found' | 'io' | 'config' | 'internal';
+  error_code: string;
+  message: string;
+  retryable: boolean;
+  hint?: string;
+}
+
+export interface CliEnvelope<T = unknown> {
+  schema_version: '1.0.0';
+  command: string;
+  status: 'ok' | 'error';
+  data: T | null;
+  errors: CliErrorDetail[];
+  warnings: string[];
+}
+
 export interface RunWaitingFor {
   kind: 'prompt' | 'choice';
   step_id: string;
