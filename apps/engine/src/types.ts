@@ -170,6 +170,13 @@ export interface DiagnosticsPayload {
   };
 }
 
+export type ExternalChangeEvent =
+  | { kind: 'flow'; flowId: string }
+  | { kind: 'config' }
+  | { kind: 'initialState' }
+  | { kind: 'session' }
+  | { kind: 'customNode'; nodeType: string };
+
 export type EngineEventName =
   | 'project.reloaded'
   | 'resource.changed'

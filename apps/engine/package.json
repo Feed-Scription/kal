@@ -36,7 +36,8 @@
     "prepublishOnly": "pnpm run typecheck && pnpm run test && pnpm run build"
   },
   "dependencies": {
-    "@kal-ai/core": "workspace:*"
+    "@kal-ai/core": "workspace:*",
+    "chokidar": "^4.0.3"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
