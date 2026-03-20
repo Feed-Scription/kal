@@ -2,7 +2,7 @@
   "meta": {
     "schemaVersion": "1.0.0",
     "name": "start-adventure",
-    "description": "冒险开始旁白 — 根据角色背景个性化开场",
+    "description": "冒险开始旁白 — 静态开场文本，按角色信息插值",
     "inputs": [],
     "outputs": [
       {
@@ -16,7 +16,7 @@
       {
         "id": "prompt-build",
         "type": "PromptBuild",
-        "label": "系统提示词",
+        "label": "构建开场文本",
         "inputs": [
           {
             "name": "data",
@@ -38,103 +38,68 @@
           "fragments": [
             {
               "type": "base",
-              "id": "instruction",
-              "content": "你是一位经验丰富的 DND 地下城主。请用第二人称为冒险者写一段踏入鸦巢镇的开场叙事。\n\n场景要求：\n- 黄昏时分，冒险者踏过鸦巢镇吱呀作响的南门\n- 描写广场的乌鸦喷泉（已干涸）、告示板上墨迹未干的悬赏令（北矿失踪七人）\n- 醉鸦亭酒馆的暖光和嘈杂人声、锻魂坊的炉火和锤击声\n- 镇长府邸门前警惕的卫兵、远处晨光神殿的钟声\n- 北门外山路消失在暮色中，夜风带着不属于山林的阴冷\n\n个性化要求：\n- 根据冒险者的种族和职业，描写镇民对冒险者的第一反应（精灵会引来好奇目光，矮人会让铁匠多看两眼，法师的法杖会让人退避三舍）\n- 根据冒险者的背景故事，加入一句内心独白或回忆闪回，暗示冒险者来到此地的动机\n- 以「你的故事，从这里开始。」结尾\n\n风格：多层感官描写（视觉、听觉、嗅觉、触觉），250-400字。纯文本叙事，不要输出JSON。"
+              "id": "opening-scene",
+              "content": "黄昏像一层冷铁色的薄雾压在鸦巢镇的石墙上。南门在你身后吱呀合拢，碎石路一直通向镇中心那座干涸的乌鸦喷泉。告示板上新贴的悬赏令还带着湿墨气味：北矿失踪七人，报酬优厚。\n\n醉鸦亭酒馆里透出蜂蜜酒与炖肉的香气，嘈杂笑声隔着街道都能听见；不远处的锻魂坊炉火正旺，铁锤敲击声一下下砸进暮色。镇长府邸门前的卫兵神情紧绷，远处晨光神殿的钟声则像一根细线，勉强把这座边境小镇拴在秩序之中。"
             },
             {
               "type": "field",
               "id": "name",
               "source": "state.playerName",
-              "template": "冒险者名字: {{items}}"
+              "template": "你停下脚步，重新握紧武器或行囊。此刻站在镇口的人，是{{items}}。"
             },
             {
-              "type": "field",
-              "id": "race",
-              "source": "state.race",
-              "template": "种族: {{items}}"
+              "type": "when",
+              "id": "race-elf",
+              "condition": "state.race == '精灵'",
+              "content": "你刚走进广场，就有几道好奇的目光落在你身上，像是在猜测一个精灵为何会独自来到这种被阴影笼罩的地方。"
             },
             {
-              "type": "field",
-              "id": "class",
-              "source": "state.class",
-              "template": "职业: {{items}}"
+              "type": "when",
+              "id": "race-dwarf",
+              "condition": "state.race == '矮人'",
+              "content": "锻魂坊门口的学徒抬头多看了你两眼，像是从你的步伐和装备里闻到了炉火与金属的熟悉味道。"
+            },
+            {
+              "type": "when",
+              "id": "race-human",
+              "condition": "state.race == '人类'",
+              "content": "镇民看你的目光里带着几分试探。人类冒险者在边境并不少见，但很少有人会在这种时候踏进鸦巢镇。"
+            },
+            {
+              "type": "when",
+              "id": "class-warrior",
+              "condition": "state.class == '战士'",
+              "content": "你腰间兵器轻轻碰撞，守门卫兵的视线在你身上停留了片刻，像是在衡量你究竟是援手，还是又一个麻烦。"
+            },
+            {
+              "type": "when",
+              "id": "class-mage",
+              "condition": "state.class == '法师'",
+              "content": "你身上若有若无的法术气息让街边闲谈的人群悄悄让开半步，连夜风都像绕开了你的衣角。"
+            },
+            {
+              "type": "when",
+              "id": "class-rogue",
+              "condition": "state.class == '盗贼'",
+              "content": "你走过街角时几乎没有发出声响，连醉鸦亭门口吵闹的酒客都迟了半拍，才意识到有人已经从他们身旁掠过。"
             },
             {
               "type": "field",
               "id": "background",
               "source": "state.background",
-              "template": "背景故事: {{items}}"
+              "template": "你来到这里并非偶然。踏进鸦巢镇的这一刻，那个始终盘踞在你心头的念头再次浮现：{{items}}"
+            },
+            {
+              "type": "base",
+              "id": "road-to-mine",
+              "content": "北门外的山路正向黑暗深处延伸。那股不属于山林的阴冷，已经先一步攀上了你的后背，仿佛矿井深处有什么东西，比夜色醒得更早。"
+            },
+            {
+              "type": "base",
+              "id": "ending",
+              "content": "也许今晚，你会在酒馆里听见第一条线索；也许明天清晨，你就要推开通往废弃矿井的栅门。你的故事，从这里开始。"
             }
-          ],
-          "format": "xml"
-        }
-      },
-      {
-        "id": "user-prompt",
-        "type": "Constant",
-        "label": "用户提示",
-        "inputs": [],
-        "outputs": [
-          {
-            "name": "value",
-            "type": "string"
-          }
-        ],
-        "config": {
-          "value": "描写冒险者踏入鸦巢镇的开场。",
-          "type": "string"
-        }
-      },
-      {
-        "id": "message",
-        "type": "Message",
-        "label": "组装消息",
-        "inputs": [
-          {
-            "name": "system",
-            "type": "string"
-          },
-          {
-            "name": "user",
-            "type": "string"
-          }
-        ],
-        "outputs": [
-          {
-            "name": "messages",
-            "type": "ChatMessage[]"
-          }
-        ],
-        "config": {}
-      },
-      {
-        "id": "generate-text",
-        "type": "GenerateText",
-        "label": "生成开场叙事",
-        "inputs": [
-          {
-            "name": "messages",
-            "type": "ChatMessage[]",
-            "required": true
-          }
-        ],
-        "outputs": [
-          {
-            "name": "text",
-            "type": "string"
-          },
-          {
-            "name": "usage",
-            "type": "object"
-          }
-        ],
-        "config": {
-          "model": "",
-          "temperature": 0.85,
-          "maxTokens": 800,
-          "historyKey": "",
-          "assistantPath": "",
-          "timeout": 60000
+          ]
         }
       },
       {
@@ -161,24 +126,6 @@
     "edges": [
       {
         "source": "prompt-build",
-        "sourceHandle": "text",
-        "target": "message",
-        "targetHandle": "system"
-      },
-      {
-        "source": "user-prompt",
-        "sourceHandle": "value",
-        "target": "message",
-        "targetHandle": "user"
-      },
-      {
-        "source": "message",
-        "sourceHandle": "messages",
-        "target": "generate-text",
-        "targetHandle": "messages"
-      },
-      {
-        "source": "generate-text",
         "sourceHandle": "text",
         "target": "signal-out",
         "targetHandle": "data"

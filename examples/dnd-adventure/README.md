@@ -25,7 +25,10 @@ narrate.json (叙事子流程，支持前缀缓存)
   PromptBuild[static: 角色+世界观+规则] → Message(system)   → GenerateText → SignalOut
   PromptBuild[dynamic: 状态字段]        → Message(context)
 
-intro.json / start-adventure.json / outro.json (静态或结局叙事)
+intro.json / start-adventure.json (静态叙事)
+  PromptBuild → SignalOut
+
+outro.json (结局叙事)
   PromptBuild → Message → GenerateText → SignalOut
 ```
 
@@ -46,7 +49,9 @@ kal play examples/dnd-adventure
 | Key | 类型 | 说明 |
 |-----|------|------|
 | playerName | string | 玩家名称 |
-| playerClass | string | 职业 |
+| race | string | 种族 |
+| class | string | 职业 |
+| background | string | 角色背景 |
 | health | number | 当前生命值 |
 | maxHealth | number | 最大生命值 |
 | gold | number | 金币 |
