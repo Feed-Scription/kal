@@ -17,7 +17,7 @@ export default defineCommand({
     projectPath: projectPathArg,
     file: {
       type: 'string',
-      description: 'Read the flow definition from a file',
+      description: 'Read the flow definition from a file path, or use - for stdin',
     },
     json: {
       type: 'string',
@@ -25,14 +25,17 @@ export default defineCommand({
     },
     stdin: {
       type: 'boolean',
-      description: 'Read the flow definition from stdin',
+      description: 'Force reading the flow definition from stdin',
       default: false,
     },
   },
   async run({ args }) {
     await runEnvelopeCommand('flow.create', async () => {
       const flowId = typeof args.flowId === 'string' ? args.flowId : '';
-      const { runtime } = await ensureRuntime(typeof args.projectPath === 'string' ? args.projectPath : undefined);
+      const { runtime } = await ensureRuntime(
+        typeof args.projectPath === 'string' ? args.projectPath : undefined,
+        { sessionFlowValidationMode: 'warn' },
+      );
       try {
         runtime.getFlow(flowId);
         throw new EngineHttpError(`Flow already exists: ${flowId}`, 400, 'FLOW_ALREADY_EXISTS', { flowId });

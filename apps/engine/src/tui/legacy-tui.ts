@@ -1,16 +1,19 @@
 import { createInterface, type Interface } from 'node:readline';
 import type { EngineRuntime } from '../runtime';
 import { resolveBuiltinCommand, resolveChoiceSubmission } from './controls';
+import { t, type TuiLocale } from './i18n';
 import { renderError, renderHelp, renderOutput, renderStateTable, renderWelcome } from './renderer';
 
 export interface LegacyTuiOptions {
   runtime: EngineRuntime;
   input?: NodeJS.ReadableStream;
   output?: NodeJS.WritableStream;
+  locale?: TuiLocale;
 }
 
 export async function runLegacyTui(options: LegacyTuiOptions): Promise<void> {
   const { runtime } = options;
+  const locale = options.locale ?? 'en';
   const input = options.input ?? process.stdin;
   const output = options.output ?? process.stdout;
   const write = (text: string) => output.write(text);
@@ -25,7 +28,7 @@ export async function runLegacyTui(options: LegacyTuiOptions): Promise<void> {
 
   const projectInfo = runtime.getProjectInfo();
   const session = runtime.getSession()!;
-  write(renderWelcome(projectInfo.name, session.description ?? session.name));
+  write(renderWelcome(projectInfo.name, session.description ?? session.name, undefined, locale));
 
   const gen = runtime.createSession();
   let result = await gen.next();
@@ -37,7 +40,7 @@ export async function runLegacyTui(options: LegacyTuiOptions): Promise<void> {
       switch (event.type) {
         case 'output': {
           if (event.data && Object.keys(event.data).length > 0) {
-            write('\n' + renderOutput(event.data) + '\n\n');
+            write('\n' + renderOutput(event.data, locale) + '\n\n');
           }
           result = await gen.next(undefined);
           break;
@@ -54,16 +57,16 @@ export async function runLegacyTui(options: LegacyTuiOptions): Promise<void> {
 
             const action = resolveBuiltinCommand(line);
             if (action === 'quit') {
-              write('再见!\n');
+              write(t(locale, 'cmd.goodbye') + '\n');
               await gen.return(undefined);
               return;
             }
             if (action === 'state') {
-              write(renderStateTable(runtime.getState()) + '\n');
+              write(renderStateTable(runtime.getState(), locale) + '\n');
               continue;
             }
             if (action === 'help') {
-              write(renderHelp());
+              write(renderHelp(locale));
               continue;
             }
 
@@ -83,31 +86,36 @@ export async function runLegacyTui(options: LegacyTuiOptions): Promise<void> {
 
           let userChoice: string | null = null;
           while (userChoice === null) {
-            const line = await readLine(rl, '请选择 (输入数字)');
+            const line = await readLine(rl, t(locale, 'legacy.choosePrompt'));
             if (line === null) {
               await gen.return(undefined);
               return;
             }
 
+            if (!line || line.trim() === '') {
+              write(`${c.red}${t(locale, 'legacy.enterNumber', { max: event.options.length })}${c.reset}\n`);
+              continue;
+            }
+
             const resolution = resolveChoiceSubmission(line, event.options, 0);
             if (resolution.kind === 'command' && resolution.command === 'quit') {
-              write('再见!\n');
+              write(t(locale, 'cmd.goodbye') + '\n');
               await gen.return(undefined);
               return;
             }
             if (resolution.kind === 'command' && resolution.command === 'state') {
-              write(renderStateTable(runtime.getState()) + '\n');
+              write(renderStateTable(runtime.getState(), locale) + '\n');
               continue;
             }
             if (resolution.kind === 'command' && resolution.command === 'help') {
-              write(renderHelp());
+              write(renderHelp(locale));
               continue;
             }
 
             if (resolution.kind === 'submit') {
               userChoice = resolution.value;
             } else {
-              write(`${c.red}无效选择，请输入 1-${event.options.length} 之间的数字${c.reset}\n`);
+              write(`${c.red}${t(locale, 'legacy.invalidChoice', { max: event.options.length })}${c.reset}\n`);
             }
           }
 
@@ -116,7 +124,7 @@ export async function runLegacyTui(options: LegacyTuiOptions): Promise<void> {
         }
 
         case 'error': {
-          write(renderError(event.message) + '\n');
+          write(renderError(event.message, locale) + '\n');
           return;
         }
 

@@ -1,5 +1,11 @@
-import { ConfigLoader, FlowLoader, validateSessionDefinition, BUILTIN_NODES, ConfigManager } from '@kal-ai/core';
-import type { FlowDefinition, InitialState, SessionDefinition, ConfigParseOptions } from '@kal-ai/core';
+import { ConfigLoader, FlowLoader, validateSessionDefinitionDetailed, BUILTIN_NODES, ConfigManager } from '@kal-ai/core';
+import type {
+  FlowDefinition,
+  InitialState,
+  SessionDefinition,
+  ConfigParseOptions,
+  SessionFlowValidationMode,
+} from '@kal-ai/core';
 import { EngineHttpError } from './errors';
 import type { EngineProject } from './types';
 import { basename, join, resolve } from 'node:path';
@@ -61,6 +67,8 @@ export interface LoadProjectOptions {
   lenient?: boolean;
   /** When false, skip bridging .kal/config.env → process.env (default: true) */
   bridgeUserConfig?: boolean;
+  /** Controls how missing session step flowRef targets are handled while loading the project */
+  sessionFlowValidationMode?: SessionFlowValidationMode;
 }
 
 export async function loadEngineProject(projectRoot: string, options?: LoadProjectOptions): Promise<EngineProject> {
@@ -132,13 +140,19 @@ export async function loadEngineProject(projectRoot: string, options?: LoadProje
   const sessionPath = join(resolvedRoot, 'session.json');
   const sessionRaw = await readJsonFile<SessionDefinition>(sessionPath, false);
   let session: SessionDefinition | undefined;
+  let sessionValidationWarnings: EngineProject['sessionValidationWarnings'] = [];
   if (sessionRaw) {
-    const validationErrors = validateSessionDefinition(sessionRaw, Object.keys(flowsById));
-    if (validationErrors.length > 0) {
-      const details = validationErrors.map((e) => `${e.path}: ${e.message}`).join('; ');
-      throw new EngineHttpError(`Invalid session.json: ${details}`, 400, 'INVALID_SESSION', { validationErrors });
+    const validationResult = validateSessionDefinitionDetailed(sessionRaw, Object.keys(flowsById), {
+      flowValidationMode: options?.sessionFlowValidationMode ?? 'strict',
+    });
+    if (validationResult.errors.length > 0) {
+      const details = validationResult.errors.map((e) => `${e.path}: ${e.message}`).join('; ');
+      throw new EngineHttpError(`Invalid session.json: ${details}`, 400, 'INVALID_SESSION', {
+        validationErrors: validationResult.errors,
+      });
     }
     session = sessionRaw;
+    sessionValidationWarnings = validationResult.warnings;
   }
 
   return {
@@ -150,5 +164,6 @@ export async function loadEngineProject(projectRoot: string, options?: LoadProje
     flowFileMap,
     customNodeDir,
     session,
+    sessionValidationWarnings,
   };
 }

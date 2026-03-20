@@ -36,7 +36,7 @@ function hintForErrorCode(code: string): string | undefined {
     case 'FRAGMENT_NOT_FOUND':
       return "Use 'kal flow node fragment list' to inspect available fragments";
     case 'INVALID_JSON':
-      return "Provide valid JSON or use '--file <path>'";
+      return "Provide valid JSON via '--json', '--file <path|->', '--stdin', or piped stdin";
     default:
       return undefined;
   }
@@ -58,6 +58,7 @@ function classifyError(error: unknown): CliErrorDetail {
     message: formatted.message,
     retryable: status >= 500,
     hint: hintForErrorCode(formatted.code),
+    details: formatted.details,
   };
 }
 
@@ -111,15 +112,26 @@ export async function readJsonInput(params: {
   cwd?: string;
 }): Promise<unknown> {
   const cwd = params.cwd ?? getCliContext().cwd;
-  const shouldReadStdin = params.stdin === true || (!process.stdin.isTTY && !params.file && !params.json);
-  if ((params.file ? 1 : 0) + (params.json ? 1 : 0) + (shouldReadStdin ? 1 : 0) !== 1) {
-    throw new EngineHttpError('Exactly one of --file or --json is required', 400, 'CLI_INPUT_SOURCE_REQUIRED');
+  const hasFile = typeof params.file === 'string';
+  const hasJson = typeof params.json === 'string';
+  const hasExplicitStdin = params.stdin === true;
+  const hasImplicitStdin = !process.stdin.isTTY && !hasFile && !hasJson && !hasExplicitStdin;
+  if (Number(hasFile) + Number(hasJson) + Number(hasExplicitStdin) + Number(hasImplicitStdin) !== 1) {
+    throw new EngineHttpError(
+      'Exactly one input source is required: --json, --file <path|->, --stdin, or piped stdin',
+      400,
+      'CLI_INPUT_SOURCE_REQUIRED',
+    );
   }
-  if (params.file) {
-    const raw = await readFile(resolve(cwd, params.file), 'utf8');
+  if (hasFile) {
+    if (params.file === '-') {
+      return JSON.parse(await readStdin());
+    }
+    const filePath = params.file!;
+    const raw = await readFile(resolve(cwd, filePath), 'utf8');
     return JSON.parse(raw);
   }
-  if (shouldReadStdin) {
+  if (hasExplicitStdin || hasImplicitStdin) {
     return JSON.parse(await readStdin());
   }
   return JSON.parse(params.json!);
@@ -153,7 +165,7 @@ function cloneValue<T>(value: T): T {
   return value;
 }
 
-function parseSetValue(rawValue: string): unknown {
+export function parseSetValue(rawValue: string): unknown {
   if (rawValue === 'true') {
     return true;
   }

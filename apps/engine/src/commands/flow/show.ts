@@ -16,7 +16,10 @@ export default defineCommand({
   },
   async run({ args }) {
     await runEnvelopeCommand('flow.show', async () => {
-      const { runtime } = await ensureRuntime(typeof args.projectPath === 'string' ? args.projectPath : undefined);
+      const { runtime } = await ensureRuntime(
+        typeof args.projectPath === 'string' ? args.projectPath : undefined,
+        { sessionFlowValidationMode: 'warn' },
+      );
       return runtime.getFlow(typeof args.flowId === 'string' ? args.flowId : '');
     });
   },

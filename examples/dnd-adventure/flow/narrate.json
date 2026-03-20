@@ -25,20 +25,35 @@
         "label": "玩家输入",
         "inputs": [],
         "outputs": [
-          { "name": "data", "type": "string" }
+          {
+            "name": "data",
+            "type": "string"
+          }
         ],
-        "config": { "channel": "playerInput" }
+        "config": {
+          "channel": "playerInput"
+        }
       },
       {
         "id": "prompt-static",
         "type": "PromptBuild",
         "label": "固定DM设定",
         "inputs": [
-          { "name": "data", "type": "object", "defaultValue": {} }
+          {
+            "name": "data",
+            "type": "object",
+            "defaultValue": {}
+          }
         ],
         "outputs": [
-          { "name": "text", "type": "string" },
-          { "name": "estimatedTokens", "type": "number" }
+          {
+            "name": "text",
+            "type": "string"
+          },
+          {
+            "name": "estimatedTokens",
+            "type": "number"
+          }
         ],
         "config": {
           "fragments": [
@@ -60,28 +75,108 @@
         "type": "PromptBuild",
         "label": "动态状态",
         "inputs": [
-          { "name": "data", "type": "object", "defaultValue": {} }
+          {
+            "name": "data",
+            "type": "object",
+            "defaultValue": {}
+          }
         ],
         "outputs": [
-          { "name": "text", "type": "string" },
-          { "name": "estimatedTokens", "type": "number" }
+          {
+            "name": "text",
+            "type": "string"
+          },
+          {
+            "name": "estimatedTokens",
+            "type": "number"
+          }
         ],
         "config": {
           "fragments": [
-            { "type": "field", "id": "playerName", "source": "state.playerName", "template": "角色名: {{items}}" },
-            { "type": "field", "id": "race", "source": "state.race", "template": "种族: {{items}}" },
-            { "type": "field", "id": "class", "source": "state.class", "template": "职业: {{items}}" },
-            { "type": "field", "id": "background", "source": "state.background", "template": "背景故事: {{items}}" },
-            { "type": "field", "id": "strength", "source": "state.strength", "template": "力量: {{items}}" },
-            { "type": "field", "id": "dexterity", "source": "state.dexterity", "template": "敏捷: {{items}}" },
-            { "type": "field", "id": "intelligence", "source": "state.intelligence", "template": "智力: {{items}}" },
-            { "type": "field", "id": "skills", "source": "state.skills", "template": "技能: {{items}}" },
-            { "type": "field", "id": "health", "source": "state.health", "template": "生命值: {{items}}" },
-            { "type": "field", "id": "maxHealth", "source": "state.maxHealth", "template": "最大生命值: {{items}}" },
-            { "type": "field", "id": "location", "source": "state.currentLocation", "template": "当前位置: {{items}}" },
-            { "type": "field", "id": "inventory", "source": "state.inventory", "template": "背包: {{items}}" },
-            { "type": "field", "id": "gold", "source": "state.gold", "template": "金币: {{items}}" },
-            { "type": "field", "id": "quest", "source": "state.questStage", "template": "任务阶段: {{items}}" }
+            {
+              "type": "field",
+              "id": "playerName",
+              "source": "state.playerName",
+              "template": "角色名: {{items}}"
+            },
+            {
+              "type": "field",
+              "id": "race",
+              "source": "state.race",
+              "template": "种族: {{items}}"
+            },
+            {
+              "type": "field",
+              "id": "class",
+              "source": "state.class",
+              "template": "职业: {{items}}"
+            },
+            {
+              "type": "field",
+              "id": "background",
+              "source": "state.background",
+              "template": "背景故事: {{items}}"
+            },
+            {
+              "type": "field",
+              "id": "strength",
+              "source": "state.strength",
+              "template": "力量: {{items}}"
+            },
+            {
+              "type": "field",
+              "id": "dexterity",
+              "source": "state.dexterity",
+              "template": "敏捷: {{items}}"
+            },
+            {
+              "type": "field",
+              "id": "intelligence",
+              "source": "state.intelligence",
+              "template": "智力: {{items}}"
+            },
+            {
+              "type": "field",
+              "id": "skills",
+              "source": "state.skills",
+              "template": "技能: {{items}}"
+            },
+            {
+              "type": "field",
+              "id": "health",
+              "source": "state.health",
+              "template": "生命值: {{items}}"
+            },
+            {
+              "type": "field",
+              "id": "maxHealth",
+              "source": "state.maxHealth",
+              "template": "最大生命值: {{items}}"
+            },
+            {
+              "type": "field",
+              "id": "location",
+              "source": "state.currentLocation",
+              "template": "当前位置: {{items}}"
+            },
+            {
+              "type": "field",
+              "id": "inventory",
+              "source": "state.inventory",
+              "template": "背包: {{items}}"
+            },
+            {
+              "type": "field",
+              "id": "gold",
+              "source": "state.gold",
+              "template": "金币: {{items}}"
+            },
+            {
+              "type": "field",
+              "id": "quest",
+              "source": "state.questStage",
+              "template": "任务阶段: {{items}}"
+            }
           ]
         }
       },
@@ -90,12 +185,25 @@
         "type": "Message",
         "label": "组装消息",
         "inputs": [
-          { "name": "system", "type": "string" },
-          { "name": "context", "type": "string" },
-          { "name": "user", "type": "string", "required": true }
+          {
+            "name": "system",
+            "type": "string"
+          },
+          {
+            "name": "context",
+            "type": "string"
+          },
+          {
+            "name": "user",
+            "type": "string",
+            "required": true
+          }
         ],
         "outputs": [
-          { "name": "messages", "type": "ChatMessage[]" }
+          {
+            "name": "messages",
+            "type": "ChatMessage[]"
+          }
         ],
         "config": {
           "historyKey": "history",
@@ -107,39 +215,79 @@
         "type": "GenerateText",
         "label": "LLM生成",
         "inputs": [
-          { "name": "messages", "type": "ChatMessage[]", "required": true },
-          { "name": "historyUserMessage", "type": "string" }
+          {
+            "name": "messages",
+            "type": "ChatMessage[]",
+            "required": true
+          },
+          {
+            "name": "historyUserMessage",
+            "type": "string"
+          }
         ],
         "outputs": [
-          { "name": "text", "type": "string" },
-          { "name": "usage", "type": "object" }
+          {
+            "name": "text",
+            "type": "string"
+          },
+          {
+            "name": "usage",
+            "type": "object"
+          }
         ],
         "config": {
           "model": "",
           "temperature": 0.85,
-          "maxTokens": 1500,
-          "timeout": 60000,
+          "maxTokens": 4000,
+          "timeout": 120000,
           "historyKey": "history",
-          "historyPolicy": { "maxMessages": 12 },
+          "historyPolicy": {
+            "maxMessages": 12
+          },
           "assistantPath": "narrative",
           "responseFormat": "json",
           "jsonSchema": {
             "type": "object",
             "properties": {
-              "narrative": { "type": "string" },
+              "narrative": {
+                "type": "string"
+              },
               "stateChanges": {
                 "type": "object",
                 "properties": {
-                  "health": { "type": "number" },
-                  "gold": { "type": "number" },
-                  "currentLocation": { "type": "string" },
-                  "inventory": { "type": "array", "items": { "type": "string" } },
-                  "questStage": { "type": "string", "enum": ["arrived", "accepted", "exploring", "boss_found", "completed"] }
+                  "health": {
+                    "type": "number"
+                  },
+                  "gold": {
+                    "type": "number"
+                  },
+                  "currentLocation": {
+                    "type": "string"
+                  },
+                  "inventory": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "questStage": {
+                    "type": "string",
+                    "enum": [
+                      "arrived",
+                      "accepted",
+                      "exploring",
+                      "boss_found",
+                      "completed"
+                    ]
+                  }
                 },
                 "additionalProperties": false
               }
             },
-            "required": ["narrative", "stateChanges"],
+            "required": [
+              "narrative",
+              "stateChanges"
+            ],
             "additionalProperties": false
           }
         }
@@ -149,21 +297,59 @@
         "type": "SignalOut",
         "label": "输出响应",
         "inputs": [
-          { "name": "data", "type": "string" }
+          {
+            "name": "data",
+            "type": "string"
+          }
         ],
         "outputs": [
-          { "name": "data", "type": "string" }
+          {
+            "name": "data",
+            "type": "string"
+          }
         ],
-        "config": { "channel": "response" }
+        "config": {
+          "channel": "response"
+        }
       }
     ],
     "edges": [
-      { "source": "prompt-static", "sourceHandle": "text", "target": "message", "targetHandle": "system" },
-      { "source": "prompt-dynamic", "sourceHandle": "text", "target": "message", "targetHandle": "context" },
-      { "source": "signal-in", "sourceHandle": "data", "target": "message", "targetHandle": "user" },
-      { "source": "message", "sourceHandle": "messages", "target": "generate-text", "targetHandle": "messages" },
-      { "source": "signal-in", "sourceHandle": "data", "target": "generate-text", "targetHandle": "historyUserMessage" },
-      { "source": "generate-text", "sourceHandle": "text", "target": "signal-out", "targetHandle": "data" }
+      {
+        "source": "prompt-static",
+        "sourceHandle": "text",
+        "target": "message",
+        "targetHandle": "system"
+      },
+      {
+        "source": "prompt-dynamic",
+        "sourceHandle": "text",
+        "target": "message",
+        "targetHandle": "context"
+      },
+      {
+        "source": "signal-in",
+        "sourceHandle": "data",
+        "target": "message",
+        "targetHandle": "user"
+      },
+      {
+        "source": "message",
+        "sourceHandle": "messages",
+        "target": "generate-text",
+        "targetHandle": "messages"
+      },
+      {
+        "source": "signal-in",
+        "sourceHandle": "data",
+        "target": "generate-text",
+        "targetHandle": "historyUserMessage"
+      },
+      {
+        "source": "generate-text",
+        "sourceHandle": "text",
+        "target": "signal-out",
+        "targetHandle": "data"
+      }
     ]
   }
 }

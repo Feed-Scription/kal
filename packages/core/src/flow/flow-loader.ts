@@ -101,6 +101,35 @@ export class FlowLoader {
         }
       }
 
+      // Signal nodes: infer handle types from meta contract when manifest provides 'any'
+      if (node.type === 'SignalIn' || node.type === 'SignalOut') {
+        const channel = node.config?.channel;
+        if (channel && typeof channel === 'string') {
+          const metaInputs = (raw.meta.inputs ?? []) as HandleDefinition[];
+          const metaOutputs = (raw.meta.outputs ?? []) as HandleDefinition[];
+          if (node.type === 'SignalIn') {
+            const contract = metaInputs.find((h: HandleDefinition) => h.name === channel);
+            if (contract && Array.isArray(node.outputs)) {
+              for (const h of node.outputs) {
+                if (h.name === 'data' && h.type === 'any') h.type = contract.type;
+              }
+            }
+          } else {
+            const contract = metaOutputs.find((h: HandleDefinition) => h.name === channel);
+            if (contract && Array.isArray(node.inputs)) {
+              for (const h of node.inputs) {
+                if (h.name === 'data' && h.type === 'any') h.type = contract.type;
+              }
+            }
+            if (contract && Array.isArray(node.outputs)) {
+              for (const h of node.outputs) {
+                if (h.name === 'data' && h.type === 'any') h.type = contract.type;
+              }
+            }
+          }
+        }
+      }
+
       if (!Array.isArray(node.inputs)) {
         throw new ValidationError(`Node "${node.id}" must have an "inputs" array`);
       }

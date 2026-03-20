@@ -5,7 +5,7 @@
 import { defineCommand } from 'citty';
 import { resolve } from 'node:path';
 import { loadEngineProject } from '../project-loader';
-import { validateSessionDefinition, BUILTIN_NODES, CustomNodeLoader, NodeRegistry } from '@kal-ai/core';
+import { validateSessionDefinitionDetailed, BUILTIN_NODES, CustomNodeLoader, NodeRegistry } from '@kal-ai/core';
 import type { FlowDefinition } from '@kal-ai/core';
 import type { CustomNode } from '@kal-ai/core';
 import type { EngineCliIO } from '../types';
@@ -36,17 +36,23 @@ export interface LintPayload {
 
 export async function collectLintPayload(projectRoot: string): Promise<LintPayload> {
   try {
-    const project = await loadEngineProject(projectRoot, { lenient: true });
+    const project = await loadEngineProject(projectRoot, {
+      lenient: true,
+      sessionFlowValidationMode: 'warn',
+    });
     const diagnostics: DiagnosticPayload[] = [];
 
     if (project.session) {
-      const sessionErrors = validateSessionDefinition(
+      const sessionValidation = validateSessionDefinitionDetailed(
         project.session,
         Object.keys(project.flowsById),
-        { initialStateKeys: Object.keys(project.initialState) }
+        {
+          initialStateKeys: Object.keys(project.initialState),
+          flowValidationMode: 'warn',
+        },
       );
 
-      for (const error of sessionErrors) {
+      for (const error of sessionValidation.errors) {
         diagnostics.push(
           buildCliDiagnostic({
             code: 'SESSION_VALIDATION_ERROR',
@@ -56,6 +62,20 @@ export async function collectLintPayload(projectRoot: string): Promise<LintPaylo
             phase: 'session',
             suggestions: ['Fix the session definition according to the error message'],
           })
+        );
+      }
+
+      for (const warning of sessionValidation.warnings) {
+        diagnostics.push(
+          buildCliDiagnostic({
+            code: 'SESSION_FLOW_REF_WARNING',
+            message: warning.message,
+            file: 'session.json',
+            jsonPath: warning.path,
+            phase: 'session',
+            severity: 'warning',
+            suggestions: ['Create the referenced flow or switch to --flow-check strict before running the project'],
+          }),
         );
       }
     }

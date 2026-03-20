@@ -89,6 +89,100 @@ describe('session commands', () => {
     expect(payload.data.entryStep).toBe('intro');
   });
 
+  it('can show a session skeleton even before every referenced flow exists', async () => {
+    const fixture = await createTempProject({
+      session: {
+        schemaVersion: '1.0.0',
+        steps: [
+          { id: 'future', type: 'RunFlow', flowRef: 'future-flow', next: 'end' },
+          { id: 'end', type: 'End' },
+        ],
+      },
+    });
+    cleanups.push(fixture.cleanup);
+
+    const buffer = createIoBuffer();
+    const exitCode = await runCli(['session', 'show', fixture.projectRoot], {
+      cwd: fixture.projectRoot,
+      io: buffer.io,
+    });
+
+    const payload = parseJsonOutput(buffer);
+    expect(exitCode).toBe(0);
+    expect(payload.data.steps[0].flowRef).toBe('future-flow');
+  });
+
+  it('supports --skip-flow-check when replacing session.json', async () => {
+    const fixture = await createTempProject();
+    cleanups.push(fixture.cleanup);
+
+    const buffer = createIoBuffer();
+    const exitCode = await runCli([
+      'session',
+      'set',
+      fixture.projectRoot,
+      '--json',
+      '{"schemaVersion":"1.0.0","steps":[{"id":"future","type":"RunFlow","flowRef":"future-flow","next":"end"},{"id":"end","type":"End"}]}',
+      '--skip-flow-check',
+    ], {
+      cwd: fixture.projectRoot,
+      io: buffer.io,
+    });
+
+    const payload = parseJsonOutput(buffer);
+    expect(exitCode).toBe(0);
+    expect(payload.data.steps[0].flowRef).toBe('future-flow');
+    expect(payload.warnings).toHaveLength(0);
+  });
+
+  it('supports --flow-check warn and surfaces unresolved flow refs as warnings', async () => {
+    const fixture = await createTempProject();
+    cleanups.push(fixture.cleanup);
+
+    const buffer = createIoBuffer();
+    const exitCode = await runCli([
+      'session',
+      'set',
+      fixture.projectRoot,
+      '--json',
+      '{"schemaVersion":"1.0.0","steps":[{"id":"future","type":"RunFlow","flowRef":"future-flow","next":"end"},{"id":"end","type":"End"}]}',
+      '--flow-check',
+      'warn',
+    ], {
+      cwd: fixture.projectRoot,
+      io: buffer.io,
+    });
+
+    const payload = parseJsonOutput(buffer);
+    expect(exitCode).toBe(0);
+    expect(payload.warnings).toHaveLength(1);
+    expect(payload.warnings[0]).toContain('future-flow');
+  });
+
+  it('supports --flow-check strict and blocks unresolved flow refs', async () => {
+    const fixture = await createTempProject();
+    cleanups.push(fixture.cleanup);
+
+    const buffer = createIoBuffer();
+    const exitCode = await runCli([
+      'session',
+      'set',
+      fixture.projectRoot,
+      '--json',
+      '{"schemaVersion":"1.0.0","steps":[{"id":"future","type":"RunFlow","flowRef":"future-flow","next":"end"},{"id":"end","type":"End"}]}',
+      '--flow-check',
+      'strict',
+    ], {
+      cwd: fixture.projectRoot,
+      io: buffer.io,
+    });
+
+    const payload = parseJsonOutput(buffer);
+    expect(exitCode).toBe(1);
+    expect(payload.status).toBe('error');
+    expect(payload.errors[0].error_code).toBe('INVALID_SESSION');
+  });
+
   it('patches an individual step via --set', async () => {
     const fixture = await createTempProject({
       initialState: {

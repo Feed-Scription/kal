@@ -66,7 +66,8 @@ export type KalConfig = {
   engine: {
     logLevel: string;
     maxConcurrentFlows: number;
-    timeout: number;
+    nodeTimeout: number;
+    runTimeout: number;
   };
   llm: {
     provider: string;

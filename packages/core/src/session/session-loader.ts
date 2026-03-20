@@ -11,16 +11,51 @@ export interface SessionValidationError {
   message: string;
 }
 
+export type SessionFlowValidationMode = 'strict' | 'warn' | 'ignore';
+
+export interface SessionValidationResult {
+  errors: SessionValidationError[];
+  warnings: SessionValidationError[];
+}
+
+export interface SessionValidationOptions {
+  initialStateKeys?: string[];
+  flowValidationMode?: SessionFlowValidationMode;
+  /** @deprecated Use flowValidationMode: 'ignore' instead. */
+  skipFlowRefChecks?: boolean;
+}
+
 // ── Shared validation helpers ──
+
+function resolveFlowValidationMode(options?: SessionValidationOptions): SessionFlowValidationMode {
+  if (options?.flowValidationMode) {
+    return options.flowValidationMode;
+  }
+  if (options?.skipFlowRefChecks) {
+    return 'ignore';
+  }
+  return 'strict';
+}
 
 function validateFlowRef(
   step: { flowRef?: string },
   prefix: string,
   flowIds: Set<string>,
   errors: SessionValidationError[],
+  warnings: SessionValidationError[],
+  options?: SessionValidationOptions,
 ): void {
+  const flowValidationMode = resolveFlowValidationMode(options);
+  if (flowValidationMode === 'ignore') {
+    return;
+  }
   if (step.flowRef && !flowIds.has(step.flowRef)) {
-    errors.push({ path: `${prefix}.flowRef`, message: `Flow not found: ${step.flowRef}` });
+    const diagnostic = { path: `${prefix}.flowRef`, message: `Flow not found: ${step.flowRef}` };
+    if (flowValidationMode === 'warn') {
+      warnings.push(diagnostic);
+    } else {
+      errors.push(diagnostic);
+    }
   }
 }
 
@@ -80,11 +115,13 @@ function validateInteractiveStep(
   stepTypeName: string,
   flowIds: Set<string>,
   errors: SessionValidationError[],
+  warnings: SessionValidationError[],
+  options?: SessionValidationOptions,
 ): void {
   if (!step.flowRef && !step.stateKey) {
     errors.push({ path: `${prefix}.flowRef`, message: `${stepTypeName} step requires flowRef or stateKey` });
   }
-  validateFlowRef(step, prefix, flowIds, errors);
+  validateFlowRef(step, prefix, flowIds, errors, warnings, options);
   validateInputChannel(step, prefix, errors);
   validateStateKey(step, prefix, errors);
 }
@@ -114,15 +151,16 @@ function validateOptionsFromState(
 
 // ── Main validator ──
 
-export function validateSessionDefinition(
+export function validateSessionDefinitionDetailed(
   raw: unknown,
   availableFlowIds: string[],
-  _options?: { initialStateKeys?: string[] },
-): SessionValidationError[] {
+  options?: SessionValidationOptions,
+): SessionValidationResult {
   const errors: SessionValidationError[] = [];
+  const warnings: SessionValidationError[] = [];
   if (!raw || typeof raw !== 'object') {
     errors.push({ path: '', message: 'Session definition must be an object' });
-    return errors;
+    return { errors, warnings };
   }
 
   const def = raw as Record<string, unknown>;
@@ -133,7 +171,7 @@ export function validateSessionDefinition(
 
   if (!Array.isArray(def.steps) || def.steps.length === 0) {
     errors.push({ path: 'steps', message: 'steps must be a non-empty array' });
-    return errors;
+    return { errors, warnings };
   }
 
   const steps = def.steps as SessionStep[];
@@ -158,12 +196,12 @@ export function validateSessionDefinition(
 
     switch (step.type) {
       case 'RunFlow': {
-        validateFlowRef(step, prefix, flowIds, errors);
+        validateFlowRef(step, prefix, flowIds, errors, warnings, options);
         validateNext(step, prefix, stepIds, errors);
         break;
       }
       case 'Prompt': {
-        validateInteractiveStep(step, prefix, 'Prompt', flowIds, errors);
+        validateInteractiveStep(step, prefix, 'Prompt', flowIds, errors, warnings, options);
         validateNext(step, prefix, stepIds, errors);
         break;
       }
@@ -192,7 +230,7 @@ export function validateSessionDefinition(
         break;
       }
       case 'Choice': {
-        validateInteractiveStep(step, prefix, 'Choice', flowIds, errors);
+        validateInteractiveStep(step, prefix, 'Choice', flowIds, errors, warnings, options);
         if (!step.promptText || typeof step.promptText !== 'string') {
           errors.push({ path: `${prefix}.promptText`, message: 'promptText is required' });
         }
@@ -205,7 +243,7 @@ export function validateSessionDefinition(
         break;
       }
       case 'DynamicChoice': {
-        validateInteractiveStep(step, prefix, 'DynamicChoice', flowIds, errors);
+        validateInteractiveStep(step, prefix, 'DynamicChoice', flowIds, errors, warnings, options);
         if (!step.promptText || typeof step.promptText !== 'string') {
           errors.push({ path: `${prefix}.promptText`, message: 'promptText is required' });
         }
@@ -238,5 +276,13 @@ export function validateSessionDefinition(
     errors.push({ path: 'entryStep', message: `Entry step not found: ${def.entryStep}` });
   }
 
-  return errors;
+  return { errors, warnings };
+}
+
+export function validateSessionDefinition(
+  raw: unknown,
+  availableFlowIds: string[],
+  options?: SessionValidationOptions,
+): SessionValidationError[] {
+  return validateSessionDefinitionDetailed(raw, availableFlowIds, options).errors;
 }

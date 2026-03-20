@@ -153,10 +153,10 @@
         "config": {
           "model": "",
           "temperature": 0.85,
-          "maxTokens": 32000,
+          "maxTokens": 4000,
           "historyKey": "",
           "assistantPath": "",
-          "timeout": 60000
+          "timeout": 120000
         }
       },
       {

@@ -47,6 +47,34 @@ export interface SmokeResult {
   finalState?: Record<string, any>;
 }
 
+function parseSmokeInputBindings(
+  session: { steps: Array<{ id: string }> },
+  inputs: string[],
+): {
+  sequentialInputs: string[];
+  boundInputs: Map<string, string[]>;
+} {
+  const stepIds = new Set(session.steps.map((step) => step.id));
+  const sequentialInputs: string[] = [];
+  const boundInputs = new Map<string, string[]>();
+
+  for (const input of inputs) {
+    const separatorIndex = input.indexOf('=');
+    if (separatorIndex > 0) {
+      const candidateStepId = input.slice(0, separatorIndex);
+      if (stepIds.has(candidateStepId)) {
+        const queue = boundInputs.get(candidateStepId) ?? [];
+        queue.push(input.slice(separatorIndex + 1));
+        boundInputs.set(candidateStepId, queue);
+        continue;
+      }
+    }
+    sequentialInputs.push(input);
+  }
+
+  return { sequentialInputs, boundInputs };
+}
+
 function parseSmokeArgs(tokens: string[]): ParsedSmokeArgs {
   let projectPath: string | undefined;
   let steps = 10;
@@ -125,7 +153,7 @@ export async function runSmokeCommand(
     parsed = parseSmokeArgs(tokens);
   } catch (error) {
     dependencies.io.stderr(`Error: ${(error as Error).message}\n`);
-    dependencies.io.stderr('Usage: kal smoke [project-path] [--steps N] [--input value]... [--dry-run] [--format json|pretty]\n');
+    dependencies.io.stderr('Usage: kal smoke [project-path] [--steps N] [--input value|stepId=value]... [--dry-run] [--format json|pretty]\n');
     return 2;
   }
 
@@ -166,7 +194,7 @@ export default defineCommand({
     },
     input: {
       type: 'string',
-      description: 'Provide an input value (repeatable)',
+      description: 'Provide an input value (repeatable); use stepId=value to bind it to a specific step',
     },
     dryRun: {
       type: 'boolean',
@@ -214,7 +242,7 @@ export async function collectSmokePayload(
 
   const session = runtime.getSession()!;
   const totalSteps = options.steps ?? 10;
-  const inputs = [...(options.inputs ?? [])];
+  const { sequentialInputs, boundInputs } = parseSmokeInputBindings(session, [...(options.inputs ?? [])]);
   const dryRun = Boolean(options.dryRun);
   let cursor: SessionCursor = createSessionCursor(session);
   let inputIndex = 0;
@@ -246,8 +274,11 @@ export async function collectSmokePayload(
     }
 
     if (inspection.status === 'waiting_input') {
-      if (inputIndex < inputs.length) {
-        userInput = inputs[inputIndex++];
+      const boundQueue = cursor.currentStepId ? boundInputs.get(cursor.currentStepId) : undefined;
+      if (boundQueue && boundQueue.length > 0) {
+        userInput = boundQueue.shift();
+      } else if (inputIndex < sequentialInputs.length) {
+        userInput = sequentialInputs[inputIndex++];
       } else if (inspection.waitingFor?.kind === 'choice' && inspection.waitingFor.options?.length) {
         userInput = inspection.waitingFor.options[0]!.value;
       } else {

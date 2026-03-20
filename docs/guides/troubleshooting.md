@@ -54,6 +54,91 @@ Common issues and solutions when working with KAL.
 
 **Fix:** Change the value to the correct type in the flow JSON.
 
+### `ReadState` looks orphaned next to `PromptBuild`
+
+**Symptoms:** Lint marks a `ReadState` node as isolated even though the prompt needs state data.
+
+**Cause:** `PromptBuild` field fragments already read from `state.*` directly. If a fragment uses `source: "state.playerName"` or similar, you do not need a separate `ReadState` node for that value.
+
+**Fix:** Remove the extra `ReadState` node unless another node needs the value through an explicit edge. Keep `ReadState` only when you want to pass state into non-`PromptBuild` nodes via flow wiring.
+
+### Session skeletons fail before flows exist
+
+**Symptoms:** `kal session set`, `kal session meta-set`, or `kal session step add/update/patch` fails because a `flowRef` points to a flow you plan to create later.
+
+**Fix:** Use one of the new validation modes:
+
+```bash
+# Keep editing, but surface unresolved flowRef as warnings
+kal session set --flow-check warn
+
+# Keep editing and suppress unresolved flowRef entirely
+kal session set --flow-check ignore
+
+# Compatibility alias
+kal session set --skip-flow-check
+```
+
+`strict` still blocks the write. Only missing `flowRef` targets are downgraded; structural problems like bad `next` pointers still fail.
+
+### Passing large JSON through CLI is awkward
+
+**Fix:** Prefer file or stdin input sources:
+
+```bash
+# Explicit stdin via file alias
+cat flow.json | kal flow create my-flow --file -
+
+# Explicit stdin flag
+cat session.json | kal session set --stdin
+
+# Implicit pipe detection still works when no --json/--file is provided
+cat step.json | kal session step add
+```
+
+The rule is always “exactly one input source”: `--json`, `--file <path|->`, `--stdin`, or piped stdin.
+
+### Batch node config updates match the wrong set
+
+**Symptoms:** `kal flow node config-set` updates too many or too few nodes.
+
+**Selector rules:**
+- Use `--all-flows` or at least one `--flow <glob>` to declare scope explicitly.
+- `--all-flows` and `--flow` are mutually exclusive.
+- Repeating the same selector family is OR: multiple `--flow`, `--node-type`, or `--node-id` values broaden the match.
+- Different selector families are AND: flow scope, node type, node id, and every `--where` clause must all match.
+- `--where` only supports exact `path=value` matching.
+
+Example:
+
+```bash
+kal flow node config-set \
+  --flow 'main-*' \
+  --node-type 'GenerateText' \
+  --where config.model=gpt-4o \
+  --set timeout=120000
+```
+
+### `engine.timeout` no longer works
+
+**Symptoms:** Project load fails with a migration error mentioning `engine.timeout`.
+
+**Fix:** Split the old setting explicitly:
+
+```json
+{
+  "engine": {
+    "nodeTimeout": 60000,
+    "runTimeout": 0
+  }
+}
+```
+
+- `engine.nodeTimeout` is the default per-node timeout.
+- `node.config.timeout` still overrides it per node.
+- `engine.runTimeout` is the total timeout for one `executeFlow()` call.
+- `0` disables that layer of timeout.
+
 ## Debug Issues
 
 ### Run stuck in `waiting_input`

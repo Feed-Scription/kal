@@ -17,7 +17,10 @@ export default defineCommand({
   async run({ args }) {
     await runEnvelopeCommand('flow.edge.list', async () => {
       const flowId = typeof args.flowId === 'string' ? args.flowId : '';
-      const { runtime } = await ensureRuntime(typeof args.projectPath === 'string' ? args.projectPath : undefined);
+      const { runtime } = await ensureRuntime(
+        typeof args.projectPath === 'string' ? args.projectPath : undefined,
+        { sessionFlowValidationMode: 'warn' },
+      );
       return {
         edges: runtime.getFlow(flowId).data.edges,
       };

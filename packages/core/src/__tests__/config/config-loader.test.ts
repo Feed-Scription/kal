@@ -11,7 +11,8 @@ describe('ConfigLoader', () => {
         engine: {
           logLevel: 'info',
           maxConcurrentFlows: 10,
-          timeout: 30000,
+          nodeTimeout: 30000,
+          runTimeout: 0,
         },
         llm: {
           provider: 'openai',
@@ -74,7 +75,7 @@ describe('ConfigLoader', () => {
       const json = JSON.stringify({
         name: 'test',
         version: '1.0.0',
-        engine: { logLevel: 'info', maxConcurrentFlows: 10, timeout: 30000 },
+        engine: { logLevel: 'info', maxConcurrentFlows: 10, nodeTimeout: 30000, runTimeout: 0 },
         llm: {
           provider: 'openai',
           apiKey: '${TEST_API_KEY}',
@@ -95,7 +96,7 @@ describe('ConfigLoader', () => {
       const json = JSON.stringify({
         name: 'test',
         version: '1.0.0',
-        engine: { logLevel: 'info', maxConcurrentFlows: 10, timeout: 30000 },
+        engine: { logLevel: 'info', maxConcurrentFlows: 10, nodeTimeout: 30000, runTimeout: 0 },
         llm: {
           provider: 'openai',
           apiKey: '${NONEXISTENT_VAR}',
@@ -130,7 +131,7 @@ describe('ConfigLoader', () => {
       const json = JSON.stringify({
         name: 'test',
         version: '1.0.0',
-        engine: { logLevel: 'info', maxConcurrentFlows: 10, timeout: 30000 },
+        engine: { logLevel: 'info', maxConcurrentFlows: 10, nodeTimeout: 30000, runTimeout: 0 },
         llm: {
           provider: 'openai',
           apiKey: '${TEST_API_KEY}',
@@ -151,7 +152,7 @@ describe('ConfigLoader', () => {
       const json = JSON.stringify({
         name: 'test',
         version: '1.0.0',
-        engine: { logLevel: 'info', maxConcurrentFlows: 10, timeout: 30000 },
+        engine: { logLevel: 'info', maxConcurrentFlows: 10, nodeTimeout: 30000, runTimeout: 0 },
         llm: {
           provider: 'openai',
           apiKey: '${TEST_API_KEY}',
@@ -171,7 +172,7 @@ describe('ConfigLoader', () => {
     it('应该在缺少 name 时抛出错误', () => {
       const json = JSON.stringify({
         version: '1.0.0',
-        engine: { logLevel: 'info', maxConcurrentFlows: 10, timeout: 30000 },
+        engine: { logLevel: 'info', maxConcurrentFlows: 10, nodeTimeout: 30000, runTimeout: 0 },
         llm: { provider: 'openai', apiKey: 'key', defaultModel: 'gpt-4' },
         image: { provider: 'openai', apiKey: 'key' },
       });
@@ -183,7 +184,7 @@ describe('ConfigLoader', () => {
       const json = JSON.stringify({
         name: 'test',
         version: '1.0.0',
-        engine: { logLevel: 'info', maxConcurrentFlows: 10, timeout: 30000 },
+        engine: { logLevel: 'info', maxConcurrentFlows: 10, nodeTimeout: 30000, runTimeout: 0 },
         llm: { apiKey: 'key', defaultModel: 'gpt-4' },
         image: { provider: 'openai', apiKey: 'key' },
       });
@@ -213,6 +214,17 @@ describe('ConfigLoader', () => {
       });
 
       expect(() => ConfigLoader.parse(json)).toThrow('maxConcurrentFlows');
+    });
+
+    it('应该拒绝旧的 engine.timeout 并给出迁移提示', () => {
+      const json = JSON.stringify({
+        name: 'test',
+        version: '1.0.0',
+        engine: { timeout: 30000 },
+        llm: { provider: 'openai', apiKey: 'key', defaultModel: 'gpt-4' },
+      });
+
+      expect(() => ConfigLoader.parse(json)).toThrow('engine.nodeTimeout');
     });
 
     it('应该拒绝负数的 retry.maxRetries', () => {

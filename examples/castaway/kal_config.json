@@ -1,0 +1,26 @@
+{
+  "name": "castaway",
+  "version": "0.1.0",
+  "engine": {
+    "logLevel": "warn",
+    "maxConcurrentFlows": 1,
+    "nodeTimeout": 120000,
+    "runTimeout": 0
+  },
+  "llm": {
+    "provider": "openai",
+    "defaultModel": "moonshotai/kimi-k2-0905",
+    "apiKey": "${OPENAI_API_KEY}",
+    "baseUrl": "${OPENAI_BASE_URL}",
+    "retry": {
+      "maxRetries": 3,
+      "initialDelayMs": 1000,
+      "maxDelayMs": 10000,
+      "backoffMultiplier": 2,
+      "jitter": true
+    },
+    "cache": {
+      "enabled": true
+    }
+  }
+}

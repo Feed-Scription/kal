@@ -17,7 +17,10 @@ export default defineCommand({
   },
   async run({ args }) {
     await runEnvelopeCommand('session.step.show', async () => {
-      const { runtime } = await ensureRuntime(typeof args.projectPath === 'string' ? args.projectPath : undefined);
+      const { runtime } = await ensureRuntime(
+        typeof args.projectPath === 'string' ? args.projectPath : undefined,
+        { sessionFlowValidationMode: 'warn' },
+      );
       const session = getRequiredSession(runtime);
       return getStep(session, typeof args.stepId === 'string' ? args.stepId : '');
     });
