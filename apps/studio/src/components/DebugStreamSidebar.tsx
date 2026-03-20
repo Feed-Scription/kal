@@ -11,14 +11,16 @@ import { Bug, Filter, Play, Rocket, RefreshCw, Loader2, CheckCircle2, AlertCircl
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { EmptyState } from '@/components/EmptyState';
+import { DebugStateContextCard } from '@/components/DebugStateContextCard';
 import { TraceEntryCard } from '@/components/TraceEntryCard';
 import { StepControlToolbar } from '@/components/StepControlToolbar';
-import { useRunDebug, useStudioCommands, useFlowResource } from '@/kernel/hooks';
+import { useRunDebug, useStudioCommands, useFlowResource, useStudioResources, useWorkbench } from '@/kernel/hooks';
 import { useCanvasSelection } from '@/hooks/use-canvas-selection';
 import { getRunStatusConfig } from '@/utils/run-status';
 import { cn } from '@/lib/utils';
-import type { TraceTimelineEntry, FlowExecutionTrace, HandleDefinition } from '@/types/project';
+import type { RunView, TraceTimelineEntry, FlowExecutionTrace, HandleDefinition } from '@/types/project';
 
 type FilterKey = 'all' | 'breakpoint' | 'state' | 'input';
 
@@ -65,7 +67,7 @@ function FlowExecutionPanel({ flowId, inputs, trace, loading, onExecute }: FlowE
     setInputValues(defaults);
   }, [flowId]);
 
-  const isRunning = trace?.flowId === flowId && trace.status === 'running';
+  const isRunning = trace?.flowId === flowId && trace.active;
   const nodeResults = trace?.flowId === flowId ? trace.nodeResults : {};
   const executionOrder = trace?.flowId === flowId ? trace.executionOrder : [];
   const completedCount = Object.values(nodeResults).filter(
@@ -73,6 +75,12 @@ function FlowExecutionPanel({ flowId, inputs, trace, loading, onExecute }: FlowE
   ).length;
   const runningNode = Object.values(nodeResults).find((r) => r.status === 'running');
   const traceStatus = trace?.flowId === flowId ? trace.status : null;
+  const missingRequiredInputs = inputs.filter((input) => {
+    if (!input.required || input.defaultValue !== undefined) {
+      return false;
+    }
+    return (inputValues[input.name] ?? '').trim() === '';
+  });
 
   const handleRun = () => {
     const parsed: Record<string, unknown> = {};
@@ -125,7 +133,7 @@ function FlowExecutionPanel({ flowId, inputs, trace, loading, onExecute }: FlowE
       <Button
         size="sm"
         className="h-7 w-full gap-1 text-xs"
-        disabled={isRunning || loading}
+        disabled={isRunning || loading || missingRequiredInputs.length > 0}
         onClick={handleRun}
       >
         {isRunning ? (
@@ -135,6 +143,12 @@ function FlowExecutionPanel({ flowId, inputs, trace, loading, onExecute }: FlowE
         )}
         {isRunning ? t('executing') : t('run')}
       </Button>
+
+      {missingRequiredInputs.length > 0 && (
+        <div className="rounded border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-[10px] text-amber-700">
+          {t('missingRequiredInputs', { count: missingRequiredInputs.length })}
+        </div>
+      )}
 
       {/* Streaming progress */}
       {isRunning && executionOrder.length > 0 && (
@@ -201,6 +215,126 @@ function FlowExecutionPanel({ flowId, inputs, trace, loading, onExecute }: FlowE
   );
 }
 
+type SessionInteractionPanelProps = {
+  run: RunView | null;
+  loading: boolean;
+  onContinue: (input?: string) => void;
+  onStep: (input?: string) => void;
+};
+
+function SessionInteractionPanel({
+  run,
+  loading,
+  onContinue,
+  onStep,
+}: SessionInteractionPanelProps) {
+  const { t } = useTranslation('session');
+  const [draftInput, setDraftInput] = useState('');
+
+  useEffect(() => {
+    if (!run?.waiting_for) {
+      setDraftInput('');
+      return;
+    }
+
+    if (run.waiting_for.kind === 'choice') {
+      setDraftInput(run.waiting_for.options?.[0]?.value ?? '');
+      return;
+    }
+
+    setDraftInput('');
+  }, [run?.run_id, run?.waiting_for?.kind, run?.waiting_for?.step_id, run?.waiting_for?.options]);
+
+  if (!run) {
+    return null;
+  }
+
+  if (run.status === 'waiting_input' && run.waiting_for) {
+    return (
+      <div className="space-y-3 rounded-lg border bg-muted/20 px-3 py-3">
+        <div className="space-y-1">
+          <div className="text-xs font-medium text-muted-foreground">
+            {run.waiting_for.kind === 'choice' ? t('runtime.chooseAction') : t('runtime.waitingInput')}
+          </div>
+          {run.waiting_for.prompt_text ? (
+            <div className="text-sm">{run.waiting_for.prompt_text}</div>
+          ) : null}
+        </div>
+
+        {run.waiting_for.kind === 'choice' ? (
+          <div className="flex flex-wrap gap-2">
+            {(run.waiting_for.options ?? []).map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => setDraftInput(option.value)}
+                className={cn(
+                  'rounded-full border px-2.5 py-1 text-xs transition-colors',
+                  draftInput === option.value
+                    ? 'border-primary bg-primary/10 text-primary'
+                    : 'hover:bg-muted',
+                )}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-1">
+            <Label className="text-xs">{t('runtime.textInput')}</Label>
+            <Textarea
+              value={draftInput}
+              onChange={(event) => setDraftInput(event.target.value)}
+              placeholder={t('runtime.inputPlaceholder')}
+              className="min-h-[88px] text-sm"
+              disabled={loading}
+            />
+          </div>
+        )}
+
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            className="h-8 gap-1 text-xs"
+            disabled={loading || (run.waiting_for.kind === 'choice' && !draftInput)}
+            onClick={() => onContinue(draftInput)}
+          >
+            <Play className="size-3" />
+            {t('runtime.continue')}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 gap-1 text-xs"
+            disabled={loading || (run.waiting_for.kind === 'choice' && !draftInput)}
+            onClick={() => onStep(draftInput)}
+          >
+            {t('runtime.stepSubmit')}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (run.status === 'paused') {
+    return (
+      <div className="rounded-lg border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+        {t('runtime.runPaused')}
+      </div>
+    );
+  }
+
+  if (run.status === 'ended') {
+    return (
+      <div className="rounded-lg border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+        {t('runtime.runStopped')}
+      </div>
+    );
+  }
+
+  return null;
+}
+
 // ── Main Sidebar ──────────────────────────────────────────────────────
 
 export function DebugStreamSidebar({ compact }: { compact?: boolean } = {}) {
@@ -215,7 +349,9 @@ export function DebugStreamSidebar({ compact }: { compact?: boolean } = {}) {
     runCommandLoading: loading,
     runCommandError: error,
   } = useRunDebug();
-  const { createRun, createSmokeRun, refreshRuns, selectRun, executeFlow } = useStudioCommands();
+  const { session } = useStudioResources();
+  const { activeViewId } = useWorkbench();
+  const { createRun, createSmokeRun, refreshRuns, selectRun, executeFlow, advanceRun, stepRun } = useStudioCommands();
   const { flowId: activeFlowId, flow: activeFlow } = useFlowResource();
   const setHighlightedNode = useCanvasSelection((s) => s.setHighlightedNode);
   const requestFitView = useCanvasSelection((s) => s.requestFitView);
@@ -259,9 +395,25 @@ export function DebugStreamSidebar({ compact }: { compact?: boolean } = {}) {
     void executeFlow(flowId, input);
   }, [executeFlow]);
 
+  const handleContinueWithInput = useCallback((input?: string) => {
+    if (!selectedRunId) {
+      return;
+    }
+    void advanceRun(selectedRunId, input);
+  }, [advanceRun, selectedRunId]);
+
+  const handleStepWithInput = useCallback((input?: string) => {
+    if (!selectedRunId) {
+      return;
+    }
+    void stepRun(selectedRunId, input);
+  }, [selectedRunId, stepRun]);
+
   const filteredTimeline = selectedTimeline.filter((entry) => matchesFilter(entry, filter));
   const statusConfig = selectedRun ? getRunStatusConfig(selectedRun.status) : null;
   const StatusIcon = statusConfig?.icon;
+  const showRunCreationActions =
+    !selectedRun || selectedRun.status === 'ended' || selectedRun.status === 'error';
 
   return (
     <div className="flex h-full flex-col">
@@ -287,7 +439,7 @@ export function DebugStreamSidebar({ compact }: { compact?: boolean } = {}) {
       )}
 
       {/* Flow execution panel — shown when a flow is active */}
-      {activeFlowId && (
+      {activeViewId === 'kal.flow' && activeFlowId && (
         <FlowExecutionPanel
           flowId={activeFlowId}
           inputs={flowInputs}
@@ -299,27 +451,38 @@ export function DebugStreamSidebar({ compact }: { compact?: boolean } = {}) {
 
       {/* Run selector + actions */}
       <div className="space-y-2 border-b px-4 py-3">
-        <div className="flex gap-1.5">
-          <Button
-            size="sm"
-            className="h-7 gap-1 text-xs"
-            disabled={loading}
-            onClick={() => void createRun(true)}
-          >
-            <Play className="size-3" />
-            {t('newRun')}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-7 gap-1 text-xs"
-            disabled={loading}
-            onClick={() => void createSmokeRun()}
-          >
-            <Rocket className="size-3" />
-            {t('stream.smokeRun')}
-          </Button>
-        </div>
+        {showRunCreationActions ? (
+          <div className="flex gap-1.5">
+            <Button
+              size="sm"
+              className="h-7 gap-1 text-xs"
+              disabled={loading || !session}
+              onClick={() => void createRun(true)}
+            >
+              <Play className="size-3" />
+              {t('newRun')}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 gap-1 text-xs"
+              disabled={loading || !session}
+              onClick={() => void createRun(true, 'step')}
+            >
+              {t('step')}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 gap-1 text-xs"
+              disabled={loading || !session}
+              onClick={() => void createSmokeRun()}
+            >
+              <Rocket className="size-3" />
+              {t('stream.smokeRun')}
+            </Button>
+          </div>
+        ) : null}
 
         {/* Active run status */}
         {selectedRun && StatusIcon && (
@@ -332,8 +495,15 @@ export function DebugStreamSidebar({ compact }: { compact?: boolean } = {}) {
           </div>
         )}
 
-        {/* Step control toolbar (visible when paused) */}
+        <SessionInteractionPanel
+          run={selectedRun}
+          loading={loading}
+          onContinue={handleContinueWithInput}
+          onStep={handleStepWithInput}
+        />
+
         <StepControlToolbar />
+        <DebugStateContextCard />
 
         {error && (
           <div className="rounded border border-destructive/50 bg-destructive/10 px-2 py-1.5 text-xs text-destructive">

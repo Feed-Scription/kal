@@ -74,6 +74,15 @@
     "preview": "预览",
     "noState": "当前项目没有可展示的状态。"
   },
+  "stateContext": {
+    "title": "相关状态",
+    "sessionStepSubtitle": "Session Step {{id}} 引用的状态键",
+    "sessionCurrentSubtitle": "当前 Session Step {{id}} 引用的状态键",
+    "flowNodeSubtitle": "Flow 节点 {{id}} 引用的状态键",
+    "flowTraceSubtitle": "最近一次 Flow 调试过程中涉及的状态键",
+    "changed": "已变更",
+    "unknownType": "未知"
+  },
   "stream": {
     "smokeRun": "冒烟测试",
     "filterAll": "全部",

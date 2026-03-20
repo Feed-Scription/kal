@@ -9,8 +9,8 @@ import {
   type LLMResponseEvent,
 } from '@kal-ai/core';
 import { resolve } from 'node:path';
-import { buildCliDiagnostic, buildDebugDiagnostic } from '../debug/diagnostic-builder';
-import { DebugSessionManager } from '../debug/session-manager';
+import { buildCliDiagnostic, buildDebugDiagnostic } from '../../debug/diagnostic-builder';
+import { DebugSessionManager } from '../../debug/session-manager';
 import type {
   DebugActionDescriptor,
   DebugAdvancePayload,
@@ -25,12 +25,12 @@ import type {
   DebugWaitingForPayload,
   DiagnosticPayload,
   StateChangeLogEntry,
-} from '../debug/types';
-import { formatEngineError, EngineHttpError } from '../errors';
-import { RunManager } from '../run-manager';
-import { buildRunStateSummary, createRunnerDeps, toRunEvent, toRunWaitingFor } from '../run-views';
-import type { EngineCliIO } from '../types';
-import type { EngineRuntime } from '../runtime';
+} from '../../debug/types';
+import { formatEngineError, EngineHttpError } from '../../errors';
+import { RunManager } from '../../run-manager';
+import { buildRunStateSummary, createRunnerDeps, toRunEvent, toRunWaitingFor } from '../../run-views';
+import type { EngineCliIO } from '../../types';
+import type { EngineRuntime } from '../../runtime';
 
 interface DebugCommandDependencies {
   cwd: string;

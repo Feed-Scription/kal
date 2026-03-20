@@ -2,6 +2,7 @@
  * Lint command - static analysis for KAL projects
  */
 
+import { defineCommand } from 'citty';
 import { resolve } from 'node:path';
 import { loadEngineProject } from '../project-loader';
 import { validateSessionDefinition, BUILTIN_NODES, CustomNodeLoader, NodeRegistry } from '@kal-ai/core';
@@ -10,6 +11,8 @@ import type { CustomNode } from '@kal-ai/core';
 import type { EngineCliIO } from '../types';
 import { buildCliDiagnostic } from '../debug/diagnostic-builder';
 import type { DiagnosticPayload } from '../debug/types';
+import { getCliContext, setExitCode } from '../cli-context';
+import { formatArg, projectPathArg } from './_shared';
 
 interface LintCommandDependencies {
   cwd: string;
@@ -348,6 +351,28 @@ function validateFlowNodesDeep(
 
   return diagnostics;
 }
+
+export default defineCommand({
+  meta: {
+    name: 'lint',
+    description: 'Run static analysis for a KAL project',
+  },
+  args: {
+    projectPath: projectPathArg,
+    format: formatArg,
+  },
+  async run({ args }) {
+    const { cwd, io } = getCliContext();
+    const tokens: string[] = [];
+    if (typeof args.projectPath === 'string') {
+      tokens.push(args.projectPath);
+    }
+    if (typeof args.format === 'string') {
+      tokens.push('--format', args.format);
+    }
+    setExitCode(await runLintCommand(tokens, { cwd, io }));
+  },
+});
 
 function validateNodeConfig(
   nodeId: string,

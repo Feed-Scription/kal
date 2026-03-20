@@ -2,9 +2,11 @@
  * Init command - scaffold a new KAL project
  */
 
+import { defineCommand } from 'citty';
 import { resolve, join, dirname } from 'node:path';
 import { mkdir, writeFile, access } from 'node:fs/promises';
 import type { EngineCliIO } from '../types';
+import { getCliContext, setExitCode } from '../cli-context';
 import { getTemplateFiles, type TemplateId } from '../scaffold-templates';
 
 interface InitCommandDependencies {
@@ -109,3 +111,33 @@ export async function runInitCommand(
 
   return 0;
 }
+
+export default defineCommand({
+  meta: {
+    name: 'init',
+    description: 'Scaffold a new KAL project',
+  },
+  args: {
+    projectName: {
+      type: 'positional',
+      description: 'Name of the project to create',
+      required: false,
+    },
+    template: {
+      type: 'string',
+      description: 'Project template',
+      default: 'minimal',
+    },
+  },
+  async run({ args }) {
+    const { cwd, io } = getCliContext();
+    const tokens: string[] = [];
+    if (typeof args.projectName === 'string') {
+      tokens.push(args.projectName);
+    }
+    if (typeof args.template === 'string') {
+      tokens.push('--template', args.template);
+    }
+    setExitCode(await runInitCommand(tokens, { cwd, io }));
+  },
+});

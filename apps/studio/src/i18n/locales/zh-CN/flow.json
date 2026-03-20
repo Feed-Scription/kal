@@ -40,6 +40,7 @@
   "fillInputs": "填写输入参数后执行",
   "clickToRun": "点击运行执行此 Flow",
   "required": "(必填)",
+  "missingRequiredInputs": "还有 {{count}} 个必填输入未填写，暂时不能执行。",
   "executing": "执行中...",
   "executionSuccess": "执行成功",
   "close": "关闭",

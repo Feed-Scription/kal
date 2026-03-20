@@ -30,9 +30,9 @@ import type {
 import { EngineRuntime } from './runtime';
 import { collectLintPayload } from './commands/lint';
 import { collectSmokePayload } from './commands/smoke';
-import { collectSchemaNodesPayload } from './commands/schema';
+import { collectSchemaNodesPayload } from './commands/schema/nodes';
 import { buildReferenceIndex, buildSearchIndex, searchProject } from './reference-graph';
-import { buildComparison } from './commands/eval';
+import { buildComparison } from './commands/eval/_helpers';
 
 function setCorsHeaders(res: ServerResponse): void {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -723,6 +723,12 @@ export async function handleEngineRequest(
 
       if (method === 'GET' && !action) {
         success(res, { run: await runs.getRun({ runId }) });
+        return;
+      }
+
+      if (method === 'DELETE' && !action) {
+        await runs.deleteRun(runId);
+        success(res, { deleted: true, run_id: runId });
         return;
       }
 
