@@ -54,6 +54,19 @@ export class ExecutionError extends KalError {
 }
 
 /**
+ * Flow run timeout error
+ */
+export class FlowRunTimeoutError extends KalError {
+  constructor(flowId: string, timeoutMs: number) {
+    super(`Flow "${flowId}" execution timeout after ${timeoutMs}ms`, 'FLOW_RUN_TIMEOUT', {
+      flowId,
+      timeoutMs,
+    });
+    this.name = 'FlowRunTimeoutError';
+  }
+}
+
+/**
  * Configuration error
  */
 export class ConfigError extends KalError {

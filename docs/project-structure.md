@@ -30,7 +30,8 @@ Engine and LLM provider configuration. This is the only file that touches infras
   "engine": {
     "logLevel": "warn",
     "maxConcurrentFlows": 1,
-    "timeout": 60000
+    "nodeTimeout": 60000,
+    "runTimeout": 0
   },
   "llm": {
     "provider": "openai",

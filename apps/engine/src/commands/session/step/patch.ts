@@ -1,7 +1,7 @@
 import { defineCommand } from 'citty';
 import { EngineHttpError } from '../../../errors';
 import { deepMerge, ensureRuntime, projectPathArg, runEnvelopeCommand, parseSetArgs, toStringArray } from '../../_shared';
-import { findStepIndex, mutateSession } from '../_helpers';
+import { findStepIndex, flowCheckArg, mutateSession, resolveFlowValidationMode, skipFlowCheckArg } from '../_helpers';
 
 export default defineCommand({
   meta: {
@@ -19,13 +19,19 @@ export default defineCommand({
       type: 'string',
       description: 'Field assignment like key.path=value',
     },
+    'flow-check': flowCheckArg,
+    'skip-flow-check': skipFlowCheckArg,
   },
   async run({ args }) {
     await runEnvelopeCommand('session.step.patch', async () => {
       const stepId = typeof args.stepId === 'string' ? args.stepId : '';
       const operations = toStringArray(args.set);
-      const { runtime } = await ensureRuntime(typeof args.projectPath === 'string' ? args.projectPath : undefined);
-      const session = await mutateSession(runtime, (draft) => {
+      const flowValidationMode = resolveFlowValidationMode(args);
+      const { runtime } = await ensureRuntime(
+        typeof args.projectPath === 'string' ? args.projectPath : undefined,
+        { sessionFlowValidationMode: 'warn' },
+      );
+      const result = await mutateSession(runtime, (draft) => {
         const index = findStepIndex(draft, stepId);
         const patched = deepMerge(draft.steps[index]!, parseSetArgs(operations));
         if (patched.id !== stepId) {
@@ -33,10 +39,13 @@ export default defineCommand({
         }
         draft.steps[index] = patched;
         return draft;
-      });
+      }, { flowValidationMode });
       return {
-        step: session.steps.find((step) => step.id === stepId),
-        session,
+        data: {
+          step: result.session.steps.find((step) => step.id === stepId),
+          session: result.session,
+        },
+        warnings: result.warnings,
       };
     });
   },

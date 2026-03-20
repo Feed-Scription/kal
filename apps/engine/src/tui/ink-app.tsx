@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { EngineRuntime } from '../runtime';
 import { resolveBuiltinCommand, resolveChoiceSubmission } from './controls';
+import { t, type TuiLocale } from './i18n';
 import {
   createOutputViewModel,
   createStateRows,
@@ -39,13 +40,16 @@ type WaitingState =
 export interface InkTuiAppProps {
   runtime: TuiRuntime;
   autoExit?: boolean;
+  locale?: TuiLocale;
 }
 
-const helpLines = [
-  '/help  查看帮助',
-  '/state 查看当前状态',
-  '/quit  退出游戏',
-];
+function getHelpLines(locale: TuiLocale): string[] {
+  return [
+    t(locale, 'help.help'),
+    t(locale, 'help.state'),
+    t(locale, 'help.quit'),
+  ];
+}
 
 const generationFrames = ['|', '/', '-', '\\'];
 
@@ -57,31 +61,32 @@ function cloneState(state: Record<string, StateValue>): Record<string, StateValu
   return JSON.parse(JSON.stringify(state)) as Record<string, StateValue>;
 }
 
-export function getFooterHint(waiting: WaitingState | null): string {
+export function getFooterHint(waiting: WaitingState | null, locale: TuiLocale = 'en'): string {
   if (!waiting) {
-    return '会话已结束';
+    return t(locale, 'footer.ended');
   }
 
   if (waiting.kind === 'prompt') {
-    return '输入文本后回车，支持 /help /state /quit';
+    return t(locale, 'footer.promptHint');
   }
 
-  return '方向键选择并回车，或直接输入数字；支持 /help /state /quit';
+  return t(locale, 'footer.choiceHint');
 }
 
-export function getGenerationStatus(frame: number): { hint: string; body: string } {
+export function getGenerationStatus(frame: number, locale: TuiLocale = 'en'): { hint: string; body: string } {
   const indicator = generationFrames[frame % generationFrames.length] ?? generationFrames[0]!;
   return {
-    hint: `正在生成中 ${indicator}`,
-    body: `请稍候，正在生成下一段内容 ${indicator}`,
+    hint: t(locale, 'gen.hint', { indicator }),
+    body: t(locale, 'gen.body', { indicator }),
   };
 }
 
 export function createPlayerInputEntry(
   waiting: WaitingState,
   submittedText: string,
+  locale: TuiLocale = 'en',
 ): LogEntryInput {
-  const title = waiting.promptText ?? (waiting.kind === 'choice' ? '你的选择' : '你的输入');
+  const title = waiting.promptText ?? (waiting.kind === 'choice' ? t(locale, 'input.yourChoice') : t(locale, 'input.yourInput'));
   return {
     kind: 'input',
     title,
@@ -95,11 +100,12 @@ function beginGenerationState(setWaiting: (value: WaitingState | null) => void, 
   setIsBusy(true);
 }
 
-export function InkTuiApp({ runtime, autoExit = true }: InkTuiAppProps) {
+export function InkTuiApp({ runtime, autoExit = true, locale = 'en' }: InkTuiAppProps) {
   const { exit } = useApp();
   const generatorRef = useRef(runtime.createSession());
   const nextEntryIdRef = useRef(1);
   const pumpingRef = useRef(false);
+  const pumpRef = useRef<(input?: string) => Promise<void>>(null!);
   const mountedRef = useRef(true);
 
   const projectInfo = runtime.getProjectInfo();
@@ -141,32 +147,34 @@ export function InkTuiApp({ runtime, autoExit = true }: InkTuiAppProps) {
     const action = resolveBuiltinCommand(command);
     if (action === 'help') {
       appendEntry({ kind: 'help' });
-      setInputValue('');
+      if (mountedRef.current) setInputValue('');
       return true;
     }
 
     if (action === 'state') {
       appendEntry({
         kind: 'state',
-        title: '当前状态',
+        title: t(locale, 'cmd.currentState'),
         state: cloneState(runtime.getState()),
       });
-      setInputValue('');
+      if (mountedRef.current) setInputValue('');
       return true;
     }
 
     if (action === 'quit') {
       appendEntry({
         kind: 'system',
-        title: '会话结束',
-        body: '再见!',
+        title: t(locale, 'cmd.sessionEnd'),
+        body: t(locale, 'cmd.goodbye'),
       });
-      setWaiting(null);
-      setInputValue('');
+      if (mountedRef.current) {
+        setWaiting(null);
+        setInputValue('');
+      }
       try {
         await generatorRef.current.return(undefined);
       } finally {
-        if (autoExit) {
+        if (mountedRef.current && autoExit) {
           setShouldExit(true);
         }
       }
@@ -262,55 +270,47 @@ export function InkTuiApp({ runtime, autoExit = true }: InkTuiAppProps) {
       }
     }
   }, [appendEntry, finishSession]);
+  pumpRef.current = pump;
 
   const submitCurrentInput = useCallback(async () => {
-    if (!waiting) {
-      return;
-    }
-
+    if (!waiting) return;
     const trimmed = inputValue.trim();
-    if (await processCommand(trimmed)) {
-      return;
-    }
 
     if (waiting.kind === 'prompt') {
-      if (!trimmed) {
-        return;
-      }
-      appendEntry(createPlayerInputEntry(waiting, trimmed));
+      if (await processCommand(trimmed)) return;
+      if (!trimmed) return;
+      appendEntry(createPlayerInputEntry(waiting, trimmed, locale));
       beginGenerationState(setWaiting, setInputValue, setIsBusy);
-      await pump(trimmed);
+      await pumpRef.current(trimmed);
       return;
     }
 
+    // choice mode — resolveChoiceSubmission handles commands internally
     const resolution = resolveChoiceSubmission(trimmed, waiting.options, selectedChoiceIndex);
     if (resolution.kind === 'command') {
-      await processCommand(trimmed);
+      await processCommand(`/${resolution.command}`);
       return;
     }
-    if (resolution.kind === 'noop') {
-      return;
-    }
+    if (resolution.kind === 'noop') return;
     if (resolution.kind === 'submit') {
-      // Choice history prefers the visible label so the transcript reads like dialogue,
-      // instead of logging the raw numeric shortcut the player typed.
-      const selectedLabel = waiting.options.find((option) => option.value === resolution.value)?.label ?? resolution.value;
-      appendEntry(createPlayerInputEntry(waiting, selectedLabel));
+      const selectedLabel = waiting.options.find((o) => o.value === resolution.value)?.label ?? resolution.value;
+      appendEntry(createPlayerInputEntry(waiting, selectedLabel, locale));
       beginGenerationState(setWaiting, setInputValue, setIsBusy);
-      await pump(resolution.value);
+      await pumpRef.current(resolution.value);
       return;
     }
 
     appendEntry({
       kind: 'system',
-      title: '输入无效',
-      body: `请选择 1-${waiting.options.length} 之间的数字，或使用方向键后按 Enter`,
+      title: t(locale, 'cmd.invalidInput'),
+      body: t(locale, 'cmd.invalidChoiceBody', { max: waiting.options.length }),
     });
     setInputValue('');
-  }, [appendEntry, inputValue, processCommand, pump, selectedChoiceIndex, waiting]);
+  }, [appendEntry, inputValue, processCommand, selectedChoiceIndex, waiting]);
 
   useInput((input, key) => {
     if (key.ctrl && input === 'c') {
+      if (shouldExit) return;
       void processCommand('/quit');
       return;
     }
@@ -319,12 +319,14 @@ export function InkTuiApp({ runtime, autoExit = true }: InkTuiAppProps) {
       return;
     }
 
-    if (waiting.kind === 'choice' && inputValue.length === 0) {
+    if (waiting.kind === 'choice') {
       if (key.upArrow) {
+        if (inputValue.length > 0) setInputValue('');
         setSelectedChoiceIndex((current) => Math.max(0, current - 1));
         return;
       }
       if (key.downArrow) {
+        if (inputValue.length > 0) setInputValue('');
         setSelectedChoiceIndex((current) => Math.min(waiting.options.length - 1, current + 1));
         return;
       }
@@ -352,13 +354,14 @@ export function InkTuiApp({ runtime, autoExit = true }: InkTuiAppProps) {
 
   useEffect(() => {
     mountedRef.current = true;
-    void pump();
+    void pumpRef.current();
 
     return () => {
       mountedRef.current = false;
       void generatorRef.current.return(undefined);
     };
-  }, [pump]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!shouldExit) {
@@ -382,20 +385,20 @@ export function InkTuiApp({ runtime, autoExit = true }: InkTuiAppProps) {
     return () => clearInterval(timer);
   }, [isBusy]);
 
-  const generationStatus = useMemo(() => getGenerationStatus(busyFrame), [busyFrame]);
+  const generationStatus = useMemo(() => getGenerationStatus(busyFrame, locale), [busyFrame, locale]);
 
   const footerHint = useMemo(() => {
     if (!waiting && isBusy) {
       return generationStatus.hint;
     }
 
-    return getFooterHint(waiting);
-  }, [generationStatus.hint, isBusy, waiting]);
+    return getFooterHint(waiting, locale);
+  }, [generationStatus.hint, isBusy, locale, waiting]);
 
   return (
     <Box flexDirection="column" padding={1}>
       <Static items={entries}>
-        {(entry) => <LogEntryView key={entry.id} entry={entry} />}
+        {(entry) => <LogEntryView key={entry.id} entry={entry} locale={locale} />}
       </Static>
 
       <Box marginTop={1} borderStyle="round" borderColor={waiting ? 'green' : 'gray'} flexDirection="column" paddingX={1}>
@@ -404,7 +407,7 @@ export function InkTuiApp({ runtime, autoExit = true }: InkTuiAppProps) {
         {waiting ? (
           <>
             <Box marginTop={1}>
-              <Text color="green">{waiting.promptText ?? '等待输入'}</Text>
+              <Text color="green">{waiting.promptText ?? t(locale, 'ui.waitingInput')}</Text>
             </Box>
             {waiting.kind === 'choice' ? (
               <>
@@ -416,8 +419,8 @@ export function InkTuiApp({ runtime, autoExit = true }: InkTuiAppProps) {
                   ))}
                 </Box>
                 <Box marginTop={1}>
-                  <Text color="gray">输入命令或数字: </Text>
-                  <Text>{inputValue || '(回车直接确认当前选项)'}</Text>
+                  <Text color="gray">{t(locale, 'ui.inputPrompt')}</Text>
+                  <Text>{inputValue || t(locale, 'ui.enterConfirm')}</Text>
                 </Box>
               </>
             ) : (
@@ -429,14 +432,14 @@ export function InkTuiApp({ runtime, autoExit = true }: InkTuiAppProps) {
             )}
           </>
         ) : (
-          <Text dimColor>{isBusy ? generationStatus.body : '游戏已结束，按 Ctrl+C 返回终端'}</Text>
+          <Text dimColor>{isBusy ? generationStatus.body : t(locale, 'ui.gameEnded')}</Text>
         )}
       </Box>
     </Box>
   );
 }
 
-function LogEntryView({ entry }: { entry: LogEntry }) {
+function LogEntryView({ entry, locale }: { entry: LogEntry; locale: TuiLocale }) {
   if (entry.kind === 'welcome') {
     return (
       <Card borderColor="blue" title={entry.name}>
@@ -451,7 +454,7 @@ function LogEntryView({ entry }: { entry: LogEntry }) {
         {entry.primaryText ? <Text>{entry.primaryText}</Text> : null}
         {entry.stateChanges.length > 0 ? (
           <Box flexDirection="column" marginTop={entry.primaryText ? 1 : 0}>
-            <Text color="yellow">状态变化</Text>
+            <Text color="yellow">{t(locale, 'ui.stateChanges')}</Text>
             {entry.stateChanges.map(({ key, value }) => (
               <Text key={key}>
                 {key}: {formatStateValueText(value)}
@@ -468,7 +471,7 @@ function LogEntryView({ entry }: { entry: LogEntry }) {
 
   if (entry.kind === 'input') {
     return (
-      <Card borderColor="blue" title={`你 · ${entry.title}`}>
+      <Card borderColor="blue" title={`${t(locale, 'ui.you')} · ${entry.title}`}>
         <Text color="cyanBright">{entry.body}</Text>
       </Card>
     );
@@ -479,7 +482,7 @@ function LogEntryView({ entry }: { entry: LogEntry }) {
     return (
       <Card borderColor="yellow" title={entry.title}>
         {rows.length === 0 ? (
-          <Text dimColor>(空)</Text>
+          <Text dimColor>{t(locale, 'ui.empty')}</Text>
         ) : (
           rows.map((row) => (
             <Text key={row.key}>
@@ -492,8 +495,9 @@ function LogEntryView({ entry }: { entry: LogEntry }) {
   }
 
   if (entry.kind === 'help') {
+    const helpLines = getHelpLines(locale);
     return (
-      <Card borderColor="magenta" title="帮助">
+      <Card borderColor="magenta" title={t(locale, 'ui.help')}>
         {helpLines.map((line) => (
           <Text key={line}>{line}</Text>
         ))}
@@ -511,15 +515,15 @@ function LogEntryView({ entry }: { entry: LogEntry }) {
 
   if (entry.kind === 'error') {
     return (
-      <Card borderColor="red" title="错误">
+      <Card borderColor="red" title={t(locale, 'ui.error')}>
         <Text color="red">{entry.message}</Text>
       </Card>
     );
   }
 
   return (
-    <Card borderColor="green" title="结束">
-      <Text>{entry.message ?? '游戏结束'}</Text>
+    <Card borderColor="green" title={t(locale, 'ui.end')}>
+      <Text>{entry.message ?? t(locale, 'ui.gameOver')}</Text>
     </Card>
   );
 }

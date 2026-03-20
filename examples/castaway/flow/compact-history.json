@@ -1,0 +1,182 @@
+{
+  "meta": {
+    "schemaVersion": "1.0",
+    "name": "compact-history",
+    "description": "Compress conversation history into a summary",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "result",
+        "type": "string"
+      }
+    ]
+  },
+  "data": {
+    "nodes": [
+      {
+        "id": "prompt",
+        "type": "PromptBuild",
+        "config": {
+          "defaultRole": "system",
+          "fragments": [
+            {
+              "id": "task",
+              "type": "base",
+              "content": "你是一个荒岛生存游戏的历史记录压缩器。将下面的游戏历史对话记录压缩成2-3句话的摘要，保留关键事件、重要决策和当前状态趋势。用第三人称叙述。如果已有之前的摘要，将新内容整合进去。"
+            },
+            {
+              "id": "history",
+              "type": "field",
+              "source": "state.history",
+              "label": "对话历史"
+            },
+            {
+              "id": "prev-summary",
+              "type": "field",
+              "source": "state.summary",
+              "label": "之前的摘要"
+            }
+          ]
+        },
+        "inputs": [
+          {
+            "name": "data",
+            "type": "object",
+            "defaultValue": {}
+          }
+        ],
+        "outputs": [
+          {
+            "name": "text",
+            "type": "string"
+          },
+          {
+            "name": "estimatedTokens",
+            "type": "number"
+          }
+        ]
+      },
+      {
+        "id": "message",
+        "type": "Message",
+        "config": {},
+        "inputs": [
+          {
+            "name": "system",
+            "type": "string"
+          },
+          {
+            "name": "context",
+            "type": "string"
+          },
+          {
+            "name": "user",
+            "type": "string"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "messages",
+            "type": "ChatMessage[]"
+          }
+        ]
+      },
+      {
+        "id": "llm",
+        "type": "GenerateText",
+        "config": {
+          "temperature": 0.3,
+          "maxTokens": 2000,
+          "timeout": 120000
+        },
+        "inputs": [
+          {
+            "name": "messages",
+            "type": "ChatMessage[]",
+            "required": true
+          },
+          {
+            "name": "historyUserMessage",
+            "type": "string"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "text",
+            "type": "string"
+          },
+          {
+            "name": "usage",
+            "type": "object"
+          }
+        ]
+      },
+      {
+        "id": "compact",
+        "type": "CompactHistory",
+        "config": {
+          "historyKey": "history",
+          "summaryKey": "summary"
+        },
+        "inputs": [
+          {
+            "name": "summary",
+            "type": "string",
+            "required": true
+          }
+        ],
+        "outputs": [
+          {
+            "name": "success",
+            "type": "boolean"
+          }
+        ]
+      },
+      {
+        "id": "signal-out",
+        "type": "SignalOut",
+        "config": {
+          "channel": "result"
+        },
+        "inputs": [
+          {
+            "name": "data",
+            "type": "string"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "data",
+            "type": "string"
+          }
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "source": "prompt",
+        "sourceHandle": "text",
+        "target": "message",
+        "targetHandle": "system"
+      },
+      {
+        "source": "message",
+        "sourceHandle": "messages",
+        "target": "llm",
+        "targetHandle": "messages"
+      },
+      {
+        "source": "llm",
+        "sourceHandle": "text",
+        "target": "compact",
+        "targetHandle": "summary"
+      },
+      {
+        "source": "llm",
+        "sourceHandle": "text",
+        "target": "signal-out",
+        "targetHandle": "data"
+      }
+    ]
+  }
+}

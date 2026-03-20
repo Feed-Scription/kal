@@ -11,7 +11,10 @@ export default defineCommand({
   },
   async run({ args }) {
     await runEnvelopeCommand('session.delete', async () => {
-      const { runtime } = await ensureRuntime(typeof args.projectPath === 'string' ? args.projectPath : undefined);
+      const { runtime } = await ensureRuntime(
+        typeof args.projectPath === 'string' ? args.projectPath : undefined,
+        { sessionFlowValidationMode: 'warn' },
+      );
       await runtime.deleteSession();
       return {
         deleted: true,

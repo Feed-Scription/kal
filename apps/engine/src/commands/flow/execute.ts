@@ -19,19 +19,21 @@ export default defineCommand({
     },
     file: {
       type: 'string',
-      description: 'Read input JSON from a file',
+      description: 'Read input JSON from a file path, or use - for stdin',
     },
     stdin: {
       type: 'boolean',
-      description: 'Read input JSON from stdin',
+      description: 'Force reading input JSON from stdin',
       default: false,
     },
   },
   async run({ args }) {
     await runEnvelopeCommand('flow.execute', async () => {
       const flowId = typeof args.flowId === 'string' ? args.flowId : '';
-      const { runtime } = await ensureRuntime(typeof args.projectPath === 'string' ? args.projectPath : undefined);
-      const input = (typeof args.input === 'string' || typeof args.file === 'string' || args.stdin === true)
+      const { runtime } = await ensureRuntime(
+        typeof args.projectPath === 'string' ? args.projectPath : undefined,
+      );
+      const input = (typeof args.input === 'string' || typeof args.file === 'string' || args.stdin === true || !process.stdin.isTTY)
         ? await readJsonInput({
             file: typeof args.file === 'string' ? args.file : undefined,
             json: typeof args.input === 'string' ? args.input : undefined,

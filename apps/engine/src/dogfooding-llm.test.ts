@@ -108,7 +108,7 @@ async function createLLMProject(): Promise<{ projectRoot: string; cleanup(): Pro
   const config = {
     name: 'llm-dogfood',
     version: '1.0.0',
-    engine: { logLevel: 'error', maxConcurrentFlows: 4, timeout: 30000 },
+    engine: { logLevel: 'error', maxConcurrentFlows: 4, nodeTimeout: 30000, runTimeout: 0 },
     llm: {
       provider: 'openai',
       apiKey: '${OPENAI_API_KEY}',

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { validateSessionDefinition } from '../../session/session-loader';
+import { validateSessionDefinition, validateSessionDefinitionDetailed } from '../../session/session-loader';
 
 describe('validateSessionDefinition', () => {
   const flowIds = ['intro', 'main', 'outro-death', 'outro-win', 'save-race'];
@@ -51,6 +51,57 @@ describe('validateSessionDefinition', () => {
       ],
     }, flowIds);
     expect(errors.some((e) => e.message.includes('nonexistent'))).toBe(true);
+  });
+
+  it('can skip missing flowRef checks while editing a session skeleton', () => {
+    const errors = validateSessionDefinition({
+      schemaVersion: '1.0.0',
+      steps: [
+        { id: 'intro', type: 'RunFlow', flowRef: 'future-flow', next: 'end' },
+        { id: 'end', type: 'End' },
+      ],
+    }, flowIds, { skipFlowRefChecks: true });
+
+    expect(errors).toEqual([]);
+  });
+
+  it('can downgrade missing flowRef checks to warnings', () => {
+    const result = validateSessionDefinitionDetailed({
+      schemaVersion: '1.0.0',
+      steps: [
+        { id: 'intro', type: 'RunFlow', flowRef: 'future-flow', next: 'end' },
+        { id: 'end', type: 'End' },
+      ],
+    }, flowIds, { flowValidationMode: 'warn' });
+
+    expect(result.errors).toEqual([]);
+    expect(result.warnings).toHaveLength(1);
+    expect(result.warnings[0]?.message).toContain('future-flow');
+  });
+
+  it('can ignore missing flowRef checks entirely', () => {
+    const result = validateSessionDefinitionDetailed({
+      schemaVersion: '1.0.0',
+      steps: [
+        { id: 'intro', type: 'RunFlow', flowRef: 'future-flow', next: 'end' },
+        { id: 'end', type: 'End' },
+      ],
+    }, flowIds, { flowValidationMode: 'ignore' });
+
+    expect(result.errors).toEqual([]);
+    expect(result.warnings).toEqual([]);
+  });
+
+  it('still rejects structural errors even when flow validation is ignored', () => {
+    const result = validateSessionDefinitionDetailed({
+      schemaVersion: '1.0.0',
+      steps: [
+        { id: 'intro', type: 'RunFlow', flowRef: 'future-flow', next: 'missing' },
+        { id: 'end', type: 'End' },
+      ],
+    }, flowIds, { flowValidationMode: 'ignore' });
+
+    expect(result.errors.some((error) => error.path.endsWith('.next'))).toBe(true);
   });
 
   it('rejects unknown next step reference', () => {

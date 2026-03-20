@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { writeFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { SessionDefinition } from '@kal-ai/core';
 import { RunManager } from './run-manager';
@@ -167,6 +167,34 @@ describe('RunManager', () => {
       code: 'SESSION_HASH_MISMATCH',
     });
     expect(events).toContain('run.invalidated');
+  });
+
+  it('should keep a run resumable when only flow node timeout changes', async () => {
+    const session: SessionDefinition = {
+      schemaVersion: '1.0.0',
+      steps: [
+        { id: 'turn', type: 'Prompt', promptText: 'Your move?', flowRef: 'main', inputChannel: 'message', next: 'end' },
+        { id: 'end', type: 'End', message: 'done' },
+      ],
+    };
+    const fixture = await createTempProject({ session });
+    cleanups.push(fixture.cleanup);
+
+    const runtime = await EngineRuntime.create(fixture.projectRoot);
+    const runs = RunManager.fromRuntime(runtime);
+    const created = await runs.createRun();
+    const flowPath = join(fixture.projectRoot, 'flow', 'main.json');
+    const flow = JSON.parse(await readFile(flowPath, 'utf8'));
+
+    flow.data.nodes[0].config.timeout = 120000;
+    await writeFile(flowPath, JSON.stringify(flow, null, 2), 'utf8');
+
+    const advanced = await runs.advanceRun({
+      runId: created.run.run_id,
+      input: 'alpha',
+    });
+
+    expect(advanced.run.status).toBe('ended');
   });
 
   it('should retry the failed step on the same run', async () => {

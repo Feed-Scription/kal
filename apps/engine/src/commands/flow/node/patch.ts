@@ -30,7 +30,10 @@ export default defineCommand({
       const flowId = typeof args.flowId === 'string' ? args.flowId : '';
       const nodeId = typeof args.nodeId === 'string' ? args.nodeId : '';
       const operations = toStringArray(args.set);
-      const { runtime } = await ensureRuntime(typeof args.projectPath === 'string' ? args.projectPath : undefined);
+      const { runtime } = await ensureRuntime(
+        typeof args.projectPath === 'string' ? args.projectPath : undefined,
+        { sessionFlowValidationMode: 'warn' },
+      );
       const flow = await mutateFlow(runtime, flowId, (draft) => {
         const index = findNodeIndex(draft, nodeId);
         const patched = deepMerge(draft.data.nodes[index]!, parseSetArgs(operations));

@@ -28,5 +28,9 @@ export type {
 export { runSession } from './session-executor';
 export type { SessionEvent, SessionExecutorDeps } from './session-executor';
 
-export { validateSessionDefinition } from './session-loader';
-export type { SessionValidationError } from './session-loader';
+export { validateSessionDefinition, validateSessionDefinitionDetailed } from './session-loader';
+export type {
+  SessionFlowValidationMode,
+  SessionValidationError,
+  SessionValidationResult,
+} from './session-loader';

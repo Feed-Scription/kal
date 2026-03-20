@@ -28,7 +28,10 @@ export default defineCommand({
       const flowId = typeof args.flowId === 'string' ? args.flowId : '';
       const sourceRef = parseNodeHandle(typeof args.source === 'string' ? args.source : '');
       const targetRef = parseNodeHandle(typeof args.target === 'string' ? args.target : '');
-      const { runtime } = await ensureRuntime(typeof args.projectPath === 'string' ? args.projectPath : undefined);
+      const { runtime } = await ensureRuntime(
+        typeof args.projectPath === 'string' ? args.projectPath : undefined,
+        { sessionFlowValidationMode: 'warn' },
+      );
       const flow = await mutateFlow(runtime, flowId, (draft) => {
         const sourceNode = getNode(draft, sourceRef.nodeId);
         const targetNode = getNode(draft, targetRef.nodeId);

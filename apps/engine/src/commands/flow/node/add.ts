@@ -18,7 +18,7 @@ export default defineCommand({
     projectPath: projectPathArg,
     file: {
       type: 'string',
-      description: 'Read node JSON from a file',
+      description: 'Read node JSON from a file path, or use - for stdin',
     },
     json: {
       type: 'string',
@@ -26,14 +26,17 @@ export default defineCommand({
     },
     stdin: {
       type: 'boolean',
-      description: 'Read node JSON from stdin',
+      description: 'Force reading node JSON from stdin',
       default: false,
     },
   },
   async run({ args }) {
     await runEnvelopeCommand('flow.node.add', async () => {
       const flowId = typeof args.flowId === 'string' ? args.flowId : '';
-      const { runtime } = await ensureRuntime(typeof args.projectPath === 'string' ? args.projectPath : undefined);
+      const { runtime } = await ensureRuntime(
+        typeof args.projectPath === 'string' ? args.projectPath : undefined,
+        { sessionFlowValidationMode: 'warn' },
+      );
       const rawNode = await readJsonInput({
         file: typeof args.file === 'string' ? args.file : undefined,
         json: typeof args.json === 'string' ? args.json : undefined,

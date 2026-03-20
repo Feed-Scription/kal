@@ -165,11 +165,27 @@ export function createKalCore(params: {
   // Flow resolver fallback (set by loadFlow)
   let defaultResolver: ((id: string) => string) | undefined;
 
-  // Create flow executor (forward reference for contextFactory)
-  let executor: FlowExecutor;
+  const executeFlowInternal = async (
+    flowDef: FlowDefinition,
+    flowId: string,
+    inputData?: Record<string, any>,
+    resolver?: (id: string) => string,
+    runDeadlineAt?: number,
+  ) => {
+    await ready;
+    const executor = createExecutor(resolver, runDeadlineAt);
+    return executor.execute(
+      flowDef,
+      flowId,
+      inputData,
+      config.engine.maxConcurrentFlows,
+      runDeadlineAt,
+      config.engine.runTimeout,
+    );
+  };
 
   // Context factory that accepts an optional resolver for SubFlow execution
-  const createContextFactory = (resolver?: (id: string) => string) =>
+  const createContextFactory = (resolver?: (id: string) => string, runDeadlineAt?: number) =>
     (executionId: string, nodeId: string): NodeContext => {
       const baseContext = contextFactory(executionId, nodeId);
       const effectiveResolver = resolver ?? defaultResolver;
@@ -179,7 +195,13 @@ export function createKalCore(params: {
           ? {
               execute: async (flowRef: string, inputs: Record<string, any>) => {
                 const subFlow = flowLoader.load(flowRef, effectiveResolver);
-                const result = await executor.execute(subFlow, flowRef, inputs);
+                const result = await executeFlowInternal(
+                  subFlow,
+                  flowRef,
+                  inputs,
+                  effectiveResolver,
+                  runDeadlineAt,
+                );
                 return result.outputs;
               },
             }
@@ -187,12 +209,13 @@ export function createKalCore(params: {
       };
     };
 
-  // Default executor uses no resolver
-  executor = new FlowExecutor({
-    registry,
-    hookManager,
-    contextFactory: createContextFactory(),
-  });
+  const createExecutor = (resolver?: (id: string) => string, runDeadlineAt?: number) =>
+    new FlowExecutor({
+      registry,
+      hookManager,
+      contextFactory: createContextFactory(resolver, runDeadlineAt),
+      defaultNodeTimeoutMs: config.engine.nodeTimeout,
+    });
 
   const ready = (async () => {
     if (customNodes) {
@@ -211,17 +234,8 @@ export function createKalCore(params: {
     ready,
 
     async executeFlow(flowDef: FlowDefinition, flowId: string, inputData?: Record<string, any>, resolver?: (id: string) => string) {
-      await ready;
-      if (resolver) {
-        // Create a dedicated executor with this resolver's context factory
-        const scopedExecutor = new FlowExecutor({
-          registry,
-          hookManager,
-          contextFactory: createContextFactory(resolver),
-        });
-        return scopedExecutor.execute(flowDef, flowId, inputData, config.engine.maxConcurrentFlows);
-      }
-      return executor.execute(flowDef, flowId, inputData, config.engine.maxConcurrentFlows);
+      const runDeadlineAt = config.engine.runTimeout > 0 ? Date.now() + config.engine.runTimeout : undefined;
+      return executeFlowInternal(flowDef, flowId, inputData, resolver, runDeadlineAt);
     },
 
     loadFlow(flowId: string, resolver: (id: string) => string) {

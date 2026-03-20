@@ -168,7 +168,7 @@ export function ConfigEditor() {
 
           <div>
             <h2 className="mb-4 text-lg font-semibold">{t('section.engineSettings')}</h2>
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-4">
               <div>
                 <label className="mb-2 block text-sm font-medium text-muted-foreground">{t('field.logLevel')}</label>
                 <Select value={effective.engine.logLevel} onValueChange={(v) => update(['engine', 'logLevel'], v)}>
@@ -189,11 +189,19 @@ export function ConfigEditor() {
                 />
               </div>
               <div>
-                <label className="mb-2 block text-sm font-medium text-muted-foreground">{t('field.timeout')}</label>
+                <label className="mb-2 block text-sm font-medium text-muted-foreground">{t('field.nodeTimeout')}</label>
                 <Input
                   type="number"
-                  value={effective.engine.timeout}
-                  onChange={(e) => update(['engine', 'timeout'], Number(e.target.value))}
+                  value={effective.engine.nodeTimeout}
+                  onChange={(e) => update(['engine', 'nodeTimeout'], Number(e.target.value))}
+                />
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-medium text-muted-foreground">{t('field.runTimeout')}</label>
+                <Input
+                  type="number"
+                  value={effective.engine.runTimeout}
+                  onChange={(e) => update(['engine', 'runTimeout'], Number(e.target.value))}
                 />
               </div>
             </div>

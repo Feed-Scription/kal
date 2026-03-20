@@ -74,9 +74,20 @@ export class ConfigLoader {
       }
     }
     if (config.engine?.timeout !== undefined) {
-      const v = config.engine.timeout;
+      throw new ConfigError(
+        'engine.timeout has been removed. Migrate to engine.nodeTimeout and, if needed, engine.runTimeout',
+      );
+    }
+    if (config.engine?.nodeTimeout !== undefined) {
+      const v = config.engine.nodeTimeout;
       if (typeof v !== 'number' || !Number.isFinite(v) || v < 0) {
-        throw new ConfigError('engine.timeout must be a non-negative number');
+        throw new ConfigError('engine.nodeTimeout must be a non-negative number');
+      }
+    }
+    if (config.engine?.runTimeout !== undefined) {
+      const v = config.engine.runTimeout;
+      if (typeof v !== 'number' || !Number.isFinite(v) || v < 0) {
+        throw new ConfigError('engine.runTimeout must be a non-negative number');
       }
     }
     if (config.llm?.retry) {
@@ -118,7 +129,8 @@ export class ConfigLoader {
       engine: {
         logLevel: config.engine?.logLevel ?? 'info',
         maxConcurrentFlows: config.engine?.maxConcurrentFlows ?? 10,
-        timeout: config.engine?.timeout ?? 30000,
+        nodeTimeout: config.engine?.nodeTimeout ?? 30000,
+        runTimeout: config.engine?.runTimeout ?? 0,
       },
       llm: {
         provider: config.llm.provider,

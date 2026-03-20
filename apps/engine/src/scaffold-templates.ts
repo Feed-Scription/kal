@@ -19,7 +19,8 @@ export function buildConfig(projectName: string): object {
     engine: {
       logLevel: 'info',
       maxConcurrentFlows: 5,
-      timeout: 30000,
+      nodeTimeout: 30000,
+      runTimeout: 0,
     },
     llm: {
       provider: 'openai',
@@ -95,6 +96,11 @@ function gameIntroFlow(): object {
           },
         },
         {
+          id: 'message',
+          type: 'Message',
+          config: {},
+        },
+        {
           id: 'llm',
           type: 'GenerateText',
           config: {},
@@ -108,7 +114,8 @@ function gameIntroFlow(): object {
         },
       ],
       edges: [
-        { source: 'prompt', sourceHandle: 'messages', target: 'llm', targetHandle: 'messages' },
+        { source: 'prompt', sourceHandle: 'text', target: 'message', targetHandle: 'system' },
+        { source: 'message', sourceHandle: 'messages', target: 'llm', targetHandle: 'messages' },
         { source: 'llm', sourceHandle: 'text', target: 'signal-out', targetHandle: 'data' },
       ],
     },
