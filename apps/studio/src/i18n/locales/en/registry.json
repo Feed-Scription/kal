@@ -117,13 +117,13 @@
       "panelDescription": "Collaborator online status in the bottom panel slot."
     },
     "terminal": {
-      "title": "Terminal",
-      "shortTitle": "Terminal",
-      "description": "Official workflow extension providing a lightweight command executor for kal subcommands like lint/smoke.",
-      "viewTitle": "Terminal",
-      "viewDescription": "Execute kal subcommands (lint, smoke, etc.).",
-      "panelTitle": "Terminal",
-      "panelDescription": "Command executor in the bottom panel slot."
+      "title": "Play",
+      "shortTitle": "Play",
+      "description": "Official workflow extension for fast in-Studio text playtesting with managed runs.",
+      "viewTitle": "Play",
+      "viewDescription": "Play the current session without leaving Studio.",
+      "panelTitle": "Play",
+      "panelDescription": "Text playtesting surface in the bottom panel slot."
     },
     "vercelDeploy": {
       "title": "Vercel Deploy",

@@ -8,7 +8,46 @@ import { createPassThroughFlow, createStateMutationFlow, createTempProject } fro
 
 const cleanups: Array<() => Promise<void>> = [];
 
+function createRetryableFlow() {
+  return {
+    meta: {
+      schemaVersion: '1.0.0',
+      inputs: [{ name: 'message', type: 'string', required: true }],
+      outputs: [{ name: 'reply', type: 'string' }],
+    },
+    data: {
+      nodes: [
+        {
+          id: 'signal-in',
+          type: 'SignalIn',
+          inputs: [],
+          outputs: [{ name: 'data', type: 'string' }],
+          config: { channel: 'message' },
+        },
+        {
+          id: 'retryable',
+          type: 'RetryableNode',
+          inputs: [{ name: 'message', type: 'string', required: true }],
+          outputs: [{ name: 'data', type: 'string' }],
+        },
+        {
+          id: 'signal-out',
+          type: 'SignalOut',
+          inputs: [{ name: 'data', type: 'string' }],
+          outputs: [{ name: 'data', type: 'string' }],
+          config: { channel: 'reply' },
+        },
+      ],
+      edges: [
+        { source: 'signal-in', sourceHandle: 'data', target: 'retryable', targetHandle: 'message' },
+        { source: 'retryable', sourceHandle: 'data', target: 'signal-out', targetHandle: 'data' },
+      ],
+    },
+  } as const;
+}
+
 afterEach(async () => {
+  delete process.env.KAL_RETRY_NODE_FAIL;
   while (cleanups.length > 0) {
     await cleanups.pop()!();
   }
@@ -128,5 +167,76 @@ describe('RunManager', () => {
       code: 'SESSION_HASH_MISMATCH',
     });
     expect(events).toContain('run.invalidated');
+  });
+
+  it('should retry the failed step on the same run', async () => {
+    const session: SessionDefinition = {
+      schemaVersion: '1.0.0',
+      steps: [
+        { id: 'turn', type: 'Prompt', promptText: 'Your move?', flowRef: 'main', inputChannel: 'message', next: 'end' },
+        { id: 'end', type: 'End', message: 'done' },
+      ],
+    };
+    const fixture = await createTempProject({
+      flows: {
+        main: createRetryableFlow(),
+      },
+      customNodeSource: `export default {
+        type: 'RetryableNode',
+        label: 'Retryable Node',
+        inputs: [{ name: 'message', type: 'string', required: true }],
+        outputs: [{ name: 'data', type: 'string' }],
+        async execute(inputs) {
+          if (process.env.KAL_RETRY_NODE_FAIL === '1') {
+            throw new Error('model failed');
+          }
+          return { data: inputs.message };
+        }
+      };`,
+      session,
+    });
+    cleanups.push(fixture.cleanup);
+
+    const runtime = await EngineRuntime.create(fixture.projectRoot);
+    const runs = RunManager.fromRuntime(runtime);
+
+    const created = await runs.createRun();
+    process.env.KAL_RETRY_NODE_FAIL = '1';
+    const failed = await runs.advanceRun({
+      runId: created.run.run_id,
+      input: 'attack',
+    });
+    expect(failed.run.status).toBe('error');
+    expect(failed.run.input_history).toMatchObject([
+      {
+        step_id: 'turn',
+        step_index: 0,
+        input: 'attack',
+      },
+    ]);
+
+    process.env.KAL_RETRY_NODE_FAIL = '0';
+
+    const retried = await runs.retryRun({ runId: created.run.run_id });
+
+    expect(retried.run.run_id).toBe(created.run.run_id);
+    expect(retried.run.status).toBe('ended');
+    expect(retried.run.recent_events).toMatchObject([
+      {
+        type: 'output',
+        raw: { reply: 'attack' },
+      },
+      {
+        type: 'end',
+        message: 'done',
+      },
+    ]);
+    expect(retried.run.input_history).toMatchObject([
+      {
+        step_id: 'turn',
+        step_index: 0,
+        input: 'attack',
+      },
+    ]);
   });
 });

@@ -117,13 +117,13 @@
       "panelDescription": "底部 panel slot 中的协作者在线状态。"
     },
     "terminal": {
-      "title": "终端",
-      "shortTitle": "终端",
-      "description": "官方工作流扩展，提供轻量命令执行器，支持 lint/smoke 等 kal 子命令。",
-      "viewTitle": "终端",
-      "viewDescription": "执行 kal 子命令（lint, smoke 等）。",
-      "panelTitle": "终端",
-      "panelDescription": "底部 panel slot 中的命令执行器。"
+      "title": "游玩",
+      "shortTitle": "游玩",
+      "description": "官方工作流扩展，用 managed run 在 Studio 中进行快速文字试玩。",
+      "viewTitle": "游玩",
+      "viewDescription": "不离开 Studio 直接试玩当前 session。",
+      "panelTitle": "游玩",
+      "panelDescription": "底部 panel slot 中的文字试玩界面。"
     },
     "vercelDeploy": {
       "title": "Vercel 部署",

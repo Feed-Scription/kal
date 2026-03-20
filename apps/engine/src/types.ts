@@ -148,6 +148,12 @@ export interface AdvanceRunRequest {
   mode?: 'continue' | 'step';
 }
 
+export interface RetryRunRequest {
+  input?: string;
+  cleanup?: boolean;
+  mode?: 'continue' | 'step';
+}
+
 export type RunStreamEventName =
   | 'run.created'
   | 'run.updated'

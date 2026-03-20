@@ -217,6 +217,7 @@ export interface StudioCommandService {
   getRunState: (runId: string) => Promise<RunStateView>;
   selectRun: (runId: string | null) => Promise<void>;
   advanceRun: (runId: string, input?: string, mode?: RunAdvanceMode) => Promise<RunView>;
+  retryRun: (runId: string, input?: string, mode?: RunAdvanceMode) => Promise<RunView>;
   stepRun: (runId: string, input?: string) => Promise<RunView>;
   replayRun: (runId: string) => Promise<RunView>;
   toggleBreakpoint: (stepId: string) => void;

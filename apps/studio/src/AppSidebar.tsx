@@ -37,7 +37,7 @@ type AppSidebarProps = {
   inspectorVisible?: boolean;
 };
 
-const TOOL_VIEW_IDS = ['kal.config', 'kal.prompt-preview', 'kal.version-control'];
+const TOOL_VIEW_IDS = ['kal.play', 'kal.config', 'kal.prompt-preview', 'kal.version-control'];
 
 export function AppSidebar({ children, onToggleInspector, inspectorVisible }: AppSidebarProps) {
   const { t } = useTranslation('workbench');
@@ -83,6 +83,7 @@ export function AppSidebar({ children, onToggleInspector, inspectorVisible }: Ap
 
   const handleNewRun = async () => {
     await createRun(true);
+    setActiveView('kal.play');
   };
 
   const handleSmokeRun = async () => {
@@ -316,6 +317,7 @@ export function AppSidebar({ children, onToggleInspector, inspectorVisible }: Ap
             size="icon-sm"
             onClick={async () => {
               await createRun(false);
+              setActiveView('kal.play');
             }}
             title={t('tooltips.run')}
             aria-label={t('tooltips.run')}

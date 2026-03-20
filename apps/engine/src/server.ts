@@ -23,6 +23,7 @@ import type {
   EngineEventName,
   EngineResponse,
   ExecuteFlowRequest,
+  RetryRunRequest,
   RunStreamEvent,
   StartedEngineServer,
 } from './types';
@@ -178,7 +179,7 @@ export async function handleEngineRequest(
   const runs = context.runs ?? RunManager.fromRuntime(runtime);
   const eventBus = context.eventBus;
   const terminals = context.terminals;
-  const runMatch = pathname.match(/^\/api\/runs\/([^/]+)(?:\/(state|advance|cancel|stream))?$/);
+  const runMatch = pathname.match(/^\/api\/runs\/([^/]+)(?:\/(state|advance|retry|cancel|stream))?$/);
   const termMatch = pathname.match(/^\/api\/terminal\/sessions\/([^/]+)(?:\/(write|kill|stream))?$/);
 
   if (method === 'OPTIONS') {
@@ -739,6 +740,18 @@ export async function handleEngineRequest(
           mode: payload.mode,
         });
         success(res, { run: advanced.run });
+        return;
+      }
+
+      if (method === 'POST' && action === 'retry') {
+        const payload = await readJsonBody<RetryRunRequest>(req, { required: false });
+        const retried = await runs.retryRun({
+          runId,
+          input: payload.input,
+          cleanup: payload.cleanup,
+          mode: payload.mode,
+        });
+        success(res, { run: retried.run });
         return;
       }
 
