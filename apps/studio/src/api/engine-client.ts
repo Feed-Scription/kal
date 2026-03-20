@@ -303,15 +303,6 @@ export const engineApi = {
     return data.run;
   },
 
-  async createSmokeRun(inputs: string[] = []): Promise<RunView> {
-    const data = await request<{ run: RunView }>('/api/runs', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ forceNew: true, smokeInputs: inputs }),
-    });
-    return data.run;
-  },
-
   async listRuns(): Promise<RunSummary[]> {
     const data = await request<{ runs: RunSummary[] }>('/api/runs');
     return data.runs;

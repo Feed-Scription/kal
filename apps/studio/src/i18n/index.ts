@@ -5,7 +5,6 @@ import { restoreCachedLocales } from './loader';
 
 import commonEn from './locales/en/common.json';
 import registryEn from './locales/en/registry.json';
-import commandsEn from './locales/en/commands.json';
 import storeEn from './locales/en/store.json';
 import workbenchEn from './locales/en/workbench.json';
 import flowEn from './locales/en/flow.json';
@@ -19,7 +18,6 @@ import evalEn from './locales/en/eval.json';
 
 import commonZh from './locales/zh-CN/common.json';
 import registryZh from './locales/zh-CN/registry.json';
-import commandsZh from './locales/zh-CN/commands.json';
 import storeZh from './locales/zh-CN/store.json';
 import workbenchZh from './locales/zh-CN/workbench.json';
 import flowZh from './locales/zh-CN/flow.json';
@@ -32,7 +30,7 @@ import previewZh from './locales/zh-CN/preview.json';
 import evalZh from './locales/zh-CN/eval.json';
 
 const ns = [
-  'common', 'registry', 'commands', 'store', 'workbench',
+  'common', 'registry', 'store', 'workbench',
   'flow', 'session', 'debug', 'vcs',
   'config', 'terminal', 'preview', 'eval',
 ] as const;
@@ -45,7 +43,6 @@ i18n
       en: {
         common: commonEn,
         registry: registryEn,
-        commands: commandsEn,
         store: storeEn,
         workbench: workbenchEn,
         flow: flowEn,
@@ -60,7 +57,6 @@ i18n
       'zh-CN': {
         common: commonZh,
         registry: registryZh,
-        commands: commandsZh,
         store: storeZh,
         workbench: workbenchZh,
         flow: flowZh,

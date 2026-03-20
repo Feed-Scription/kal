@@ -20,7 +20,6 @@ import {
 import { runService } from './services/run-service';
 import type { PromptPreviewEntry, ResourceId, ResourceVersionState } from '@/types/project';
 import type {
-  StudioContextValue,
   StudioDebugViewDescriptor,
   StudioExtensionId,
   StudioExtensionRuntimeRecord,
@@ -42,7 +41,6 @@ import type {
   DiagnosticsServiceState,
   ReferenceGraphServiceState,
   RunDebugServiceState,
-  WorkbenchContextState,
   StudioCommandService,
   RunService,
   ResolvedPanelContribution,
@@ -54,7 +52,6 @@ export function useWorkbench(): WorkbenchServiceState {
   const activeViewId = useStudioStore((state) => state.workbench.activeViewId);
   const openViewIds = useStudioStore((state) => state.workbench.openViewIds);
   const activeFlowId = useStudioStore((state) => state.workbench.activeFlowId);
-  const commandPaletteOpen = useStudioStore((state) => state.workbench.commandPaletteOpen);
   const extensionRuntime = useStudioStore((state) => state.extensions.records);
   const allViews = getAllViews();
   const allExtensions = getAllExtensions();
@@ -71,7 +68,6 @@ export function useWorkbench(): WorkbenchServiceState {
     openViewIds,
     openViews: resolvedOpenViews,
     activeFlowId,
-    commandPaletteOpen,
     activeView,
     activeExtension,
     activeExtensionRuntime,
@@ -342,54 +338,11 @@ export function useDebugViewContributions(): ResolvedDebugViewContribution[] {
   return resolveContributions(getStudioDebugViews(), runtime);
 }
 
-export function useWorkbenchContext(): WorkbenchContextState {
-  const { project, session } = useStudioResources();
-  const { engineConnected, connectionError } = useConnectionState();
-  const saveState = useSaveState();
-  const versionControl = useVersionControl();
-  const panelContributions = usePanelContributions();
-  const selectedRunId = useStudioStore((state) => state.runDebug.selectedRunId);
-  const selectedRunRecord = useStudioStore((state) =>
-    state.runDebug.selectedRunId ? state.runDebug.records[state.runDebug.selectedRunId] ?? null : null,
-  );
-  const breakpoints = useStudioStore((state) => state.runDebug.breakpoints);
-  const { activeExtension, activeExtensionRuntime, activeFlowId, activeViewId } = useWorkbench();
-  const selectedStepId = selectedRunRecord?.run.waiting_for?.step_id ?? selectedRunRecord?.run.cursor.currentStepId ?? null;
-
-  const values: Record<string, StudioContextValue> = {
-    'project.loaded': Boolean(project),
-    'engine.connected': engineConnected,
-    'engine.connectionError': connectionError,
-    'flow.active': activeFlowId,
-    'session.available': Boolean(session),
-    'save.status': saveState.status,
-    'workbench.view': activeViewId,
-    'workbench.hasBottomPanels': panelContributions.length > 0,
-    'extension.active': activeExtension?.id ?? null,
-    'extension.status': activeExtensionRuntime?.status ?? null,
-    'capability.project.write': true,
-    'capability.engine.execute': true,
-    'capability.trace.read': true,
-    'diagnostics.available': Boolean(versionControl.diagnostics),
-    'history.undoAvailable': versionControl.undoStack.length > 0,
-    'history.redoAvailable': versionControl.redoStack.length > 0,
-    'run.selected': Boolean(selectedRunId),
-    'run.status': selectedRunRecord?.run.status ?? null,
-    'run.waitingForInput': Boolean(selectedRunRecord?.run.waiting_for),
-    'run.stepId': selectedStepId,
-    'run.stepHasBreakpoint': Boolean(selectedStepId && breakpoints.some((entry) => entry.step_id === selectedStepId)),
-  };
-
-  return { values };
-}
-
 export function useStudioCommands(): StudioCommandService {
   const connect = useStudioStore((state) => state.connect);
   const disconnect = useStudioStore((state) => state.disconnect);
   const setActiveView = useStudioStore((state) => state.setActiveView);
   const closeView = useStudioStore((state) => state.closeView);
-  const setCommandPaletteOpen = useStudioStore((state) => state.setCommandPaletteOpen);
-  const toggleCommandPalette = useStudioStore((state) => state.toggleCommandPalette);
   const openFlow = useStudioStore((state) => state.setCurrentFlow);
   const saveFlow = useStudioStore((state) => state.saveFlow);
   const createFlow = useStudioStore((state) => state.createFlow);
@@ -399,7 +352,6 @@ export function useStudioCommands(): StudioCommandService {
   const deleteSession = useStudioStore((state) => state.deleteSession);
   const updateConfig = useStudioStore((state) => state.updateConfig);
   const createRun = useStudioStore((state) => state.createRun);
-  const createSmokeRun = useStudioStore((state) => state.createSmokeRun);
   const listRuns = useStudioStore((state) => state.listRuns);
   const getRun = useStudioStore((state) => state.getRun);
   const getRunState = useStudioStore((state) => state.getRunState);
@@ -416,6 +368,7 @@ export function useStudioCommands(): StudioCommandService {
   const cancelRun = useStudioStore((state) => state.cancelRun);
   const createCheckpoint = useStudioStore((state) => state.createCheckpoint);
   const restoreCheckpoint = useStudioStore((state) => state.restoreCheckpoint);
+  const deleteCheckpoint = useStudioStore((state) => state.deleteCheckpoint);
   const refreshDiagnostics = useStudioStore((state) => state.refreshDiagnostics);
   const undo = useStudioStore((state) => state.undo);
   const redo = useStudioStore((state) => state.redo);
@@ -427,16 +380,12 @@ export function useStudioCommands(): StudioCommandService {
   const refreshGitStatus = useStudioStore((state) => state.refreshGitStatus);
   const refreshReferences = useStudioStore((state) => state.refreshReferences);
   const searchProject = useStudioStore((state) => state.searchProject);
-  const registerPanelCallbacks = useStudioStore((state) => state.registerPanelCallbacks);
-  const clearPanelCallbacks = useStudioStore((state) => state.clearPanelCallbacks);
 
   return {
     connect,
     disconnect,
     setActiveView,
     closeView,
-    setCommandPaletteOpen,
-    toggleCommandPalette,
     openFlow,
     saveFlow,
     createFlow,
@@ -446,7 +395,6 @@ export function useStudioCommands(): StudioCommandService {
     deleteSession,
     updateConfig,
     createRun,
-    createSmokeRun,
     listRuns,
     refreshRuns,
     getRun,
@@ -463,6 +411,7 @@ export function useStudioCommands(): StudioCommandService {
     cancelRun,
     createCheckpoint,
     restoreCheckpoint,
+    deleteCheckpoint,
     refreshDiagnostics,
     undo,
     redo,
@@ -474,8 +423,6 @@ export function useStudioCommands(): StudioCommandService {
     refreshGitStatus,
     refreshReferences,
     searchProject,
-    registerPanelCallbacks,
-    clearPanelCallbacks,
   };
 }
 

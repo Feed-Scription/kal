@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 import { PanelGroup, Panel, type ImperativePanelHandle } from 'react-resizable-panels';
 import { Info } from "lucide-react";
 import { AppSidebar } from "./AppSidebar";
-import { CommandPalette } from "./components/CommandPalette";
 import { ExtensionSurface } from "./components/ExtensionSurface";
 import { ResizeHandle } from "./components/ResizeHandle";
 import { WorkbenchInspector } from "./components/WorkbenchInspector";
@@ -13,8 +12,7 @@ import { ProjectLoader } from "./components/ProjectLoader";
 import { StatusBar } from "./components/StatusBar";
 import { Button } from "./components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "./components/ui/sheet";
-import { useExtensionRuntimeMap, usePanelContributions, useWorkbench, useStudioResources, useStudioCommands } from "./kernel/hooks";
-import { useGlobalShortcuts } from "./hooks/use-global-shortcuts";
+import { useExtensionRuntimeMap, usePanelContributions, useWorkbench, useStudioResources } from "./kernel/hooks";
 
 function useIsDesktop() {
   const [isDesktop, setIsDesktop] = useState(() =>
@@ -40,7 +38,6 @@ export default function App() {
   const panelContributions = usePanelContributions();
   const hasPanels = panelContributions.length > 0;
   const isDesktop = useIsDesktop();
-  const { registerPanelCallbacks, clearPanelCallbacks } = useStudioCommands();
 
   const inspectorPanelRef = useRef<ImperativePanelHandle>(null);
   const bottomPanelRef = useRef<ImperativePanelHandle>(null);
@@ -74,25 +71,6 @@ export default function App() {
       panel.collapse();
     }
   }, []);
-
-  const toggleBottomPanel = useCallback(() => {
-    const panel = bottomPanelRef.current;
-    if (!panel) return;
-    if (panel.isCollapsed()) {
-      panel.expand();
-    } else {
-      panel.collapse();
-    }
-  }, []);
-
-  // Register panel callbacks so commands can toggle panels
-  useEffect(() => {
-    registerPanelCallbacks({ toggleInspector, toggleBottomPanel });
-    return () => clearPanelCallbacks();
-  }, [toggleInspector, toggleBottomPanel, registerPanelCallbacks, clearPanelCallbacks]);
-
-  // Mount global shortcuts hook
-  useGlobalShortcuts();
 
   if (!project) {
     return <ProjectLoader />;
@@ -182,7 +160,6 @@ export default function App() {
         </SheetContent>
       </Sheet>
 
-      <CommandPalette />
       <StatusBar />
     </>
   );

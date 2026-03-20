@@ -19,6 +19,8 @@
   "noCheckpoints": "No checkpoints created.",
   "noCheckpointsDetail": "No checkpoints yet. Create one first, then perform semantic editing and restore validation.",
   "createCheckpoint": "Create Checkpoint",
+  "deleteCheckpoint": "Delete",
+  "confirmDeleteCheckpoint": "Delete checkpoint \"{{label}}\"?",
   "create": "Create",
   "restore": "Restore",
   "restoring": "Restoring...",

@@ -31,7 +31,7 @@ function createDelayedFlow(delay: number, timeout?: number): FlowDefinition {
 const cleanups: Array<() => Promise<void>> = [];
 
 afterEach(async () => {
-  delete process.env.KAL_RUNTIME_TEST_API_KEY;
+  delete process.env.Kal_Runtime_Test_Api_Key;
   while (cleanups.length > 0) {
     await cleanups.pop()!();
   }
@@ -237,10 +237,10 @@ describe('EngineRuntime', () => {
     expect(runtime.getSession()).toBeUndefined();
   });
 
-  it('saveConfig 应该忽略未变更的敏感 LLM 字段并保留环境变量引用', async () => {
+  it('saveConfig 应该保留未变更的 env 引用字段', async () => {
     const fixture = await createTempProject();
     cleanups.push(fixture.cleanup);
-    process.env.KAL_RUNTIME_TEST_API_KEY = 'env-secret-key';
+    process.env.Kal_Runtime_Test_Api_Key = 'env-secret-key';
 
     await writeFile(
       join(fixture.projectRoot, 'kal_config.json'),
@@ -255,7 +255,7 @@ describe('EngineRuntime', () => {
         },
         llm: {
           provider: 'openai',
-          apiKey: '${KAL_RUNTIME_TEST_API_KEY}',
+          apiKey: '${Kal_Runtime_Test_Api_Key}',
           baseUrl: 'https://example.invalid/v1',
           defaultModel: 'test-model',
           retry: {
@@ -287,12 +287,12 @@ describe('EngineRuntime', () => {
     });
 
     const rawConfig = await readFile(join(fixture.projectRoot, 'kal_config.json'), 'utf8');
-    expect(rawConfig).toContain('${KAL_RUNTIME_TEST_API_KEY}');
+    expect(rawConfig).toContain('${Kal_Runtime_Test_Api_Key}');
     expect(rawConfig).not.toContain('env-secret-key');
     expect(JSON.parse(rawConfig).engine.nodeTimeout).toBe(2000);
   });
 
-  it('saveConfig 应该静默剥离敏感 LLM 字段而不是抛错', async () => {
+  it('saveConfig 应该持久化用户显式修改的 LLM 连接字段', async () => {
     const fixture = await createTempProject();
     cleanups.push(fixture.cleanup);
 
@@ -302,14 +302,15 @@ describe('EngineRuntime', () => {
     await runtime.saveConfig({
       llm: {
         ...currentConfig.llm,
+        baseUrl: 'https://studio.example/v1',
         apiKey: 'new-secret-key',
         defaultModel: 'changed-model',
       },
     });
 
     const rawConfig = JSON.parse(await readFile(join(fixture.projectRoot, 'kal_config.json'), 'utf8'));
-    // apiKey should remain the original file value, not the new one from the patch
-    expect(rawConfig.llm.apiKey).toBe('test-key');
+    expect(rawConfig.llm.baseUrl).toBe('https://studio.example/v1');
+    expect(rawConfig.llm.apiKey).toBe('new-secret-key');
     expect(rawConfig.llm.defaultModel).toBe('changed-model');
   });
 

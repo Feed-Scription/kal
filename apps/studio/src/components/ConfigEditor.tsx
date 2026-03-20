@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Info, Save } from "lucide-react";
 import { useTranslation } from 'react-i18next';
 import { Input } from "@/components/ui/input";
@@ -25,14 +25,6 @@ function setPath(obj: KalConfig, path: string[], value: unknown): KalConfig {
   return clone as KalConfig;
 }
 
-function stripRestrictedLlmFields(config: KalConfig): Partial<KalConfig> {
-  const { apiKey: _apiKey, baseUrl: _baseUrl, ...persistableLlm } = config.llm;
-  return {
-    ...config,
-    llm: persistableLlm as KalConfig['llm'],
-  };
-}
-
 export function ConfigEditor() {
   const { t } = useTranslation('config');
   const { config } = useStudioResources();
@@ -51,24 +43,6 @@ export function ConfigEditor() {
   if (!effective) return null;
 
   const isDirty = draft !== null && JSON.stringify(draft) !== JSON.stringify(config);
-  const persistableDraft = useMemo(() => {
-    if (!draft) return null;
-    return stripRestrictedLlmFields(draft);
-  }, [draft]);
-  const persistableConfig = useMemo(() => {
-    if (!config) return null;
-    return stripRestrictedLlmFields(config);
-  }, [config]);
-  const hasRestrictedChanges = Boolean(
-    draft &&
-      config &&
-      (draft.llm.apiKey !== config.llm.apiKey || draft.llm.baseUrl !== config.llm.baseUrl)
-  );
-  const hasPersistableChanges = Boolean(
-    persistableDraft &&
-      persistableConfig &&
-      JSON.stringify(persistableDraft) !== JSON.stringify(persistableConfig)
-  );
 
   const update = (path: string[], value: unknown) => {
     setDraft(setPath(effective, path, value));
@@ -77,13 +51,13 @@ export function ConfigEditor() {
   const reset = () => setDraft(null);
 
   const handleSave = async () => {
-    if (!config || !persistableDraft || !hasPersistableChanges) {
+    if (!draft || !isDirty) {
       return;
     }
     setIsSaving(true);
     setSaveError(null);
     try {
-      await updateConfig(persistableDraft);
+      await updateConfig(draft);
       setDraft(null);
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : t('saveFailed'));
@@ -105,14 +79,8 @@ export function ConfigEditor() {
             )}
             <Button
               size="sm"
-              disabled={!hasPersistableChanges || isSaving}
-              title={
-                !isDirty
-                  ? t('noChanges')
-                  : !hasPersistableChanges
-                    ? t('restrictedFieldsOnly')
-                    : undefined
-              }
+              disabled={!isDirty || isSaving}
+              title={!isDirty ? t('noChanges') : undefined}
               onClick={() => {
                 void handleSave();
               }}
@@ -132,22 +100,12 @@ export function ConfigEditor() {
           </div>
         )}
 
-        {(hasRestrictedChanges || saveError) && (
-          <div className="space-y-2 rounded-lg border border-border bg-card p-4 text-sm">
-            {hasRestrictedChanges && (
-              <div className="flex items-start gap-2">
-                <Info className="mt-0.5 size-4 shrink-0 text-blue-600" />
-                <p className="text-muted-foreground">
-                  {t('restrictedFieldsNote')}
-                </p>
-              </div>
-            )}
-            {saveError && (
-              <div className="flex items-start gap-2">
-                <Info className="mt-0.5 size-4 shrink-0 text-destructive" />
-                <p className="text-destructive">{saveError}</p>
-              </div>
-            )}
+        {saveError && (
+          <div className="rounded-lg border border-border bg-card p-4 text-sm">
+            <div className="flex items-start gap-2">
+              <Info className="mt-0.5 size-4 shrink-0 text-destructive" />
+              <p className="text-destructive">{saveError}</p>
+            </div>
           </div>
         )}
 
@@ -231,7 +189,7 @@ export function ConfigEditor() {
                 <Input
                   type="password"
                   value={effective.llm.apiKey ?? ''}
-                  placeholder={t('placeholder.encryptedStorage')}
+                    placeholder={t('placeholder.plainTextFile')}
                   onChange={(e) => update(['llm', 'apiKey'], e.target.value || undefined)}
                 />
               </div>

@@ -421,14 +421,23 @@ export class EngineRuntime {
       rawConfig = {};
     }
 
-    // Safety: always strip sensitive fields (apiKey / baseUrl) from the patch
-    // so that env-var references in the raw config file are never overwritten.
     if (patch.llm) {
-      const { apiKey: _apiKey, baseUrl: _baseUrl, ...safeLlmPatch } = patch.llm;
-      patch = { ...patch, llm: safeLlmPatch as KalConfig['llm'] };
+      const nextLlmPatch = { ...patch.llm } as Record<string, any>;
+      const rawLlm = rawConfig.llm as Record<string, any> | undefined;
+
+      for (const field of ['apiKey', 'baseUrl'] as const) {
+        if (
+          Object.prototype.hasOwnProperty.call(nextLlmPatch, field) &&
+          shouldPreserveRawEnvReference(rawLlm?.[field], nextLlmPatch[field], project.config.llm[field])
+        ) {
+          nextLlmPatch[field] = rawLlm?.[field];
+        }
+      }
+
+      patch = { ...patch, llm: nextLlmPatch as KalConfig['llm'] };
     }
 
-    // Deep merge patch into raw config (preserving env var references in untouched fields)
+    // Deep merge patch into raw config, preserving untouched env-var references.
     const merged = deepMerge(rawConfig, patch);
     this.markSelfWrite(configPath);
     await writeFile(configPath, JSON.stringify(merged, null, 2), 'utf8');
@@ -695,4 +704,16 @@ function deepMerge(target: Record<string, any>, source: Record<string, any>): Re
     }
   }
   return result;
+}
+
+function isEnvReference(value: unknown): value is string {
+  return typeof value === 'string' && /^\$\{[^}]+\}$/.test(value);
+}
+
+function shouldPreserveRawEnvReference(
+  rawValue: unknown,
+  patchValue: unknown,
+  resolvedValue: unknown,
+): boolean {
+  return isEnvReference(rawValue) && patchValue === resolvedValue;
 }

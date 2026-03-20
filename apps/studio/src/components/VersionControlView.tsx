@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { GitBranch, GitCommit, GitCompareArrows, History, RotateCcw, Save } from "lucide-react";
+import { GitBranch, GitCommit, GitCompareArrows, History, RotateCcw, Save, Trash2 } from "lucide-react";
 import { useTranslation } from 'react-i18next';
 import { EmptyState } from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
@@ -21,7 +21,7 @@ export function VersionControlView() {
   const { project, session } = useStudioResources();
   const { flowId: activeFlowId } = useFlowResource();
   const { resourceVersions, transactions, checkpoints } = useVersionControl();
-  const { createCheckpoint, restoreCheckpoint, refreshGitStatus } = useStudioCommands();
+  const { createCheckpoint, restoreCheckpoint, deleteCheckpoint, refreshGitStatus } = useStudioCommands();
   const gitState = useGitStatus();
   const [checkpointLabel, setCheckpointLabel] = useState("");
   const [restoringId, setRestoringId] = useState<string | null>(null);
@@ -73,6 +73,14 @@ export function VersionControlView() {
     } finally {
       setRestoringId(null);
     }
+  };
+
+  const handleDeleteCheckpoint = (checkpointId: string, checkpointLabel: string) => {
+    if (!window.confirm(t('confirmDeleteCheckpoint', { label: checkpointLabel }))) {
+      return;
+    }
+    setCompareCheckpointId((current) => (current === checkpointId ? null : current));
+    deleteCheckpoint(checkpointId);
   };
 
   if (!project) {
@@ -244,15 +252,26 @@ export function VersionControlView() {
                         <div className="mt-1 text-sm text-muted-foreground">{checkpoint.description}</div>
                       ) : null}
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={restoringId === checkpoint.id}
-                      onClick={() => void handleRestore(checkpoint.id)}
-                    >
-                      <RotateCcw className="size-4" />
-                      {restoringId === checkpoint.id ? t('restoring') : t('restore')}
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={restoringId === checkpoint.id}
+                        onClick={() => void handleRestore(checkpoint.id)}
+                      >
+                        <RotateCcw className="size-4" />
+                        {restoringId === checkpoint.id ? t('restoring') : t('restore')}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={restoringId === checkpoint.id}
+                        onClick={() => handleDeleteCheckpoint(checkpoint.id, checkpoint.label)}
+                      >
+                        <Trash2 className="size-4" />
+                        {t('deleteCheckpoint')}
+                      </Button>
+                    </div>
                   </div>
                   <div className="mt-3 flex gap-2">
                     <Button
