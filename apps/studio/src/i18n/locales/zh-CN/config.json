@@ -10,9 +10,7 @@
   "undoChanges": "撤销修改",
   "noConfig": "未加载项目配置。",
   "noChanges": "没有修改",
-  "restrictedFieldsOnly": "当前仅修改了暂不支持直接保存的字段",
   "unsavedWarning": "配置已修改但尚未保存。保存会直接调用 Studio 的配置写入命令，并进入版本记录，可撤销重做。",
-  "restrictedFieldsNote": "`llm.apiKey` 和 `llm.baseUrl` 会在 Studio 保存时自动保留。请通过环境变量或直接编辑 `kal_config.json` 修改它们，保存其他设置时 Studio 会继续保留项目文件中的原值。",
   "section": {
     "general": "基本",
     "basicInfo": "基本信息",
@@ -48,7 +46,7 @@
   },
   "placeholder": {
     "optional": "可选",
-    "encryptedStorage": "已加密存储"
+    "plainTextFile": "将以明文写入 kal_config.json"
   },
   "validation": {
     "nameRequired": "项目名称不能为空",

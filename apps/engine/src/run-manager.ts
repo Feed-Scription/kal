@@ -37,10 +37,6 @@ export interface CreateRunOptions {
   cleanup?: boolean;
   mode?: SessionAdvanceMode;
   onRuntimeCreated?: (runtime: EngineRuntime) => void;
-  /** Auto-advance inputs for smoke replay mode. */
-  smokeInputs?: string[];
-  /** Max steps for smoke replay (default 20). */
-  smokeMaxSteps?: number;
 }
 
 export interface AdvanceRunOptions extends RunSelection {
@@ -206,60 +202,6 @@ export class RunManager {
       afterState,
       run,
     };
-  }
-
-  /**
-   * Create a run and auto-advance it using provided inputs (smoke replay mode).
-   * Emits standard run stream events at each step so the UI can observe progress.
-   */
-  async smokeRun(options: CreateRunOptions): Promise<RunExecutionResult> {
-    const inputs = [...(options.smokeInputs ?? [])];
-    const maxSteps = options.smokeMaxSteps ?? 20;
-
-    // Create the initial run
-    let execResult = await this.createRun({
-      ...options,
-      forceNew: true,
-      mode: 'continue',
-      smokeInputs: undefined, // prevent recursion
-    });
-
-    let inputIndex = 0;
-    let steps = 0;
-
-    while (steps < maxSteps) {
-      const { snapshot } = execResult;
-      if (snapshot.status === 'ended' || snapshot.status === 'error') break;
-
-      steps++;
-
-      if (snapshot.waitingFor) {
-        // Provide the next input or a default
-        const input = inputs[inputIndex] ?? `[smoke-input-${inputIndex}]`;
-        inputIndex++;
-        try {
-          execResult = await this.advanceRun({
-            runId: snapshot.runId,
-            input,
-            mode: 'continue',
-          });
-        } catch {
-          break;
-        }
-      } else {
-        // No input needed, just advance
-        try {
-          execResult = await this.advanceRun({
-            runId: snapshot.runId,
-            mode: 'continue',
-          });
-        } catch {
-          break;
-        }
-      }
-    }
-
-    return execResult;
   }
 
   async advanceRun(options: AdvanceRunOptions): Promise<RunExecutionResult> {
