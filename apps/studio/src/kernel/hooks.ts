@@ -19,6 +19,7 @@ import {
 } from './registry';
 import { runService } from './services/run-service';
 import type { PromptPreviewEntry, ResourceId, ResourceVersionState } from '@/types/project';
+import type { CanvasViewport } from '@/types/project';
 import type {
   StudioDebugViewDescriptor,
   StudioExtensionId,
@@ -74,6 +75,12 @@ export function useWorkbench(): WorkbenchServiceState {
     views: allViews,
     extensions: allExtensions,
   };
+}
+
+export function useWorkbenchViewport(viewportId?: string | null): CanvasViewport | null {
+  return useStudioStore((state) =>
+    viewportId ? state.workbench.canvasViewports[viewportId] ?? null : null,
+  );
 }
 
 export function useStudioResources(): ResourceServiceState {
@@ -344,6 +351,7 @@ export function useStudioCommands(): StudioCommandService {
   const setActiveView = useStudioStore((state) => state.setActiveView);
   const closeView = useStudioStore((state) => state.closeView);
   const openFlow = useStudioStore((state) => state.setCurrentFlow);
+  const setCanvasViewport = useStudioStore((state) => state.setCanvasViewport);
   const saveFlow = useStudioStore((state) => state.saveFlow);
   const createFlow = useStudioStore((state) => state.createFlow);
   const executeFlow = useStudioStore((state) => state.executeFlow);
@@ -387,6 +395,7 @@ export function useStudioCommands(): StudioCommandService {
     setActiveView,
     closeView,
     openFlow,
+    setCanvasViewport,
     saveFlow,
     createFlow,
     executeFlow,
