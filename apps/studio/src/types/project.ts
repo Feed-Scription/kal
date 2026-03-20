@@ -298,9 +298,15 @@ export type FlowExecutionNodeResult = {
 export type FlowExecutionTrace = {
   executionId: string;
   flowId: string;
+  active: boolean;
   status: 'running' | 'success' | 'error';
+  startedAt: number;
+  finishedAt?: number;
   nodeResults: Record<string, FlowExecutionNodeResult>;
   executionOrder: string[];
+  stateBefore?: ProjectState;
+  stateAfter?: ProjectState;
+  changedStateKeys?: string[];
 };
 
 export type RunWaitingFor = {
@@ -518,6 +524,89 @@ export type PromptRenderResult = {
   renderedText: string;
   fragments: RenderedFragment[];
   state: Record<string, any>;
+};
+
+export type EvalRunVariant = {
+  fragments: Array<Record<string, any>>;
+};
+
+export type EvalNumericStats = {
+  min: number;
+  max: number;
+  median: number;
+  mean: number;
+  stddev: number;
+  p25: number;
+  p75: number;
+};
+
+export type EvalBooleanStats = {
+  trueCount: number;
+  falseCount: number;
+  trueRate: number;
+  nullCount: number;
+};
+
+export type EvalPerRunResult = {
+  output: any;
+  cost: number;
+  latency: number;
+  llmRawOutputs?: string[];
+};
+
+export type EvalRunResult = {
+  flowPath: string;
+  nodeId: string;
+  variant: string;
+  model?: string;
+  runs: number;
+  result: {
+    outputs: any[];
+    cost: number;
+    avgLatency: number;
+    perRun: EvalPerRunResult[];
+    numericStats: Record<string, EvalNumericStats>;
+    booleanStats?: Record<string, EvalBooleanStats>;
+  };
+};
+
+export type EvalComparisonMetric<T> = {
+  a: T;
+  b: T;
+  delta: number;
+  pctChange: number | null;
+};
+
+export type EvalNumericComparisonMetric = {
+  a: { median: number; mean: number };
+  b: { median: number; mean: number };
+  medianDelta: number;
+  meanDelta: number;
+};
+
+export type EvalBooleanComparisonMetric = {
+  a: { trueRate: number; trueCount: number };
+  b: { trueRate: number; trueCount: number };
+  trueRateDelta: number;
+};
+
+export type EvalComparisonResult = {
+  a: {
+    label: string;
+    variant: string;
+    runs: number;
+  };
+  b: {
+    label: string;
+    variant: string;
+    runs: number;
+  };
+  diff: {
+    cost?: EvalComparisonMetric<number>;
+    avgLatency?: EvalComparisonMetric<number>;
+    numericStats?: Record<string, EvalNumericComparisonMetric>;
+    booleanStats?: Record<string, EvalBooleanComparisonMetric>;
+  };
 };
 
 export type ReviewValidationRecord = {
@@ -766,66 +855,4 @@ export type InstalledPackageRecord = {
   enabled: boolean;
   signature?: string;
   provenance?: string;
-};
-
-// ── Eval ──
-
-export type NumericStats = {
-  min: number;
-  max: number;
-  median: number;
-  mean: number;
-  stddev: number;
-  p25: number;
-  p75: number;
-};
-
-export type BooleanStats = {
-  trueCount: number;
-  falseCount: number;
-  trueRate: number;
-  nullCount: number;
-};
-
-export type EvalRunResultEntry = {
-  output: any;
-  cost: number;
-  latency: number;
-  llmRawOutputs?: string[];
-};
-
-export type EvalRunResult = {
-  flowPath: string;
-  nodeId: string;
-  variant: string;
-  model?: string;
-  runs: number;
-  result: {
-    outputs: any[];
-    cost: number;
-    avgLatency: number;
-    perRun: EvalRunResultEntry[];
-    numericStats: Record<string, NumericStats>;
-    booleanStats?: Record<string, BooleanStats>;
-  };
-};
-
-export type EvalCompareResult = {
-  a: { label: string; variant: string; runs: number };
-  b: { label: string; variant: string; runs: number };
-  diff: {
-    cost?: { a: number; b: number; delta: number; pctChange: number | null };
-    avgLatency?: { a: number; b: number; delta: number; pctChange: number | null };
-    numericStats?: Record<string, {
-      a: { median: number; mean: number };
-      b: { median: number; mean: number };
-      medianDelta: number;
-      meanDelta: number;
-    }>;
-    booleanStats?: Record<string, {
-      a: { trueRate: number; trueCount: number };
-      b: { trueRate: number; trueCount: number };
-      trueRateDelta: number;
-    }>;
-  };
 };

@@ -40,6 +40,7 @@
   "fillInputs": "Fill in input parameters before executing",
   "clickToRun": "Click Run to execute this Flow",
   "required": "(required)",
+  "missingRequiredInputs": "{{count}} required input(s) still need values before running.",
   "executing": "Executing...",
   "executionSuccess": "Execution succeeded",
   "close": "Close",

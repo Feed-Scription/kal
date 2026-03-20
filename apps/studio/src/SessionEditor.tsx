@@ -265,7 +265,7 @@ function reactFlowToSession(
 function SessionEditorInner() {
   const { t } = useTranslation('session');
   const { session } = useStudioResources();
-  const { saveSession, deleteSession, createRun } = useStudioCommands();
+  const { saveSession, deleteSession } = useStudioCommands();
   const overlayMap = useSessionNodeOverlay();
   const edgeExecState = useSessionEdgeExecutionState();
   const setSelection = useCanvasSelection((s) => s.setSelection);
@@ -482,9 +482,7 @@ function SessionEditorInner() {
         onExport={handleExport}
         onDelete={handleDelete}
         onCreate={handleCreate}
-        onRun={() => { void createRun(true); }}
         onAutoLayout={handleAutoLayout}
-        canRun={!!session}
       />
       {/* Phase 3: floating step control toolbar when run is paused */}
       <div className="absolute top-14 left-1/2 z-20 -translate-x-1/2">

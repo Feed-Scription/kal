@@ -15,6 +15,7 @@ import vcsEn from './locales/en/vcs.json';
 import configEn from './locales/en/config.json';
 import terminalEn from './locales/en/terminal.json';
 import previewEn from './locales/en/preview.json';
+import evalEn from './locales/en/eval.json';
 
 import commonZh from './locales/zh-CN/common.json';
 import registryZh from './locales/zh-CN/registry.json';
@@ -28,11 +29,12 @@ import vcsZh from './locales/zh-CN/vcs.json';
 import configZh from './locales/zh-CN/config.json';
 import terminalZh from './locales/zh-CN/terminal.json';
 import previewZh from './locales/zh-CN/preview.json';
+import evalZh from './locales/zh-CN/eval.json';
 
 const ns = [
   'common', 'registry', 'commands', 'store', 'workbench',
   'flow', 'session', 'debug', 'vcs',
-  'config', 'terminal', 'preview',
+  'config', 'terminal', 'preview', 'eval',
 ] as const;
 
 i18n
@@ -53,6 +55,7 @@ i18n
         config: configEn,
         terminal: terminalEn,
         preview: previewEn,
+        eval: evalEn,
       },
       'zh-CN': {
         common: commonZh,
@@ -67,6 +70,7 @@ i18n
         config: configZh,
         terminal: terminalZh,
         preview: previewZh,
+        eval: evalZh,
       },
     },
     ns: [...ns],

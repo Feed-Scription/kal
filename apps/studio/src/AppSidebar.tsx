@@ -8,13 +8,14 @@ import {
   SidebarHeader,
   SidebarInset,
   SidebarMenu,
+  SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarProvider,
   SidebarRail,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { Command, LayoutDashboard, PanelRight, Play, Plus, PlayCircle, Route, Zap, Bookmark } from "lucide-react";
+import { Command, LayoutDashboard, PanelRight, Play, Plus, PlayCircle, Route, Zap, Bookmark, ChevronDown, ChevronRight, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useMemo, useState } from "react";
 import { useTranslation } from 'react-i18next';
@@ -37,7 +38,7 @@ type AppSidebarProps = {
   inspectorVisible?: boolean;
 };
 
-const TOOL_VIEW_IDS = ['kal.play', 'kal.config', 'kal.prompt-preview', 'kal.version-control'];
+const TOOL_VIEW_IDS = ['kal.play', 'kal.config', 'kal.prompt-eval', 'kal.prompt-preview', 'kal.version-control'];
 
 export function AppSidebar({ children, onToggleInspector, inspectorVisible }: AppSidebarProps) {
   const { t } = useTranslation('workbench');
@@ -46,16 +47,17 @@ export function AppSidebar({ children, onToggleInspector, inspectorVisible }: Ap
   const { project, session } = useStudioResources();
   const { flowId: currentFlow } = useFlowResource();
   const { activeViewId } = useWorkbench();
-  const { runs, selectedRunId } = useRunDebug();
+  const { runs, selectedRunId, runCommandLoading } = useRunDebug();
   const {
     setActiveView, setCommandPaletteOpen,
     openFlow, createFlow, selectRun,
-    createRun, createSmokeRun, createCheckpoint,
+    createRun, createSmokeRun, createCheckpoint, clearFinishedRuns, deleteRun,
   } = useStudioCommands();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [flowNameInput, setFlowNameInput] = useState("");
   const [error, setError] = useState("");
+  const [runsExpanded, setRunsExpanded] = useState(true);
 
   const openCreateDialog = () => {
     setFlowNameInput("");
@@ -94,6 +96,10 @@ export function AppSidebar({ children, onToggleInspector, inspectorVisible }: Ap
     createCheckpoint();
     setActiveView('kal.version-control');
   };
+
+  const finishedRunCount = runs.filter(
+    (record) => record.run.status === 'ended' || record.run.status === 'error',
+  ).length;
 
   const toolViews = useMemo(() => {
     return TOOL_VIEW_IDS
@@ -181,15 +187,36 @@ export function AppSidebar({ children, onToggleInspector, inspectorVisible }: Ap
 
                     {/* Run list */}
                     <SidebarMenuItem>
-                      <div className="flex items-center px-2 py-1">
-                        <span className="text-xs font-medium text-muted-foreground">{t("runs")}</span>
+                      <div className="flex items-center justify-between gap-1 px-2 py-1">
+                        <button
+                          type="button"
+                          className="flex min-w-0 items-center gap-1 text-xs font-medium text-muted-foreground"
+                          onClick={() => setRunsExpanded((prev) => !prev)}
+                          title={runsExpanded ? t("collapseRuns") : t("expandRuns")}
+                          aria-label={runsExpanded ? t("collapseRuns") : t("expandRuns")}
+                        >
+                          {runsExpanded ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
+                          <span>{t("runs")}</span>
+                          <span className="text-[10px] text-muted-foreground/80">{runs.length}</span>
+                        </button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-5 w-5"
+                          disabled={finishedRunCount === 0 || runCommandLoading}
+                          onClick={() => void clearFinishedRuns()}
+                          title={t("clearFinishedRuns")}
+                          aria-label={t("clearFinishedRuns")}
+                        >
+                          <Trash2 className="size-3" />
+                        </Button>
                       </div>
                     </SidebarMenuItem>
-                    {runs.length === 0 ? (
+                    {runsExpanded && runs.length === 0 ? (
                       <SidebarMenuItem>
                         <span className="px-2 text-xs text-muted-foreground">{t("noRuns")}</span>
                       </SidebarMenuItem>
-                    ) : (
+                    ) : runsExpanded ? (
                       runs.map((record) => (
                         <SidebarMenuItem key={record.runId}>
                           <SidebarMenuButton
@@ -210,9 +237,29 @@ export function AppSidebar({ children, onToggleInspector, inspectorVisible }: Ap
                               {record.run.status}
                             </span>
                           </SidebarMenuButton>
+                          <SidebarMenuAction
+                            showOnHover
+                            disabled={runCommandLoading}
+                            title={t("deleteRunRecord")}
+                            aria-label={t("deleteRunRecord")}
+                            className="text-muted-foreground hover:text-destructive"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              void deleteRun(record.runId);
+                            }}
+                          >
+                            <Trash2 className="size-3" />
+                          </SidebarMenuAction>
                         </SidebarMenuItem>
                       ))
-                    )}
+                    ) : null}
+                    {!runsExpanded && runs.length > 0 ? (
+                      <SidebarMenuItem>
+                        <span className="px-2 text-[10px] text-muted-foreground">
+                          {t("runsCollapsedSummary", { count: runs.length })}
+                        </span>
+                      </SidebarMenuItem>
+                    ) : null}
                   </SidebarMenu>
                 </SidebarGroupContent>
               </SidebarGroup>
