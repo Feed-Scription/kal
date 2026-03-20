@@ -30,7 +30,16 @@
   "autoGeneratingDescription": "请稍候，游戏正在自动推进到下一段内容 {{indicator}}",
   "pausedDescription": "当前 run 已在下一个边界前暂停，继续后可恢复试玩。",
   "endedDescription": "当前 run 已结束，重新开始即可再玩一轮。",
-  "errorDescription": "当前 run 发生错误。请查看上方错误信息，或直接重试当前失败步骤。",
+  "errorDescription": "当前 run 发生错误。请查看下方错误详情，或直接重试当前失败步骤。",
+  "errorMessageLabel": "错误信息",
+  "errorCodeLabel": "错误代码",
+  "errorStepLabel": "步骤",
+  "errorFlowLabel": "流程",
+  "errorNodeLabel": "节点",
+  "errorTypeLabel": "错误类型",
+  "errorDetailsLabel": "错误详情",
+  "unknownErrorMessage": "未提供更详细的错误信息。",
+  "noStructuredError": "当前 run 没有携带结构化错误详情，可能是旧的运行快照或未覆盖的异常路径。",
   "retryStepDescription": "会在保留当前 run 进度的前提下，重新执行刚才失败的这一步；如果这一步之前已经输入过内容，会自动复用那次输入。",
   "runningDescription": "当前 run 正在推进，新的输出会自动显示在这里。"
 }
