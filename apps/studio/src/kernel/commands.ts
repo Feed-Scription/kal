@@ -229,7 +229,7 @@ export function useCommandRegistry() {
         keywords: ['bottom', 'panel', 'toggle', 'terminal'],
         shortcut: 'Ctrl+J',
         global: true,
-        when: (ctx) => Boolean(ctx.values['project.loaded']),
+        when: (ctx) => Boolean(ctx.values['project.loaded']) && Boolean(ctx.values['workbench.hasBottomPanels']),
         run: () => {
           panelCallbacks.toggleBottomPanel?.();
         },
