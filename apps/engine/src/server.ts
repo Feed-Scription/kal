@@ -518,6 +518,80 @@ export async function handleEngineRequest(
       return;
     }
 
+    if (method === 'POST' && pathname === '/api/tools/eval/run-stream') {
+      requireCapability(req, 'engine.execute');
+      const payload = await readJsonBody<{
+        flowId: string;
+        nodeId: string;
+        runs?: number;
+        variant?: { fragments: Fragment[] };
+        input?: Record<string, any>;
+        state?: Record<string, any>;
+        model?: string;
+      }>(req);
+      if (!payload.flowId) {
+        throw new EngineHttpError('flowId is required', 400, 'FLOW_ID_REQUIRED');
+      }
+      if (!payload.nodeId) {
+        throw new EngineHttpError('nodeId is required', 400, 'NODE_ID_REQUIRED');
+      }
+      const flow = runtime.getFlow(payload.flowId);
+      findPromptBuildNode(flow, payload.nodeId);
+
+      const core = runtime.getKalCore();
+      const stateStore = core.state;
+      const project = runtime.getProject();
+      const resolver = (id: string): string => {
+        const raw = project.flowTextsById[id];
+        if (!raw) throw new Error(`Unknown flow: ${id}`);
+        return raw;
+      };
+
+      let stateOverrides: Record<string, StateValue> | undefined;
+      if (payload.state) {
+        stateOverrides = {};
+        for (const [key, value] of Object.entries(payload.state)) {
+          if (value && typeof value === 'object' && 'type' in value && 'value' in value) {
+            stateOverrides[key] = value as StateValue;
+          } else if (typeof value === 'string') stateOverrides[key] = { type: 'string', value };
+          else if (typeof value === 'number') stateOverrides[key] = { type: 'number', value };
+          else if (typeof value === 'boolean') stateOverrides[key] = { type: 'boolean', value };
+          else if (Array.isArray(value)) stateOverrides[key] = { type: 'array', value };
+          else if (value !== null && typeof value === 'object') stateOverrides[key] = { type: 'object', value };
+        }
+      }
+
+      setSseHeaders(res);
+      res.flushHeaders?.();
+
+      let closed = false;
+      req.on('close', () => { closed = true; });
+
+      const result = await runEval(core, stateStore, {
+        flow,
+        flowId: payload.flowId,
+        nodeId: payload.nodeId,
+        variantFragments: payload.variant?.fragments,
+        runs: payload.runs ?? 5,
+        input: payload.input,
+        state: stateOverrides,
+        resolver,
+        variantLabel: payload.variant ? 'variant' : undefined,
+        modelOverride: payload.model,
+        onProgress: (event) => {
+          if (!closed) {
+            res.write(`event: eval.progress\ndata: ${JSON.stringify(event)}\n\n`);
+          }
+        },
+      });
+
+      if (!closed) {
+        res.write(`event: eval.complete\ndata: ${JSON.stringify(result)}\n\n`);
+        res.end();
+      }
+      return;
+    }
+
     if (method === 'POST' && pathname === '/api/tools/eval/compare') {
       const payload = await readJsonBody<{ a: any; b: any }>(req);
       if (!payload.a || !payload.b) {

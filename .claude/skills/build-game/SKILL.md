@@ -1,7 +1,6 @@
 ---
 name: build-game
-description: SOP for building a complete game with KAL-AI Flow engine. Includes an integrated game design phase with multi-round dialogue for idea refinement, then proceeds to technical implementation. Use when the user wants to create a new game, design a game, add game features, or needs guidance on KAL-AI game development workflow.
-argument-hint: [game-description or feature-request]
+description: SOP for building a complete game with KAL-AI Flow engine. Includes an integrated game design phase (MDA framework, Design Depth Tier, soul design, genre patterns) with multi-round dialogue for idea refinement, then proceeds to technical implementation (State → Flow → Session → Config → Lint → Test). Use when the user wants to create a new game, design a game, add game features, or needs guidance on KAL-AI game development workflow. For pure technical reference (node schemas, CLI commands, session step types), use the `kal-engine` skill instead.
 ---
 
 # KAL-AI Game Building SOP
@@ -335,15 +334,15 @@ Flows are the **logic core**. Each Flow is a JSON DAG (directed acyclic graph) o
 
 ### Available built-in nodes
 
-See [component-guide.md](component-guide.md) for full node API reference.
+> **Technical reference**: For full node API (inputs/outputs/config schemas for all 17 nodes), CLI commands, and session step types, use the `kal-engine` skill or run `kal schema nodes`.
 
 | Category | Node | Purpose |
 |----------|------|---------|
 | Signal | `SignalIn` / `SignalOut` | Flow input/output ports |
-| State | `ReadState` / `ModifyState` / `WriteState` / `AddState` / `RemoveState` | Read/write game state |
-| LLM | `PromptBuild` / `Message` / `GenerateText` | Build prompts, assemble messages, call LLM |
-| Processing | `JSONParse` / `PostProcess` / `Regex` | Parse and process LLM output |
-| Composition | `SubFlow` | Call another Flow |
+| State | `ReadState` / `WriteState` / `ComputeState` | Read/write game state |
+| LLM | `PromptBuild` / `Message` / `GenerateText` / `GenerateImage` / `UpdateHistory` / `CompactHistory` | Build prompts, assemble messages, call LLM, manage history |
+| Transform | `JSONParse` / `PostProcess` / `Regex` / `SubFlow` | Parse, transform, and delegate |
+| Utility | `Constant` | Output fixed values |
 
 ### The core LLM chain pattern
 
@@ -598,5 +597,5 @@ For AI integration:
 - [ai-integration-guide.md](game-design-references/ai-integration-guide.md) — AI application scenarios, architecture patterns (AI+rule validation, graceful degradation, state compression), fallback content guidelines, implementation checklist
 
 For KAL-AI technical reference:
-- [component-guide.md](component-guide.md) — All node types, Flow structure, Session steps, StateStore API
-- [config-reference.md](config-reference.md) — Project file templates (kal_config.json, initial_state.json, session.json, flow/*.json)
+- Use the `kal-engine` skill (user-level) — All 17 node schemas, 6 session step types, 12 CLI commands (71+ subcommands), design patterns, and project file templates
+- Or run `kal schema nodes` / `kal schema node <type>` / `kal schema session` for live schema introspection

@@ -36,6 +36,8 @@ export function createKalCore(params: {
   hooks?: Partial<EngineHooks>;
   customNodes?: Record<string, any>;
   customNodeProjectRoot?: string;
+  /** Share an existing registry (e.g. for parallel eval runs that need custom nodes). */
+  registry?: NodeRegistry;
 }): KalCore {
   const { config, initialState, hooks: userHooks, customNodes, customNodeProjectRoot } = params;
 
@@ -54,11 +56,14 @@ export function createKalCore(params: {
     hookManager.registerAll(userHooks);
   }
 
-  // Initialize node registry with built-in nodes
-  const registry = new NodeRegistry();
-  for (const node of BUILTIN_NODES) {
-    registry.register(node);
-  }
+  // Reuse provided registry or create a fresh one with built-in nodes
+  const registry = params.registry ?? (() => {
+    const reg = new NodeRegistry();
+    for (const node of BUILTIN_NODES) {
+      reg.register(node);
+    }
+    return reg;
+  })();
 
   // Create context factory
   const contextFactory = (executionId: string, nodeId: string): NodeContext => ({
@@ -217,14 +222,17 @@ export function createKalCore(params: {
       defaultNodeTimeoutMs: config.engine.nodeTimeout,
     });
 
-  const ready = (async () => {
-    if (customNodes) {
-      await CustomNodeLoader.loadFromModules(customNodes, registry);
-    }
-    if (customNodeProjectRoot) {
-      await CustomNodeLoader.loadFromProject(customNodeProjectRoot, registry);
-    }
-  })();
+  // When a shared registry is provided, custom nodes are already loaded — skip.
+  const ready = params.registry
+    ? Promise.resolve()
+    : (async () => {
+        if (customNodes) {
+          await CustomNodeLoader.loadFromModules(customNodes, registry);
+        }
+        if (customNodeProjectRoot) {
+          await CustomNodeLoader.loadFromProject(customNodeProjectRoot, registry);
+        }
+      })();
 
   return {
     config,
