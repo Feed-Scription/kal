@@ -35,5 +35,49 @@
     "input": "输入 JSON 必须是对象。",
     "state": "状态 JSON 必须是对象。",
     "variant": "变体 JSON 必须是带 fragments 的对象或 fragments 数组。"
+  },
+  "target": {
+    "title": "目标",
+    "nodePreview": "{{count}} 个片段"
+  },
+  "environment": {
+    "title": "环境",
+    "inputsTitle": "输入",
+    "stateTitle": "状态覆盖",
+    "overrideToggle": "覆盖",
+    "noInputsDeclared": "此 Flow 未声明输入。",
+    "noStateKeys": "暂无可用状态键。"
+  },
+  "variant": {
+    "baseline": "基线 (A)",
+    "variant": "变体 (B)",
+    "currentFragments": "当前片段",
+    "editableFragments": "可编辑片段",
+    "model": "模型",
+    "modelDefault": "默认",
+    "run": "运行"
+  },
+  "results": {
+    "summaryTitle": "摘要",
+    "distributionTitle": "分布",
+    "booleanTitle": "布尔指标",
+    "outputsTitle": "输出",
+    "showAll": "显示全部",
+    "collapse": "收起",
+    "improvement": "提升",
+    "regression": "下降",
+    "noResults": "请至少运行一个方案以查看结果。",
+    "runNumber": "第 {{n}} 次",
+    "outputA": "输出 A",
+    "outputB": "输出 B",
+    "expand": "展开",
+    "median": "中位数",
+    "mean": "均值",
+    "trueRate": "真值率"
+  },
+  "delta": {
+    "cost": "成本",
+    "latency": "延迟",
+    "pctChange": "{{value}}%"
   }
 }

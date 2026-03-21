@@ -1,6 +1,6 @@
 /**
  * Flow executor for prompt evaluation
- * Runs a flow N times with optional prompt variant substitution,
+ * Runs a flow N times in parallel with isolated state per run,
  * collects outputs, cost, and latency per run via hooks.
  */
 
@@ -10,7 +10,14 @@ import type { KalCore } from '../core';
 import type { StateStore } from '../state-store';
 import type { LLMResponseEvent } from '../types/hooks';
 import type { EvalRunResult, RunResult } from './types';
+import { createKalCore } from '../core';
 import { computeAllStats } from './stats';
+
+export interface EvalProgressEvent {
+  completedRuns: number;
+  totalRuns: number;
+  latestRun?: RunResult;
+}
 
 export interface EvalRunOptions {
   flow: FlowDefinition;
@@ -23,6 +30,7 @@ export interface EvalRunOptions {
   resolver?: (id: string) => string;
   variantLabel?: string;
   modelOverride?: string;
+  onProgress?: (event: EvalProgressEvent) => void;
 }
 
 /**
@@ -63,21 +71,23 @@ export function findPromptBuildNode(flow: FlowDefinition, nodeId: string): NodeD
 }
 
 /**
- * Estimate cost from token usage (rough: $0.003/1K prompt, $0.015/1K completion)
+ * Extract cost from provider-reported usage (e.g. OpenRouter), fall back to 0
  */
-function estimateCostFromUsage(usage: TokenUsage): number {
-  return (usage.promptTokens * 0.003 + usage.completionTokens * 0.015) / 1000;
+function extractCost(usage: TokenUsage): number {
+  return typeof usage.cost === 'number' ? usage.cost : 0;
 }
 
 /**
- * Run a flow N times and collect evaluation data
+ * Run a flow N times in parallel and collect evaluation data.
+ * Each run gets an isolated KalCore instance with its own state and hooks,
+ * but shares the parent core's node registry (read-only during execution).
  */
 export async function runEval(
   core: KalCore,
   stateStore: StateStore,
   options: EvalRunOptions,
 ): Promise<EvalRunResult> {
-  const { flow, flowId, nodeId, variantFragments, runs, input, state, resolver, modelOverride } = options;
+  const { flow, flowId, nodeId, variantFragments, runs, input, state, resolver, modelOverride, onProgress } = options;
 
   // Validate the target node exists
   findPromptBuildNode(flow, nodeId);
@@ -87,90 +97,73 @@ export async function runEval(
     ? cloneFlowWithVariant(flow, nodeId, variantFragments)
     : flow;
 
-  // Apply model override if specified
-  const originalModel = core.config.llm.defaultModel;
-  if (modelOverride) {
-    core.config.llm.defaultModel = modelOverride;
-  }
-
-  // Save original state for restoration between runs
+  // Snapshot original state for isolation
   const originalState = stateStore.getAll();
+  const targetState = state ? { ...originalState, ...state } : { ...originalState };
+  const effectiveModel = modelOverride ?? core.config.llm.defaultModel;
 
-  const perRun: RunResult[] = [];
-  const outputs: any[] = [];
+  let completedCount = 0;
+  const perRun: RunResult[] = new Array(runs);
+  const outputs: any[] = new Array(runs);
 
-  for (let i = 0; i < runs; i++) {
-    // Wrap each run in try-catch for error isolation
+  const runOne = async (i: number) => {
     try {
-      // Restore state atomically before each run (restore() does clear + set internally)
-      const targetState: Record<string, StateValue> = state
-        ? { ...originalState, ...state }
-        : { ...originalState };
-      stateStore.restore(targetState);
+      // Create isolated core with cloned state but shared registry
+      const isolatedCore = createKalCore({
+        config: {
+          ...core.config,
+          llm: { ...core.config.llm, defaultModel: effectiveModel },
+        },
+        initialState: JSON.parse(JSON.stringify(targetState)),
+        registry: core.registry,
+      });
+      await isolatedCore.ready;
 
-      // Collect LLM usage and raw outputs via hook
       let runCost = 0;
       const llmRawOutputs: string[] = [];
-      const onLLMResponse = (event: LLMResponseEvent) => {
+      isolatedCore.hooks.on('onLLMResponse', (event: LLMResponseEvent) => {
         if (!event.cached) {
-          runCost += estimateCostFromUsage(event.usage);
+          runCost += extractCost(event.usage);
         }
         llmRawOutputs.push(event.text);
-      };
-      core.hooks.on('onLLMResponse', onLLMResponse);
+      });
 
       const startTime = Date.now();
+      const result = await isolatedCore.executeFlow(effectiveFlow, flowId, input ?? {}, resolver);
+      const latency = Date.now() - startTime;
 
-      try {
-        const result = await core.executeFlow(effectiveFlow, flowId, input ?? {}, resolver);
-        const latency = Date.now() - startTime;
+      const output = Object.keys(result.outputs).length === 1
+        ? Object.values(result.outputs)[0]
+        : result.outputs;
 
-        // Extract output from SignalOut channels
-        const output = Object.keys(result.outputs).length === 1
-          ? Object.values(result.outputs)[0]
-          : result.outputs;
+      const runResult: RunResult = {
+        output,
+        cost: Math.round(runCost * 10000) / 10000,
+        latency,
+        llmRawOutputs: llmRawOutputs.length > 0 ? llmRawOutputs : undefined,
+      };
 
-        perRun.push({
-          output,
-          cost: Math.round(runCost * 10000) / 10000,
-          latency,
-          llmRawOutputs: llmRawOutputs.length > 0 ? llmRawOutputs : undefined,
-        });
-        outputs.push(output);
-
-        if (result.errors.length > 0) {
-          const errMsg = result.errors.map((e: any) => `${e.nodeId}: ${e.message}`).join('; ');
-          // Still record the run but note the error in output
-          if (output === undefined || (typeof output === 'object' && Object.keys(output).length === 0)) {
-            outputs[outputs.length - 1] = `[ERROR] ${errMsg}`;
-            perRun[perRun.length - 1]!.output = `[ERROR] ${errMsg}`;
-          }
+      // Record errors but keep the run
+      if (result.errors.length > 0) {
+        const errMsg = result.errors.map((e: any) => `${e.nodeId}: ${e.message}`).join('; ');
+        if (output === undefined || (typeof output === 'object' && Object.keys(output).length === 0)) {
+          runResult.output = `[ERROR] ${errMsg}`;
         }
-      } finally {
-        // Always cleanup hook even if executeFlow throws
-        core.hooks.off('onLLMResponse', onLLMResponse);
       }
+
+      perRun[i] = runResult;
+      outputs[i] = runResult.output;
     } catch (error) {
-      // Error isolation: record failure and continue to next run
       const errorMsg = error instanceof Error ? error.message : String(error);
-      perRun.push({
-        output: `[ERROR] ${errorMsg}`,
-        cost: 0,
-        latency: 0,
-        llmRawOutputs: undefined,
-      });
-      outputs.push(`[ERROR] ${errorMsg}`);
-      // Continue to next run instead of aborting entire eval
+      perRun[i] = { output: `[ERROR] ${errorMsg}`, cost: 0, latency: 0 };
+      outputs[i] = `[ERROR] ${errorMsg}`;
     }
-  }
 
-  // Restore original state after all runs
-  stateStore.restore(originalState);
+    completedCount++;
+    onProgress?.({ completedRuns: completedCount, totalRuns: runs, latestRun: perRun[i] });
+  };
 
-  // Restore original model after all runs
-  if (modelOverride) {
-    core.config.llm.defaultModel = originalModel;
-  }
+  await Promise.all(Array.from({ length: runs }, (_, i) => runOne(i)));
 
   const totalCost = perRun.reduce((sum, r) => sum + r.cost, 0);
   const avgLatency = runs > 0
@@ -182,7 +175,7 @@ export async function runEval(
     flowPath: flowId,
     nodeId,
     variant: options.variantLabel ?? (variantFragments ? 'variant' : 'baseline'),
-    model: modelOverride ?? originalModel,
+    model: effectiveModel,
     runs,
     result: {
       outputs,

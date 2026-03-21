@@ -14,5 +14,5 @@ export type {
 
 export { renderPrompt } from './resolver';
 export { runEval, findPromptBuildNode } from './executor';
-export type { EvalRunOptions } from './executor';
+export type { EvalRunOptions, EvalProgressEvent } from './executor';
 export { computeStats, computeAllStats, computeBooleanStats } from './stats';

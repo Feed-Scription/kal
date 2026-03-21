@@ -10,9 +10,9 @@
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D18-brightgreen)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 
-*Make AI-driven game development simple and controllable*
+*Define game logic in JSON. Let the engine handle the rest.*
 
-[Quick Start](#quick-start) · [Examples](#examples) · [Docs](#documentation) · [Roadmap](#roadmap)
+[Quick Start](#quick-start) · [How It Works](#how-it-works) · [CLI](#cli-tools) · [Examples](#examples) · [Docs](#documentation)
 
 **[中文文档](./README.zh-CN.md)**
 
@@ -22,63 +22,103 @@
 
 ## What is KAL?
 
-KAL (Kal AI Layer) is a flow engine designed for AI-native games. It uses a three-layer architecture to make complex AI interactions simple and controllable:
+KAL is a flow engine that lets you build AI-driven games and interactive applications by writing JSON instead of code. You declare **what** should happen — state changes, LLM calls, branching logic — and the engine handles **how** it runs.
 
-- **Node layer** — Composable nodes for state I/O, LLM calls, sub-flow reuse, and business rules
-- **Flow layer** — Describe DAG workflows in JSON for orchestration
-- **Session layer** — A lightweight state machine that drives multi-turn interaction
+Three layers, each with a clear job:
 
-Batteries included: runtime, engine host, Studio workbench, and example games.
+```
+Session    "When does the player interact?"     State machine for multi-turn dialogue
+   ↓
+Flow       "What happens each turn?"            DAG workflows in JSON
+   ↓
+Node       "How is each step executed?"         Composable units: state I/O, LLM, transforms
+```
 
-## Use Cases
+Batteries included: runtime, CLI toolchain (12 commands, 71+ subcommands), Studio workbench, HTTP API, and example games.
 
-| Type | Description | Examples |
-|------|-------------|----------|
-| **Turn-based text games** | Rule-based game logic + AI narrative | DND adventures, text RPGs |
-| **AI interactive fiction** | Dynamic story generation with branching | Interactive novels, story games |
-| **State-driven prototypes** | Apps with complex state management | Character sims, management games |
-| **Hybrid orchestration** | Deep integration of rules and LLMs | Smart assistants, educational games |
+## How It Works
+
+A KAL project is three JSON files + an optional `node/` directory:
+
+```
+my-game/
+├── initial_state.json     # State declarations (all keys must be pre-declared)
+├── session.json           # Session state machine (player journey)
+├── kal_config.json        # Engine + LLM configuration
+├── flow/                  # Flow DAG definitions
+│   ├── main.json
+│   ├── narrate.json
+│   └── ...
+└── node/                  # Custom nodes (optional, TypeScript)
+```
+
+**State** — flat key-value store with typed values and constraints:
+```json
+{
+  "playerName": { "type": "string", "value": "" },
+  "health":     { "type": "number", "value": 100, "min": 0, "max": 200 },
+  "inventory":  { "type": "array",  "value": ["sword"] }
+}
+```
+
+**Flow** — DAG of nodes wired together. Each flow has a `meta` (inputs/outputs) and `data` (nodes + edges):
+```
+SignalIn → PromptBuild → Message → GenerateText → JSONParse → WriteState → SignalOut
+```
+
+**Session** — state machine that drives multi-turn interaction using 6 step types:
+`RunFlow` · `Prompt` · `Choice` · `DynamicChoice` · `Branch` · `End`
+
+```
+intro(RunFlow) → turn(Prompt) → check(Branch) → turn | death(End) | victory(End)
+```
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                      KAL Architecture                       │
-├─────────────────────────────────────────────────────────────┤
-│  apps/                                                      │
-│  ├── engine/     CLI + HTTP API + TUI host                  │
-│  └── studio/     Studio workbench                           │
-├─────────────────────────────────────────────────────────────┤
-│  packages/                                                  │
-│  └── core/       Flow runtime + Session mgmt + Node system  │
-├─────────────────────────────────────────────────────────────┤
-│  examples/                                                  │
-│  └── dnd-adventure/  Complete DND adventure game            │
-└─────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│                       KAL Architecture                        │
+├──────────────────────────────────────────────────────────────┤
+│  apps/                                                        │
+│  ├── engine/          CLI + HTTP API + TUI host               │
+│  └── studio/          Visual Studio workbench                 │
+├──────────────────────────────────────────────────────────────┤
+│  packages/                                                    │
+│  ├── core/            Flow runtime + Session mgmt + Nodes     │
+│  └── create-kal-game/ Project scaffolding (kal init)          │
+├──────────────────────────────────────────────────────────────┤
+│  examples/                                                    │
+│  ├── dnd-adventure/        DND text adventure (9 flows)       │
+│  ├── showcase-signal-watch/ Storm beacon keeper (3 flows)     │
+│  └── castaway/             Survival game (7 flows)            │
+└──────────────────────────────────────────────────────────────┘
 ```
 
 ## Core Features
+
+### 17 Built-in Nodes
+
+| Category | Nodes | Purpose |
+|----------|-------|---------|
+| **Signal** | SignalIn, SignalOut, Timer | I/O channels and event handling |
+| **State** | ReadState, WriteState | State read/write operations |
+| **LLM** | PromptBuild, Message, GenerateText, GenerateImage, UpdateHistory, CompactHistory | AI model invocation and prompt engineering |
+| **Transform** | Regex, JSONParse, PostProcess, SubFlow | Data processing and flow composition |
+| **Utility** | Constant, ComputeState | Static values and computed state |
 
 ### Flow JSON Runtime
 - **Declarative** — `meta + data` structure with input/output contracts
 - **Visual orchestration** — DAG workflows with conditional branching
 - **SubFlow reuse** — Break complex logic into reusable sub-flows
 
-### Built-in Node System
-- **State nodes** — State read/write and data transformation
-- **LLM nodes** — AI model invocation and prompt engineering
-- **Signal nodes** — User interaction and event handling
-- **Transform nodes** — Data processing and format conversion
-
 ### Session Layer
-- **Multi-turn dialogue** — `RunFlow / Prompt / Choice / Branch / End`
-- **State management** — Auto-save and restore game progress
-- **Multiple interfaces** — CLI, TUI, HTTP API
+- **Multi-turn dialogue** — 6 step types cover all interaction patterns
+- **State persistence** — Auto-save and restore game progress
+- **Multiple interfaces** — CLI, TUI, HTTP API, Studio
 
-### Developer Friendly
-- **Custom nodes** — Extend with business logic in `node/` directory
-- **Node manifest** — Engine exports node catalog for the Studio workbench
-- **Hot reload** — Live preview during development
+### Extensibility
+- **Custom nodes** — TypeScript nodes in `node/` directory, auto-discovered by the engine
+- **Any LLM provider** — OpenAI, DeepSeek, Ollama, or any OpenAI-compatible API
 
 ## Quick Start
 
@@ -95,9 +135,8 @@ cd kal
 # 2. Install dependencies and link the CLI
 pnpm run setup
 
-# 3. Configure
+# 3. Configure (supports any OpenAI-compatible provider)
 kal config init
-# Prompts for API key — supports any OpenAI-compatible provider
 
 # 4. Play
 kal play examples/dnd-adventure
@@ -128,10 +167,10 @@ kal config set-key openai sk-your-api-key
 kal config list
 
 # Set API keys
-kal config set openai.apiKey sk-xxx...
-kal config set deepseek.apiKey sk-xxx...
+kal config set-key openai sk-xxx
+kal config set-key deepseek sk-xxx
 
-# Set API endpoints
+# Set custom API endpoint
 kal config set openai.baseUrl https://api.deepseek.com/v1
 
 # View / remove config
@@ -139,33 +178,66 @@ kal config get openai.apiKey
 kal config remove openai.apiKey
 ```
 
-### Launch Studio
+## CLI Tools
 
-```bash
-# Option A: Studio mode (engine + studio in one command)
-kal studio examples/dnd-adventure
+KAL ships with 12 commands covering the full development lifecycle:
 
-# Option B: Separate processes
-kal serve examples/dnd-adventure
-cd apps/studio && pnpm dev
 ```
+kal init  →  kal lint  →  kal play / debug  →  kal studio  →  kal serve
+ create      validate      test & debug        visual edit     deploy
+```
+
+### Project
+
+| Command | Description |
+|---------|-------------|
+| `kal init <name>` | Scaffold a new project (`--template minimal\|game`) |
+| `kal config` | Manage user-level config (`init`, `set`, `get`, `list`, `remove`, `set-key`) |
+
+### Develop & Test
+
+| Command | Description |
+|---------|-------------|
+| `kal lint [path]` | Static analysis — session validation, unused flows, state refs, node config |
+| `kal smoke [path]` | Automated smoke test (`--steps N`, `--input`, `--dry-run`) |
+| `kal eval` | Prompt A/B testing (`nodes`, `render`, `run`, `compare`) |
+| `kal schema` | Introspect node types and session step schemas |
+
+### Run & Debug
+
+| Command | Description |
+|---------|-------------|
+| `kal play [path]` | Interactive TUI player (`--lang en\|zh-CN`) |
+| `kal debug` | Step-by-step debugging with state inspection (`start`, `step`, `continue`, `state`, `diff`, `retry`, `skip`) |
+
+### Serve & Edit
+
+| Command | Description |
+|---------|-------------|
+| `kal serve [path]` | HTTP API server (`--host`, `--port`) |
+| `kal studio [path]` | Studio workbench — visual flow editor, session editor, state inspector, debug UI |
+
+### Data Manipulation
+
+| Command | Description |
+|---------|-------------|
+| `kal flow` | CRUD for flows, nodes, edges, and prompt fragments |
+| `kal session` | CRUD for session definition and steps |
+
+All commands support `--format json` for structured output. See [CLI Reference](./docs/reference/cli.md) for the full command tree.
 
 ## Examples
 
 ### DND Adventure
-A complete single-player DND-style adventure game showcasing KAL's core capabilities:
+A complete single-player DND-style text adventure — 9 flows, 2 custom nodes:
 
 ```bash
 kal play examples/dnd-adventure
 ```
 
-- Dynamic character creation and stat allocation
-- AI-driven narrative and NPC dialogue
-- Turn-based combat system
-- Inventory management
-- Multiple story endings
-
-See [examples/dnd-adventure](./examples/dnd-adventure) for the full source.
+- Dynamic character creation with preset classes
+- AI-driven narrative with prompt caching (static/dynamic split)
+- Turn-based combat, inventory management, multiple endings
 
 <details>
 <summary>Gameplay preview</summary>
@@ -215,6 +287,41 @@ You deal 8 damage to the goblin!
 
 </details>
 
+### Storm Beacon Watch
+A 15-minute survival showcase — manage fuel, tower integrity, and crew morale across 4 storm nights:
+
+```bash
+kal play examples/showcase-signal-watch
+```
+
+### Castaway
+A survival game with resource management and branching narrative:
+
+```bash
+kal play examples/castaway
+```
+
+## HTTP API
+
+```bash
+kal serve examples/dnd-adventure
+```
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/project` | Project snapshot |
+| `GET` | `/api/flows` | List flows |
+| `GET` | `/api/session` | Session definition |
+| `GET` | `/api/state` | Current state snapshot |
+| `GET` | `/api/diagnostics` | Lint / diagnostics |
+| `POST` | `/api/executions` | Execute a flow |
+| `POST` | `/api/runs` | Create a managed run |
+| `POST` | `/api/runs/:id/advance` | Advance a run |
+| `GET` | `/api/runs/:id/state` | Inspect run state |
+| `GET` | `/api/runs/:id/stream` | Subscribe to run events (SSE) |
+
+See [server.ts](./apps/engine/src/server.ts) for the full endpoint list (55+ endpoints).
+
 ## Development
 
 ```bash
@@ -246,23 +353,7 @@ export default {
 };
 ```
 
-### HTTP API
-
-```bash
-kal serve examples/dnd-adventure
-
-# Endpoints
-GET    /api/project              # Project snapshot for Studio / tools
-GET    /api/flows               # List flows
-GET    /api/session             # Load session definition
-GET    /api/state               # Current state snapshot
-GET    /api/diagnostics         # Lint / diagnostics summary
-POST   /api/executions          # Execute one flow
-POST   /api/runs                # Create managed run
-POST   /api/runs/:id/advance    # Advance managed run
-GET    /api/runs/:id/state      # Inspect managed run state
-GET    /api/runs/:id/stream     # Subscribe to managed run events (SSE)
-```
+Nodes are auto-discovered — drop a `.ts` file in `node/` and the engine picks it up.
 
 ## Documentation
 
@@ -271,8 +362,15 @@ GET    /api/runs/:id/stream     # Subscribe to managed run events (SSE)
 | [Getting Started](./docs/getting-started.md) | Quick start guide |
 | [Core Concepts](./docs/concepts.md) | Node, Flow, State, Session |
 | [Project Structure](./docs/project-structure.md) | File-by-file breakdown |
-| [Reference](./docs/reference/) | API reference docs |
-| [TODO](./docs/internal/todo.md) | Project TODO list |
+| [CLI Reference](./docs/reference/cli.md) | Full command reference |
+| [Node Reference](./docs/reference/nodes.md) | Built-in node schemas |
+| [Session Steps](./docs/reference/session-steps.md) | Session step types |
+| [Config Reference](./docs/reference/config.md) | Configuration options |
+| [Custom Nodes Guide](./docs/guides/custom-nodes.md) | Writing custom nodes |
+| [Design Patterns](./docs/guides/design-patterns.md) | Common flow patterns |
+| [Troubleshooting](./docs/guides/troubleshooting.md) | Common issues and fixes |
+| [Extension API](./docs/extension-api.md) | Programmatic API |
+| [Extension Guide](./docs/extension-guide.md) | Building extensions |
 
 ## Project Status
 
@@ -283,19 +381,16 @@ KAL is in early stage. The core runtime works, but APIs and config formats may c
 **Implemented:**
 - Core Flow runtime (DAG execution, conditional branching, SubFlow)
 - Session layer (multi-turn dialogue, state persistence)
-- 17 built-in nodes (State, LLM, Signal, Transform, Utility)
-- CLI tools (play, serve, debug, lint, smoke, eval, studio)
-- Studio workbench (flow/session/state/config/debug/review/packages)
-- 2 example games (dnd-adventure, showcase-signal-watch)
+- 17 built-in nodes (Signal, State, LLM, Transform, Utility)
+- CLI toolchain (12 commands, 71+ subcommands, structured JSON output)
+- Studio workbench (flow editor, session editor, state inspector, debug UI, packages)
+- HTTP API (55+ endpoints, SSE streaming, capability-based access control)
+- 3 example games (dnd-adventure, showcase-signal-watch, castaway)
 
 **In progress:**
 - Documentation
 - Test coverage
 - Onboarding experience
-
-## TODO
-
-See [docs/internal/todo.md](./docs/internal/todo.md) for the full TODO list.
 
 ## FAQ
 
@@ -304,9 +399,9 @@ See [docs/internal/todo.md](./docs/internal/todo.md) for the full TODO list.
 
 KAL focuses on AI-native game development:
 
-- **AI-first design** — Built-in LLM invocation and prompt engineering
-- **Declarative flows** — Game logic in JSON, not code
-- **State-driven** — Optimized for multi-turn dialogue and state management
+- **Data-driven** — Game logic lives in JSON, not code. No recompilation needed.
+- **AI-first** — Built-in LLM nodes with prompt engineering, history management, and caching
+- **State-driven** — Optimized for multi-turn dialogue and typed state management
 - **Lightweight** — Text games and interactive fiction, no graphics rendering
 
 </details>
@@ -316,10 +411,9 @@ KAL focuses on AI-native game development:
 
 KAL supports any OpenAI-compatible API:
 
-- **Official** — OpenAI GPT-3.5/4, Azure OpenAI
-- **Local models** — Via Ollama, LocalAI, vLLM
-- **Cloud** — Anthropic Claude, Google Gemini (via adapters)
-- **Custom** — Any service implementing the OpenAI API format
+- **Cloud** — OpenAI, DeepSeek, Azure OpenAI, Anthropic Claude, Google Gemini (via adapters)
+- **Local** — Ollama, LocalAI, vLLM
+- **Custom** — Any service implementing the OpenAI chat completions format
 
 </details>
 
@@ -328,10 +422,10 @@ KAL supports any OpenAI-compatible API:
 
 KAL uses multiple layers to keep game logic controllable:
 
-- **Rule separation** — Critical game logic uses deterministic nodes
-- **Output constraints** — LLM nodes support formatted output and validation
+- **Rule separation** — Critical game logic uses deterministic nodes (Branch, WriteState, ComputeState)
+- **Output constraints** — LLM nodes support JSON output parsing and validation
 - **Fallbacks** — Default handling when AI generation fails
-- **State checks** — Ensure game state consistency
+- **State checks** — Typed state with min/max constraints ensures consistency
 
 </details>
 

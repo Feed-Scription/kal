@@ -248,12 +248,17 @@ export class LLMClient {
     // Normalize: some providers return parsed object in JSON mode instead of string
     const text = typeof rawContent === 'string' ? rawContent : JSON.stringify(rawContent);
 
+    // Extract actual cost from provider response (e.g. OpenRouter: data.usage.cost)
+    const providerCost: number | undefined =
+      typeof data.usage?.cost === 'number' ? data.usage.cost : undefined;
+
     return {
       text,
       usage: {
         promptTokens: data.usage.prompt_tokens,
         completionTokens: data.usage.completion_tokens,
         totalTokens: data.usage.total_tokens,
+        cost: providerCost,
       },
     };
   }
