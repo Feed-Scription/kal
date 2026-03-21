@@ -35,5 +35,49 @@
     "input": "Input JSON must be an object.",
     "state": "State JSON must be an object.",
     "variant": "Variant JSON must be an object with fragments or a fragments array."
+  },
+  "target": {
+    "title": "Target",
+    "nodePreview": "{{count}} fragments"
+  },
+  "environment": {
+    "title": "Environment",
+    "inputsTitle": "Inputs",
+    "stateTitle": "State Overrides",
+    "overrideToggle": "Override",
+    "noInputsDeclared": "No inputs declared in this flow.",
+    "noStateKeys": "No state keys available."
+  },
+  "variant": {
+    "baseline": "Baseline (A)",
+    "variant": "Variant (B)",
+    "currentFragments": "Current fragments",
+    "editableFragments": "Editable fragments",
+    "model": "Model",
+    "modelDefault": "default",
+    "run": "Run"
+  },
+  "results": {
+    "summaryTitle": "Summary",
+    "distributionTitle": "Distribution",
+    "booleanTitle": "Boolean Metrics",
+    "outputsTitle": "Outputs",
+    "showAll": "Show all",
+    "collapse": "Collapse",
+    "improvement": "improvement",
+    "regression": "regression",
+    "noResults": "Run at least one variant to see results.",
+    "runNumber": "Run #{{n}}",
+    "outputA": "Output A",
+    "outputB": "Output B",
+    "expand": "Expand",
+    "median": "median",
+    "mean": "mean",
+    "trueRate": "true rate"
+  },
+  "delta": {
+    "cost": "Cost",
+    "latency": "Latency",
+    "pctChange": "{{value}}%"
   }
 }
