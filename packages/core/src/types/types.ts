@@ -39,6 +39,7 @@ export interface TokenUsage {
   promptTokens: number;
   completionTokens: number;
   totalTokens: number;
+  cost?: number; // actual cost from provider (e.g. OpenRouter), in USD
 }
 
 export interface ImageUrl {

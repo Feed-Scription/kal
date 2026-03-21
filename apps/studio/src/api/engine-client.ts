@@ -254,6 +254,66 @@ export const engineApi = {
     });
   },
 
+  async runEvalStream(
+    payload: {
+      flowId: string;
+      nodeId: string;
+      runs?: number;
+      variant?: EvalRunVariant;
+      input?: Record<string, unknown>;
+      state?: Record<string, unknown>;
+      model?: string;
+    },
+    onProgress: (event: { completedRuns: number; totalRuns: number }) => void,
+  ): Promise<EvalRunResult> {
+    let response: Response;
+    try {
+      response = await fetch(buildApiUrl('/api/tools/eval/run-stream'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+    } catch {
+      notifyConnectionLost();
+      throw new Error(ENGINE_UNREACHABLE_MESSAGE);
+    }
+
+    if (!response.ok || !response.body) {
+      throw new Error(`Engine returned unexpected response (HTTP ${response.status})`);
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let finalResult: EvalRunResult | null = null;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      const lines = buffer.split('\n');
+      buffer = lines.pop() ?? '';
+      let eventType = '';
+      for (const line of lines) {
+        if (line.startsWith('event: ')) {
+          eventType = line.slice(7);
+        } else if (line.startsWith('data: ')) {
+          try {
+            const data = JSON.parse(line.slice(6));
+            if (eventType === 'eval.progress') onProgress(data);
+            else if (eventType === 'eval.complete') finalResult = data;
+          } catch {
+            // Skip malformed events
+          }
+        }
+      }
+    }
+
+    if (!finalResult) throw new Error('Eval stream ended without result');
+    return finalResult;
+  },
+
   async compareEval(a: EvalRunResult, b: EvalRunResult): Promise<EvalComparisonResult> {
     return request<EvalComparisonResult>('/api/tools/eval/compare', {
       method: 'POST',

@@ -17,140 +17,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-
-type PromptFragmentType = "base" | "field" | "when" | "randomSlot" | "budget";
-
-type PromptFragment = {
-  type?: string;
-  id?: string;
-  content?: string;
-  condition?: string;
-  source?: string;
-  template?: string;
-  candidates?: PromptFragment[];
-  seed?: "random" | number;
-  maxTokens?: number;
-  strategy?: "tail" | "weighted";
-  weights?: Record<string, number>;
-  fragments?: PromptFragment[];
-  [key: string]: unknown;
-};
-
-const SUPPORTED_PROMPT_FRAGMENT_TYPES: PromptFragmentType[] = ["base", "field", "when", "randomSlot", "budget"];
-
-function moveArrayItem<T>(items: T[], from: number, to: number): T[] {
-  if (to < 0 || to >= items.length || from === to) {
-    return items;
-  }
-  const next = [...items];
-  const [item] = next.splice(from, 1);
-  next.splice(to, 0, item);
-  return next;
-}
-
-function createPromptFragment(type: PromptFragmentType, index: number): PromptFragment {
-  if (type === "field") {
-    return {
-      type,
-      id: `field-${index + 1}`,
-      source: "",
-      template: "",
-    };
-  }
-
-  if (type === "when") {
-    return {
-      type,
-      id: `when-${index + 1}`,
-      condition: "",
-      content: "",
-    };
-  }
-
-  if (type === "randomSlot") {
-    return {
-      type,
-      id: `randomSlot-${index + 1}`,
-      candidates: [],
-      seed: "random",
-    };
-  }
-
-  if (type === "budget") {
-    return {
-      type,
-      id: `budget-${index + 1}`,
-      maxTokens: 1000,
-      strategy: "tail",
-      fragments: [],
-    };
-  }
-
-  return {
-    type,
-    id: `base-${index + 1}`,
-    content: "",
-  };
-}
-
-function normalizePromptFragment(fragment: PromptFragment, type: PromptFragmentType): PromptFragment {
-  const next: PromptFragment = {
-    type,
-    id: fragment.id ?? "",
-  };
-
-  if (type === "field") {
-    next.source = typeof fragment.source === "string" ? fragment.source : "";
-    next.template = typeof fragment.template === "string" ? fragment.template : "";
-    return next;
-  }
-
-  if (type === "randomSlot") {
-    next.candidates = Array.isArray(fragment.candidates) ? fragment.candidates : [];
-    next.seed = fragment.seed ?? "random";
-    return next;
-  }
-
-  if (type === "budget") {
-    next.maxTokens = typeof fragment.maxTokens === "number" ? fragment.maxTokens : 1000;
-    next.strategy = fragment.strategy === "weighted" ? "weighted" : "tail";
-    next.weights = fragment.strategy === "weighted" && fragment.weights ? fragment.weights : undefined;
-    next.fragments = Array.isArray(fragment.fragments) ? fragment.fragments : [];
-    return next;
-  }
-
-  next.content = typeof fragment.content === "string" ? fragment.content : "";
-  if (type === "when") {
-    next.condition = typeof fragment.condition === "string" ? fragment.condition : "";
-  }
-  return next;
-}
-
-function isSupportedPromptFragmentType(value: unknown): value is PromptFragmentType {
-  return typeof value === "string" && SUPPORTED_PROMPT_FRAGMENT_TYPES.includes(value as PromptFragmentType);
-}
-
-function parsePromptFragments(value: unknown): PromptFragment[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-  return value.filter((item): item is PromptFragment => typeof item === "object" && item !== null);
-}
-
-/**
- * Returns full border-left class for each fragment type.
- * IMPORTANT: Each class string must appear as a complete literal so Tailwind's
- * JIT scanner can detect and generate the corresponding CSS.
- */
-function fragmentAccentClass(type: PromptFragmentType): string {
-  switch (type) {
-    case "base": return "border-l-2 border-l-primary";
-    case "field": return "border-l-2 border-l-emerald-500";
-    case "when": return "border-l-2 border-l-amber-500";
-    case "randomSlot": return "border-l-2 border-l-fuchsia-500";
-    case "budget": return "border-l-2 border-l-sky-500";
-  }
-}
+import {
+  type PromptFragment,
+  type PromptFragmentType,
+  SUPPORTED_PROMPT_FRAGMENT_TYPES,
+  createPromptFragment,
+  fragmentBadgeClass,
+  fragmentPreview,
+  isSupportedPromptFragmentType,
+  moveArrayItem,
+  normalizePromptFragment,
+  parsePromptFragments,
+} from "@/utils/prompt-fragments";
 
 /** Renders type-specific fields for a single fragment */
 function FragmentTypeFields({
@@ -562,7 +440,8 @@ export function PromptBuildFragmentsField({
   }
 
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-2">
+      {label && (
       <div className="flex items-center justify-between">
         <label className="text-xs text-muted-foreground">
           {label} {required ? "*" : ""} ({fragments.length})
@@ -576,35 +455,42 @@ export function PromptBuildFragmentsField({
           <Code className="size-3" />
         </button>
       </div>
+      )}
 
+      <div className="overflow-hidden rounded-lg border">
       {fragments.map((fragment, index) => {
         const type = isSupportedPromptFragmentType(fragment.type) ? fragment.type : "base";
         const normalized = normalizePromptFragment(fragment, type);
         const isExpanded = expandedSet.has(index);
+        const preview = fragmentPreview(normalized, type);
         return (
-          <div key={`${normalized.id || "fragment"}-${index}`} className={`group/frag rounded-lg border ${fragmentAccentClass(type)} bg-background/70`}>
+          <div key={`${normalized.id || "fragment"}-${index}`} className={`group/frag bg-background/70${index > 0 ? " border-t" : ""}`}>
             {/* Header row — always visible */}
             <div
-              className="flex cursor-pointer items-center gap-1.5 px-2.5 py-1.5"
+              className="flex cursor-pointer items-center gap-1.5 px-2 py-1"
               onClick={() => toggleExpanded(index)}
             >
               {isExpanded
                 ? <ChevronDown className="size-3 shrink-0 text-muted-foreground" />
                 : <ChevronRight className="size-3 shrink-0 text-muted-foreground" />}
-              {!isExpanded && (
-                <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                  {type}
-                </span>
-              )}
-              <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+              <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${fragmentBadgeClass(type)}`}>
+                {type}
+              </span>
+              <span className="min-w-0 truncate text-xs font-medium text-foreground/80">
                 {normalized.id || `fragment-${index + 1}`}
               </span>
+              {!isExpanded && preview && (
+                <span className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground/60 italic">
+                  {preview.length > 50 ? preview.slice(0, 50) + "…" : preview}
+                </span>
+              )}
+              {(isExpanded || !preview) && <span className="flex-1" />}
               <div className="flex shrink-0 opacity-0 transition-opacity group-hover/frag:opacity-100">
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="h-6 w-6"
+                  className="h-5 w-5"
                   disabled={index === 0}
                   onClick={(e) => { e.stopPropagation(); onCommit(moveArrayItem(fragments, index, index - 1)); }}
                 >
@@ -614,7 +500,7 @@ export function PromptBuildFragmentsField({
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="h-6 w-6"
+                  className="h-5 w-5"
                   disabled={index === fragments.length - 1}
                   onClick={(e) => { e.stopPropagation(); onCommit(moveArrayItem(fragments, index, index + 1)); }}
                 >
@@ -625,7 +511,7 @@ export function PromptBuildFragmentsField({
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="h-6 w-6 shrink-0"
+                className="h-5 w-5 shrink-0 opacity-0 transition-opacity group-hover/frag:opacity-100"
                 onClick={(e) => { e.stopPropagation(); onCommit(fragments.filter((_, ci) => ci !== index)); }}
               >
                 <X className="size-3" />
@@ -635,7 +521,7 @@ export function PromptBuildFragmentsField({
             {/* Expanded form */}
             {isExpanded && (
               <div className="space-y-3 border-t px-3 pb-3 pt-2">
-                <div className="grid gap-3">
+                <div className="grid grid-cols-[1fr_1fr] gap-3">
                   <div>
                     <label className="text-xs text-muted-foreground">{t('nodeLabel.type')}</label>
                     <Select
@@ -656,16 +542,16 @@ export function PromptBuildFragmentsField({
                       </SelectContent>
                     </Select>
                   </div>
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground">{t('nodeLabel.fragmentId')}</label>
-                  <Input
-                    className="mt-1"
-                    value={normalized.id ?? ""}
-                    onChange={(event) => {
-                      commitFragment(index, { ...normalized, id: event.target.value });
-                    }}
-                  />
+                  <div>
+                    <label className="text-xs text-muted-foreground">{t('nodeLabel.fragmentId')}</label>
+                    <Input
+                      className="mt-1"
+                      value={normalized.id ?? ""}
+                      onChange={(event) => {
+                        commitFragment(index, { ...normalized, id: event.target.value });
+                      }}
+                    />
+                  </div>
                 </div>
 
                 <FragmentTypeFields
@@ -678,6 +564,7 @@ export function PromptBuildFragmentsField({
           </div>
         );
       })}
+      </div>
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>

@@ -3,15 +3,15 @@
   "version": "1.0.0",
   "engine": {
     "logLevel": "warn",
-    "maxConcurrentFlows": 1,
+    "maxConcurrentFlows": 10,
     "nodeTimeout": 120000,
     "runTimeout": 0
   },
   "llm": {
     "provider": "openai",
-    "apiKey": "sk-449dc11a2adf4d80b2c099bd63b33116",
-    "baseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
-    "defaultModel": "glm-5",
+    "defaultModel": "moonshotai/kimi-k2-0905",
+    "apiKey": "${OPENAI_API_KEY}",
+    "baseUrl": "${OPENAI_BASE_URL}",
     "retry": {
       "maxRetries": 2,
       "initialDelayMs": 1000,
@@ -24,9 +24,5 @@
       "ttl": 3600000,
       "maxEntries": 1000
     }
-  },
-  "image": {
-    "provider": "openai",
-    "apiKey": "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"
   }
 }
