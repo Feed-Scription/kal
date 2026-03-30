@@ -34,6 +34,18 @@ function unwrapOutput(outputs: Record<string, any>): unknown {
   return keys.length === 1 ? outputs[keys[0]!] : outputs;
 }
 
+function extractPrimaryText(value: Record<string, any>): string | undefined {
+  const preferredKeys = ['narrative', 'narration', 'text', 'message', 'reply'];
+  for (const key of preferredKeys) {
+    const candidate = value[key];
+    if (typeof candidate === 'string' && candidate.trim().length > 0) {
+      return candidate;
+    }
+  }
+
+  return undefined;
+}
+
 export function formatStateValueText(value: unknown): string {
   if (Array.isArray(value)) {
     return `[${value.map((item) => formatStateValueText(item)).join(', ')}]`;
@@ -69,9 +81,13 @@ export function createOutputViewModel(outputs: Record<string, any>): OutputViewM
   if (data && typeof data === 'object' && !Array.isArray(data)) {
     const outputRecord = data as {
       narrative?: unknown;
+      narration?: unknown;
+      text?: unknown;
+      message?: unknown;
+      reply?: unknown;
       stateChanges?: unknown;
     };
-    const primaryText = typeof outputRecord.narrative === 'string' ? outputRecord.narrative : undefined;
+    const primaryText = extractPrimaryText(outputRecord);
     const stateChanges = outputRecord.stateChanges && typeof outputRecord.stateChanges === 'object'
       ? Object.entries(outputRecord.stateChanges).map(([key, value]) => ({ key, value }))
       : [];

@@ -199,7 +199,7 @@ function toPreviewValue(value: any): any {
 
 function extractNarration(data: Record<string, any>): string | undefined {
   const unwrapped = unwrapSingleEntryObject(data);
-  const preferredKeys = ['narration', 'text', 'message', 'reply'];
+  const preferredKeys = ['narrative', 'narration', 'text', 'message', 'reply'];
   for (const key of preferredKeys) {
     if (typeof unwrapped[key] === 'string' && unwrapped[key].trim().length > 0) {
       return unwrapped[key];
