@@ -108,6 +108,20 @@ describe('tui renderer', () => {
     expect(viewModel.fallback).toBeUndefined();
   });
 
+  it('accepts narration as the primary text field', () => {
+    const viewModel = createOutputViewModel({
+      result: {
+        narration: '海风卷着盐粒拍在你的脸上。',
+        stateChanges: { fuel: 4 },
+      },
+    });
+
+    expect(viewModel.primaryText).toBe('海风卷着盐粒拍在你的脸上。');
+    expect(viewModel.stateChanges).toEqual([
+      { key: 'fuel', value: 4 },
+    ]);
+  });
+
   it('renders the shared shell copy', () => {
     expect(stripAnsi(renderWelcome('Demo', 'Adventure time'))).toContain('KAL-AI Play');
     expect(stripAnsi(renderWelcome('Demo', 'Adventure time'))).toContain('Adventure time');

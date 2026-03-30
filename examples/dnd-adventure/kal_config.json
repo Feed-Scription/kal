@@ -9,9 +9,9 @@
   },
   "llm": {
     "provider": "openai",
-    "defaultModel": "moonshotai/kimi-k2-0905",
+    "defaultModel": "Kimi-K2.5",
     "apiKey": "${OPENAI_API_KEY}",
-    "baseUrl": "${OPENAI_BASE_URL}",
+    "baseUrl": "https://aiping.cn/api/v1",
     "retry": {
       "maxRetries": 2,
       "initialDelayMs": 1000,
