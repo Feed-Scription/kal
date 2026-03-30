@@ -1,5 +1,5 @@
-export OPENAI_API_KEY=***REDACTED_QIANFAN_KEY***
-export OPENAI_BASE_URL=https://aiping.cn/api/v1
+: "${OPENAI_API_KEY:?Please set OPENAI_API_KEY before running this script}"
+: "${OPENAI_BASE_URL:=https://aiping.cn/api/v1}"
 
 # 先 build
 pnpm --filter @kal-ai/core build && pnpm --filter @kal-ai/engine build
