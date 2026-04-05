@@ -1,0 +1,43 @@
+title = "KAL-AI gitleaks config"
+
+# Extend the default gitleaks rules (covers AWS, GCP, GitHub tokens, etc.)
+# and add custom rules for providers used in this project.
+
+[[rules]]
+id = "openai-api-key"
+description = "OpenAI / Kimi / compatible API key"
+regex = '''\bsk-[a-zA-Z0-9]{20,}'''
+tags = ["key", "openai"]
+
+[[rules]]
+id = "openrouter-api-key"
+description = "OpenRouter API key"
+regex = '''\bsk-or-v1-[a-f0-9]{40,}'''
+tags = ["key", "openrouter"]
+
+[[rules]]
+id = "qianfan-api-key"
+description = "Baidu Qianfan API key"
+regex = '''\bQC-[a-f0-9]{32,}'''
+tags = ["key", "qianfan"]
+
+[[rules]]
+id = "generic-api-key-in-json"
+description = "Hardcoded apiKey value in JSON"
+regex = '''"apiKey"\s*:\s*"[A-Za-z0-9_\-]{20,}"'''
+tags = ["key", "generic"]
+
+[allowlist]
+description = "Global allowlist"
+# Allow env var placeholders and example values
+regexTarget = "match"
+regexes = [
+  '''\$\{[A-Z_]+\}''',
+  '''your[_-].*key[_-]here''',
+]
+# Never scan these paths
+paths = [
+  '''pnpm-lock\.yaml''',
+  '''bun\.lock''',
+  '''\.secrets\.baseline''',
+]
