@@ -2404,7 +2404,9 @@ export const useStudioStore = create<StudioStore>((set, get) => ({
 
 
     const existing = get().runDebug.records[runId];
-    if (!existing?.state) {
+    const needsHydration = !existing?.state
+      || (existing.run.status === 'error' && !existing.run.diagnostic);
+    if (needsHydration) {
       const record = await hydrateRunRecord(runId);
       set((state) => ({
         runDebug: {
