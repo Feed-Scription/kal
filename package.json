@@ -18,10 +18,12 @@
     "changeset": "changeset",
     "version": "changeset version",
     "release": "bun run build && changeset publish",
-    "postinstall": "pnpm --filter @kal-ai/engine build"
+    "postinstall": "pnpm --filter @kal-ai/engine build",
+    "prepare": "husky"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.1",
+    "husky": "^9.1.7",
     "typescript": "^5.3.3"
   },
   "engines": {
